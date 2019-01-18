@@ -46,7 +46,7 @@ func jsonFormatter() log.Formatter {
 	}
 }
 
-func serve(w http.ResponseWriter, r *http.Request) {
+func events(w http.ResponseWriter, r *http.Request) {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return
@@ -74,7 +74,9 @@ func run() error {
 	}
 	log.SetLevel(logLevel)
 
-	http.HandleFunc("/", serve)
+	log.Info("hookd is starting")
+
+	http.HandleFunc("/events", events)
 	server := &http.Server{
 		Addr: config.ListenAddress,
 	}
