@@ -1,3 +1,6 @@
+all:
+	go build
+
 docker:
 	docker build -t navikt/hookd:latest .
 
