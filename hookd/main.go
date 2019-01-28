@@ -1,17 +1,16 @@
 package main
 
 import (
-	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/github"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -28,7 +27,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		ListenAddress: ":8080",
 		LogFormat:     "text",
-		LogLevel:      "info",
+		LogLevel:      "debug",
 	}
 }
 
@@ -55,23 +54,21 @@ func jsonFormatter() log.Formatter {
 	}
 }
 
-// X-Hub-Signature: sha1=6c4f5fc2fbce53aa2011cdf1b2ab37d9dc3b6ecd
-func SignatureFromHeader(header string) ([]byte, error) {
-	parts := strings.Split(header, "=")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("wrong format for hash, expected 'sha1=hash', got '%s'", header)
-	}
-	if parts[0] != "sha1" {
-		return nil, fmt.Errorf("expected hash type 'sha1', got '%s'", parts[0])
-	}
-	hexSignature, err := hex.DecodeString(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("error in hexadecimal format '%s': %s", parts[1], err)
-	}
-	return hexSignature, nil
+func registerRepository(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func RepositorySecret(repository string) (string, error) {
+	return GithubPreSharedKey, nil
 }
 
 func events(w http.ResponseWriter, r *http.Request) {
+	eventType := r.Header.Get("X-GitHub-Event")
+	if eventType != "deployment" {
+		log.Infof("Received Github event of type '%s', ignoring", eventType)
+		return
+	}
+
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Error(err)
@@ -79,24 +76,36 @@ func events(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sigHeader := r.Header.Get("X-Hub-Signature")
-	sig, err := SignatureFromHeader(sigHeader)
+	sig, err := github.SignatureFromHeader(sigHeader)
 	if err != nil {
 		log.Error(err)
 		return
 	}
 
-	secret := []byte(GithubPreSharedKey)
-	mac := hmac.New(sha1.New, secret)
-	checkSig := mac.Sum([]byte(data))
+	deploymentRequest := github.DeploymentRequest{}
+	json.Unmarshal(data, &deploymentRequest)
 
-	if bytes.Compare(sig, checkSig) != 0 {
-		err := fmt.Errorf("signatures differ: expected %s, got %s", string(checkSig), string(sig))
-		log.Error(err)
+	psk, err := RepositorySecret(deploymentRequest.Repository.FullName)
+	if err != nil {
+		log.Errorf("could not retrieve pre-shared secret for repository '%s'", deploymentRequest.Repository.FullName)
 		return
 	}
 
-	log.Info(string(data))
+	secret := []byte(psk)
+	mac := hmac.New(sha1.New, secret)
+	mac.Write([]byte(data))
+	checkSig := mac.Sum(nil)
+
+	if !hmac.Equal(checkSig, sig) {
+		err := fmt.Errorf("signatures differ: expected %x, got %x", checkSig, sig)
+		log.Error(err)
+		w.WriteHeader(403)
+		fmt.Fprint(w, "wrong secret")
+		return
+	}
+
 	w.WriteHeader(200)
+	fmt.Fprint(w, "deployment has been dispatched")
 }
 
 func run() error {
@@ -120,6 +129,7 @@ func run() error {
 
 	log.Info("hookd is starting")
 
+	http.HandleFunc("/register/repository", registerRepository)
 	http.HandleFunc("/events", events)
 	server := &http.Server{
 		Addr: config.ListenAddress,
