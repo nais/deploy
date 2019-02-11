@@ -2,7 +2,9 @@ package main
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -54,18 +56,100 @@ func jsonFormatter() log.Formatter {
 	}
 }
 
-func registerRepository(w http.ResponseWriter, r *http.Request) {
+func RandomString(length int) (string, error) {
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
 
+func sign(psk string, data []byte) []byte {
+	secret := []byte(psk)
+	mac := hmac.New(sha1.New, secret)
+	mac.Write([]byte(data))
+	return mac.Sum(nil)
+}
+
+func comparehmac(checkSig, sig []byte) error {
+	if hmac.Equal(checkSig, sig) {
+		return nil
+	}
+	return fmt.Errorf("signatures differ: expected %x, got %x", checkSig, sig)
+}
+
+func ApplicationSecret() (string, error) {
+	return GithubPreSharedKey, nil
 }
 
 func RepositorySecret(repository string) (string, error) {
 	return GithubPreSharedKey, nil
 }
 
-func events(w http.ResponseWriter, r *http.Request) {
-	eventType := r.Header.Get("X-GitHub-Event")
-	if eventType != "deployment" {
-		log.Infof("Received Github event of type '%s', ignoring", eventType)
+func deployment(w http.ResponseWriter, r *http.Request, data, sig []byte) {
+	deploymentRequest := github.DeploymentRequest{}
+	if err := json.Unmarshal(data, &deploymentRequest); err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	psk, err := RepositorySecret(deploymentRequest.Repository.FullName)
+	if err != nil {
+		log.Errorf("could not retrieve pre-shared secret for repository '%s'", deploymentRequest.Repository.FullName)
+		w.WriteHeader(500)
+		return
+	}
+
+	checkSig := sign(psk, data)
+
+	if comparehmac(checkSig, sig) != nil {
+		log.Error(err)
+		w.WriteHeader(403)
+		fmt.Fprint(w, "wrong secret")
+		return
+	}
+
+	fmt.Fprint(w, "deployment has been dispatched")
+}
+
+func CreateHook(r *github.Repository) {
+	// https://developer.github.com/v3/repos/hooks/#create-a-hook
+}
+
+func registerRepository(w http.ResponseWriter, r *http.Request, data, sig []byte) {
+	installRequest := github.IntegrationInstallation{}
+	if err := json.Unmarshal(data, &installRequest); err != nil {
+		w.WriteHeader(400)
+		return
+	}
+
+	psk, err := ApplicationSecret()
+	if err != nil {
+		log.Errorf("could not retrieve pre-shared secret for application")
+		w.WriteHeader(500)
+		return
+	}
+
+	checkSig := sign(psk, data)
+
+	if comparehmac(checkSig, sig) != nil {
+		log.Error(err)
+		w.WriteHeader(403)
+		fmt.Fprint(w, "wrong secret")
+		return
+	}
+
+	for _, repo := range installRequest.Repositories {
+		_ = repo.FullName
+	}
+}
+
+func mainHandler(w http.ResponseWriter, r *http.Request) {
+	sigHeader := r.Header.Get("X-Hub-Signature")
+	sig, err := github.SignatureFromHeader(sigHeader)
+	if err != nil {
+		log.Error(err)
 		return
 	}
 
@@ -75,37 +159,14 @@ func events(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sigHeader := r.Header.Get("X-Hub-Signature")
-	sig, err := github.SignatureFromHeader(sigHeader)
-	if err != nil {
-		log.Error(err)
+	eventType := r.Header.Get("X-GitHub-Event")
+	switch eventType {
+	case "deployment":
+		deployment(w, r, data, sig)
+	default:
+		log.Infof("Received Github event of type '%s', ignoring", eventType)
 		return
 	}
-
-	deploymentRequest := github.DeploymentRequest{}
-	json.Unmarshal(data, &deploymentRequest)
-
-	psk, err := RepositorySecret(deploymentRequest.Repository.FullName)
-	if err != nil {
-		log.Errorf("could not retrieve pre-shared secret for repository '%s'", deploymentRequest.Repository.FullName)
-		return
-	}
-
-	secret := []byte(psk)
-	mac := hmac.New(sha1.New, secret)
-	mac.Write([]byte(data))
-	checkSig := mac.Sum(nil)
-
-	if !hmac.Equal(checkSig, sig) {
-		err := fmt.Errorf("signatures differ: expected %x, got %x", checkSig, sig)
-		log.Error(err)
-		w.WriteHeader(403)
-		fmt.Fprint(w, "wrong secret")
-		return
-	}
-
-	w.WriteHeader(200)
-	fmt.Fprint(w, "deployment has been dispatched")
 }
 
 func run() error {
@@ -129,8 +190,8 @@ func run() error {
 
 	log.Info("hookd is starting")
 
-	http.HandleFunc("/register/repository", registerRepository)
-	http.HandleFunc("/events", events)
+	http.HandleFunc("/register/repository", mainHandler)
+	http.HandleFunc("/events", mainHandler)
 	server := &http.Server{
 		Addr: config.ListenAddress,
 	}

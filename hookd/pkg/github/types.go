@@ -16,7 +16,14 @@ type Repository struct {
 	FullName string `json:"full_name"`
 }
 
+// Standalone payload from Github
 type DeploymentRequest struct {
 	Deployment Deployment
 	Repository Repository
+}
+
+// Standalone payload from Github
+type IntegrationInstallation struct {
+	Action       string
+	Repositories []Repository
 }
