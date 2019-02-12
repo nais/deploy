@@ -27,3 +27,17 @@ type IntegrationInstallation struct {
 	Action       string
 	Repositories []Repository
 }
+
+type Webhook struct {
+	Name   string        `json:"name"`
+	Config WebhookConfig `json:"config"`
+	Events []string      `json:"events"`
+	Active bool          `json:"active"`
+}
+
+type WebhookConfig struct {
+	Url         string `json:"url"`
+	ContentType string `json:"content_type"`
+	Secret      string `json:"secret"`
+	InsecureSSL string `json:"insecure_ssl"`
+}

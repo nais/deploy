@@ -1,10 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -22,6 +21,7 @@ type Config struct {
 	ListenAddress string
 	LogFormat     string
 	LogLevel      string
+	WebhookURL    string
 }
 
 func DefaultConfig() *Config {
@@ -29,6 +29,7 @@ func DefaultConfig() *Config {
 		ListenAddress: ":8080",
 		LogFormat:     "text",
 		LogLevel:      "debug",
+		WebhookURL:    "https://hookd/events",
 	}
 }
 
@@ -40,6 +41,7 @@ func (c *Config) addFlags() {
 	flag.StringVar(&c.ListenAddress, "listen-address", c.ListenAddress, "IP:PORT")
 	flag.StringVar(&c.LogFormat, "log-format", c.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&c.LogLevel, "log-level", c.LogLevel, "Logging verbosity level.")
+	flag.StringVar(&c.WebhookURL, "webhook-url", c.LogLevel, "Externally available URL to events endpoint.")
 }
 
 func textFormatter() log.Formatter {
@@ -53,15 +55,6 @@ func jsonFormatter() log.Formatter {
 	return &log.JSONFormatter{
 		TimestampFormat: time.RFC3339Nano,
 	}
-}
-
-func RandomString(length int) (string, error) {
-	b := make([]byte, length)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
 }
 
 func sign(psk string, data []byte) []byte {
@@ -85,7 +78,7 @@ func deployment(w http.ResponseWriter, r *http.Request, data, sig []byte) {
 		return
 	}
 
-	psk, err := secrets.RepositorySecret(deploymentRequest.Repository.FullName)
+	psk, err := secrets.RepositoryWebhookSecret(deploymentRequest.Repository.FullName)
 	if err != nil {
 		log.Errorf("could not retrieve pre-shared secret for repository '%s'", deploymentRequest.Repository.FullName)
 		w.WriteHeader(500)
@@ -104,8 +97,52 @@ func deployment(w http.ResponseWriter, r *http.Request, data, sig []byte) {
 	fmt.Fprint(w, "deployment has been dispatched")
 }
 
-func CreateHook(r *github.Repository) {
+func CreateHook(r github.Repository) (*github.Webhook, error) {
 	// https://developer.github.com/v3/repos/hooks/#create-a-hook
+	secret, err := secrets.RandomString(32)
+	if err != nil {
+		return nil, err
+	}
+
+	webhook := github.Webhook{
+		Name: "web",
+		Events: []string{
+			"deployment",
+		},
+		Active: true,
+		Config: github.WebhookConfig{
+			Url:         config.WebhookURL,
+			ContentType: "json",
+			InsecureSSL: "0",
+			Secret:      secret,
+		},
+	}
+
+	b, err := json.Marshal(webhook)
+	if err != nil {
+		return nil, fmt.Errorf("while marshalling webhook to JSON: %s", err)
+	}
+	reader := bytes.NewReader(b)
+
+	url := fmt.Sprintf("/repos/%s/hooks", r.FullName)
+	c := http.Client{}
+	resp, err := c.Post(url, "application/json", reader)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("webhook creation returned status code %d, expected %d", resp.StatusCode, http.StatusCreated)
+	}
+
+	dec := json.NewDecoder(resp.Body)
+	err = dec.Decode(r)
+	if err != nil {
+		return nil, fmt.Errorf("while decoding server response: %s", err)
+	}
+
+	log.Infof("oops, webhook secret for %s is %s", r.FullName, webhook.Config.Secret)
+	return &webhook, nil
 }
 
 func registerRepository(w http.ResponseWriter, r *http.Request, data, sig []byte) {
@@ -115,7 +152,7 @@ func registerRepository(w http.ResponseWriter, r *http.Request, data, sig []byte
 		return
 	}
 
-	psk, err := secrets.GlobalApplicationSecret()
+	psk, err := secrets.ApplicationWebhookSecret()
 	if err != nil {
 		log.Errorf("could not retrieve pre-shared secret for application")
 		w.WriteHeader(500)
@@ -132,8 +169,16 @@ func registerRepository(w http.ResponseWriter, r *http.Request, data, sig []byte
 	}
 
 	for _, repo := range installRequest.Repositories {
-		_ = repo.FullName
+		_, err := CreateHook(repo)
+		if err != nil {
+			w.WriteHeader(500)
+			fmt.Fprintf(w, "%s", err)
+		}
+		// TODO: write to vault
 	}
+
+	w.WriteHeader(200)
+	fmt.Fprintf(w, "created webhooks for %d repositories", len(installRequest.Repositories))
 }
 
 func mainHandler(w http.ResponseWriter, r *http.Request) {
