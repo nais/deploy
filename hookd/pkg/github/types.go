@@ -29,6 +29,7 @@ type IntegrationInstallation struct {
 }
 
 type Webhook struct {
+	ID     int           `json:"id",omit_empty`
 	Name   string        `json:"name"`
 	Config WebhookConfig `json:"config"`
 	Events []string      `json:"events"`

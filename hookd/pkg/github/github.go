@@ -1,10 +1,11 @@
 package github
 
 import (
-	"bytes"
+	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
+	"github.com/bradleyfalzon/ghinstallation"
+	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/secrets"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -30,40 +31,53 @@ func SignatureFromHeader(header string) ([]byte, error) {
 	return hexSignature, nil
 }
 
-func CreateHook(r Repository, url string) (*Webhook, error) {
-	// https://developer.github.com/v3/repos/hooks/#create-a-hook
+func ApplicationClient(appId int, keyFile string) (*gh.Client, error) {
+	itr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appId, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	return gh.NewClient(&http.Client{Transport: itr}), nil
+}
+
+func InstallationClient(appId, installId int, keyFile string) (*gh.Client, error) {
+	itr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appId, installId, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	return gh.NewClient(&http.Client{Transport: itr}), nil
+}
+
+func CreateHook(client *gh.Client, r gh.Repository, url string) (*gh.Hook, error) {
 	secret, err := secrets.RandomString(32)
 	if err != nil {
 		return nil, err
 	}
 
-	webhook := Webhook{
-		Name: "web",
+	active := true
+	webhook := &gh.Hook{
 		Events: []string{
 			"deployment",
 		},
-		Active: true,
-		Config: WebhookConfig{
-			Url:         url,
-			ContentType: "json",
-			InsecureSSL: "0",
-			Secret:      secret,
+		Active: &active,
+		Config: map[string]interface{}{
+			"url":          url,
+			"content_type": "json",
+			"insecure_ssl": "0",
+			"secret":       secret,
 		},
 	}
 
-	b, err := json.Marshal(webhook)
-	if err != nil {
-		return nil, fmt.Errorf("while marshalling webhook to JSON: %s", err)
+	fullName := r.GetFullName()
+	parts := strings.Split(fullName, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("repository name is not in the format OWNER/NAME")
 	}
-	reader := bytes.NewReader(b)
-
-	webhookUrl := fmt.Sprintf("/repos/%s/hooks", r.FullName)
-	c := http.Client{}
-	resp, err := c.Post(webhookUrl, "application/json", reader)
+	webhook, _, err = client.Repositories.CreateHook(context.Background(), parts[0], parts[1], webhook)
 	if err != nil {
 		return nil, err
 	}
 
+	/*
 	if resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("webhook creation returned status code %d, expected %d", resp.StatusCode, http.StatusCreated)
 	}
@@ -73,7 +87,8 @@ func CreateHook(r Repository, url string) (*Webhook, error) {
 	if err != nil {
 		return nil, fmt.Errorf("while decoding server response: %s", err)
 	}
+	*/
 
-	log.Infof("oops, webhook secret for %s is %s", r.FullName, webhook.Config.Secret)
-	return &webhook, nil
+	log.Infof("oops, webhook secret for %s is %s", r.GetFullName(), secret)
+	return webhook, nil
 }
