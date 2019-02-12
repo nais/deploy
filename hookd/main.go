@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/secrets"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"io/ioutil"
@@ -15,8 +16,6 @@ import (
 	"os"
 	"time"
 )
-
-const GithubPreSharedKey = "BxVAH2dVbbvawyFkDD3L8JLUHzMEFQQlu9YCqNq0R7BEdragxICFJtr4jJZYBbXs"
 
 // Config contains the server (the webhook) cert and key.
 type Config struct {
@@ -79,14 +78,6 @@ func comparehmac(checkSig, sig []byte) error {
 	return fmt.Errorf("signatures differ: expected %x, got %x", checkSig, sig)
 }
 
-func ApplicationSecret() (string, error) {
-	return GithubPreSharedKey, nil
-}
-
-func RepositorySecret(repository string) (string, error) {
-	return GithubPreSharedKey, nil
-}
-
 func deployment(w http.ResponseWriter, r *http.Request, data, sig []byte) {
 	deploymentRequest := github.DeploymentRequest{}
 	if err := json.Unmarshal(data, &deploymentRequest); err != nil {
@@ -94,7 +85,7 @@ func deployment(w http.ResponseWriter, r *http.Request, data, sig []byte) {
 		return
 	}
 
-	psk, err := RepositorySecret(deploymentRequest.Repository.FullName)
+	psk, err := secrets.RepositorySecret(deploymentRequest.Repository.FullName)
 	if err != nil {
 		log.Errorf("could not retrieve pre-shared secret for repository '%s'", deploymentRequest.Repository.FullName)
 		w.WriteHeader(500)
@@ -124,7 +115,7 @@ func registerRepository(w http.ResponseWriter, r *http.Request, data, sig []byte
 		return
 	}
 
-	psk, err := ApplicationSecret()
+	psk, err := secrets.GlobalApplicationSecret()
 	if err != nil {
 		log.Errorf("could not retrieve pre-shared secret for application")
 		w.WriteHeader(500)
