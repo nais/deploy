@@ -1,0 +1,104 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: hookd
+    team: aura
+  name: hookd
+  namespace: nais
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: hookd
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: hookd
+    team: aura
+  name: hookd
+  namespace: nais
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hookd
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: http
+        prometheus.io/scrape: "false"
+      labels:
+        app: hookd
+        team: aura
+      name: hookd
+      namespace: nais
+    spec:
+      containers:
+      - env:
+        - name: HTTP_PROXY
+          value: http://webproxy.nais:8088
+        - name: http_proxy
+          value: http://webproxy.nais:8088
+        - name: HTTPS_PROXY
+          value: http://webproxy.nais:8088
+        - name: https_proxy
+          value: http://webproxy.nais:8088
+        - name: NO_PROXY
+          value: localhost,127.0.0.1,10.254.0.1,.local,.adeo.no,.nav.no,.aetat.no,.devillo.no,.oera.no
+        - name: no_proxy
+          value: localhost,127.0.0.1,10.254.0.1,.local,.adeo.no,.nav.no,.aetat.no,.devillo.no,.oera.no
+        image: navikt/hookd:latest
+        command:
+          - /app/hookd
+          - --app-id
+          - "23867"
+          - --webhook-url
+          - "https://deployment.prod-sbs.nais.io/events"
+          - --key-file
+          - "/var/run/secrets/github/nav-deployment.2019-02-12.private-key.pem"
+        imagePullPolicy: Always
+        name: hookd
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/run/secrets/github
+          name: github
+      volumes:
+      - secret:
+          defaultMode: 420
+          secretName: hookd-github
+        name: github
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    prometheus.io/path: ""
+    prometheus.io/scrape: "false"
+  labels:
+    app: hookd
+    team: aura
+  name: hookd
+  namespace: nais
+spec:
+  rules:
+  - host: deployment.prod-sbs.nais.io
+    http:
+      paths:
+      - backend:
+          serviceName: hookd
+          servicePort: 80
+        path: /
