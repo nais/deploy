@@ -71,6 +71,8 @@ func jsonFormatter() log.Formatter {
 func handleAddedRepository(repo *gh.Repository, installation *gh.Installation) error {
 	name := repo.GetFullName()
 
+	log.Infof("Installing configuration for repository %s", name)
+
 	if installation == nil {
 		return fmt.Errorf("empty installation object for %s, cannot install webhook", name)
 	}
@@ -109,6 +111,8 @@ func handleAddedRepository(repo *gh.Repository, installation *gh.Installation) e
 
 func handleRemovedRepository(repo *gh.Repository, installation *gh.Installation) error {
 	name := repo.GetFullName()
+
+	log.Infof("Removing configuration for repository %s", name)
 
 	if installation == nil {
 		return fmt.Errorf("empty installation object for %s, cannot remove data", name)
@@ -272,8 +276,9 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 		addRemoveRepositories(w, r, data)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
-		return
 	}
+
+	log.Infof("Finished handling request to %s", r.URL.String())
 }
 
 func run() error {
