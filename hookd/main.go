@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -115,9 +116,9 @@ func handleAddedRepositories(installRequest gh.InstallationRepositoriesEvent) er
 		}
 
 		err = secretClient.WriteInstallationSecret(secrets.InstallationSecret{
-			Repository: name,
-			WebhookSecret: secret,
-			InstallationID: string(id),
+			Repository:     name,
+			WebhookSecret:  secret,
+			InstallationID: strconv.Itoa(id),
 		})
 		if err != nil {
 			return fmt.Errorf("while persisting webhook secret: %s", err)
@@ -149,7 +150,7 @@ func addRemoveRepositories(w http.ResponseWriter, r *http.Request, data []byte) 
 
 	psk, err := secretClient.ApplicationSecret()
 	if err != nil {
-		log.Errorf("could not retrieve pre-shared secret for application")
+		log.Errorf("could not retrieve pre-shared secret for application: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

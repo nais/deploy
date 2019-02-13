@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	vault "github.com/hashicorp/vault/api"
+	log "github.com/sirupsen/logrus"
 	"strings"
 	"time"
 )
@@ -66,6 +67,7 @@ func (c *Client) mkpath(path string) string {
 // Return the secret for the "NAV deployment" Github application.
 func (c *Client) ApplicationSecret() (string, error) {
 	path := c.mkpath("/_application")
+	log.Infof("reading application secret from %s", path)
 	secret, err := c.vaultClient.Read(path)
 	if err != nil {
 		return "", err
@@ -77,6 +79,7 @@ func (c *Client) ApplicationSecret() (string, error) {
 func (c *Client) InstallationSecret(repository string) (InstallationSecret, error) {
 	is := InstallationSecret{}
 	path := c.mkpath(repository)
+	log.Infof("reading installation secret from %s", path)
 	secret, err := c.vaultClient.Read(path)
 	if err != nil {
 		return is, err
