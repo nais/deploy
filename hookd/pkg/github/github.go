@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+func ownername(fullName string) (string, string, error) {
+	parts := strings.Split(fullName, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("repository name %s is not in the format OWNER/NAME", fullName)
+	}
+	return parts[0], parts[1], nil
+}
+
 // SignatureFromHeader takes a header string containing a hash format
 // and a hash value, and returns the hash value as a byte array.
 //
@@ -60,15 +68,23 @@ func CreateHook(client *gh.Client, r gh.Repository, url string, secret string) (
 		},
 	}
 
-	fullName := r.GetFullName()
-	parts := strings.Split(fullName, "/")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("repository name is not in the format OWNER/NAME")
+	owner, name, err := ownername(r.GetFullName())
+	if err != nil {
+		return nil, err
 	}
-	webhook, _, err := client.Repositories.CreateHook(context.Background(), parts[0], parts[1], webhook)
+	webhook, _, err = client.Repositories.CreateHook(context.Background(), owner, name, webhook)
 	if err != nil {
 		return nil, err
 	}
 
 	return webhook, nil
+}
+
+func DeleteHook(client *gh.Client, r gh.Repository, id int64) error {
+	owner, name, err := ownername(r.GetFullName())
+	if err != nil {
+		return err
+	}
+	_, err = client.Repositories.DeleteHook(context.Background(), owner, name, id)
+	return err
 }

@@ -68,79 +68,105 @@ func jsonFormatter() log.Formatter {
 	}
 }
 
-func deployment(w http.ResponseWriter, r *http.Request, data []byte) {
-	log.Infof("Handling deployment event webhook")
+func handleAddedRepository(repo *gh.Repository, installation *gh.Installation) error {
+	name := repo.GetFullName()
 
-	deploymentRequest := github.DeploymentRequest{}
-	if err := json.Unmarshal(data, &deploymentRequest); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+	if installation == nil {
+		return fmt.Errorf("empty installation object for %s, cannot install webhook", name)
 	}
 
-	install, err := secretClient.InstallationSecret(deploymentRequest.Repository.FullName)
+	id := int(installation.GetID())
+	client, err := github.InstallationClient(config.ApplicationID, id, config.KeyFile)
 	if err != nil {
-		log.Errorf("could not retrieve pre-shared secret for repository '%s'", deploymentRequest.Repository.FullName)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return fmt.Errorf("cannot instantiate Github client for %s: %s", name, err)
 	}
 
-	sig := r.Header.Get("X-Hub-Signature")
-	err = gh.ValidateSignature(sig, data, []byte(install.WebhookSecret))
+	secret, err := secrets.RandomString(32)
 	if err != nil {
-		log.Errorf("invalid payload signature: %s", err)
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprintf(w, "wrong secret: %s", err)
-		return
+		return fmt.Errorf("cannot generate random secret string: %s", err)
 	}
 
-	fmt.Fprint(w, "deployment has been dispatched")
+	hook, err := github.CreateHook(client, *repo, config.WebhookURL, secret)
+	if err != nil {
+		return fmt.Errorf("while creating webhook: %s", err)
+	}
+
+	err = secretClient.WriteInstallationSecret(secrets.InstallationSecret{
+		Repository:     name,
+		WebhookID:      fmt.Sprintf("%d", hook.GetID()),
+		WebhookSecret:  secret,
+		InstallationID: strconv.Itoa(id),
+	})
+
+	if err != nil {
+		return fmt.Errorf("while persisting repository secret: %s", err)
+	}
+
+	log.Infof("Created webhook in repository %s with id %d", name, hook.GetID())
+
+	return nil
+}
+
+func handleRemovedRepository(repo *gh.Repository, installation *gh.Installation) error {
+	name := repo.GetFullName()
+
+	if installation == nil {
+		return fmt.Errorf("empty installation object for %s, cannot remove data", name)
+	}
+
+	// At this point, we would really like to delete the webhook that the integration
+	// automatically created upon registration. Unfortunately, we have already lost access.
+
+	/*
+	id := int(installation.GetID())
+	client, err := github.InstallationClient(config.ApplicationID, id, config.KeyFile)
+	if err != nil {
+		return fmt.Errorf("cannot instantiate Github client for %s: %s", name, err)
+	}
+
+	secret, err := secretClient.InstallationSecret(name)
+	if err != nil {
+		return fmt.Errorf("unable to retrieve pre-shared secret for repository '%s'", name)
+	}
+
+	webhookID, _ := strconv.ParseInt(secret.WebhookID, 10, 64)
+	err = github.DeleteHook(client, *repo, webhookID)
+	if err != nil {
+		return fmt.Errorf("while deleting webhook: %s", err)
+	}
+
+	log.Infof("deleted webhook in repository %s with id %d", name, webhookID)
+	*/
+
+	err := secretClient.DeleteInstallationSecret(name)
+	if err != nil {
+		return fmt.Errorf("while deleting repository secret: %s", err)
+	}
+
+	return nil
 }
 
 func handleAddedRepositories(installRequest gh.InstallationRepositoriesEvent) error {
 	for _, repo := range installRequest.RepositoriesAdded {
-		name := repo.GetFullName()
 		installation := installRequest.GetInstallation()
-		if installation == nil {
-			return fmt.Errorf("empty installation object for %s, cannot install webhook", name)
+		if err := handleAddedRepository(repo, installation); err != nil {
+			return err
 		}
-
-		id := int(installation.GetID())
-		client, err := github.InstallationClient(config.ApplicationID, id, config.KeyFile)
-		if err != nil {
-			return fmt.Errorf("cannot instantiate Github client for %s: %s", name, err)
-		}
-
-		secret, err := secrets.RandomString(32)
-		if err != nil {
-			return fmt.Errorf("cannot generate random secret string: %s", err)
-		}
-
-		err = secretClient.WriteInstallationSecret(secrets.InstallationSecret{
-			Repository:     name,
-			WebhookSecret:  secret,
-			InstallationID: strconv.Itoa(id),
-		})
-		if err != nil {
-			return fmt.Errorf("while persisting webhook secret: %s", err)
-		}
-
-		hook, err := github.CreateHook(client, *repo, config.WebhookURL, secret)
-		if err != nil {
-			return fmt.Errorf("while creating webhook: %s", err)
-		}
-
-		log.Infof("created webhook in repository %s with id %d", name, hook.GetID())
 	}
 	return nil
 }
 
 func handleRemovedRepositories(installRequest gh.InstallationRepositoriesEvent) error {
+	for _, repo := range installRequest.RepositoriesRemoved {
+		installation := installRequest.GetInstallation()
+		if err := handleRemovedRepository(repo, installation); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func addRemoveRepositories(w http.ResponseWriter, r *http.Request, data []byte) {
-	log.Infof("Handling list of added or removed repositories")
-
 	installRequest := gh.InstallationRepositoriesEvent{}
 	if err := json.Unmarshal(data, &installRequest); err != nil {
 		log.Errorf("while decoding JSON data: %s", err)
@@ -150,7 +176,7 @@ func addRemoveRepositories(w http.ResponseWriter, r *http.Request, data []byte) 
 
 	psk, err := secretClient.ApplicationSecret()
 	if err != nil {
-		log.Errorf("could not retrieve pre-shared secret for application: %s", err)
+		log.Errorf("unable to retrieve pre-shared secret for application: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -190,21 +216,61 @@ func addRemoveRepositories(w http.ResponseWriter, r *http.Request, data []byte) 
 	log.Infof(msg)
 }
 
+func deployment(w http.ResponseWriter, r *http.Request, data []byte) {
+	log.Infof("Handling deployment event webhook")
+
+	deploymentRequest := gh.DeploymentEvent{}
+	if err := json.Unmarshal(data, &deploymentRequest); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	repo := deploymentRequest.GetRepo()
+	if repo == nil {
+		log.Errorf("deployment request doesn't specify repository")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	install, err := secretClient.InstallationSecret(repo.GetFullName())
+	if err != nil {
+		log.Errorf("unable to retrieve pre-shared secret for repository '%s'", repo.GetFullName())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	sig := r.Header.Get("X-Hub-Signature")
+	err = gh.ValidateSignature(sig, data, []byte(install.WebhookSecret))
+	if err != nil {
+		log.Errorf("invalid payload signature: %s", err)
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprintf(w, "wrong secret: %s", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	log.Infof("Dispatching deployment for %s", repo.GetFullName())
+}
+
 func mainHandler(w http.ResponseWriter, r *http.Request) {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("%s %s from %s: error: %s", r.Method, r.URL.String(), r.Host, err)
 		return
 	}
 
 	eventType := r.Header.Get("X-GitHub-Event")
+
+	log.Infof("%s %s from %s type %s", r.Method, r.URL.String(), r.Host, eventType)
+
 	switch eventType {
+	case "ping":
+		w.WriteHeader(http.StatusNoContent)
 	case "deployment":
 		deployment(w, r, data)
 	case "installation_repositories":
 		addRemoveRepositories(w, r, data)
 	default:
-		log.Infof("Received Github event of type '%s', ignoring", eventType)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

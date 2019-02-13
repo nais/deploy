@@ -19,11 +19,13 @@ type Client struct {
 type InstallationSecret struct {
 	Repository     string
 	InstallationID string
+	WebhookID      string
 	WebhookSecret  string
 }
 
 const (
 	installationIDKey = "installationID"
+	webhookIDKey      = "webhookID"
 	webhookSecretKey  = "webhookSecret"
 )
 
@@ -89,6 +91,10 @@ func (c *Client) InstallationSecret(repository string) (InstallationSecret, erro
 	if err != nil {
 		return is, err
 	}
+	is.WebhookID, err = tostring(secret.Data[webhookIDKey])
+	if err != nil {
+		return is, err
+	}
 	is.WebhookSecret, err = tostring(secret.Data[webhookSecretKey])
 	if err != nil {
 		return is, err
@@ -100,8 +106,15 @@ func (c *Client) WriteInstallationSecret(s InstallationSecret) error {
 	path := c.mkpath(s.Repository)
 	payload := map[string]interface{}{
 		installationIDKey: s.InstallationID,
+		webhookIDKey:      s.WebhookID,
 		webhookSecretKey:  s.WebhookSecret,
 	}
 	_, err := c.vaultClient.Write(path, payload)
+	return err
+}
+
+func (c *Client) DeleteInstallationSecret(repository string) error {
+	path := c.mkpath(repository)
+	_, err := c.vaultClient.Delete(path)
 	return err
 }
