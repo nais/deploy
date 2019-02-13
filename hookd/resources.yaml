@@ -57,6 +57,9 @@ spec:
           value: localhost,127.0.0.1,10.254.0.1,.local,.adeo.no,.nav.no,.aetat.no,.devillo.no,.oera.no
         - name: no_proxy
           value: localhost,127.0.0.1,10.254.0.1,.local,.adeo.no,.nav.no,.aetat.no,.devillo.no,.oera.no
+        envFrom:
+        - secretRef:
+            name: hookd-vault
         image: navikt/hookd:latest
         command:
           - /app/hookd
@@ -66,6 +69,8 @@ spec:
           - "https://deployment.prod-sbs.nais.io/events"
           - --key-file
           - "/var/run/secrets/github/nav-deployment.2019-02-12.private-key.pem"
+          - --vault-address
+          - "http://hookd-vault.nais.svc.nais.local:8200/"
         imagePullPolicy: Always
         name: hookd
         ports:

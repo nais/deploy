@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: hookd-vault
+    team: aura
+  name: hookd-vault
+  namespace: nais
+spec:
+  ports:
+  - name: http
+    port: 8200
+    protocol: TCP
+    targetPort: http
+  selector:
+    app: hookd-vault
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: hookd-vault
+    team: aura
+  name: hookd-vault
+  namespace: nais
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hookd-vault
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: http
+        prometheus.io/scrape: "false"
+      labels:
+        app: hookd-vault
+        team: aura
+      name: hookd-vault
+      namespace: nais
+    spec:
+      containers:
+      - image: vault:latest
+        imagePullPolicy: Always
+        name: hookd-vault
+        ports:
+        - containerPort: 8200
+          name: http
+          protocol: TCP
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    prometheus.io/path: ""
+    prometheus.io/scrape: "false"
+  labels:
+    app: hookd-vault
+    team: aura
+  name: hookd-vault
+  namespace: nais
+spec:
+  rules:
+  - host: hookd-vault.prod-sbs.nais.io
+    http:
+      paths:
+      - backend:
+          serviceName: hookd-vault
+          servicePort: http
+        path: /
