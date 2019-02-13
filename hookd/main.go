@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/hmac"
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	gh "github.com/google/go-github/v23/github"
@@ -61,42 +59,28 @@ func jsonFormatter() log.Formatter {
 	}
 }
 
-func sign(psk string, data []byte) []byte {
-	secret := []byte(psk)
-	mac := hmac.New(sha1.New, secret)
-	mac.Write([]byte(data))
-	return mac.Sum(nil)
-}
-
-func comparehmac(checkSig, sig []byte) error {
-	if hmac.Equal(checkSig, sig) {
-		return nil
-	}
-	return fmt.Errorf("signatures differ: expected %x, got %x", checkSig, sig)
-}
-
-func deployment(w http.ResponseWriter, r *http.Request, data, sig []byte) {
+func deployment(w http.ResponseWriter, r *http.Request, data []byte) {
 	log.Infof("Handling deployment event webhook")
 
 	deploymentRequest := github.DeploymentRequest{}
 	if err := json.Unmarshal(data, &deploymentRequest); err != nil {
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	psk, err := secrets.RepositoryWebhookSecret(deploymentRequest.Repository.FullName)
 	if err != nil {
 		log.Errorf("could not retrieve pre-shared secret for repository '%s'", deploymentRequest.Repository.FullName)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	checkSig := sign(psk, data)
-
-	if comparehmac(checkSig, sig) != nil {
-		log.Error(err)
-		w.WriteHeader(403)
-		fmt.Fprint(w, "wrong secret")
+	sig := r.Header.Get("X-Hub-Signature")
+	err = gh.ValidateSignature(sig, data, []byte(psk))
+	if err != nil {
+		log.Errorf("invalid payload signature: %s", err)
+		w.WriteHeader(http.StatusForbidden)
+		fmt.Fprintf(w, "wrong secret: %s", err)
 		return
 	}
 
@@ -181,13 +165,6 @@ func addRemoveRepositories(w http.ResponseWriter, r *http.Request, data []byte) 
 }
 
 func mainHandler(w http.ResponseWriter, r *http.Request) {
-	sigHeader := r.Header.Get("X-Hub-Signature")
-	sig, err := github.SignatureFromHeader(sigHeader)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Error(err)
@@ -197,7 +174,7 @@ func mainHandler(w http.ResponseWriter, r *http.Request) {
 	eventType := r.Header.Get("X-GitHub-Event")
 	switch eventType {
 	case "deployment":
-		deployment(w, r, data, sig)
+		deployment(w, r, data)
 	case "installation_repositories":
 		addRemoveRepositories(w, r, data)
 	default:
