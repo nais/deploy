@@ -22,6 +22,8 @@ type Config struct {
 	WebhookURL    string
 	ApplicationID int
 	KeyFile       string
+	VaultAddress  string
+	VaultPath     string
 }
 
 func DefaultConfig() *Config {
@@ -32,10 +34,14 @@ func DefaultConfig() *Config {
 		WebhookURL:    "https://hookd/events",
 		ApplicationID: 0,
 		KeyFile:       "private-key.pem",
+		VaultAddress:  "http://localhost:8200",
+		VaultPath:     "/cubbyhole/hookd",
 	}
 }
 
 var config = DefaultConfig()
+
+var secretClient *secrets.Client
 
 func (c *Config) addFlags() {
 	flag.StringVar(&c.ListenAddress, "listen-address", c.ListenAddress, "IP:PORT")
@@ -44,6 +50,8 @@ func (c *Config) addFlags() {
 	flag.StringVar(&c.WebhookURL, "webhook-url", c.WebhookURL, "Externally available URL to events endpoint.")
 	flag.IntVar(&c.ApplicationID, "app-id", c.ApplicationID, "Github App ID.")
 	flag.StringVar(&c.KeyFile, "key-file", c.KeyFile, "Path to PEM key owned by Github App.")
+	flag.StringVar(&c.VaultAddress, "vault-address", c.VaultAddress, "Address to Vault HTTP API.")
+	flag.StringVar(&c.VaultPath, "vault-path", c.VaultPath, "Base path to hookd data in Vault.")
 }
 
 func textFormatter() log.Formatter {
@@ -68,7 +76,7 @@ func deployment(w http.ResponseWriter, r *http.Request, data []byte) {
 		return
 	}
 
-	psk, err := secrets.RepositoryWebhookSecret(deploymentRequest.Repository.FullName)
+	install, err := secretClient.InstallationSecret(deploymentRequest.Repository.FullName)
 	if err != nil {
 		log.Errorf("could not retrieve pre-shared secret for repository '%s'", deploymentRequest.Repository.FullName)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -76,7 +84,7 @@ func deployment(w http.ResponseWriter, r *http.Request, data []byte) {
 	}
 
 	sig := r.Header.Get("X-Hub-Signature")
-	err = gh.ValidateSignature(sig, data, []byte(psk))
+	err = gh.ValidateSignature(sig, data, []byte(install.WebhookSecret))
 	if err != nil {
 		log.Errorf("invalid payload signature: %s", err)
 		w.WriteHeader(http.StatusForbidden)
@@ -94,15 +102,32 @@ func handleAddedRepositories(installRequest gh.InstallationRepositoriesEvent) er
 		if installation == nil {
 			return fmt.Errorf("empty installation object for %s, cannot install webhook", name)
 		}
+
 		id := int(installation.GetID())
 		client, err := github.InstallationClient(config.ApplicationID, id, config.KeyFile)
 		if err != nil {
 			return fmt.Errorf("cannot instantiate Github client for %s: %s", name, err)
 		}
-		hook, err := github.CreateHook(client, *repo, config.WebhookURL)
+
+		secret, err := secrets.RandomString(32)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot generate random secret string: %s", err)
 		}
+
+		err = secretClient.WriteInstallationSecret(secrets.InstallationSecret{
+			Repository: name,
+			WebhookSecret: secret,
+			InstallationID: string(id),
+		})
+		if err != nil {
+			return fmt.Errorf("while persisting webhook secret: %s", err)
+		}
+
+		hook, err := github.CreateHook(client, *repo, config.WebhookURL, secret)
+		if err != nil {
+			return fmt.Errorf("while creating webhook: %s", err)
+		}
+
 		log.Infof("created webhook in repository %s with id %d", name, hook.GetID())
 	}
 	return nil
@@ -122,7 +147,7 @@ func addRemoveRepositories(w http.ResponseWriter, r *http.Request, data []byte) 
 		return
 	}
 
-	psk, err := secrets.ApplicationWebhookSecret()
+	psk, err := secretClient.ApplicationSecret()
 	if err != nil {
 		log.Errorf("could not retrieve pre-shared secret for application")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -202,6 +227,15 @@ func run() error {
 		return fmt.Errorf("while setting log level: %s", err)
 	}
 	log.SetLevel(logLevel)
+
+	vaultToken := os.Getenv("VAULT_TOKEN")
+	if len(vaultToken) == 0 {
+		return fmt.Errorf("the VAULT_TOKEN environment variable needs to be set")
+	}
+	secretClient, err = secrets.New(config.VaultAddress, vaultToken, config.VaultPath)
+	if err != nil {
+		return fmt.Errorf("while configuring secret client: %s", err)
+	}
 
 	log.Info("hookd is starting")
 

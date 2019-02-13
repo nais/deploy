@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"github.com/bradleyfalzon/ghinstallation"
 	gh "github.com/google/go-github/v23/github"
-	"github.com/navikt/deployment/hookd/pkg/secrets"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 )
@@ -47,12 +45,7 @@ func InstallationClient(appId, installId int, keyFile string) (*gh.Client, error
 	return gh.NewClient(&http.Client{Transport: itr}), nil
 }
 
-func CreateHook(client *gh.Client, r gh.Repository, url string) (*gh.Hook, error) {
-	secret, err := secrets.RandomString(32)
-	if err != nil {
-		return nil, err
-	}
-
+func CreateHook(client *gh.Client, r gh.Repository, url string, secret string) (*gh.Hook, error) {
 	active := true
 	webhook := &gh.Hook{
 		Events: []string{
@@ -72,23 +65,10 @@ func CreateHook(client *gh.Client, r gh.Repository, url string) (*gh.Hook, error
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("repository name is not in the format OWNER/NAME")
 	}
-	webhook, _, err = client.Repositories.CreateHook(context.Background(), parts[0], parts[1], webhook)
+	webhook, _, err := client.Repositories.CreateHook(context.Background(), parts[0], parts[1], webhook)
 	if err != nil {
 		return nil, err
 	}
 
-	/*
-	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("webhook creation returned status code %d, expected %d", resp.StatusCode, http.StatusCreated)
-	}
-
-	dec := json.NewDecoder(resp.Body)
-	err = dec.Decode(r)
-	if err != nil {
-		return nil, fmt.Errorf("while decoding server response: %s", err)
-	}
-	*/
-
-	log.Infof("oops, webhook secret for %s is %s", r.GetFullName(), secret)
 	return webhook, nil
 }
