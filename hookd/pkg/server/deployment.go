@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -42,7 +42,7 @@ func (h *DeploymentHandler) secretToken() (string, error) {
 	if repo == nil {
 		return "", fmt.Errorf("deployment request doesn't specify repository")
 	}
-	secret, err := secretClient.InstallationSecret(repo.GetFullName())
+	secret, err := h.SecretClient.InstallationSecret(repo.GetFullName())
 	if err != nil {
 		return "", err
 	}

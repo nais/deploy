@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -32,7 +32,7 @@ func (h *LifecycleHandler) unserialize() error {
 }
 
 func (h *LifecycleHandler) secretToken() (string, error) {
-	return secretClient.ApplicationSecret()
+	return h.SecretClient.ApplicationSecret()
 }
 
 func (h *LifecycleHandler) handler() (int, error) {
@@ -68,7 +68,7 @@ func (h *LifecycleHandler) handleAddedRepository(repo *gh.Repository, installati
 	}
 
 	id := int(installation.GetID())
-	client, err := github.InstallationClient(config.ApplicationID, id, config.KeyFile)
+	client, err := github.InstallationClient(h.Config.ApplicationID, id, h.Config.KeyFile)
 	if err != nil {
 		return fmt.Errorf("cannot instantiate Github client for %s: %s", name, err)
 	}
@@ -78,12 +78,12 @@ func (h *LifecycleHandler) handleAddedRepository(repo *gh.Repository, installati
 		return fmt.Errorf("cannot generate random secret string: %s", err)
 	}
 
-	hook, err := github.CreateHook(client, *repo, config.WebhookURL, secret)
+	hook, err := github.CreateHook(client, *repo, h.Config.WebhookURL, secret)
 	if err != nil {
 		return fmt.Errorf("while creating webhook: %s", err)
 	}
 
-	err = secretClient.WriteInstallationSecret(secrets.InstallationSecret{
+	err = h.SecretClient.WriteInstallationSecret(secrets.InstallationSecret{
 		Repository:     name,
 		WebhookID:      fmt.Sprintf("%d", hook.GetID()),
 		WebhookSecret:  secret,
@@ -132,7 +132,7 @@ func (h *LifecycleHandler) handleRemovedRepository(repo *gh.Repository, installa
 	h.log.Infof("deleted webhook in repository %s with id %d", name, webhookID)
 	*/
 
-	err := secretClient.DeleteInstallationSecret(name)
+	err := h.SecretClient.DeleteInstallationSecret(name)
 	if err != nil {
 		return fmt.Errorf("while deleting repository secret: %s", err)
 	}
