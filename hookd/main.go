@@ -1,17 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	gh "github.com/google/go-github/v23/github"
-	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/secrets"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -38,6 +35,15 @@ func DefaultConfig() *Config {
 		VaultAddress:  "http://localhost:8200",
 		VaultPath:     "/cubbyhole/hookd",
 	}
+}
+
+type Handler struct {
+	w          http.ResponseWriter
+	r          *http.Request
+	data       []byte
+	log        *log.Entry
+	eventType  string
+	deliveryID string
 }
 
 var config = DefaultConfig()
@@ -68,217 +74,61 @@ func jsonFormatter() log.Formatter {
 	}
 }
 
-func handleAddedRepository(repo *gh.Repository, installation *gh.Installation) error {
-	name := repo.GetFullName()
+func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize func() error, secretToken func() (string, error)) error {
+	var err error
 
-	log.Infof("Installing configuration for repository %s", name)
+	h.deliveryID = r.Header.Get("X-GitHub-Delivery")
+	h.eventType = r.Header.Get("X-GitHub-Event")
+	h.w = w
+	h.r = r
 
-	if installation == nil {
-		return fmt.Errorf("empty installation object for %s, cannot install webhook", name)
-	}
-
-	id := int(installation.GetID())
-	client, err := github.InstallationClient(config.ApplicationID, id, config.KeyFile)
-	if err != nil {
-		return fmt.Errorf("cannot instantiate Github client for %s: %s", name, err)
-	}
-
-	secret, err := secrets.RandomString(32)
-	if err != nil {
-		return fmt.Errorf("cannot generate random secret string: %s", err)
-	}
-
-	hook, err := github.CreateHook(client, *repo, config.WebhookURL, secret)
-	if err != nil {
-		return fmt.Errorf("while creating webhook: %s", err)
-	}
-
-	err = secretClient.WriteInstallationSecret(secrets.InstallationSecret{
-		Repository:     name,
-		WebhookID:      fmt.Sprintf("%d", hook.GetID()),
-		WebhookSecret:  secret,
-		InstallationID: strconv.Itoa(id),
+	h.log = log.WithFields(log.Fields{
+		"delivery_id": h.deliveryID,
+		"event_type":  h.eventType,
 	})
 
+	h.log.Infof("%s %s %s", r.Method, r.RequestURI, h.eventType)
+
+	h.data, err = ioutil.ReadAll(r.Body)
 	if err != nil {
-		return fmt.Errorf("while persisting repository secret: %s", err)
-	}
-
-	log.Infof("Created webhook in repository %s with id %d", name, hook.GetID())
-
-	return nil
-}
-
-func handleRemovedRepository(repo *gh.Repository, installation *gh.Installation) error {
-	name := repo.GetFullName()
-
-	log.Infof("Removing configuration for repository %s", name)
-
-	if installation == nil {
-		return fmt.Errorf("empty installation object for %s, cannot remove data", name)
-	}
-
-	// At this point, we would really like to delete the webhook that the integration
-	// automatically created upon registration. Unfortunately, we have already lost access.
-
-	/*
-	id := int(installation.GetID())
-	client, err := github.InstallationClient(config.ApplicationID, id, config.KeyFile)
-	if err != nil {
-		return fmt.Errorf("cannot instantiate Github client for %s: %s", name, err)
-	}
-
-	secret, err := secretClient.InstallationSecret(name)
-	if err != nil {
-		return fmt.Errorf("unable to retrieve pre-shared secret for repository '%s'", name)
-	}
-
-	webhookID, _ := strconv.ParseInt(secret.WebhookID, 10, 64)
-	err = github.DeleteHook(client, *repo, webhookID)
-	if err != nil {
-		return fmt.Errorf("while deleting webhook: %s", err)
-	}
-
-	log.Infof("deleted webhook in repository %s with id %d", name, webhookID)
-	*/
-
-	err := secretClient.DeleteInstallationSecret(name)
-	if err != nil {
-		return fmt.Errorf("while deleting repository secret: %s", err)
-	}
-
-	return nil
-}
-
-func handleAddedRepositories(installRequest gh.InstallationRepositoriesEvent) error {
-	for _, repo := range installRequest.RepositoriesAdded {
-		installation := installRequest.GetInstallation()
-		if err := handleAddedRepository(repo, installation); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func handleRemovedRepositories(installRequest gh.InstallationRepositoriesEvent) error {
-	for _, repo := range installRequest.RepositoriesRemoved {
-		installation := installRequest.GetInstallation()
-		if err := handleRemovedRepository(repo, installation); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func addRemoveRepositories(w http.ResponseWriter, r *http.Request, data []byte) {
-	installRequest := gh.InstallationRepositoriesEvent{}
-	if err := json.Unmarshal(data, &installRequest); err != nil {
-		log.Errorf("while decoding JSON data: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	psk, err := secretClient.ApplicationSecret()
-	if err != nil {
-		log.Errorf("unable to retrieve pre-shared secret for application: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	sig := r.Header.Get("X-Hub-Signature")
-	err = gh.ValidateSignature(sig, data, []byte(psk))
-	if err != nil {
-		log.Errorf("invalid payload signature: %s", err)
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprintf(w, "wrong secret: %s", err)
-		return
-	}
-
-	switch installRequest.GetAction() {
-	case "added":
-		err = handleAddedRepositories(installRequest)
-	case "removed":
-		err = handleRemovedRepositories(installRequest)
-	default:
-		err = fmt.Errorf("unknown installation action %s", installRequest.GetAction())
-		log.Error(err)
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "%s", err)
-		return
-	}
-
-	if err != nil {
-		log.Error(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "internal server error")
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	msg := fmt.Sprintf("created webhooks for %d repositories", len(installRequest.RepositoriesAdded))
-	fmt.Fprint(w, msg)
-	log.Infof(msg)
-}
-
-func deployment(w http.ResponseWriter, r *http.Request, data []byte) {
-	log.Infof("Handling deployment event webhook")
-
-	deploymentRequest := gh.DeploymentEvent{}
-	if err := json.Unmarshal(data, &deploymentRequest); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	repo := deploymentRequest.GetRepo()
-	if repo == nil {
-		log.Errorf("deployment request doesn't specify repository")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	install, err := secretClient.InstallationSecret(repo.GetFullName())
-	if err != nil {
-		log.Errorf("unable to retrieve pre-shared secret for repository '%s'", repo.GetFullName())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	sig := r.Header.Get("X-Hub-Signature")
-	err = gh.ValidateSignature(sig, data, []byte(install.WebhookSecret))
-	if err != nil {
-		log.Errorf("invalid payload signature: %s", err)
-		w.WriteHeader(http.StatusForbidden)
-		fmt.Fprintf(w, "wrong secret: %s", err)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	log.Infof("Dispatching deployment for %s", repo.GetFullName())
-}
-
-func mainHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Errorf("%s %s from %s: error: %s", r.Method, r.URL.String(), r.Host, err)
-		return
-	}
-
-	eventType := r.Header.Get("X-GitHub-Event")
-
-	log.Infof("%s %s from %s type %s", r.Method, r.URL.String(), r.Host, eventType)
-
-	switch eventType {
-	case "ping":
+	if h.eventType == "ping" {
 		w.WriteHeader(http.StatusNoContent)
-	case "deployment":
-		deployment(w, r, data)
-	case "installation_repositories":
-		addRemoveRepositories(w, r, data)
-	default:
-		w.WriteHeader(http.StatusBadRequest)
+		return fmt.Errorf("received ping request")
 	}
 
-	log.Infof("Finished handling request to %s", r.URL.String())
+	err = unserialize()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return err
+	}
+
+	psk, err := secretToken()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return err
+	}
+	sig := h.r.Header.Get("X-Hub-Signature")
+	err = gh.ValidateSignature(sig, h.data, []byte(psk))
+	if err != nil {
+		w.WriteHeader(http.StatusForbidden)
+		return fmt.Errorf("invalid payload signature: %s", err)
+	}
+
+	return nil
+}
+
+func (h *Handler) finish(statusCode int, err error) {
+	if err != nil {
+		h.log.Errorf("%s", err)
+	}
+
+	h.w.WriteHeader(statusCode)
+
+	h.log.Infof("Finished handling request")
 }
 
 func run() error {
@@ -311,8 +161,8 @@ func run() error {
 
 	log.Info("hookd is starting")
 
-	http.HandleFunc("/register/repository", mainHandler)
-	http.HandleFunc("/events", mainHandler)
+	http.Handle("/register/repository", &LifecycleHandler{})
+	http.Handle("/events", &DeploymentHandler{})
 	server := &http.Server{
 		Addr: config.ListenAddress,
 	}
