@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Shopify/sarama"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/secrets"
 	"github.com/navikt/deployment/hookd/pkg/server"
@@ -23,6 +24,8 @@ func init() {
 	flag.StringVar(&cfg.KeyFile, "key-file", cfg.KeyFile, "Path to PEM key owned by Github App.")
 	flag.StringVar(&cfg.VaultAddress, "vault-address", cfg.VaultAddress, "Address to Vault HTTP API.")
 	flag.StringVar(&cfg.VaultPath, "vault-path", cfg.VaultPath, "Base path to hookd data in Vault.")
+	flag.StringSliceVar(&cfg.KafkaBrokers, "kafka-brokers", cfg.KafkaBrokers, "Comma-separated list of Kafka brokers, HOST:PORT.")
+	flag.StringVar(&cfg.KafkaTopic, "kafka-topic", cfg.KafkaTopic, "Kafka topic for deployd communication.")
 }
 
 func textFormatter() log.Formatter {
@@ -68,9 +71,16 @@ func run() error {
 
 	log.Info("hookd is starting")
 
+	kafka, err := sarama.NewSyncProducer(cfg.KafkaBrokers, nil)
+	if err != nil {
+		return fmt.Errorf("while configuring Kafka: %s", err)
+	}
+
 	baseHandler := server.Handler{
-		Config:       *cfg,
-		SecretClient: secretClient,
+		Config:        *cfg,
+		SecretClient:  secretClient,
+		KafkaProducer: kafka,
+		KafkaTopic:    cfg.KafkaTopic,
 	}
 	http.Handle("/register/repository", &server.LifecycleHandler{Handler: baseHandler})
 	http.Handle("/events", &server.DeploymentHandler{Handler: baseHandler})

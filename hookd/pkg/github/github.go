@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func ownername(fullName string) (string, string, error) {
+func SplitFullname(fullName string) (string, string, error) {
 	parts := strings.Split(fullName, "/")
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("repository name %s is not in the format OWNER/NAME", fullName)
@@ -48,7 +48,7 @@ func CreateHook(client *gh.Client, r gh.Repository, url string, secret string) (
 		},
 	}
 
-	owner, name, err := ownername(r.GetFullName())
+	owner, name, err := SplitFullname(r.GetFullName())
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func CreateHook(client *gh.Client, r gh.Repository, url string, secret string) (
 }
 
 func DeleteHook(client *gh.Client, r gh.Repository, id int64) error {
-	owner, name, err := ownername(r.GetFullName())
+	owner, name, err := SplitFullname(r.GetFullName())
 	if err != nil {
 		return err
 	}

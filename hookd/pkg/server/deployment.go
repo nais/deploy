@@ -3,8 +3,12 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
+	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/types"
 	"net/http"
+	"time"
 )
 
 type DeploymentHandler struct {
@@ -19,6 +23,42 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.finish(h.handler())
+}
+
+func (h *DeploymentHandler) kafkaPublish() error {
+	owner, name, err := github.SplitFullname(h.repo.GetFullName())
+	if err != nil {
+		return err
+	}
+	deployment := h.deploymentRequest.GetDeployment()
+	if deployment == nil {
+		return fmt.Errorf("deployment object is empty")
+	}
+	deploymentRequest := types.DeploymentRequest{
+		Deployment: types.Deployment{
+			ProtocolVersion: types.ProtocolVersion,
+			Timestamp:       time.Now(),
+			CorrelationID:   h.deliveryID,
+			Cluster:         deployment.GetEnvironment(),
+			DeploymentID:    deployment.GetID(),
+			RepositoryName:  name,
+			RepositoryOwner: owner,
+		},
+		Deadline: time.Now().Add(time.Minute),
+	}
+	payload, err := json.Marshal(deploymentRequest)
+	if err != nil {
+		return fmt.Errorf("while marshalling json: %s", err)
+	}
+	msg := sarama.ProducerMessage{
+		Topic: h.KafkaTopic,
+		Value: sarama.StringEncoder(payload),
+	}
+	_, _, err = h.KafkaProducer.SendMessage(&msg)
+	if err != nil {
+		return fmt.Errorf("while publishing message to Kafka: %s", err)
+	}
+	return nil
 }
 
 func (h *DeploymentHandler) unserialize() error {
@@ -53,8 +93,13 @@ func (h *DeploymentHandler) handler() (int, error) {
 	if h.eventType != "deployment" {
 		return http.StatusBadRequest, fmt.Errorf("unsupported event type %s", h.eventType)
 	}
-	h.log.Infof("Handling deployment event webhook")
+
 	h.log.Infof("Dispatching deployment for %s", h.repo.GetFullName())
+	err := h.kafkaPublish()
+
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
 
 	return http.StatusCreated, nil
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/secrets"
@@ -11,14 +12,16 @@ import (
 )
 
 type Handler struct {
-	w            http.ResponseWriter
-	r            *http.Request
-	data         []byte
-	log          *log.Entry
-	eventType    string
-	deliveryID   string
-	Config       config.Config
-	SecretClient *secrets.Client
+	w             http.ResponseWriter
+	r             *http.Request
+	data          []byte
+	log           *log.Entry
+	eventType     string
+	deliveryID    string
+	Config        config.Config
+	SecretClient  *secrets.Client
+	KafkaProducer sarama.SyncProducer
+	KafkaTopic    string
 }
 
 func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize func() error, secretToken func() (string, error)) error {

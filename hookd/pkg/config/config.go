@@ -9,6 +9,8 @@ type Config struct {
 	KeyFile       string
 	VaultAddress  string
 	VaultPath     string
+	KafkaBrokers  []string
+	KafkaTopic    string
 }
 
 func DefaultConfig() *Config {
@@ -21,5 +23,7 @@ func DefaultConfig() *Config {
 		KeyFile:       "private-key.pem",
 		VaultAddress:  "http://localhost:8200",
 		VaultPath:     "/cubbyhole/hookd",
+		KafkaBrokers:  []string{"localhost:9092"},
+		KafkaTopic:    "deployments",
 	}
 }
