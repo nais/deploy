@@ -71,6 +71,8 @@ spec:
           - "/var/run/secrets/github/nav-deployment.2019-02-12.private-key.pem"
           - --vault-address
           - "http://hookd-vault.nais.svc.nais.local:8200/"
+          - --kafka-brokers
+          - "hookd-kafka:9092"
         imagePullPolicy: Always
         name: hookd
         ports:

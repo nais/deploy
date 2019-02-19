@@ -74,6 +74,7 @@ func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize fu
 func (h *Handler) finish(statusCode int, err error) {
 	if err != nil {
 		h.log.Errorf("%s", err)
+		return
 	}
 
 	h.w.WriteHeader(statusCode)
