@@ -1,4 +1,4 @@
-module github.com/navikt/deployment/hookd
+module github.com/navikt/deployment
 
 require (
 	github.com/DataDog/zstd v1.3.5 // indirect

@@ -3,19 +3,37 @@ package main
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
-	"log"
+	"github.com/navikt/deployment/common/pkg/logging"
+	"github.com/navikt/deployment/deployd/pkg/config"
+	log "github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
 	"os"
 	"os/signal"
 )
 
-func main() {
-	consumer, err := sarama.NewConsumer([]string{"localhost:9092"}, nil)
-	if err != nil {
-		panic(err)
+var cfg = config.DefaultConfig()
+
+func init() {
+	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
+	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
+	flag.StringSliceVar(&cfg.KafkaBrokers, "kafka-brokers", cfg.KafkaBrokers, "Comma-separated list of Kafka brokers, HOST:PORT.")
+	flag.StringVar(&cfg.KafkaTopic, "kafka-topic", cfg.KafkaTopic, "Kafka topic for deployd communication.")
+}
+
+func run() error {
+	flag.Parse()
+
+	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
+		return err
 	}
-	partitionConsumer, err := consumer.ConsumePartition("deployments", 0, sarama.OffsetNewest)
+
+	consumer, err := sarama.NewConsumer(cfg.KafkaBrokers, nil)
 	if err != nil {
-		panic(err)
+		return err
+	}
+	partitionConsumer, err := consumer.ConsumePartition(cfg.KafkaTopic, 0, sarama.OffsetNewest)
+	if err != nil {
+		return err
 	}
 
 	defer func() {
@@ -42,4 +60,14 @@ ConsumerLoop:
 	}
 
 	log.Printf("Consumed: %d\n", consumed)
+
+	return nil
+}
+
+func main() {
+	err := run()
+	if err != nil {
+		log.Errorf("Fatal error: %s", err)
+		os.Exit(1)
+	}
 }

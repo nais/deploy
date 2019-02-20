@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/secrets"
 	"github.com/navikt/deployment/hookd/pkg/server"
@@ -10,7 +11,6 @@ import (
 	flag "github.com/spf13/pflag"
 	"net/http"
 	"os"
-	"time"
 )
 
 var cfg = config.DefaultConfig()
@@ -28,36 +28,12 @@ func init() {
 	flag.StringVar(&cfg.KafkaTopic, "kafka-topic", cfg.KafkaTopic, "Kafka topic for deployd communication.")
 }
 
-func textFormatter() log.Formatter {
-	return &log.TextFormatter{
-		DisableTimestamp: false,
-		FullTimestamp:    true,
-	}
-}
-
-func jsonFormatter() log.Formatter {
-	return &log.JSONFormatter{
-		TimestampFormat: time.RFC3339Nano,
-	}
-}
-
 func run() error {
 	flag.Parse()
 
-	switch cfg.LogFormat {
-	case "json":
-		log.SetFormatter(jsonFormatter())
-	case "text":
-		log.SetFormatter(textFormatter())
-	default:
-		return fmt.Errorf("log format '%s' is not recognized", cfg.LogFormat)
+	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
+		return err
 	}
-
-	logLevel, err := log.ParseLevel(cfg.LogLevel)
-	if err != nil {
-		return fmt.Errorf("while setting log level: %s", err)
-	}
-	log.SetLevel(logLevel)
 
 	vaultToken := os.Getenv("VAULT_TOKEN")
 	if len(vaultToken) == 0 {
