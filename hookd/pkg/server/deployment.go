@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
+	types "github.com/navikt/deployment/common/pkg/deployment"
+	proto "github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/hookd/pkg/github"
-	"github.com/navikt/deployment/hookd/pkg/types"
 	"net/http"
 	"time"
 )
@@ -34,19 +35,21 @@ func (h *DeploymentHandler) kafkaPublish() error {
 	if deployment == nil {
 		return fmt.Errorf("deployment object is empty")
 	}
-	deploymentRequest := types.DeploymentRequest{
-		Deployment: types.Deployment{
-			ProtocolVersion: types.ProtocolVersion,
-			Timestamp:       time.Now(),
-			CorrelationID:   h.deliveryID,
-			Cluster:         deployment.GetEnvironment(),
-			DeploymentID:    deployment.GetID(),
-			RepositoryName:  name,
-			RepositoryOwner: owner,
+	deploymentRequest := &types.DeploymentRequest{
+		Deployment: &types.DeploymentSpec{
+			Repository: &types.GithubRepository{
+				Name:  name,
+				Owner: owner,
+			},
+			DeploymentID: deployment.GetID(),
 		},
-		Deadline: time.Now().Add(time.Minute),
+		CorrelationID: h.deliveryID,
+		Cluster:       deployment.GetEnvironment(),
+		Timestamp:     time.Now().Unix(),
+		Deadline:      time.Now().Add(time.Minute).Unix(),
 	}
-	payload, err := json.Marshal(deploymentRequest)
+
+	payload, err := proto.Marshal(deploymentRequest)
 	if err != nil {
 		return fmt.Errorf("while marshalling json: %s", err)
 	}

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/golang/protobuf/proto"
+	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/deployd/pkg/config"
 	log "github.com/sirupsen/logrus"
@@ -52,8 +54,16 @@ ConsumerLoop:
 		select {
 		case msg := <-partitionConsumer.Messages():
 			log.Printf("Consumed message offset %d\n", msg.Offset)
-			fmt.Println(string(msg.Value))
 			consumed++
+
+			deploymentRequest := &deployment.DeploymentRequest{}
+			err := proto.Unmarshal(msg.Value, deploymentRequest)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			fmt.Println(deploymentRequest.String())
+
 		case <-signals:
 			break ConsumerLoop
 		}

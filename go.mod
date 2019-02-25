@@ -8,6 +8,7 @@ require (
 	github.com/eapache/go-resiliency v1.1.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
+	github.com/golang/protobuf v1.2.1-0.20190205222052-c823c79ea157
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/google/go-github/v23 v23.0.0
 	github.com/hashicorp/go-retryablehttp v0.5.2 // indirect

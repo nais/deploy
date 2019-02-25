@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package deployment;
+
+message GithubRepository {
+    string owner = 1;
+    string name = 2;
+}
+
+enum GithubDeploymentState {
+    success = 0;
+    error = 1;
+    failure = 2;
+    inactive = 3;
+    in_progress = 4;
+    queued = 5;
+    pending = 6;
+}
+
+message DeploymentSpec {
+    GithubRepository repository = 1;
+    int64 deploymentID = 2;
+}
+
+message DeploymentRequest {
+    DeploymentSpec deployment = 1;
+    int64 timestamp = 2;
+    int64 deadline = 3;
+    bytes payload = 4;
+    string cluster = 5;
+    string correlationID = 6;
+}
+
+message DeploymentStatus {
+    DeploymentSpec deployment = 1;
+    GithubDeploymentState state = 2;
+    string description = 3;
+}
