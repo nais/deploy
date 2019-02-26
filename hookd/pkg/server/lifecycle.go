@@ -58,27 +58,17 @@ func (h *LifecycleHandler) handler() (int, error) {
 	return http.StatusNoContent, nil
 }
 
-func (h *LifecycleHandler) handleAddedRepository(repo *gh.Repository, installation *gh.Installation) error {
+func (h *LifecycleHandler) handleAddedRepository(repo *gh.Repository) error {
 	name := repo.GetFullName()
 
 	h.log.Infof("Installing configuration for repository %s", name)
-
-	if installation == nil {
-		return fmt.Errorf("empty installation object for %s, cannot install webhook", name)
-	}
-
-	id := int(installation.GetID())
-	client, err := github.InstallationClient(h.Config.ApplicationID, id, h.Config.KeyFile)
-	if err != nil {
-		return fmt.Errorf("cannot instantiate Github client for %s: %s", name, err)
-	}
 
 	secret, err := secrets.RandomString(32)
 	if err != nil {
 		return fmt.Errorf("cannot generate random secret string: %s", err)
 	}
 
-	hook, err := github.CreateHook(client, *repo, h.Config.WebhookURL, secret)
+	hook, err := github.CreateHook(h.GithubInstallationClient, *repo, h.Config.WebhookURL, secret)
 	if err != nil {
 		return fmt.Errorf("while creating webhook: %s", err)
 	}
@@ -87,7 +77,7 @@ func (h *LifecycleHandler) handleAddedRepository(repo *gh.Repository, installati
 		Repository:     name,
 		WebhookID:      fmt.Sprintf("%d", hook.GetID()),
 		WebhookSecret:  secret,
-		InstallationID: strconv.Itoa(id),
+		InstallationID: strconv.Itoa(h.Config.InstallID),
 	})
 
 	if err != nil {
@@ -99,14 +89,10 @@ func (h *LifecycleHandler) handleAddedRepository(repo *gh.Repository, installati
 	return nil
 }
 
-func (h *LifecycleHandler) handleRemovedRepository(repo *gh.Repository, installation *gh.Installation) error {
+func (h *LifecycleHandler) handleRemovedRepository(repo *gh.Repository) error {
 	name := repo.GetFullName()
 
 	h.log.Infof("Removing configuration for repository %s", name)
-
-	if installation == nil {
-		return fmt.Errorf("empty installation object for %s, cannot remove data", name)
-	}
 
 	// At this point, we would really like to delete the webhook that the integration
 	// automatically created upon registration. Unfortunately, we have already lost access.
@@ -142,8 +128,7 @@ func (h *LifecycleHandler) handleRemovedRepository(repo *gh.Repository, installa
 
 func (h *LifecycleHandler) handleAddedRepositories() error {
 	for _, repo := range h.installRequest.RepositoriesAdded {
-		installation := h.installRequest.GetInstallation()
-		if err := h.handleAddedRepository(repo, installation); err != nil {
+		if err := h.handleAddedRepository(repo); err != nil {
 			return err
 		}
 	}
@@ -152,8 +137,7 @@ func (h *LifecycleHandler) handleAddedRepositories() error {
 
 func (h *LifecycleHandler) handleRemovedRepositories() error {
 	for _, repo := range h.installRequest.RepositoriesRemoved {
-		installation := h.installRequest.GetInstallation()
-		if err := h.handleRemovedRepository(repo, installation); err != nil {
+		if err := h.handleRemovedRepository(repo); err != nil {
 			return err
 		}
 	}

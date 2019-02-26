@@ -6,6 +6,7 @@ type Config struct {
 	LogLevel      string
 	WebhookURL    string
 	ApplicationID int
+	InstallID     int
 	KeyFile       string
 	VaultAddress  string
 	VaultPath     string
@@ -20,6 +21,7 @@ func DefaultConfig() *Config {
 		LogLevel:      "debug",
 		WebhookURL:    "https://hookd/events",
 		ApplicationID: 0,
+		InstallID:     0,
 		KeyFile:       "private-key.pem",
 		VaultAddress:  "http://localhost:8200",
 		VaultPath:     "/cubbyhole/hookd",

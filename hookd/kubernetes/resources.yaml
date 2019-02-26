@@ -63,6 +63,8 @@ spec:
         image: navikt/hookd:latest
         command:
           - /app/hookd
+          - --install-id
+          - "596745"
           - --app-id
           - "23867"
           - --webhook-url

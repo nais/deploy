@@ -12,16 +12,18 @@ import (
 )
 
 type Handler struct {
-	w             http.ResponseWriter
-	r             *http.Request
-	data          []byte
-	log           *log.Entry
-	eventType     string
-	deliveryID    string
-	Config        config.Config
-	SecretClient  *secrets.Client
-	KafkaProducer sarama.SyncProducer
-	KafkaTopic    string
+	w                        http.ResponseWriter
+	r                        *http.Request
+	data                     []byte
+	log                      *log.Entry
+	eventType                string
+	deliveryID               string
+	Config                   config.Config
+	SecretClient             *secrets.Client
+	KafkaProducer            sarama.SyncProducer
+	KafkaTopic               string
+	GithubClient             *gh.Client
+	GithubInstallationClient *gh.Client
 }
 
 func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize func() error, secretToken func() (string, error)) error {

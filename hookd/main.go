@@ -5,6 +5,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/config"
+	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/secrets"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	log "github.com/sirupsen/logrus"
@@ -21,6 +22,7 @@ func init() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringVar(&cfg.WebhookURL, "webhook-url", cfg.WebhookURL, "Externally available URL to events endpoint.")
 	flag.IntVar(&cfg.ApplicationID, "app-id", cfg.ApplicationID, "Github App ID.")
+	flag.IntVar(&cfg.InstallID, "install-id", cfg.InstallID, "Github App installation ID.")
 	flag.StringVar(&cfg.KeyFile, "key-file", cfg.KeyFile, "Path to PEM key owned by Github App.")
 	flag.StringVar(&cfg.VaultAddress, "vault-address", cfg.VaultAddress, "Address to Vault HTTP API.")
 	flag.StringVar(&cfg.VaultPath, "vault-path", cfg.VaultPath, "Base path to hookd data in Vault.")
@@ -52,18 +54,30 @@ func run() error {
 		return fmt.Errorf("while configuring Kafka: %s", err)
 	}
 
+	githubClient, err := github.ApplicationClient(cfg.ApplicationID, cfg.KeyFile)
+	if err != nil {
+		return fmt.Errorf("cannot instantiate Github installation client: %s", err)
+	}
+
+	installationClient, err := github.InstallationClient(cfg.ApplicationID, cfg.InstallID, cfg.KeyFile)
+	if err != nil {
+		return fmt.Errorf("cannot instantiate Github installation client: %s", err)
+	}
+
 	baseHandler := server.Handler{
-		Config:        *cfg,
-		SecretClient:  secretClient,
-		KafkaProducer: kafka,
-		KafkaTopic:    cfg.KafkaTopic,
+		Config:                   *cfg,
+		SecretClient:             secretClient,
+		KafkaProducer:            kafka,
+		KafkaTopic:               cfg.KafkaTopic,
+		GithubClient:             githubClient,
+		GithubInstallationClient: installationClient,
 	}
 	http.Handle("/register/repository", &server.LifecycleHandler{Handler: baseHandler})
 	http.Handle("/events", &server.DeploymentHandler{Handler: baseHandler})
-	server := &http.Server{
+	srv := &http.Server{
 		Addr: cfg.ListenAddress,
 	}
-	return server.ListenAndServe()
+	return srv.ListenAndServe()
 }
 
 func main() {
