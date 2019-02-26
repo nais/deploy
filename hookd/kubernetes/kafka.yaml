@@ -41,6 +41,10 @@ spec:
       name: hookd-kafka
       namespace: nais
     spec:
+      hostAliases:
+        - ip: "127.0.0.1"
+          hostnames:
+            - "hookd-kafka"
       containers:
       - image: spotify/kafka:latest
         imagePullPolicy: Always
