@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/bsm/sarama-cluster"
 	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/logging"
@@ -18,28 +19,31 @@ var cfg = config.DefaultConfig()
 func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
-	flag.StringSliceVar(&cfg.KafkaBrokers, "kafka-brokers", cfg.KafkaBrokers, "Comma-separated list of Kafka brokers, HOST:PORT.")
-	flag.StringVar(&cfg.KafkaTopic, "kafka-topic", cfg.KafkaTopic, "Kafka topic for deployd communication.")
+	flag.StringSliceVar(&cfg.Kafka.Brokers, "kafka-brokers", cfg.Kafka.Brokers, "Comma-separated list of Kafka brokers, HOST:PORT.")
+	flag.StringVar(&cfg.Kafka.Topic, "kafka-topic", cfg.Kafka.Topic, "Kafka topic for deployd communication.")
+	flag.StringVar(&cfg.Kafka.ClientID, "kafka-client-id", cfg.Kafka.ClientID, "Kafka client ID.")
+	flag.StringVar(&cfg.Kafka.GroupID, "kafka-group-id", cfg.Kafka.GroupID, "Kafka consumer group ID.")
 }
 
 func run() error {
 	flag.Parse()
 
+	sarama.Logger = log.New()
+
 	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
 		return err
 	}
 
-	consumer, err := sarama.NewConsumer(cfg.KafkaBrokers, nil)
-	if err != nil {
-		return err
-	}
-	partitionConsumer, err := consumer.ConsumePartition(cfg.KafkaTopic, 0, sarama.OffsetNewest)
+	kafkacfg := cluster.NewConfig()
+	kafkacfg.ClientID = cfg.Kafka.ClientID
+	kafkacfg.Consumer.Offsets.Initial = sarama.OffsetOldest
+	consumer, err := cluster.NewConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID, []string{cfg.Kafka.Topic}, kafkacfg)
 	if err != nil {
 		return err
 	}
 
 	defer func() {
-		if err := partitionConsumer.Close(); err != nil {
+		if err := consumer.Close(); err != nil {
 			log.Fatalln(err)
 		}
 	}()
@@ -52,17 +56,25 @@ func run() error {
 ConsumerLoop:
 	for {
 		select {
-		case msg := <-partitionConsumer.Messages():
+		case msg := <-consumer.Messages():
 			log.Printf("Consumed message offset %d\n", msg.Offset)
 			consumed++
 
 			deploymentRequest := &deployment.DeploymentRequest{}
 			err := proto.Unmarshal(msg.Value, deploymentRequest)
 			if err != nil {
-				log.Error(err)
+				log.Error(fmt.Errorf("while decoding Protobuf: %s", err))
+				consumer.MarkOffset(msg, "")
 				continue
 			}
 			fmt.Println(deploymentRequest.String())
+			consumer.MarkOffset(msg, "")
+
+		case err = <-consumer.Errors():
+			log.Errorf("kafka error: %s", err)
+
+		case notif := <-consumer.Notifications():
+			log.Warnf("kafka notification: %+v", notif)
 
 		case <-signals:
 			break ConsumerLoop
