@@ -79,23 +79,6 @@ func messageHandler(msg Message) error {
 	return nil
 }
 
-type DebugLogger struct {
-	Logger *log.Logger
-	Level  log.Level
-}
-
-func (d *DebugLogger) Print(v ...interface{}) {
-	d.Logger.Log(d.Level, v...)
-}
-
-func (d *DebugLogger) Printf(format string, v ...interface{}) {
-	d.Logger.Logf(d.Level, format, v...)
-}
-
-func (d *DebugLogger) Println(v ...interface{}) {
-	d.Logger.Logln(d.Level, v...)
-}
-
 func run() error {
 	flag.Parse()
 
@@ -113,7 +96,7 @@ func run() error {
 	log.Infof("kafka consumer group: %s", cfg.Kafka.GroupID)
 	log.Infof("kafka brokers: %+v", cfg.Kafka.Brokers)
 
-	sarama.Logger = &DebugLogger{Logger: kafkaLogger, Level: kafkaLogger.GetLevel()}
+	sarama.Logger = kafkaLogger
 
 	// Instantiate a Kafka client operating in consumer group mode,
 	// starting from the oldest unread offset.
