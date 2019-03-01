@@ -86,6 +86,9 @@ func (c *Client) InstallationSecret(repository string) (InstallationSecret, erro
 	if err != nil {
 		return is, err
 	}
+	if secret == nil {
+		return is, fmt.Errorf("unable to locate secret: %s", path)
+	}
 	is.Repository = repository
 	is.InstallationID, err = tostring(secret.Data[installationIDKey])
 	if err != nil {
