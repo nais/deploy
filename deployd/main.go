@@ -12,6 +12,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"os"
 	"os/signal"
+	"time"
 )
 
 var cfg = config.DefaultConfig()
@@ -25,6 +26,7 @@ type Message struct {
 func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
+	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
 	flag.StringSliceVar(&cfg.Kafka.Brokers, "kafka-brokers", cfg.Kafka.Brokers, "Comma-separated list of Kafka brokers, HOST:PORT.")
 	flag.StringVar(&cfg.Kafka.Topic, "kafka-topic", cfg.Kafka.Topic, "Kafka topic for deployd communication.")
 	flag.StringVar(&cfg.Kafka.ClientID, "kafka-client-id", cfg.Kafka.ClientID, "Kafka client ID.")
@@ -52,7 +54,7 @@ func consumerLoop(consumer *cluster.Consumer, messages chan<- Message) {
 				}),
 			}
 
-			msg.Logger.Trace("Received incoming message")
+			msg.Logger.Trace("received incoming message")
 
 			err := proto.Unmarshal(m.Value, &msg.Request)
 			if err != nil {
@@ -74,8 +76,46 @@ func consumerLoop(consumer *cluster.Consumer, messages chan<- Message) {
 	}
 }
 
+type MessageFilter func(Message) error
+
+func matchesCluster(msg Message) error {
+	if msg.Request.GetCluster() != cfg.Cluster {
+		return fmt.Errorf("request is for cluster %s, not %s", msg.Request.Cluster, cfg.Cluster)
+	}
+	return nil
+}
+
+func meetsDeadline(msg Message) error {
+	deadline := time.Unix(msg.Request.GetDeadline(), 0)
+	late := time.Since(deadline)
+	if late > 0 {
+		return fmt.Errorf("deadline exceeded by %s", late.String())
+	}
+	return nil
+}
+
+func messageFilter(msg Message, filters []MessageFilter) error {
+	for _, f := range filters {
+		if err := f(msg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func messageHandler(msg Message) error {
 	msg.Logger.Debug(msg.Request.String())
+
+	err := messageFilter(msg, []MessageFilter{
+		meetsDeadline,
+		matchesCluster,
+	})
+	if err != nil {
+		return err
+	}
+
+	msg.Logger.Infof("deployment request accepted")
+
 	return nil
 }
 
@@ -126,8 +166,11 @@ func run() error {
 	for {
 		select {
 		case msg := <-messages:
-			msg.Logger.Debug(msg.Request.String())
-			// consumer.MarkOffset(m, "")
+			err := messageHandler(msg)
+			if err != nil {
+				msg.Logger.Errorf("while handling deployment request: %s", err)
+			}
+			consumer.MarkOffset(&msg.KafkaMessage, "")
 
 		case <-signals:
 			return nil

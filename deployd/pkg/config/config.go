@@ -17,6 +17,7 @@ type Kafka struct {
 type Config struct {
 	LogFormat string
 	LogLevel  string
+	Cluster   string
 	Kafka     Kafka
 }
 
@@ -32,6 +33,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		LogFormat: "text",
 		LogLevel:  "debug",
+		Cluster:   "local",
 		Kafka: Kafka{
 			Verbosity: "trace",
 			Brokers:   []string{"localhost:9092"},
