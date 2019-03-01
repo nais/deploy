@@ -47,3 +47,19 @@ The validation part is done by checking if the signature attached to the deploym
 
 ## deployd
 TODO: write docs
+
+## Setting up
+
+### Vault
+
+Create a Vault secret under `/cubbyhole/hookd/_application` (or change it by running hookd with `--vault-path <path>`) with the following data:
+
+```
+{
+    "webhookSecret": "7EW2btdDxS0TZQXlPKJueGavzmg6TWcpEzZG5MIou9W3h2E4cZJ2lJJyp9vm1foE",
+}
+```
+
+Configure the GitHub application with the same webhook secret. This configuration is located at https://github.com/organizations/navikt/settings/apps/nav-deployment.
+
+Create a machine token so that `hookd` can read and write to `/cubbyhole/hookd`. This token must be exported to `hookd` using the `VAULT_TOKEN` environment variable.
