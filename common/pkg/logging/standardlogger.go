@@ -41,7 +41,7 @@ func New(level, format string) (*standardLogger, error) {
 	if err != nil {
 		return nil, fmt.Errorf("while setting log level: %s", err)
 	}
-	l.logger.SetLevel(l.level)
+	l.logger.SetLevel(log.GetLevel())
 
 	return l, nil
 }
