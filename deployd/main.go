@@ -63,6 +63,8 @@ func consumerLoop(consumer *cluster.Consumer, messages chan<- Message) {
 				continue
 			}
 
+			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.CorrelationID)
+
 			messages <- msg
 
 		case err := <-consumer.Errors():
