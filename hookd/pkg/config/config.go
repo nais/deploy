@@ -1,5 +1,9 @@
 package config
 
+import (
+	"github.com/navikt/deployment/common/pkg/kafka"
+)
+
 type Config struct {
 	ListenAddress string
 	LogFormat     string
@@ -10,8 +14,7 @@ type Config struct {
 	KeyFile       string
 	VaultAddress  string
 	VaultPath     string
-	KafkaBrokers  []string
-	KafkaTopic    string
+	Kafka         kafka.Config
 }
 
 func DefaultConfig() *Config {
@@ -25,7 +28,6 @@ func DefaultConfig() *Config {
 		KeyFile:       "private-key.pem",
 		VaultAddress:  "http://localhost:8200",
 		VaultPath:     "/cubbyhole/hookd",
-		KafkaBrokers:  []string{"localhost:9092"},
-		KafkaTopic:    "deploymentRequest",
+		Kafka:         kafka.DefaultConfig(),
 	}
 }
