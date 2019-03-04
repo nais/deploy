@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
-	"github.com/bsm/sarama-cluster"
 	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
@@ -35,50 +34,6 @@ func init() {
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
 
 	kafka.SetupFlags(&cfg.Kafka)
-}
-
-func consumerLoop(consumer *cluster.Consumer, messages chan<- Message) {
-	log.Info("starting up Kafka consumer loop")
-
-	for {
-		select {
-		case m, op := <-consumer.Messages():
-			if !op {
-				log.Info("shutting down Kafka consumer loop")
-				return
-			}
-
-			msg := Message{
-				KafkaMessage: *m,
-				Logger: *log.WithFields(log.Fields{
-					"kafka_offset":    m.Offset,
-					"kafka_timestamp": m.Timestamp,
-					"kafka_topic":     m.Topic,
-				}),
-			}
-
-			msg.Logger.Trace("received incoming message")
-
-			err := proto.Unmarshal(m.Value, &msg.Request)
-			if err != nil {
-				msg.Logger.Errorf("while decoding Protobuf: %s", err)
-				consumer.MarkOffset(m, "")
-				continue
-			}
-
-			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.GetDeliveryID())
-
-			messages <- msg
-
-		case err := <-consumer.Errors():
-			if err != nil {
-				log.Errorf("kafka error: %s", err)
-			}
-
-		case notif := <-consumer.Notifications():
-			log.Warnf("kafka notification: %+v", notif)
-		}
-	}
 }
 
 type MessageFilter func(Message) error
@@ -189,31 +144,18 @@ func run() error {
 
 	sarama.Logger = kafkaLogger
 
-	// Instantiate a Kafka client operating in consumer group mode,
-	// starting from the oldest unread offset.
-	consumerCfg := cluster.NewConfig()
-	consumerCfg.ClientID = cfg.Kafka.ClientID
-	consumerCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
-	consumer, err := cluster.NewConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID, []string{cfg.Kafka.RequestTopic}, consumerCfg)
+	client, err := kafka.NewDualClient(
+		cfg.Kafka.Brokers,
+		cfg.Kafka.ClientID,
+		cfg.Kafka.GroupID,
+		cfg.Kafka.RequestTopic,
+		cfg.Kafka.StatusTopic,
+	)
 	if err != nil {
-		return fmt.Errorf("while setting up Kafka consumer: %s", err)
+		return fmt.Errorf("while setting up Kafka: %s", err)
 	}
 
-	// Retrieve messages from Kafka in the background
-	messages := make(chan Message, 1024)
-	go consumerLoop(consumer, messages)
-
-	defer func() {
-		close(messages)
-		if err := consumer.Close(); err != nil {
-			log.Error("unable to shut down Kafka consumer: %s", err)
-		}
-	}()
-
-	producer, err := sarama.NewSyncProducer(cfg.Kafka.Brokers, nil)
-	if err != nil {
-		return fmt.Errorf("while setting up Kafka producer: %s", err)
-	}
+	go client.ConsumerLoop()
 
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
@@ -221,13 +163,34 @@ func run() error {
 
 	for {
 		select {
-		case msg := <-messages:
-			handler := Handler{
-				Message:  msg,
-				Producer: producer,
+		case m := <-client.RecvQ:
+			msg := Message{
+				KafkaMessage: m,
+				Logger: *log.WithFields(log.Fields{
+					"kafka_offset":    m.Offset,
+					"kafka_timestamp": m.Timestamp,
+					"kafka_topic":     m.Topic,
+				}),
 			}
 
-			err := handler.Handle()
+			msg.Logger.Trace("received incoming message")
+
+			err := proto.Unmarshal(m.Value, &msg.Request)
+			if err != nil {
+				msg.Logger.Errorf("while decoding Protobuf: %s", err)
+				client.Consumer.MarkOffset(&m, "")
+				continue
+			}
+
+			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.GetDeliveryID())
+
+			handler := Handler{
+				Message:  msg,
+				Producer: client.Producer,
+			}
+
+			err = handler.Handle()
+
 			if err == nil {
 				err = handler.SendSuccess()
 			} else {
@@ -239,7 +202,7 @@ func run() error {
 				handler.Message.Logger.Errorf("while transmitting deployment status back to sender: %s")
 			}
 
-			consumer.MarkOffset(&msg.KafkaMessage, "")
+			client.Consumer.MarkOffset(&msg.KafkaMessage, "")
 
 		case <-signals:
 			return nil
