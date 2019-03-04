@@ -7,11 +7,12 @@ import (
 )
 
 type Kafka struct {
-	Brokers   []string
-	Topic     string
-	ClientID  string
-	GroupID   string
-	Verbosity string
+	Brokers      []string
+	RequestTopic string
+	StatusTopic  string
+	ClientID     string
+	GroupID      string
+	Verbosity    string
 }
 
 type Config struct {
@@ -35,11 +36,12 @@ func DefaultConfig() *Config {
 		LogLevel:  "debug",
 		Cluster:   "local",
 		Kafka: Kafka{
-			Verbosity: "trace",
-			Brokers:   []string{"localhost:9092"},
-			Topic:     "deployments",
-			ClientID:  defaultGroup,
-			GroupID:   defaultGroup,
+			Verbosity:    "trace",
+			Brokers:      []string{"localhost:9092"},
+			RequestTopic: "deploymentRequest",
+			StatusTopic:  "deploymentStatus",
+			ClientID:     defaultGroup,
+			GroupID:      defaultGroup,
 		},
 	}
 }

@@ -23,12 +23,18 @@ type Message struct {
 	Logger       log.Entry
 }
 
+type Handler struct {
+	Message  Message
+	Producer sarama.SyncProducer
+}
+
 func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
 	flag.StringSliceVar(&cfg.Kafka.Brokers, "kafka-brokers", cfg.Kafka.Brokers, "Comma-separated list of Kafka brokers, HOST:PORT.")
-	flag.StringVar(&cfg.Kafka.Topic, "kafka-topic", cfg.Kafka.Topic, "Kafka topic for deployd communication.")
+	flag.StringVar(&cfg.Kafka.RequestTopic, "kafka-topic-request", cfg.Kafka.RequestTopic, "Kafka topic where deployment requests are queued.")
+	flag.StringVar(&cfg.Kafka.StatusTopic, "kafka-topic-status", cfg.Kafka.StatusTopic, "Kafka topic where deployment statuses are submitted.")
 	flag.StringVar(&cfg.Kafka.ClientID, "kafka-client-id", cfg.Kafka.ClientID, "Kafka client ID.")
 	flag.StringVar(&cfg.Kafka.GroupID, "kafka-group-id", cfg.Kafka.GroupID, "Kafka consumer group ID.")
 	flag.StringVar(&cfg.Kafka.Verbosity, "kafka-log-verbosity", cfg.Kafka.Verbosity, "Log verbosity for Kafka client.")
@@ -58,12 +64,12 @@ func consumerLoop(consumer *cluster.Consumer, messages chan<- Message) {
 
 			err := proto.Unmarshal(m.Value, &msg.Request)
 			if err != nil {
-				msg.Logger.Error("while decoding Protobuf: %s", err)
+				msg.Logger.Errorf("while decoding Protobuf: %s", err)
 				consumer.MarkOffset(m, "")
 				continue
 			}
 
-			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.CorrelationID)
+			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.GetDeliveryID())
 
 			messages <- msg
 
@@ -105,10 +111,10 @@ func messageFilter(msg Message, filters []MessageFilter) error {
 	return nil
 }
 
-func messageHandler(msg Message) error {
-	msg.Logger.Debug(msg.Request.String())
+func (h *Handler) Handle() error {
+	h.Message.Logger.Debug(h.Message.Request.String())
 
-	err := messageFilter(msg, []MessageFilter{
+	err := messageFilter(h.Message, []MessageFilter{
 		meetsDeadline,
 		matchesCluster,
 	})
@@ -116,9 +122,53 @@ func messageHandler(msg Message) error {
 		return err
 	}
 
-	msg.Logger.Infof("deployment request accepted")
+	h.Message.Logger.Infof("deployment request accepted")
 
 	return nil
+}
+
+func (h *Handler) SendDeploymentStatus(status *deployment.DeploymentStatus) error {
+	payload, err := proto.Marshal(status)
+	if err != nil {
+		return fmt.Errorf("while marshalling response Protobuf message: %s", err)
+	}
+
+	reply := &sarama.ProducerMessage{
+		Topic:     cfg.Kafka.StatusTopic,
+		Timestamp: time.Now(),
+		Value:     sarama.StringEncoder(payload),
+	}
+
+	_, offset, err := h.Producer.SendMessage(reply)
+	if err != nil {
+		return fmt.Errorf("while sending reply over Kafka: %s", err)
+	}
+
+	h.Message.Logger.WithFields(log.Fields{
+		"kafka_offset":    offset,
+		"kafka_topic":     reply.Topic,
+		"kafka_timestamp": reply.Timestamp,
+	}).Infof("deployment response sent successfully")
+
+	return nil
+}
+
+func (h *Handler) SendFailure(handlerError error) error {
+	status := &deployment.DeploymentStatus{
+		Deployment:  h.Message.Request.Deployment,
+		Description: fmt.Sprintf("deployment failed: %s", handlerError),
+		State:       deployment.GithubDeploymentState_failure,
+	}
+	return h.SendDeploymentStatus(status)
+}
+
+func (h *Handler) SendSuccess() error {
+	status := &deployment.DeploymentStatus{
+		Deployment:  h.Message.Request.Deployment,
+		Description: fmt.Sprintf("deployment succeeded"),
+		State:       deployment.GithubDeploymentState_success,
+	}
+	return h.SendDeploymentStatus(status)
 }
 
 func run() error {
@@ -134,18 +184,20 @@ func run() error {
 	}
 
 	log.Infof("deployd starting up")
-	log.Infof("kafka topic: %s", cfg.Kafka.Topic)
-	log.Infof("kafka consumer group: %s", cfg.Kafka.GroupID)
-	log.Infof("kafka brokers: %+v", cfg.Kafka.Brokers)
+	log.Infof("cluster.................: %s", cfg.Cluster)
+	log.Infof("kafka topic for requests: %s", cfg.Kafka.RequestTopic)
+	log.Infof("kafka topic for statuses: %s", cfg.Kafka.StatusTopic)
+	log.Infof("kafka consumer group....: %s", cfg.Kafka.GroupID)
+	log.Infof("kafka brokers...........: %+v", cfg.Kafka.Brokers)
 
 	sarama.Logger = kafkaLogger
 
 	// Instantiate a Kafka client operating in consumer group mode,
 	// starting from the oldest unread offset.
-	kafkacfg := cluster.NewConfig()
-	kafkacfg.ClientID = cfg.Kafka.ClientID
-	kafkacfg.Consumer.Offsets.Initial = sarama.OffsetOldest
-	consumer, err := cluster.NewConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID, []string{cfg.Kafka.Topic}, kafkacfg)
+	consumerCfg := cluster.NewConfig()
+	consumerCfg.ClientID = cfg.Kafka.ClientID
+	consumerCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
+	consumer, err := cluster.NewConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID, []string{cfg.Kafka.RequestTopic}, consumerCfg)
 	if err != nil {
 		return fmt.Errorf("while setting up Kafka consumer: %s", err)
 	}
@@ -161,6 +213,11 @@ func run() error {
 		}
 	}()
 
+	producer, err := sarama.NewSyncProducer(cfg.Kafka.Brokers, nil)
+	if err != nil {
+		return fmt.Errorf("while setting up Kafka producer: %s", err)
+	}
+
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
@@ -168,10 +225,23 @@ func run() error {
 	for {
 		select {
 		case msg := <-messages:
-			err := messageHandler(msg)
-			if err != nil {
-				msg.Logger.Errorf("while handling deployment request: %s", err)
+			handler := Handler{
+				Message:  msg,
+				Producer: producer,
 			}
+
+			err := handler.Handle()
+			if err == nil {
+				err = handler.SendSuccess()
+			} else {
+				handler.Message.Logger.Errorf("while deploying: %s", err)
+				err = handler.SendFailure(err)
+			}
+
+			if err != nil {
+				handler.Message.Logger.Errorf("while transmitting deployment status back to sender: %s")
+			}
+
 			consumer.MarkOffset(&msg.KafkaMessage, "")
 
 		case <-signals:
