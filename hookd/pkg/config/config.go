@@ -26,6 +26,6 @@ func DefaultConfig() *Config {
 		VaultAddress:  "http://localhost:8200",
 		VaultPath:     "/cubbyhole/hookd",
 		KafkaBrokers:  []string{"localhost:9092"},
-		KafkaTopic:    "deployments",
+		KafkaTopic:    "deploymentRequest",
 	}
 }

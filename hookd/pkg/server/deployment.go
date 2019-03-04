@@ -44,10 +44,10 @@ func (h *DeploymentHandler) kafkaPayload() (*types.DeploymentRequest, error) {
 			},
 			DeploymentID: deployment.GetID(),
 		},
-		CorrelationID: h.deliveryID,
-		Cluster:       deployment.GetEnvironment(),
-		Timestamp:     time.Now().Unix(),
-		Deadline:      time.Now().Add(time.Minute).Unix(),
+		DeliveryID: h.deliveryID,
+		Cluster:    deployment.GetEnvironment(),
+		Timestamp:  time.Now().Unix(),
+		Deadline:   time.Now().Add(time.Minute).Unix(),
 	}, nil
 }
 
@@ -57,8 +57,9 @@ func (h *DeploymentHandler) kafkaPublish(req *types.DeploymentRequest) error {
 		return fmt.Errorf("while marshalling json: %s", err)
 	}
 	msg := sarama.ProducerMessage{
-		Topic: h.KafkaTopic,
-		Value: sarama.StringEncoder(payload),
+		Topic:     h.KafkaTopic,
+		Value:     sarama.StringEncoder(payload),
+		Timestamp: time.Unix(req.GetTimestamp(), 0),
 	}
 	_, _, err = h.KafkaProducer.SendMessage(&msg)
 	if err != nil {
