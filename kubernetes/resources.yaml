@@ -75,8 +75,6 @@ spec:
           - "http://hookd-vault.nais.svc.nais.local:8200/"
           - --kafka-brokers
           - "hookd-kafka:9092"
-          - --kafka-topic
-          - "deploymentRequest"
         imagePullPolicy: Always
         name: hookd
         ports:

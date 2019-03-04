@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
+	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
@@ -14,6 +15,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"net/http"
 	"os"
+	"os/signal"
 )
 
 type Message struct {
@@ -70,7 +72,7 @@ func run() error {
 
 	sarama.Logger = kafkaLogger
 
-	kafka, err := kafka.NewDualClient(
+	kafkaClient, err := kafka.NewDualClient(
 		cfg.Kafka.Brokers,
 		cfg.Kafka.ClientID,
 		cfg.Kafka.GroupID,
@@ -80,6 +82,8 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("while setting up Kafka: %s", err)
 	}
+
+	go kafkaClient.ConsumerLoop()
 
 	githubClient, err := github.ApplicationClient(cfg.ApplicationID, cfg.KeyFile)
 	if err != nil {
@@ -94,18 +98,68 @@ func run() error {
 	baseHandler := server.Handler{
 		Config:                   *cfg,
 		SecretClient:             secretClient,
-		KafkaProducer:            kafka.Producer,
+		KafkaProducer:            kafkaClient.Producer,
 		KafkaTopic:               cfg.Kafka.RequestTopic,
 		GithubClient:             githubClient,
 		GithubInstallationClient: installationClient,
 	}
-	http.Handle("/register/repository", &server.LifecycleHandler{Handler: baseHandler})
-	http.Handle("/events", &server.DeploymentHandler{Handler: baseHandler})
+
+	lifecycleHandler := &server.LifecycleHandler{Handler: baseHandler}
+	deploymentHandler := &server.DeploymentHandler{Handler: baseHandler}
+
+	http.Handle("/register/repository", lifecycleHandler)
+	http.Handle("/events", deploymentHandler)
 	srv := &http.Server{
 		Addr: cfg.ListenAddress,
 	}
 
-	return srv.ListenAndServe()
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	// Trap SIGINT to trigger a shutdown.
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
+
+	for {
+		select {
+		case m := <-kafkaClient.RecvQ:
+			msg := Message{
+				KafkaMessage: m,
+				Logger: *log.WithFields(log.Fields{
+					"kafka_offset":    m.Offset,
+					"kafka_timestamp": m.Timestamp,
+					"kafka_topic":     m.Topic,
+				}),
+			}
+
+			msg.Logger.Trace("received incoming message")
+
+			err := proto.Unmarshal(m.Value, &msg.Status)
+			if err != nil {
+				msg.Logger.Errorf("while decoding Protobuf: %s", err)
+				kafkaClient.Consumer.MarkOffset(&m, "")
+				continue
+			}
+
+			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Status.GetDeliveryID())
+
+			status, _, err := github.CreateDeploymentStatus(installationClient, &msg.Status)
+			if err == nil {
+				msg.Logger.Infof("created GitHub deployment status %d in repository %s", status.GetID(), status.GetRepositoryURL())
+			} else {
+				msg.Logger.Errorf("while sending deployment status to Github: %s", err)
+			}
+
+			kafkaClient.Consumer.MarkOffset(&msg.KafkaMessage, "")
+
+		case <-signals:
+			return nil
+		}
+	}
 }
 
 func main() {

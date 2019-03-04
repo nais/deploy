@@ -110,6 +110,7 @@ func (h *Handler) SendFailure(handlerError error) error {
 		Deployment:  h.Message.Request.Deployment,
 		Description: fmt.Sprintf("deployment failed: %s", handlerError),
 		State:       deployment.GithubDeploymentState_failure,
+		DeliveryID:  h.Message.Request.GetDeliveryID(),
 	}
 	return h.SendDeploymentStatus(status)
 }
@@ -119,6 +120,7 @@ func (h *Handler) SendSuccess() error {
 		Deployment:  h.Message.Request.Deployment,
 		Description: fmt.Sprintf("deployment succeeded"),
 		State:       deployment.GithubDeploymentState_success,
+		DeliveryID:  h.Message.Request.GetDeliveryID(),
 	}
 	return h.SendDeploymentStatus(status)
 }

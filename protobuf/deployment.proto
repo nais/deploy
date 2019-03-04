@@ -35,4 +35,5 @@ message DeploymentStatus {
     DeploymentSpec deployment = 1;
     GithubDeploymentState state = 2;
     string description = 3;
+    string deliveryID = 4;
 }

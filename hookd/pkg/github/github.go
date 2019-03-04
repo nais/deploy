@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/bradleyfalzon/ghinstallation"
 	gh "github.com/google/go-github/v23/github"
+	types "github.com/navikt/deployment/common/pkg/deployment"
 	"net/http"
 	"strings"
 )
@@ -67,4 +68,30 @@ func DeleteHook(client *gh.Client, r gh.Repository, id int64) error {
 	}
 	_, err = client.Repositories.DeleteHook(context.Background(), owner, name, id)
 	return err
+}
+
+func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus) (*gh.DeploymentStatus, *gh.Response, error) {
+	deployment := m.GetDeployment()
+	if deployment == nil {
+		return nil, nil, fmt.Errorf("empty deployment")
+	}
+
+	repo := deployment.GetRepository()
+	if repo == nil {
+		return nil, nil, fmt.Errorf("empty repository")
+	}
+
+	state := m.GetState().String()
+	description := m.GetDescription()
+
+	return client.Repositories.CreateDeploymentStatus(
+		context.Background(),
+		repo.GetOwner(),
+		repo.GetName(),
+		deployment.GetDeploymentID(),
+		&gh.DeploymentStatusRequest{
+			State:       &state,
+			Description: &description,
+		},
+	)
 }

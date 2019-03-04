@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
@@ -96,6 +95,14 @@ func (h *DeploymentHandler) secretToken() (string, error) {
 	return secret.WebhookSecret, nil
 }
 
+func (h *DeploymentHandler) createDeploymentStatus(st *types.DeploymentStatus) error {
+	status, _, err := github.CreateDeploymentStatus(h.GithubInstallationClient, st)
+	if err == nil {
+		h.log.Infof("created GitHub deployment status %d in repository %s", status.GetID(), status.GetRepositoryURL())
+	}
+	return err
+}
+
 func (h *DeploymentHandler) postFailure(deployment *types.DeploymentSpec, err error) error {
 	return h.createDeploymentStatus(&types.DeploymentStatus{
 		Deployment:  deployment,
@@ -110,38 +117,6 @@ func (h *DeploymentHandler) postSentToKafka(deployment *types.DeploymentSpec) er
 		State:       types.GithubDeploymentState_queued,
 		Description: "deployment request has been put on the queue for further processing",
 	})
-}
-
-func (h *DeploymentHandler) createDeploymentStatus(m *types.DeploymentStatus) error {
-	deployment := m.GetDeployment()
-	if deployment == nil {
-		return fmt.Errorf("empty deployment")
-	}
-
-	repo := deployment.GetRepository()
-	if repo == nil {
-		return fmt.Errorf("empty repository")
-	}
-
-	state := m.GetState().String()
-	description := m.GetDescription()
-
-	status, _, err := h.GithubInstallationClient.Repositories.CreateDeploymentStatus(
-		context.Background(),
-		repo.GetOwner(),
-		repo.GetName(),
-		deployment.GetDeploymentID(),
-		&gh.DeploymentStatusRequest{
-			State:       &state,
-			Description: &description,
-		},
-	)
-
-	if err == nil {
-		h.log.Infof("created deployment status %d on repository %s/%s", status.GetID(), repo.GetOwner(), repo.GetName())
-	}
-
-	return err
 }
 
 func (h *DeploymentHandler) handler() (int, error) {
