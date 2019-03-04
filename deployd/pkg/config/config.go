@@ -1,47 +1,21 @@
 package config
 
 import (
-	"fmt"
-	"math/rand"
-	"os"
+	"github.com/navikt/deployment/common/pkg/kafka"
 )
-
-type Kafka struct {
-	Brokers      []string
-	RequestTopic string
-	StatusTopic  string
-	ClientID     string
-	GroupID      string
-	Verbosity    string
-}
 
 type Config struct {
 	LogFormat string
 	LogLevel  string
 	Cluster   string
-	Kafka     Kafka
-}
-
-func DefaultGroupName() string {
-	if hostname, err := os.Hostname(); err == nil {
-		return fmt.Sprintf("deployd-%s", hostname)
-	}
-	return fmt.Sprintf("deployd-%d", rand.Int())
+	Kafka     kafka.Config
 }
 
 func DefaultConfig() *Config {
-	defaultGroup := DefaultGroupName()
 	return &Config{
 		LogFormat: "text",
 		LogLevel:  "debug",
 		Cluster:   "local",
-		Kafka: Kafka{
-			Verbosity:    "trace",
-			Brokers:      []string{"localhost:9092"},
-			RequestTopic: "deploymentRequest",
-			StatusTopic:  "deploymentStatus",
-			ClientID:     defaultGroup,
-			GroupID:      defaultGroup,
-		},
+		Kafka:     kafka.DefaultConfig(),
 	}
 }

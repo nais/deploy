@@ -6,6 +6,7 @@ import (
 	"github.com/bsm/sarama-cluster"
 	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/deployd/pkg/config"
 	log "github.com/sirupsen/logrus"
@@ -32,12 +33,8 @@ func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
-	flag.StringSliceVar(&cfg.Kafka.Brokers, "kafka-brokers", cfg.Kafka.Brokers, "Comma-separated list of Kafka brokers, HOST:PORT.")
-	flag.StringVar(&cfg.Kafka.RequestTopic, "kafka-topic-request", cfg.Kafka.RequestTopic, "Kafka topic where deployment requests are queued.")
-	flag.StringVar(&cfg.Kafka.StatusTopic, "kafka-topic-status", cfg.Kafka.StatusTopic, "Kafka topic where deployment statuses are submitted.")
-	flag.StringVar(&cfg.Kafka.ClientID, "kafka-client-id", cfg.Kafka.ClientID, "Kafka client ID.")
-	flag.StringVar(&cfg.Kafka.GroupID, "kafka-group-id", cfg.Kafka.GroupID, "Kafka consumer group ID.")
-	flag.StringVar(&cfg.Kafka.Verbosity, "kafka-log-verbosity", cfg.Kafka.Verbosity, "Log verbosity for Kafka client.")
+
+	kafka.SetupFlags(&cfg.Kafka)
 }
 
 func consumerLoop(consumer *cluster.Consumer, messages chan<- Message) {
