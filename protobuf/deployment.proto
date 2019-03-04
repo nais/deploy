@@ -28,7 +28,7 @@ message DeploymentRequest {
     int64 deadline = 3;
     bytes payload = 4;
     string cluster = 5;
-    string correlationID = 6;
+    string deliveryID = 6;
 }
 
 message DeploymentStatus {
