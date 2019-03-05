@@ -23,11 +23,6 @@ type Message struct {
 	Logger       log.Entry
 }
 
-type Handler struct {
-	Message  Message
-	Producer sarama.SyncProducer
-}
-
 func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
@@ -36,11 +31,9 @@ func init() {
 	kafka.SetupFlags(&cfg.Kafka)
 }
 
-type MessageFilter func(Message) error
-
 func matchesCluster(msg Message) error {
 	if msg.Request.GetCluster() != cfg.Cluster {
-		return fmt.Errorf("request is for cluster %s, not %s", msg.Request.Cluster, cfg.Cluster)
+		return fmt.Errorf("message is addressed to cluster %s, not %s", msg.Request.Cluster, cfg.Cluster)
 	}
 	return nil
 }
@@ -54,32 +47,11 @@ func meetsDeadline(msg Message) error {
 	return nil
 }
 
-func messageFilter(msg Message, filters []MessageFilter) error {
-	for _, f := range filters {
-		if err := f(msg); err != nil {
-			return err
-		}
-	}
+func aclCheck(msg Message) error {
 	return nil
 }
 
-func (h *Handler) Handle() error {
-	h.Message.Logger.Debug(h.Message.Request.String())
-
-	err := messageFilter(h.Message, []MessageFilter{
-		meetsDeadline,
-		matchesCluster,
-	})
-	if err != nil {
-		return err
-	}
-
-	h.Message.Logger.Infof("deployment request accepted")
-
-	return nil
-}
-
-func (h *Handler) SendDeploymentStatus(status *deployment.DeploymentStatus) error {
+func SendDeploymentStatus(status *deployment.DeploymentStatus, producer sarama.SyncProducer, logger log.Entry) error {
 	payload, err := proto.Marshal(status)
 	if err != nil {
 		return fmt.Errorf("while marshalling response Protobuf message: %s", err)
@@ -91,38 +63,70 @@ func (h *Handler) SendDeploymentStatus(status *deployment.DeploymentStatus) erro
 		Value:     sarama.StringEncoder(payload),
 	}
 
-	_, offset, err := h.Producer.SendMessage(reply)
+	_, offset, err := producer.SendMessage(reply)
 	if err != nil {
 		return fmt.Errorf("while sending reply over Kafka: %s", err)
 	}
 
-	h.Message.Logger.WithFields(log.Fields{
+	logger.WithFields(log.Fields{
 		"kafka_offset":    offset,
-		"kafka_topic":     reply.Topic,
 		"kafka_timestamp": reply.Timestamp,
+		"kafka_topic":     reply.Topic,
 	}).Infof("deployment response sent successfully")
 
 	return nil
 }
 
-func (h *Handler) SendFailure(handlerError error) error {
-	status := &deployment.DeploymentStatus{
-		Deployment:  h.Message.Request.Deployment,
+func failureMessage(msg Message, handlerError error) *deployment.DeploymentStatus {
+	return &deployment.DeploymentStatus{
+		Deployment:  msg.Request.Deployment,
 		Description: fmt.Sprintf("deployment failed: %s", handlerError),
 		State:       deployment.GithubDeploymentState_failure,
-		DeliveryID:  h.Message.Request.GetDeliveryID(),
+		DeliveryID:  msg.Request.GetDeliveryID(),
 	}
-	return h.SendDeploymentStatus(status)
 }
 
-func (h *Handler) SendSuccess() error {
-	status := &deployment.DeploymentStatus{
-		Deployment:  h.Message.Request.Deployment,
+func successMessage(msg Message) *deployment.DeploymentStatus {
+	return &deployment.DeploymentStatus{
+		Deployment:  msg.Request.Deployment,
 		Description: fmt.Sprintf("deployment succeeded"),
 		State:       deployment.GithubDeploymentState_success,
-		DeliveryID:  h.Message.Request.GetDeliveryID(),
+		DeliveryID:  msg.Request.GetDeliveryID(),
 	}
-	return h.SendDeploymentStatus(status)
+}
+
+// Check conditions before deployment
+func Preflight(msg Message) error {
+	if err := meetsDeadline(msg); err != nil {
+		return err
+	}
+
+	if err := aclCheck(msg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Deploy something to Kubernetes
+func Deploy(msg Message) error {
+	msg.Logger.Infof("no-op: deploying to Kubernetes!")
+	return nil
+}
+
+func Decode(m sarama.ConsumerMessage) (Message, error) {
+	msg := Message{
+		KafkaMessage: m,
+		Logger:       kafka.ConsumerMessageLogger(&m),
+	}
+
+	if err := proto.Unmarshal(m.Value, &msg.Request); err != nil {
+		return msg, fmt.Errorf("while decoding Protobuf: %s", err)
+	}
+
+	msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.GetDeliveryID())
+
+	return msg, nil
 }
 
 func run() error {
@@ -166,45 +170,44 @@ func run() error {
 	for {
 		select {
 		case m := <-client.RecvQ:
-			msg := Message{
-				KafkaMessage: m,
-				Logger: *log.WithFields(log.Fields{
-					"kafka_offset":    m.Offset,
-					"kafka_timestamp": m.Timestamp,
-					"kafka_topic":     m.Topic,
-				}),
-			}
-
-			msg.Logger.Trace("received incoming message")
-
-			err := proto.Unmarshal(m.Value, &msg.Request)
+			// Decode Kafka payload into Protobuf with logging metadata
+			msg, err := Decode(m)
 			if err != nil {
-				msg.Logger.Errorf("while decoding Protobuf: %s", err)
+				msg.Logger.Trace(err)
 				client.Consumer.MarkOffset(&m, "")
 				continue
 			}
 
-			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.GetDeliveryID())
+			msg.Logger.Tracef("incoming request: %s", msg.Request.String())
 
-			handler := Handler{
-				Message:  msg,
-				Producer: client.Producer,
+			// Check if we are the authoritative handler for this message
+			if err = matchesCluster(msg); err != nil {
+				msg.Logger.Trace(err)
+				client.Consumer.MarkOffset(&m, "")
+				continue
 			}
 
-			err = handler.Handle()
-
+			err = Preflight(msg)
 			if err == nil {
-				err = handler.SendSuccess()
+				msg.Logger.Infof("deployment request accepted")
+				err = Deploy(msg)
 			} else {
-				handler.Message.Logger.Errorf("while deploying: %s", err)
-				err = handler.SendFailure(err)
+				msg.Logger.Warn("deployment request rejected: %s", err)
 			}
 
+			var status *deployment.DeploymentStatus
+			if err == nil {
+				status = successMessage(msg)
+			} else {
+				status = failureMessage(msg, err)
+			}
+
+			err = SendDeploymentStatus(status, client.Producer, msg.Logger)
 			if err != nil {
-				handler.Message.Logger.Errorf("while transmitting deployment status back to sender: %s")
+				msg.Logger.Errorf("while transmitting deployment status back to sender: %s")
 			}
 
-			client.Consumer.MarkOffset(&msg.KafkaMessage, "")
+			client.Consumer.MarkOffset(&m, "")
 
 		case <-signals:
 			return nil

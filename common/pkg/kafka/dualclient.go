@@ -71,10 +71,11 @@ func (client *DualClient) ConsumerLoop() {
 	}
 }
 
-func MessageLogger(msg *sarama.ConsumerMessage) *log.Entry {
-	return log.WithFields(log.Fields{
+func ConsumerMessageLogger(msg *sarama.ConsumerMessage) log.Entry {
+	return *log.WithFields(log.Fields{
 		"kafka_offset":    msg.Offset,
 		"kafka_timestamp": msg.Timestamp,
 		"kafka_topic":     msg.Topic,
 	})
 }
+
