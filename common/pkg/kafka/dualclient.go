@@ -11,6 +11,7 @@ type DualClient struct {
 	RecvQ    chan sarama.ConsumerMessage
 	Consumer *cluster.Consumer
 	Producer sarama.SyncProducer
+	ProducerTopic string
 }
 
 func NewDualClient(brokers []string, clientID, groupID, consumerTopic, producerTopic string) (*DualClient, error) {
@@ -34,6 +35,7 @@ func NewDualClient(brokers []string, clientID, groupID, consumerTopic, producerT
 	}
 
 	client.RecvQ = make(chan sarama.ConsumerMessage, 1024)
+	client.ProducerTopic = producerTopic
 
 	return client, nil
 }
