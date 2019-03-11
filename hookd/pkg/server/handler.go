@@ -5,6 +5,7 @@ import (
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/config"
+	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
@@ -23,6 +24,7 @@ type Handler struct {
 	GithubClient             *gh.Client
 	GithubInstallationClient *gh.Client
 	SecretToken              string
+	TeamRepositoryStorage    persistence.TeamRepositoryStorage
 }
 
 func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize func() error, secretToken string) error {

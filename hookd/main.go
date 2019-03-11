@@ -9,6 +9,7 @@ import (
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -29,10 +30,18 @@ func init() {
 	flag.StringVar(&cfg.ListenAddress, "listen-address", cfg.ListenAddress, "IP:PORT")
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
+	flag.StringVar(&cfg.WebhookSecret, "webhook-secret", cfg.WebhookSecret, "Github pre-shared webhook secret key.")
 	flag.StringVar(&cfg.WebhookURL, "webhook-url", cfg.WebhookURL, "Externally available URL to events endpoint.")
 	flag.IntVar(&cfg.ApplicationID, "app-id", cfg.ApplicationID, "Github App ID.")
 	flag.IntVar(&cfg.InstallID, "install-id", cfg.InstallID, "Github App installation ID.")
 	flag.StringVar(&cfg.KeyFile, "key-file", cfg.KeyFile, "Path to PEM key owned by Github App.")
+
+	flag.StringVar(&cfg.S3.Endpoint, "s3-endpoint", cfg.S3.Endpoint, "S3 endpoint for state storage.")
+	flag.StringVar(&cfg.S3.AccessKey, "s3-access-key", cfg.S3.AccessKey, "S3 access key.")
+	flag.StringVar(&cfg.S3.SecretKey, "s3-secret-key", cfg.S3.SecretKey, "S3 secret key.")
+	flag.StringVar(&cfg.S3.BucketName, "s3-bucket-name", cfg.S3.BucketName, "S3 bucket name.")
+	flag.StringVar(&cfg.S3.BucketLocation, "s3-bucket-location", cfg.S3.BucketLocation, "S3 bucket location.")
+	flag.BoolVar(&cfg.S3.UseTLS, "s3-secure", cfg.S3.UseTLS, "Use TLS for S3 connections.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -43,13 +52,6 @@ func run() error {
 	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
 		return err
 	}
-
-	s3accessKey := os.Getenv("S3_ACCESS_KEY")
-	s3secretKey := os.Getenv("S3_SECRET_KEY")
-	githubWebhookSecret := os.Getenv("GITHUB_WEBHOOK_SECRET")
-
-	_ = s3accessKey
-	_ = s3secretKey
 
 	kafkaLogger, err := logging.New(cfg.Kafka.Verbosity, cfg.LogFormat)
 	if err != nil {
@@ -63,6 +65,19 @@ func run() error {
 	log.Infof("kafka brokers...........: %+v", cfg.Kafka.Brokers)
 
 	sarama.Logger = kafkaLogger
+
+	teamRepositoryStorage, err := persistence.NewS3StorageBackend(cfg.S3)
+	if err != nil {
+		return fmt.Errorf("while setting up S3 backend: %s", err)
+	}
+
+	/*
+	err = teamRepositoryStorage.Write("navikt/deployment", []string{"aura"})
+	log.Print(err)
+	teams, err := teamRepositoryStorage.Read("navikt/deployment")
+	log.Print(teams)
+	return err
+	*/
 
 	kafkaClient, err := kafka.NewDualClient(
 		cfg.Kafka.Brokers,
@@ -91,9 +106,10 @@ func run() error {
 		Config:                   *cfg,
 		KafkaProducer:            kafkaClient.Producer,
 		KafkaTopic:               cfg.Kafka.RequestTopic,
-		SecretToken:              githubWebhookSecret,
+		SecretToken:              cfg.WebhookSecret,
 		GithubClient:             githubClient,
 		GithubInstallationClient: installationClient,
+		TeamRepositoryStorage:    teamRepositoryStorage,
 	}
 
 	deploymentHandler := &server.DeploymentHandler{Handler: baseHandler}
