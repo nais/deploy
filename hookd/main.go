@@ -104,10 +104,8 @@ func run() error {
 		GithubInstallationClient: installationClient,
 	}
 
-	lifecycleHandler := &server.LifecycleHandler{Handler: baseHandler}
 	deploymentHandler := &server.DeploymentHandler{Handler: baseHandler}
 
-	http.Handle("/register/repository", lifecycleHandler)
 	http.Handle("/events", deploymentHandler)
 	srv := &http.Server{
 		Addr: cfg.ListenAddress,
