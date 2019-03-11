@@ -12,8 +12,6 @@ type Config struct {
 	ApplicationID int
 	InstallID     int
 	KeyFile       string
-	VaultAddress  string
-	VaultPath     string
 	Kafka         kafka.Config
 }
 
@@ -26,8 +24,6 @@ func DefaultConfig() *Config {
 		ApplicationID: 0,
 		InstallID:     0,
 		KeyFile:       "private-key.pem",
-		VaultAddress:  "http://localhost:8200",
-		VaultPath:     "/cubbyhole/hookd",
 		Kafka:         kafka.DefaultConfig(),
 	}
 }

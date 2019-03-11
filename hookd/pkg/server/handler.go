@@ -5,7 +5,6 @@ import (
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/config"
-	"github.com/navikt/deployment/hookd/pkg/secrets"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
@@ -19,14 +18,14 @@ type Handler struct {
 	eventType                string
 	deliveryID               string
 	Config                   config.Config
-	SecretClient             *secrets.Client
 	KafkaProducer            sarama.SyncProducer
 	KafkaTopic               string
 	GithubClient             *gh.Client
 	GithubInstallationClient *gh.Client
+	SecretToken              string
 }
 
-func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize func() error, secretToken func() (string, error)) error {
+func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize func() error, secretToken string) error {
 	var err error
 
 	h.deliveryID = r.Header.Get("X-GitHub-Delivery")
@@ -58,13 +57,8 @@ func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize fu
 		return err
 	}
 
-	psk, err := secretToken()
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return err
-	}
 	sig := h.r.Header.Get("X-Hub-Signature")
-	err = gh.ValidateSignature(sig, h.data, []byte(psk))
+	err = gh.ValidateSignature(sig, h.data, []byte(secretToken))
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return fmt.Errorf("invalid payload signature: %s", err)
