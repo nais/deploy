@@ -7,6 +7,7 @@ import (
 	"github.com/minio/minio-go"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	log "github.com/sirupsen/logrus"
+	"io"
 )
 
 const (
@@ -57,16 +58,22 @@ func (s *s3storage) Read(repository string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("while locating s3 object: %s", err)
 	}
-	payload := make([]byte, payloadMaxSize)
-	n, err := obj.ReadAt(payload, 0)
+	stat, err := obj.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("while querying s3 object stats: %s", err)
+	}
+
+	payload := make([]byte, 0, stat.Size)
+	w := bytes.NewBuffer(payload)
+	n, err := io.CopyN(w, obj, stat.Size)
 	if err != nil {
 		return nil, fmt.Errorf("while reading from s3 bucket: %s", err)
 	}
 	log.Tracef("S3: read %d bytes from %s/%s", n, s.config.BucketName, repository)
-	log.Tracef("S3: payload was: %s", string(payload))
+	log.Tracef("S3: payload was: %s", string(w.Bytes()))
 
 	teams := make([]string, 0)
-	err = json.Unmarshal(payload, teams)
+	err = json.Unmarshal(w.Bytes(), &teams)
 	if err != nil {
 		return nil, fmt.Errorf("while unmarshalling s3 data: %s", err)
 	}

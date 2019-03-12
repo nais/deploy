@@ -71,14 +71,6 @@ func run() error {
 		return fmt.Errorf("while setting up S3 backend: %s", err)
 	}
 
-	/*
-	err = teamRepositoryStorage.Write("navikt/deployment", []string{"aura"})
-	log.Print(err)
-	teams, err := teamRepositoryStorage.Read("navikt/deployment")
-	log.Print(teams)
-	return err
-	*/
-
 	kafkaClient, err := kafka.NewDualClient(
 		cfg.Kafka.Brokers,
 		cfg.Kafka.ClientID,
