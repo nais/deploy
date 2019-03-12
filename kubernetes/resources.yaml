@@ -75,6 +75,10 @@ spec:
           - "hookd-kafka:9092"
           - --kafka-group-id
           - "hookd"
+          - --s3-endpoint
+          - "s3.nais-rook.svc.nais.local"
+          - --s3-secure
+          - "false"
         imagePullPolicy: Always
         name: hookd
         ports:
