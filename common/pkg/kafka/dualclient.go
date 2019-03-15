@@ -35,6 +35,7 @@ func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient
 	producerCfg := sarama.NewConfig()
 	producerCfg.ClientID = fmt.Sprintf("%s-producer", cfg.ClientID)
 	producerCfg.Net.SASL = consumerCfg.Net.SASL
+	producerCfg.Producer.Return.Successes = true
 	client.Producer, err = sarama.NewSyncProducer(cfg.Brokers, producerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("while setting up Kafka producer: %s", err)
