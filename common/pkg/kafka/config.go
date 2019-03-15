@@ -7,6 +7,12 @@ import (
 	"os"
 )
 
+type SASL struct {
+	Enabled  bool
+	Username string
+	Password string
+}
+
 type Config struct {
 	Brokers      []string
 	RequestTopic string
@@ -14,6 +20,7 @@ type Config struct {
 	ClientID     string
 	GroupID      string
 	Verbosity    string
+	SASL         SASL
 }
 
 func DefaultGroupName() string {
@@ -42,4 +49,7 @@ func SetupFlags(cfg *Config) {
 	flag.StringVar(&cfg.ClientID, "kafka-client-id", cfg.ClientID, "Kafka client ID.")
 	flag.StringVar(&cfg.GroupID, "kafka-group-id", cfg.GroupID, "Kafka consumer group ID.")
 	flag.StringVar(&cfg.Verbosity, "kafka-log-verbosity", cfg.Verbosity, "Log verbosity for Kafka client.")
+	flag.BoolVar(&cfg.SASL.Enabled, "kafka-sasl-enabled", cfg.SASL.Enabled, "Enable SASL authentication.")
+	flag.StringVar(&cfg.SASL.Username, "kafka-sasl-username", cfg.SASL.Username, "Username for Kafka authentication.")
+	flag.StringVar(&cfg.SASL.Password, "kafka-sasl-password", cfg.SASL.Password, "Password for Kafka authentication.")
 }

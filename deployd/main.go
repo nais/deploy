@@ -45,9 +45,7 @@ func run() error {
 	sarama.Logger = kafkaLogger
 
 	client, err := kafka.NewDualClient(
-		cfg.Kafka.Brokers,
-		cfg.Kafka.ClientID,
-		cfg.Kafka.GroupID,
+		cfg.Kafka,
 		cfg.Kafka.RequestTopic,
 		cfg.Kafka.StatusTopic,
 	)

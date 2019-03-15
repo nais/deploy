@@ -14,22 +14,28 @@ type DualClient struct {
 	ProducerTopic string
 }
 
-func NewDualClient(brokers []string, clientID, groupID, consumerTopic, producerTopic string) (*DualClient, error) {
+func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient, error) {
 	var err error
 	client := &DualClient{}
 
 	// Instantiate a Kafka client operating in consumer group mode,
 	// starting from the oldest unread offset.
 	consumerCfg := cluster.NewConfig()
-	consumerCfg.ClientID = clientID
+	consumerCfg.ClientID = fmt.Sprintf("%s-consumer", cfg.ClientID)
 	consumerCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
-	client.Consumer, err = cluster.NewConsumer(brokers, groupID, []string{consumerTopic}, consumerCfg)
+	consumerCfg.Net.SASL.Enable = cfg.SASL.Enabled
+	consumerCfg.Net.SASL.User = cfg.SASL.Username
+	consumerCfg.Net.SASL.Password = cfg.SASL.Password
+	client.Consumer, err = cluster.NewConsumer(cfg.Brokers, cfg.GroupID, []string{consumerTopic}, consumerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("while setting up Kafka consumer: %s", err)
 	}
 
 	// Instantiate another client, this one in synchronous producer mode.
-	client.Producer, err = sarama.NewSyncProducer(brokers, nil)
+	producerCfg := sarama.NewConfig()
+	producerCfg.ClientID = fmt.Sprintf("%s-producer", cfg.ClientID)
+	producerCfg.Net.SASL = consumerCfg.Net.SASL
+	client.Producer, err = sarama.NewSyncProducer(cfg.Brokers, producerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("while setting up Kafka producer: %s", err)
 	}

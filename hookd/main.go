@@ -72,9 +72,7 @@ func run() error {
 	}
 
 	kafkaClient, err := kafka.NewDualClient(
-		cfg.Kafka.Brokers,
-		cfg.Kafka.ClientID,
-		cfg.Kafka.GroupID,
+		cfg.Kafka,
 		cfg.Kafka.StatusTopic,
 		cfg.Kafka.RequestTopic,
 	)
