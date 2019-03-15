@@ -65,7 +65,7 @@ func run() error {
 		select {
 		case m = <-client.RecvQ:
 			if msg, err := deployd.Handle(client, m, cfg.Cluster); err != nil {
-				msg.Logger.Errorf("while transmitting deployment status back to sender: %s")
+				msg.Logger.Errorf("while transmitting deployment status back to sender: %s", err)
 			}
 
 
