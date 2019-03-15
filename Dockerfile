@@ -9,9 +9,13 @@ RUN rm -f ../go.sum
 RUN go get
 RUN go test ./...
 RUN go build -a -installsuffix cgo -o hookd
+WORKDIR /src/deployd
+RUN go get
+RUN go test ./...
+RUN go build -a -installsuffix cgo -o deployd
 
 FROM alpine:3.5
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=builder /src/hookd/hookd /app/hookd
-CMD ["/app/hookd"]
+COPY --from=builder /src/deployd/deployd /app/deployd
