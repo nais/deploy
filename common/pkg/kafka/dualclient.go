@@ -26,6 +26,7 @@ func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient
 	consumerCfg.Net.SASL.Enable = cfg.SASL.Enabled
 	consumerCfg.Net.SASL.User = cfg.SASL.Username
 	consumerCfg.Net.SASL.Password = cfg.SASL.Password
+	consumerCfg.Net.SASL.Handshake = cfg.SASL.Handshake
 	client.Consumer, err = cluster.NewConsumer(cfg.Brokers, cfg.GroupID, []string{consumerTopic}, consumerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("while setting up Kafka consumer: %s", err)
