@@ -39,6 +39,11 @@ func DefaultConfig() Config {
 		StatusTopic:  "deploymentStatus",
 		ClientID:     defaultGroup,
 		GroupID:      defaultGroup,
+		SASL: SASL{
+			Enabled:  false,
+			Username: os.Getenv("KAFKA_SASL_USERNAME"),
+			Password: os.Getenv("KAFKA_SASL_PASSWORD"),
+		},
 	}
 }
 
