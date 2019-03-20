@@ -3,7 +3,6 @@ package deployment
 import (
 	"crypto/hmac"
 	"crypto/sha512"
-	"encoding/hex"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 )
@@ -29,7 +28,7 @@ func checkMessageSignature(msg SignedMessage, key string) error {
 	sum := mksum(msg.Message, []byte(key))
 
 	if !hmac.Equal(sum, msg.Signature) {
-		return ErrSignaturesDiffer
+		return fmt.Errorf("signatures differ")
 	}
 
 	return nil
