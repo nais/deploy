@@ -117,7 +117,7 @@ func Handle(client *kafka.DualClient, m sarama.ConsumerMessage, cluster string) 
 	// Decode Kafka payload into Protobuf with logging metadata
 	msg, err := Decode(m, client.SignatureKey)
 	if err != nil {
-		msg.Logger.Trace(err)
+		msg.Logger.Errorf("unable to process message: %s", err)
 		return msg, nil
 	}
 

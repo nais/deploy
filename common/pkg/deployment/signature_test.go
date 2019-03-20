@@ -29,5 +29,5 @@ func TestSignature(t *testing.T) {
 	a.True(proto.Equal(msg, unwrapped))
 
 	err = deployment.UnwrapMessage(payload, impersonatedKey, unwrapped)
-	a.EqualError(err, deployment.ErrSignaturesDiffer.Error())
+	a.NotNil(err)
 }

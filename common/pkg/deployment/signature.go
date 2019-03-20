@@ -3,17 +3,19 @@ package deployment
 import (
 	"crypto/hmac"
 	"crypto/sha512"
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 )
 
-var ErrSignaturesDiffer = errors.New("signatures differ")
+func mksum(payload, key []byte) []byte {
+	hasher := hmac.New(sha512.New, key)
+	hasher.Write(payload)
+	return hasher.Sum(nil)
+}
 
 func signMessage(payload []byte, key string) ([]byte, error) {
-	hasher := hmac.New(sha512.New, []byte(key))
-	hasher.Write(payload)
-	sum := hasher.Sum(nil)
+	sum := mksum(payload, []byte(key))
 
 	signed := &SignedMessage{
 		Message:   payload,
@@ -24,9 +26,7 @@ func signMessage(payload []byte, key string) ([]byte, error) {
 }
 
 func checkMessageSignature(msg SignedMessage, key string) error {
-	hasher := hmac.New(sha512.New, []byte(key))
-	hasher.Write(msg.Message)
-	sum := hasher.Sum(nil)
+	sum := mksum(msg.Message, []byte(key))
 
 	if !hmac.Equal(sum, msg.Signature) {
 		return ErrSignaturesDiffer
