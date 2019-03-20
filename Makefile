@@ -15,6 +15,9 @@ hookd:
 deployd:
 	cd deployd && go build
 
+test:
+	go test ./...
+
 docker:
 	docker build -t navikt/deployment:latest .
 

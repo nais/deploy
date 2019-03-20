@@ -22,6 +22,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/sirupsen/logrus v1.3.0
 	github.com/spf13/pflag v1.0.3
+	github.com/stretchr/testify v1.2.2
 	golang.org/x/crypto v0.0.0-20190128193316-c7b33c32a30b // indirect
 	golang.org/x/net v0.0.0-20190213061140-3a22650c66bd // indirect
 	golang.org/x/sys v0.0.0-20190124100055-b90733256f2e // indirect
