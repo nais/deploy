@@ -93,7 +93,7 @@ func run() error {
 
 	baseHandler := server.Handler{
 		Config:                   *cfg,
-		KafkaProducer:            kafkaClient.Producer,
+		KafkaClient:              kafkaClient,
 		KafkaTopic:               cfg.Kafka.RequestTopic,
 		SecretToken:              cfg.WebhookSecret,
 		GithubClient:             githubClient,

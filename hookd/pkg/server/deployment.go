@@ -50,7 +50,7 @@ func (h *DeploymentHandler) kafkaPayload() (*types.DeploymentRequest, error) {
 }
 
 func (h *DeploymentHandler) kafkaPublish(req *types.DeploymentRequest) error {
-	payload, err := types.WrapMessage(req, h.Config.Kafka.SignatureKey)
+	payload, err := types.WrapMessage(req, h.KafkaClient.SignatureKey)
 	if err != nil {
 		return fmt.Errorf("while marshalling json: %s", err)
 	}
@@ -59,7 +59,7 @@ func (h *DeploymentHandler) kafkaPublish(req *types.DeploymentRequest) error {
 		Value:     sarama.StringEncoder(payload),
 		Timestamp: time.Unix(req.GetTimestamp(), 0),
 	}
-	_, _, err = h.KafkaProducer.SendMessage(&msg)
+	_, _, err = h.KafkaClient.Producer.SendMessage(&msg)
 	if err != nil {
 		return fmt.Errorf("while publishing message to Kafka: %s", err)
 	}
