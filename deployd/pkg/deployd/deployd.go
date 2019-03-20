@@ -3,7 +3,6 @@ package deployd
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
-	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	log "github.com/sirupsen/logrus"
@@ -55,7 +54,7 @@ func successMessage(msg Message) *deployment.DeploymentStatus {
 }
 
 func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.DualClient, logger log.Entry) error {
-	payload, err := proto.Marshal(status)
+	payload, err := deployment.WrapMessage(status, client.SignatureKey)
 	if err != nil {
 		return fmt.Errorf("while marshalling response Protobuf message: %s", err)
 	}
@@ -99,14 +98,14 @@ func Deploy(msg Message) error {
 	return nil
 }
 
-func Decode(m sarama.ConsumerMessage) (Message, error) {
+func Decode(m sarama.ConsumerMessage, key string) (Message, error) {
 	msg := Message{
 		KafkaMessage: m,
 		Logger:       kafka.ConsumerMessageLogger(&m),
 	}
 
-	if err := proto.Unmarshal(m.Value, &msg.Request); err != nil {
-		return msg, fmt.Errorf("while decoding Protobuf: %s", err)
+	if err := deployment.UnwrapMessage(m.Value, key, &msg.Request); err != nil {
+		return msg, err
 	}
 
 	msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.GetDeliveryID())
@@ -116,7 +115,7 @@ func Decode(m sarama.ConsumerMessage) (Message, error) {
 
 func Handle(client *kafka.DualClient, m sarama.ConsumerMessage, cluster string) (Message, error) {
 	// Decode Kafka payload into Protobuf with logging metadata
-	msg, err := Decode(m)
+	msg, err := Decode(m, client.SignatureKey)
 	if err != nil {
 		msg.Logger.Trace(err)
 		return msg, nil

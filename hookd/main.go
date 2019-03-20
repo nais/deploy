@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
-	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
@@ -134,9 +133,9 @@ func run() error {
 
 			msg.Logger.Trace("received incoming message")
 
-			err := proto.Unmarshal(m.Value, &msg.Status)
+			err := deployment.UnwrapMessage(m.Value, kafkaClient.SignatureKey, &msg.Status)
 			if err != nil {
-				msg.Logger.Errorf("while decoding Protobuf: %s", err)
+				msg.Logger.Error(err)
 				kafkaClient.Consumer.MarkOffset(&m, "")
 				continue
 			}

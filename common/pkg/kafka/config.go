@@ -21,6 +21,7 @@ type Config struct {
 	ClientID     string
 	GroupID      string
 	Verbosity    string
+	SignatureKey string
 	SASL         SASL
 }
 
@@ -38,6 +39,7 @@ func DefaultConfig() Config {
 		Brokers:      []string{"localhost:9092"},
 		RequestTopic: "deploymentRequest",
 		StatusTopic:  "deploymentStatus",
+		SignatureKey: os.Getenv("KAFKA_HMAC_KEY"),
 		ClientID:     defaultGroup,
 		GroupID:      defaultGroup,
 		SASL: SASL{
@@ -56,6 +58,7 @@ func SetupFlags(cfg *Config) {
 	flag.StringVar(&cfg.ClientID, "kafka-client-id", cfg.ClientID, "Kafka client ID.")
 	flag.StringVar(&cfg.GroupID, "kafka-group-id", cfg.GroupID, "Kafka consumer group ID.")
 	flag.StringVar(&cfg.Verbosity, "kafka-log-verbosity", cfg.Verbosity, "Log verbosity for Kafka client.")
+	flag.StringVar(&cfg.SignatureKey, "kafka-hmac-key", cfg.SignatureKey, "Pre-shared key used for Kafka message authentication (HMAC).")
 	flag.BoolVar(&cfg.SASL.Enabled, "kafka-sasl-enabled", cfg.SASL.Enabled, "Enable SASL authentication.")
 	flag.BoolVar(&cfg.SASL.Handshake, "kafka-sasl-handshake", cfg.SASL.Handshake, "Use handshake for SASL authentication.")
 	flag.StringVar(&cfg.SASL.Username, "kafka-sasl-username", cfg.SASL.Username, "Username for Kafka authentication.")

@@ -8,10 +8,11 @@ import (
 )
 
 type DualClient struct {
-	RecvQ    chan sarama.ConsumerMessage
-	Consumer *cluster.Consumer
-	Producer sarama.SyncProducer
+	RecvQ         chan sarama.ConsumerMessage
+	Consumer      *cluster.Consumer
+	Producer      sarama.SyncProducer
 	ProducerTopic string
+	SignatureKey  string
 }
 
 func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient, error) {
@@ -44,6 +45,7 @@ func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient
 
 	client.RecvQ = make(chan sarama.ConsumerMessage, 1024)
 	client.ProducerTopic = producerTopic
+	client.SignatureKey = cfg.SignatureKey
 
 	return client, nil
 }
@@ -88,4 +90,3 @@ func ConsumerMessageLogger(msg *sarama.ConsumerMessage) log.Entry {
 		"kafka_topic":     msg.Topic,
 	})
 }
-

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
-	"github.com/golang/protobuf/proto"
 	gh "github.com/google/go-github/v23/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -51,7 +50,7 @@ func (h *DeploymentHandler) kafkaPayload() (*types.DeploymentRequest, error) {
 }
 
 func (h *DeploymentHandler) kafkaPublish(req *types.DeploymentRequest) error {
-	payload, err := proto.Marshal(req)
+	payload, err := types.WrapMessage(req, h.Config.Kafka.SignatureKey)
 	if err != nil {
 		return fmt.Errorf("while marshalling json: %s", err)
 	}
