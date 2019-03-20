@@ -54,7 +54,7 @@ func (client *DualClient) ConsumerLoop() {
 	defer func() {
 		close(client.RecvQ)
 		if err := client.Consumer.Close(); err != nil {
-			log.Error("unable to shut down Kafka consumer: %s", err)
+			log.Errorf("unable to shut down Kafka consumer: %s", err)
 		}
 	}()
 
