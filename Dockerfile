@@ -1,18 +1,13 @@
 FROM golang:1.12-alpine as builder
-RUN apk add --no-cache git
+RUN apk add --no-cache git make
 ENV GOOS=linux
 ENV CGO_ENABLED=0
 ENV GO111MODULE=on
 COPY . /src
-WORKDIR /src/hookd
-RUN rm -f ../go.sum
-RUN go get
-RUN go test ./...
-RUN go build -a -installsuffix cgo -o hookd
-WORKDIR /src/deployd
-RUN go get
-RUN go test ./...
-RUN go build -a -installsuffix cgo -o deployd
+WORKDIR /src
+RUN rm -f go.sum
+RUN make test
+RUN make alpine
 
 FROM alpine:3.5
 RUN apk add --no-cache ca-certificates

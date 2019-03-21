@@ -10,10 +10,14 @@ proto:
 	mv protobuf/deployment.pb.go common/pkg/deployment/
 
 hookd:
-	cd hookd && go build
+	cd hookd && go build -o hookd cmd/hookd/main.go
 
 deployd:
-	cd deployd && go build
+	cd deployd && go build -o deployd cmd/deployd/main.go
+
+alpine:
+	cd hookd && go build -a -installsuffix cgo -o hookd cmd/hookd/main.go
+	cd deployd && go build -a -installsuffix cgo -o deployd cmd/deployd/main.go
 
 test:
 	go test ./...
