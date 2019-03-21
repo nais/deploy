@@ -50,14 +50,38 @@ The validation part is done by checking if the signature attached to the deploym
 Deployd's main responsibility is to deploy resources into a Kubernetes cluster. Additionally it reports the deployment status back to hookd using Kafka.
 
 ## Developing
-Hookd and deployd depends on Kafka for process communication. Start a local instance in Docker by running:
 
+### Compiling hookd and deployd
+[Install Golang 1.12 or newer](https://golang.org/doc/install).
+
+Check out the repository and run `make`. Dependencies will download automatically, and you should have two binary files at `hookd/hookd` and `deployd/deployd`.
+
+### Kafka
+Hookd and deployd depends on Kafka for process communication. Start a local instance in Docker by running:
 ```
 docker run -it --rm -p 9092:9092 --env ADVERTISED_HOST=localhost --env ADVERTISED_PORT=9092 spotify/kafka
 ```
 
-You may now connect to Kafka using:
-
+You may now connect to Kafka using the syntax below. Note that connecting to `localhost:9092` is the default behavior, so you do not need to specify any command-line flags.
 ```
 hookd|deployd --kafka-brokers=localhost:9092 ...
 ```
+
+### Simulating Github deployment requests
+Start a local Kafka instance as described above. Now run your local hookd instance, disabling Github interactions:
+```
+hookd/hookd --github-enabled=false --listen-address=127.0.0.1:8080
+```
+
+You might want to start up `deployd` as well:
+```
+deployd/deployd
+```
+
+Compile the `mkdeploy` tool:
+```
+cd hookd/cmd/mkdeploy
+make
+```
+
+You can now run the tool, generating deployment requests as you go. Run `./mkdeploy --help` to see which options you can tweak.
