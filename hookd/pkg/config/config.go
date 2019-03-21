@@ -15,6 +15,7 @@ type S3 struct {
 }
 
 type Config struct {
+	EnableGithub  bool
 	ListenAddress string
 	LogFormat     string
 	LogLevel      string
@@ -29,6 +30,7 @@ type Config struct {
 
 func DefaultConfig() *Config {
 	return &Config{
+		EnableGithub:  true,
 		ListenAddress: ":8080",
 		LogFormat:     "text",
 		LogLevel:      "debug",

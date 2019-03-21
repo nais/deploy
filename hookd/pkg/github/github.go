@@ -18,14 +18,6 @@ func SplitFullname(fullName string) (string, string, error) {
 	return parts[0], parts[1], nil
 }
 
-func ApplicationClient(appId int, keyFile string) (*gh.Client, error) {
-	itr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appId, keyFile)
-	if err != nil {
-		return nil, err
-	}
-	return gh.NewClient(&http.Client{Transport: itr}), nil
-}
-
 func InstallationClient(appId, installId int, keyFile string) (*gh.Client, error) {
 	itr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appId, installId, keyFile)
 	if err != nil {
@@ -34,43 +26,11 @@ func InstallationClient(appId, installId int, keyFile string) (*gh.Client, error
 	return gh.NewClient(&http.Client{Transport: itr}), nil
 }
 
-func CreateHook(client *gh.Client, r gh.Repository, url string, secret string) (*gh.Hook, error) {
-	active := true
-	webhook := &gh.Hook{
-		Events: []string{
-			"deployment",
-		},
-		Active: &active,
-		Config: map[string]interface{}{
-			"url":          url,
-			"content_type": "json",
-			"insecure_ssl": "0",
-			"secret":       secret,
-		},
-	}
-
-	owner, name, err := SplitFullname(r.GetFullName())
-	if err != nil {
-		return nil, err
-	}
-	webhook, _, err = client.Repositories.CreateHook(context.Background(), owner, name, webhook)
-	if err != nil {
-		return nil, err
-	}
-
-	return webhook, nil
-}
-
-func DeleteHook(client *gh.Client, r gh.Repository, id int64) error {
-	owner, name, err := SplitFullname(r.GetFullName())
-	if err != nil {
-		return err
-	}
-	_, err = client.Repositories.DeleteHook(context.Background(), owner, name, id)
-	return err
-}
-
 func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus) (*gh.DeploymentStatus, *gh.Response, error) {
+	if client == nil {
+		return nil, nil, fmt.Errorf("no Github client supplied")
+	}
+
 	deployment := m.GetDeployment()
 	if deployment == nil {
 		return nil, nil, fmt.Errorf("empty deployment")

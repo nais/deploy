@@ -21,7 +21,6 @@ type Handler struct {
 	Config                   config.Config
 	KafkaClient              *kafka.DualClient
 	KafkaTopic               string
-	GithubClient             *gh.Client
 	GithubInstallationClient *gh.Client
 	SecretToken              string
 	TeamRepositoryStorage    persistence.TeamRepositoryStorage

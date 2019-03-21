@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
+	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
@@ -26,14 +27,15 @@ type Message struct {
 var cfg = config.DefaultConfig()
 
 func init() {
+	flag.BoolVar(&cfg.EnableGithub, "github-enabled", cfg.EnableGithub, "Enable connections to Github.")
+	flag.StringVar(&cfg.WebhookSecret, "github-webhook-secret", cfg.WebhookSecret, "Github pre-shared webhook secret key.")
+	flag.IntVar(&cfg.ApplicationID, "github-app-id", cfg.ApplicationID, "Github App ID.")
+	flag.IntVar(&cfg.InstallID, "github-install-id", cfg.InstallID, "Github App installation ID.")
+	flag.StringVar(&cfg.KeyFile, "github-key-file", cfg.KeyFile, "Path to PEM key owned by Github App.")
+
 	flag.StringVar(&cfg.ListenAddress, "listen-address", cfg.ListenAddress, "IP:PORT")
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
-	flag.StringVar(&cfg.WebhookSecret, "webhook-secret", cfg.WebhookSecret, "Github pre-shared webhook secret key.")
-	flag.StringVar(&cfg.WebhookURL, "webhook-url", cfg.WebhookURL, "Externally available URL to events endpoint.")
-	flag.IntVar(&cfg.ApplicationID, "app-id", cfg.ApplicationID, "Github App ID.")
-	flag.IntVar(&cfg.InstallID, "install-id", cfg.InstallID, "Github App installation ID.")
-	flag.StringVar(&cfg.KeyFile, "key-file", cfg.KeyFile, "Path to PEM key owned by Github App.")
 
 	flag.StringVar(&cfg.S3.Endpoint, "s3-endpoint", cfg.S3.Endpoint, "S3 endpoint for state storage.")
 	flag.StringVar(&cfg.S3.AccessKey, "s3-access-key", cfg.S3.AccessKey, "S3 access key.")
@@ -81,14 +83,13 @@ func run() error {
 
 	go kafkaClient.ConsumerLoop()
 
-	githubClient, err := github.ApplicationClient(cfg.ApplicationID, cfg.KeyFile)
-	if err != nil {
-		return fmt.Errorf("cannot instantiate Github application client: %s", err)
-	}
+	var installationClient *gh.Client
 
-	installationClient, err := github.InstallationClient(cfg.ApplicationID, cfg.InstallID, cfg.KeyFile)
-	if err != nil {
-		return fmt.Errorf("cannot instantiate Github installation client: %s", err)
+	if cfg.EnableGithub {
+		installationClient, err = github.InstallationClient(cfg.ApplicationID, cfg.InstallID, cfg.KeyFile)
+		if err != nil {
+			return fmt.Errorf("cannot instantiate Github installation client: %s", err)
+		}
 	}
 
 	baseHandler := server.Handler{
@@ -96,7 +97,6 @@ func run() error {
 		KafkaClient:              kafkaClient,
 		KafkaTopic:               cfg.Kafka.RequestTopic,
 		SecretToken:              cfg.WebhookSecret,
-		GithubClient:             githubClient,
 		GithubInstallationClient: installationClient,
 		TeamRepositoryStorage:    teamRepositoryStorage,
 	}
