@@ -14,6 +14,7 @@ require (
 	github.com/golang/protobuf v1.2.1-0.20190205222052-c823c79ea157
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
 	github.com/google/go-github/v23 v23.0.0
+	github.com/google/uuid v1.1.1
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/onsi/ginkgo v1.8.0 // indirect
