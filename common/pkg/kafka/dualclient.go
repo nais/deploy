@@ -28,6 +28,7 @@ func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient
 	consumerCfg.Net.SASL.User = cfg.SASL.Username
 	consumerCfg.Net.SASL.Password = cfg.SASL.Password
 	consumerCfg.Net.SASL.Handshake = cfg.SASL.Handshake
+	consumerCfg.Net.TLS.Enable = true
 	client.Consumer, err = cluster.NewConsumer(cfg.Brokers, cfg.GroupID, []string{consumerTopic}, consumerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("while setting up Kafka consumer: %s", err)
@@ -36,8 +37,12 @@ func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient
 	// Instantiate another client, this one in synchronous producer mode.
 	producerCfg := sarama.NewConfig()
 	producerCfg.ClientID = fmt.Sprintf("%s-producer", cfg.ClientID)
-	producerCfg.Net.SASL = consumerCfg.Net.SASL
+	producerCfg.Net.SASL.Enable = cfg.SASL.Enabled
+	producerCfg.Net.SASL.User = cfg.SASL.Username
+	producerCfg.Net.SASL.Password = cfg.SASL.Password
+	producerCfg.Net.SASL.Handshake = cfg.SASL.Handshake
 	producerCfg.Producer.Return.Successes = true
+	producerCfg.Net.TLS.Enable = true
 	client.Producer, err = sarama.NewSyncProducer(cfg.Brokers, producerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("while setting up Kafka producer: %s", err)
