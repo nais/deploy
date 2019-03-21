@@ -1,11 +1,15 @@
 package deployd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	log "github.com/sirupsen/logrus"
+	"io"
+	"os/exec"
 	"time"
 )
 
@@ -13,6 +17,23 @@ type Message struct {
 	KafkaMessage sarama.ConsumerMessage
 	Request      deployment.DeploymentRequest
 	Logger       log.Entry
+}
+
+type Payload struct {
+	Version    [3]int
+	Team       string
+	Kubernetes struct {
+		Resources []json.RawMessage
+	}
+}
+
+func kubectlApply(resource []byte, stdout, stderr io.Writer) error {
+	cmd := exec.Command("kubectl", "apply", "--filename=-")
+	r := bytes.NewReader(resource)
+	cmd.Stdin = r
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	return cmd.Run()
 }
 
 func matchesCluster(msg Message, cluster string) error {
@@ -28,10 +49,6 @@ func meetsDeadline(msg Message) error {
 	if late > 0 {
 		return fmt.Errorf("deadline exceeded by %s", late.String())
 	}
-	return nil
-}
-
-func aclCheck(msg Message) error {
 	return nil
 }
 
@@ -85,16 +102,38 @@ func Preflight(msg Message) error {
 		return err
 	}
 
-	if err := aclCheck(msg); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 // Deploy something to Kubernetes
 func Deploy(msg Message) error {
-	msg.Logger.Infof("no-op: deploying to Kubernetes!")
+	payload := Payload{}
+	err := json.Unmarshal(msg.Request.Payload, &payload)
+	if err != nil {
+		return fmt.Errorf("while decoding payload: %s", err)
+	}
+
+	numResources := len(payload.Kubernetes.Resources)
+	if numResources == 0 {
+		return fmt.Errorf("no resources to deploy")
+	}
+
+	if len(payload.Team) == 0 {
+		return fmt.Errorf("team not specified in deployment payload")
+	}
+
+	msg.Logger.Infof("deploying %d resources to Kubernetes on behalf of team %s", numResources, payload.Team)
+
+	for index, r := range payload.Kubernetes.Resources {
+		outbuf := make([]byte, 0)
+		buf := bytes.NewBuffer(outbuf)
+		err := kubectlApply(r, buf, buf)
+		msg.Logger.Tracef("resource %d: %s", index+1, buf.String())
+		if err != nil {
+			return fmt.Errorf("while deploying resource %d: %s", index+1, err)
+		}
+	}
+
 	return nil
 }
 
@@ -134,6 +173,9 @@ func Handle(client *kafka.DualClient, m sarama.ConsumerMessage, cluster string) 
 	if err == nil {
 		msg.Logger.Infof("deployment request accepted")
 		err = Deploy(msg)
+		if err != nil {
+			msg.Logger.Errorf("deployment failed: %s", err)
+		}
 	} else {
 		msg.Logger.Warnf("deployment request rejected: %s", err)
 	}

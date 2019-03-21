@@ -82,6 +82,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	bufstr := buf.String()
 
 	key, err := hex.DecodeString(cfg.HMACKey)
 	if err != nil {
@@ -110,10 +111,8 @@ func run() error {
 
 	log.Infof("delivery id: %s", u.String())
 	log.Infof("status.....: %s", resp.Status)
-	n, err := io.Copy(os.Stdout, resp.Body)
-	if n > 0 {
-		log.Infof("response...: %s", buf.String())
-	}
+	log.Infof("data sent..:")
+	log.Info(bufstr)
 
 	return err
 }

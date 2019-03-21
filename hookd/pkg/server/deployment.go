@@ -42,6 +42,7 @@ func (h *DeploymentHandler) kafkaPayload() (*types.DeploymentRequest, error) {
 			},
 			DeploymentID: deployment.GetID(),
 		},
+		Payload:    deployment.Payload,
 		DeliveryID: h.deliveryID,
 		Cluster:    deployment.GetEnvironment(),
 		Timestamp:  time.Now().Unix(),
