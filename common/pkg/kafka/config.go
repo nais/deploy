@@ -14,6 +14,11 @@ type SASL struct {
 	Password  string
 }
 
+type TLS struct {
+	Enabled  bool
+	Insecure bool
+}
+
 type Config struct {
 	Brokers      []string
 	RequestTopic string
@@ -22,6 +27,7 @@ type Config struct {
 	GroupID      string
 	Verbosity    string
 	SignatureKey string
+	TLS          TLS
 	SASL         SASL
 }
 
@@ -63,4 +69,6 @@ func SetupFlags(cfg *Config) {
 	flag.BoolVar(&cfg.SASL.Handshake, "kafka-sasl-handshake", cfg.SASL.Handshake, "Use handshake for SASL authentication.")
 	flag.StringVar(&cfg.SASL.Username, "kafka-sasl-username", cfg.SASL.Username, "Username for Kafka authentication.")
 	flag.StringVar(&cfg.SASL.Password, "kafka-sasl-password", cfg.SASL.Password, "Password for Kafka authentication.")
+	flag.BoolVar(&cfg.TLS.Enabled, "kafka-tls-enabled", cfg.TLS.Enabled, "Use TLS for connecting to Kafka.")
+	flag.BoolVar(&cfg.TLS.Insecure, "kafka-tls-insecure", cfg.TLS.Insecure, "Allow insecure Kafka TLS connections.")
 }

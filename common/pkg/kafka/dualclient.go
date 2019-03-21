@@ -1,6 +1,7 @@
 package kafka
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/bsm/sarama-cluster"
@@ -13,6 +14,12 @@ type DualClient struct {
 	Producer      sarama.SyncProducer
 	ProducerTopic string
 	SignatureKey  string
+}
+
+func tlsConfig(t TLS) *tls.Config {
+	return &tls.Config{
+		InsecureSkipVerify: t.Insecure,
+	}
 }
 
 func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient, error) {
@@ -28,7 +35,9 @@ func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient
 	consumerCfg.Net.SASL.User = cfg.SASL.Username
 	consumerCfg.Net.SASL.Password = cfg.SASL.Password
 	consumerCfg.Net.SASL.Handshake = cfg.SASL.Handshake
-	consumerCfg.Net.TLS.Enable = true
+	consumerCfg.Net.TLS.Enable = cfg.TLS.Enabled
+	consumerCfg.Net.TLS.Config = tlsConfig(cfg.TLS)
+
 	client.Consumer, err = cluster.NewConsumer(cfg.Brokers, cfg.GroupID, []string{consumerTopic}, consumerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("while setting up Kafka consumer: %s", err)
@@ -42,7 +51,9 @@ func NewDualClient(cfg Config, consumerTopic, producerTopic string) (*DualClient
 	producerCfg.Net.SASL.Password = cfg.SASL.Password
 	producerCfg.Net.SASL.Handshake = cfg.SASL.Handshake
 	producerCfg.Producer.Return.Successes = true
-	producerCfg.Net.TLS.Enable = true
+	producerCfg.Net.TLS.Enable = cfg.TLS.Enabled
+	producerCfg.Net.TLS.Config = tlsConfig(cfg.TLS)
+
 	client.Producer, err = sarama.NewSyncProducer(cfg.Brokers, producerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("while setting up Kafka producer: %s", err)
