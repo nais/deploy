@@ -1,15 +1,18 @@
 package deployd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
+	"github.com/navikt/deployment/deployd/pkg/kubeclient"
 	log "github.com/sirupsen/logrus"
-	"io"
-	"os/exec"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/restmapper"
 	"time"
 )
 
@@ -25,15 +28,6 @@ type Payload struct {
 	Kubernetes struct {
 		Resources []json.RawMessage
 	}
-}
-
-func kubectlApply(resource []byte, stdout, stderr io.Writer) error {
-	cmd := exec.Command("kubectl", "apply", "--filename=-")
-	r := bytes.NewReader(resource)
-	cmd.Stdin = r
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	return cmd.Run()
 }
 
 func matchesCluster(msg Message, cluster string) error {
@@ -124,14 +118,53 @@ func Deploy(msg Message) error {
 
 	msg.Logger.Infof("deploying %d resources to Kubernetes on behalf of team %s", numResources, payload.Team)
 
+	kcli, dcli, err := kubeclient.TeamClient(payload.Team)
+	if err != nil {
+		return err
+	}
+
+	groupResources, err := restmapper.GetAPIGroupResources(kcli.Discovery())
+	if err != nil {
+		return fmt.Errorf("unable to run kubernetes resource discovery: %s", err)
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
 	for index, r := range payload.Kubernetes.Resources {
-		outbuf := make([]byte, 0)
-		buf := bytes.NewBuffer(outbuf)
-		err := kubectlApply(r, buf, buf)
-		msg.Logger.Tracef("resource %d: %s", index+1, buf.String())
+		resource := unstructured.Unstructured{}
+		err = resource.UnmarshalJSON(r)
+		if err != nil {
+			return fmt.Errorf("resource %d: while loading payload: %s", index+1, err)
+		}
+
+		gvk := resource.GroupVersionKind()
+		gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
+		mapping, err := restMapper.RESTMapping(gk, gvk.Version)
+		if err != nil {
+			return fmt.Errorf("resource %d: unable to discover resource using REST mapper: %s", index+1, err)
+		}
+
+		dres := dcli.Resource(mapping.Resource)
+		ns := resource.GetNamespace()
+		deployed := &unstructured.Unstructured{}
+
+		if len(ns) > 0 {
+			nres := dres.Namespace(ns)
+			deployed, err = nres.Update(&resource, metav1.UpdateOptions{})
+			if errors.IsNotFound(err) {
+				deployed, err = nres.Create(&resource, metav1.CreateOptions{})
+			}
+		} else {
+			deployed, err = dres.Update(&resource, metav1.UpdateOptions{})
+			if errors.IsNotFound(err) {
+				deployed, err = dres.Create(&resource, metav1.CreateOptions{})
+			}
+		}
+
 		if err != nil {
 			return fmt.Errorf("while deploying resource %d: %s", index+1, err)
 		}
+
+		msg.Logger.Infof("resource %d: team %s successfully deployed %s", index+1, payload.Team, deployed.GetSelfLink())
 	}
 
 	return nil

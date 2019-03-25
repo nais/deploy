@@ -84,8 +84,6 @@ func (client *DualClient) ConsumerLoop() {
 				return
 			}
 
-			log.Tracef("Kafka consumer received message: %+v", m)
-
 			client.RecvQ <- *m
 
 		case err := <-client.Consumer.Errors():
