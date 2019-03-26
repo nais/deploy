@@ -6,6 +6,7 @@ import (
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/deployd/pkg/deployd"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"net/http"
 	"time"
@@ -103,9 +104,34 @@ func (h *DeploymentHandler) postSentToKafka(deployment *types.DeploymentSpec) er
 	})
 }
 
+func (h *DeploymentHandler) checkTeamAccess() error {
+	allowedTeams, err := h.TeamRepositoryStorage.Read(h.repo.GetFullName())
+	if err != nil {
+		return fmt.Errorf("unable to check if repository has team access: %s", err)
+	}
+
+	payload := deployd.Payload{}
+	err = json.Unmarshal(h.deploymentRequest.GetDeployment().Payload, &payload)
+	if err != nil {
+		return fmt.Errorf("decode error in deployment payload: %s", err)
+	}
+
+	for _, team := range allowedTeams {
+		if payload.Team == team {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("the repository '%s' does not have access to deploy as team '%s'", payload.Team)
+}
+
 func (h *DeploymentHandler) handler() (int, error) {
 	if h.eventType != "deployment" {
 		return http.StatusBadRequest, fmt.Errorf("unsupported event type %s", h.eventType)
+	}
+
+	if err := h.checkTeamAccess(); err != nil {
+		return http.StatusForbidden, err
 	}
 
 	h.log.Infof("Dispatching deployment for %s", h.repo.GetFullName())
