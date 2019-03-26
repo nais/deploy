@@ -122,7 +122,7 @@ func (h *DeploymentHandler) checkTeamAccess() error {
 		}
 	}
 
-	return fmt.Errorf("the repository '%s' does not have access to deploy as team '%s'", payload.Team)
+	return fmt.Errorf("the repository '%s' does not have access to deploy as team '%s'", h.repo.GetFullName(), payload.Team)
 }
 
 func (h *DeploymentHandler) handler() (int, error) {
