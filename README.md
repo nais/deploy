@@ -57,7 +57,8 @@ Deployd's main responsibility is to deploy resources into a Kubernetes cluster. 
 Check out the repository and run `make`. Dependencies will download automatically, and you should have two binary files at `hookd/hookd` and `deployd/deployd`.
 
 ### Kafka
-Hookd and deployd depends on Kafka for process communication. Start a local instance in Docker by running:
+Hookd and deployd depends on Kafka for process communication.
+Start a local instance in Docker by running the command below. Hookd and deployd will connect to this server by default.
 ```
 docker run -it --rm -p 9092:9092 --env ADVERTISED_HOST=localhost --env ADVERTISED_PORT=9092 spotify/kafka
 ```
@@ -65,6 +66,14 @@ docker run -it --rm -p 9092:9092 --env ADVERTISED_HOST=localhost --env ADVERTISE
 You may now connect to Kafka using the syntax below. Note that connecting to `localhost:9092` is the default behavior, so you do not need to specify any command-line flags.
 ```
 hookd|deployd --kafka-brokers=localhost:9092 ...
+```
+
+### S3
+Hookd stores team access control lists in an S3 bucket.
+Start a local instance in Docker by running the command below. Hookd will connect to this server by default.
+
+```
+docker run -it --rm -p 9000:9000 minio/minio server /data
 ```
 
 ### Simulating Github deployment requests
