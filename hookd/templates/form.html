@@ -1,0 +1,27 @@
+{{define "body"}}
+<p>
+    Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
+        href="/auth/logout">sign out</a>.
+</p>
+<h2>Repositories</h2>
+{{if .Repositories}}
+<select>
+    {{range .Repositories}}
+    <option>{{.FullName}}</option>
+    {{end}}
+</select>
+{{else}}
+<p>No repositories exist where you are listed as an <strong>admin</strong>.</p>
+{{end}}
+
+<h2>Teams</h2>
+{{if .Teams}}
+<select>
+    {{range .Teams}}
+    <option>{{.Name}} ({{.Permission}})</option>
+    {{end}}
+</select>
+{{else}}
+<p>No teams exist where you are listed as an <strong>admin</strong>.</p>
+{{end}}
+{{end}}
