@@ -118,6 +118,10 @@ func run() error {
 	http.Handle("/auth/form", &auth.FormHandler{
 		ApplicationClient: installationClient,
 	})
+	http.Handle("/auth/submit", &auth.SubmittedFormHandler{
+		TeamRepositoryStorage: teamRepositoryStorage,
+		ApplicationClient:     installationClient,
+	})
 
 	http.Handle("/auth/logout", &auth.LogoutHandler{})
 

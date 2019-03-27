@@ -9,7 +9,6 @@ import (
 
 	gh "github.com/google/go-github/v23/github"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/oauth2"
 )
 
 type FormHandler struct {
@@ -57,60 +56,6 @@ func (h *FormHandler) getRepositories() ([]*gh.Repository, error) {
 	return allRepos, nil
 }
 
-func (h *FormHandler) isTeamMaintainer(login string, team *gh.Team) (bool, error) {
-	membership, _, err := h.ApplicationClient.Teams.GetTeamMembership(context.Background(), team.GetID(), login)
-
-	if err != nil {
-		return false, nil
-	}
-
-	return membership.GetRole() == "maintainer", nil
-}
-
-func (h *FormHandler) getTeams(repository string) ([]*gh.Team, error) {
-	opt := &gh.ListOptions{
-		PerPage: 50,
-	}
-
-	var allTeams []*gh.Team
-
-	for {
-		teams, resp, err := h.ApplicationClient.Repositories.ListTeams(context.Background(), "navikt", repository, opt)
-
-		if err != nil {
-			return nil, fmt.Errorf("Could not fetch repository teams: %s", err)
-		}
-
-		allTeams = append(allTeams, teams...)
-
-		if resp.NextPage == 0 {
-			break
-		}
-
-		opt.Page = resp.NextPage
-	}
-
-	return allTeams, nil
-}
-
-func (h *FormHandler) filterTeams(teams []*gh.Team, login string) ([]*gh.Team, error) {
-	var filteredTeams []*gh.Team
-
-	for _, team := range teams {
-		isMaintainer, err := h.isTeamMaintainer(login, team)
-
-		if err != nil {
-			return nil, fmt.Errorf("Error checking team role: %s", err)
-		}
-
-		if isMaintainer {
-			filteredTeams = append(filteredTeams, team)
-		}
-	}
-
-	return filteredTeams, nil
-}
-
 func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	accessToken, err := r.Cookie("accessToken")
 
@@ -119,15 +64,7 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.accessToken = accessToken.Value
-
-	ts := oauth2.StaticTokenSource(&oauth2.Token{
-		AccessToken: h.accessToken,
-	})
-
-	tc := oauth2.NewClient(context.Background(), ts)
-
-	h.userClient = gh.NewClient(tc)
+	h.userClient = userClient(accessToken.Value)
 
 	user, _, err := h.userClient.Users.Get(context.Background(), "")
 
@@ -142,7 +79,7 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var filteredTeams []*gh.Team
 
 	if len(repository) != 0 {
-		repositoryTeams, err := h.getTeams(repository)
+		repositoryTeams, err := getTeams(h.ApplicationClient, repository)
 
 		if err != nil {
 			log.Error(err)
@@ -150,7 +87,7 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		filteredTeams, err = h.filterTeams(repositoryTeams, user.GetLogin())
+		filteredTeams, err = filterTeams(h.ApplicationClient, repositoryTeams, user.GetLogin())
 
 		if err != nil {
 			log.Error(err)
