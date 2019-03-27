@@ -4,24 +4,32 @@
         href="/auth/logout">sign out</a>.
 </p>
 <h2>Repositories</h2>
-{{if .Repositories}}
-<select>
-    {{range .Repositories}}
-    <option>{{.FullName}}</option>
-    {{end}}
-</select>
-{{else}}
-<p>No repositories exist where you are listed as an <strong>admin</strong>.</p>
-{{end}}
+{{if .Repository}}
+<p>{{.Repository}}</p>
 
-<h2>Teams</h2>
 {{if .Teams}}
-<select>
+<h2>Teams</h2>
+<select multiple>
     {{range .Teams}}
     <option>{{.Name}} ({{.Permission}})</option>
     {{end}}
 </select>
+<br>
+<button type="submit">Grant access</button>
 {{else}}
 <p>No teams exist where you are listed as an <strong>admin</strong>.</p>
+{{end}}
+
+{{else if .Repositories}}
+<form>
+    <select name="repository" onChange="this.form.submit()">
+        <option>Select repository</option>
+        {{range .Repositories}}
+        <option value="{{.Name}}">{{.FullName}}</option>
+        {{end}}
+    </select>
+</form>
+{{else}}
+<p>No repositories exist where you are listed as an <strong>admin</strong>.</p>
 {{end}}
 {{end}}

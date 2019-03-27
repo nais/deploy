@@ -115,7 +115,10 @@ func run() error {
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
 	})
-	http.Handle("/auth/form", &auth.FormHandler{})
+	http.Handle("/auth/form", &auth.FormHandler{
+		ApplicationClient: installationClient,
+	})
+
 	http.Handle("/auth/logout", &auth.LogoutHandler{})
 
 	srv := &http.Server{

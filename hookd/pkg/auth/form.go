@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -14,13 +13,15 @@ import (
 )
 
 type FormHandler struct {
-	accessToken string
-	apiClient   *gh.Client
+	accessToken       string
+	userClient        *gh.Client
+	ApplicationClient *gh.Client
 }
 
 type FormData struct {
 	Repositories []*gh.Repository
 	Teams        []*gh.Team
+	Repository   string
 	User         *gh.User
 }
 
@@ -29,13 +30,12 @@ func (h *FormHandler) getRepositories() ([]*gh.Repository, error) {
 		ListOptions: gh.ListOptions{
 			PerPage: 50,
 		},
-		Type: "member",
 	}
 
 	var allRepos []*gh.Repository
 
 	for {
-		repos, resp, err := h.apiClient.Repositories.ListByOrg(context.Background(), "navikt", opt)
+		repos, resp, err := h.userClient.Repositories.ListByOrg(context.Background(), "navikt", opt)
 
 		if err != nil {
 			return nil, fmt.Errorf("Could not fetch repositories: %s", err)
@@ -57,23 +57,31 @@ func (h *FormHandler) getRepositories() ([]*gh.Repository, error) {
 	return allRepos, nil
 }
 
-func (h *FormHandler) getTeams() ([]*gh.Team, error) {
-	opt := &gh.ListOptions{PerPage: 50000}
+func (h *FormHandler) isTeamMaintainer(login string, team *gh.Team) (bool, error) {
+	membership, _, err := h.ApplicationClient.Teams.GetTeamMembership(context.Background(), team.GetID(), login)
+
+	if err != nil {
+		return false, nil
+	}
+
+	return membership.GetRole() == "maintainer", nil
+}
+
+func (h *FormHandler) getTeams(repository string) ([]*gh.Team, error) {
+	opt := &gh.ListOptions{
+		PerPage: 50,
+	}
 
 	var allTeams []*gh.Team
 
 	for {
-		teams, resp, err := h.apiClient.Teams.ListTeams(context.Background(), "navikt", opt)
+		teams, resp, err := h.ApplicationClient.Repositories.ListTeams(context.Background(), "navikt", repository, opt)
 
 		if err != nil {
-			return nil, errors.New("Could not fetch teams")
+			return nil, fmt.Errorf("Could not fetch repository teams: %s", err)
 		}
 
-		for _, team := range teams {
-			if team.GetPermission() != "admin" {
-				allTeams = append(allTeams, team)
-			}
-		}
+		allTeams = append(allTeams, teams...)
 
 		if resp.NextPage == 0 {
 			break
@@ -83,6 +91,24 @@ func (h *FormHandler) getTeams() ([]*gh.Team, error) {
 	}
 
 	return allTeams, nil
+}
+
+func (h *FormHandler) filterTeams(teams []*gh.Team, login string) ([]*gh.Team, error) {
+	var filteredTeams []*gh.Team
+
+	for _, team := range teams {
+		isMaintainer, err := h.isTeamMaintainer(login, team)
+
+		if err != nil {
+			return nil, fmt.Errorf("Error checking team role: %s", err)
+		}
+
+		if isMaintainer {
+			filteredTeams = append(filteredTeams, team)
+		}
+	}
+
+	return filteredTeams, nil
 }
 
 func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -101,9 +127,9 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	tc := oauth2.NewClient(context.Background(), ts)
 
-	h.apiClient = gh.NewClient(tc)
+	h.userClient = gh.NewClient(tc)
 
-	repositories, err := h.getRepositories()
+	user, _, err := h.userClient.Users.Get(context.Background(), "")
 
 	if err != nil {
 		log.Error(err)
@@ -111,23 +137,40 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	teams, err := h.getTeams()
+	repository := r.URL.Query().Get("repository")
+	var repositories []*gh.Repository
+	var filteredTeams []*gh.Team
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	if len(repository) != 0 {
+		repositoryTeams, err := h.getTeams(repository)
 
-	user, _, err := h.apiClient.Users.Get(context.Background(), "")
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		filteredTeams, err = h.filterTeams(repositoryTeams, user.GetLogin())
+
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	} else {
+		repositories, err = h.getRepositories()
+
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	data := FormData{
 		Repositories: repositories,
-		Teams:        teams,
+		Teams:        filteredTeams,
+		Repository:   repository,
 		User:         user,
 	}
 
@@ -137,6 +180,7 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
+		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
