@@ -5,20 +5,22 @@
 </p>
 <h2>Repositories</h2>
 {{if .Repository}}
-<p>{{.Repository}}</p>
+<form method="POST" action="/auth/submit">
+    <input readonly name="repository" value="{{.Repository}}">
 
-{{if .Teams}}
-<h2>Teams</h2>
-<select multiple>
-    {{range .Teams}}
-    <option>{{.Name}} ({{.Permission}})</option>
+    {{if .Teams}}
+    <h2>Teams</h2>
+    <select multiple name="teams">
+        {{range .Teams}}
+        <option value="{{.Name}}">{{.Name}}</option>
+        {{end}}
+    </select>
+    <br>
+    <button type="submit">Grant access</button>
+    {{else}}
+    <p>No teams exist where you are listed as an <strong>admin</strong>.</p>
     {{end}}
-</select>
-<br>
-<button type="submit">Grant access</button>
-{{else}}
-<p>No teams exist where you are listed as an <strong>admin</strong>.</p>
-{{end}}
+</form>
 
 {{else if .Repositories}}
 <form>
