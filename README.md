@@ -41,6 +41,11 @@ Used as a configuration backend. Information about repository team access is sto
 
 ## Usage
 
+### Prerequisites
+* Your application must be [Naiserator compatible](https://github.com/nais/doc/tree/master/content/deploy). Deployment orchestration only acts on Kubernetes resources.
+* Limit write access on your Github repository to team members. After activation, anyone with write access to the repository can deploy Kubernetes resources on behalf of your team.
+* Be a maintainer of a [Github team](https://help.github.com/en/articles/about-teams). The team name must be the same as your Kubernetes _team label_.
+
 ### Registering your team
 You need to grant your Github repository access rights to deploy on behalf of your team.
 In order to do this, you need to have _maintainer_ access rights to your Github team, and _admin_ access to the repository.
@@ -48,7 +53,9 @@ In order to do this, you need to have _maintainer_ access rights to your Github 
 Visit the [registration portal](https://deployment.prod-sbs.nais.io/auth/login) and follow the instructions.
 
 ### Deployment payload
-The format of the deployment payload is JSON. See [content definition](deployd/pkg/deployd/deployd.go).
+Deployment payloads are a part of the data sent to Github using the [GitHub Deployment API](https://developer.github.com/v3/repos/deployments/#create-a-deployment).
+
+The deployment payload is a JSON object. See [schema](deployd/pkg/deployd/deployd.go).
 
 Example payload:
 ```
