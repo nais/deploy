@@ -3,13 +3,14 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/deployd/pkg/deployd"
 	"github.com/navikt/deployment/hookd/pkg/github"
-	"net/http"
-	"time"
 )
 
 type DeploymentHandler struct {
@@ -80,7 +81,7 @@ func (h *DeploymentHandler) unserialize() error {
 	return nil
 }
 
-func (h *DeploymentHandler) createDeploymentStatus(st *types.DeploymentStatus) error {
+func (h *DeploymentHandler) createAndLogDeploymentStatus(st *types.DeploymentStatus) error {
 	status, _, err := github.CreateDeploymentStatus(h.GithubInstallationClient, st)
 	if err == nil {
 		h.log.Infof("created GitHub deployment status %d in repository %s", status.GetID(), status.GetRepositoryURL())
@@ -88,23 +89,23 @@ func (h *DeploymentHandler) createDeploymentStatus(st *types.DeploymentStatus) e
 	return err
 }
 
-func (h *DeploymentHandler) postFailure(deployment *types.DeploymentSpec, err error) error {
-	return h.createDeploymentStatus(&types.DeploymentStatus{
+func (h *DeploymentHandler) addGithubStatusFailure(deployment *types.DeploymentSpec, err error) error {
+	return h.createAndLogDeploymentStatus(&types.DeploymentStatus{
 		Deployment:  deployment,
 		State:       types.GithubDeploymentState_failure,
 		Description: fmt.Sprintf("deployment request failed: %s", err),
 	})
 }
 
-func (h *DeploymentHandler) postSentToKafka(deployment *types.DeploymentSpec) error {
-	return h.createDeploymentStatus(&types.DeploymentStatus{
+func (h *DeploymentHandler) addGithubStatusQueued(deployment *types.DeploymentSpec) error {
+	return h.createAndLogDeploymentStatus(&types.DeploymentStatus{
 		Deployment:  deployment,
 		State:       types.GithubDeploymentState_queued,
 		Description: "deployment request has been put on the queue for further processing",
 	})
 }
 
-func (h *DeploymentHandler) checkTeamAccess() error {
+func (h *DeploymentHandler) validateTeamAccess() error {
 	allowedTeams, err := h.TeamRepositoryStorage.Read(h.repo.GetFullName())
 	if err != nil {
 		return fmt.Errorf("unable to check if repository has team access: %s", err)
@@ -130,7 +131,7 @@ func (h *DeploymentHandler) handler() (int, error) {
 		return http.StatusBadRequest, fmt.Errorf("unsupported event type %s", h.eventType)
 	}
 
-	if err := h.checkTeamAccess(); err != nil {
+	if err := h.validateTeamAccess(); err != nil {
 		return http.StatusForbidden, err
 	}
 
@@ -144,14 +145,14 @@ func (h *DeploymentHandler) handler() (int, error) {
 	err = h.kafkaPublish(deploymentRequest)
 
 	if err != nil {
-		erro := h.postFailure(deploymentRequest.Deployment, fmt.Errorf("unable to queue deployment request to Kafka"))
+		erro := h.addGithubStatusFailure(deploymentRequest.Deployment, fmt.Errorf("unable to queue deployment request to Kafka"))
 		if erro != nil {
 			h.log.Errorf("unable to create Github deployment status: %s", erro)
 		}
 		return http.StatusInternalServerError, err
 	}
 
-	err = h.postSentToKafka(deploymentRequest.Deployment)
+	err = h.addGithubStatusQueued(deploymentRequest.Deployment)
 
 	if err != nil {
 		h.log.Errorf("unable to create Github deployment status: %s", err)

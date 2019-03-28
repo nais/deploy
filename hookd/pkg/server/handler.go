@@ -2,13 +2,14 @@ package server
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
+
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
-	"io/ioutil"
-	"net/http"
 )
 
 type Handler struct {
