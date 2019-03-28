@@ -2,9 +2,7 @@ package auth
 
 import (
 	"context"
-	"html/template"
 	"net/http"
-	"path/filepath"
 
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
@@ -81,10 +79,12 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		User:       user,
 	}
 
-	page, err := template.ParseFiles(
-		filepath.Join(TemplateLocation, "site.html"),
-		filepath.Join(TemplateLocation, "submit.html"),
-	)
+	page, err := templateWithBase("submit.html")
+	if err != nil {
+		log.Errorf("error while parsing page templates: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	if err != nil {
 		log.Error(err)
@@ -92,5 +92,7 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	page.Execute(w, data)
+	if err = page.Execute(w, data); err != nil {
+		log.Errorf("error while serving page: %s", err)
+	}
 }

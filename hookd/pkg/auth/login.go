@@ -1,12 +1,11 @@
 package auth
 
 import (
-	"html/template"
 	"net/http"
-	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 type LoginHandler struct {
@@ -24,16 +23,14 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	state, err := uuid.NewRandom()
 
 	if err != nil {
+		log.Errorf("error in UUID generator: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	page, err := template.ParseFiles(
-		filepath.Join(TemplateLocation, "site.html"),
-		filepath.Join(TemplateLocation, "login.html"),
-	)
-
+	page, err := templateWithBase("login.html")
 	if err != nil {
+		log.Errorf("error while parsing page templates: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -45,8 +42,11 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &cookie)
 
-	page.Execute(w, PageData{
+	data := PageData{
 		ClientID: h.ClientID,
 		State:    state.String(),
-	})
+	}
+	if err = page.Execute(w, data); err != nil {
+		log.Errorf("error while serving page: %s", err)
+	}
 }

@@ -3,9 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"net/http"
-	"path/filepath"
 
 	gh "github.com/google/go-github/v23/github"
 	log "github.com/sirupsen/logrus"
@@ -111,10 +109,12 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		User:         user,
 	}
 
-	page, err := template.ParseFiles(
-		filepath.Join(TemplateLocation, "site.html"),
-		filepath.Join(TemplateLocation, "form.html"),
-	)
+	page, err := templateWithBase("form.html")
+	if err != nil {
+		log.Errorf("error while parsing page templates: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	if err != nil {
 		log.Error(err)
@@ -122,5 +122,7 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page.Execute(w, data)
+	if err = page.Execute(w, data); err != nil {
+		log.Errorf("error while serving page: %s", err)
+	}
 }

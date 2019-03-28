@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"fmt"
+	"html/template"
+	"path/filepath"
 
 	gh "github.com/google/go-github/v23/github"
 	log "github.com/sirupsen/logrus"
@@ -107,4 +109,12 @@ func userClient(oauthtoken string) *gh.Client {
 
 	tc := oauth2.NewClient(context.Background(), ts)
 	return gh.NewClient(tc)
+}
+
+func templateWithBase(t string) (*template.Template, error) {
+	return template.ParseFiles(
+		filepath.Join(TemplateLocation, "site.html"),
+		filepath.Join(TemplateLocation, t),
+	)
+
 }
