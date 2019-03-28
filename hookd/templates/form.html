@@ -1,0 +1,37 @@
+{{define "body"}}
+<p>
+    Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
+        href="/auth/logout">sign out</a>.
+</p>
+<h2>Repositories</h2>
+{{if .Repository}}
+<form method="POST" action="/auth/submit">
+    <input readonly name="repository" value="{{.Repository}}">
+
+    {{if .Teams}}
+    <h2>Teams</h2>
+    <select multiple name="teams">
+        {{range .Teams}}
+        <option value="{{.Name}}">{{.Name}}</option>
+        {{end}}
+    </select>
+    <br>
+    <button type="submit">Grant access</button>
+    {{else}}
+    <p>No teams exist where you are listed as an <strong>admin</strong>.</p>
+    {{end}}
+</form>
+
+{{else if .Repositories}}
+<form>
+    <select name="repository" onChange="this.form.submit()">
+        <option>Select repository</option>
+        {{range .Repositories}}
+        <option value="{{.Name}}">{{.FullName}}</option>
+        {{end}}
+    </select>
+</form>
+{{else}}
+<p>No repositories exist where you are listed as an <strong>admin</strong>.</p>
+{{end}}
+{{end}}

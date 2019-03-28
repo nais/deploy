@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/navikt/deployment/common/pkg/kafka"
 	"os"
+
+	"github.com/navikt/deployment/common/pkg/kafka"
 )
 
 type S3 struct {
@@ -26,6 +27,8 @@ type Config struct {
 	KeyFile       string
 	Kafka         kafka.Config
 	S3            S3
+	ClientID      string
+	ClientSecret  string
 }
 
 func DefaultConfig() *Config {
@@ -48,5 +51,7 @@ func DefaultConfig() *Config {
 			BucketLocation: "",
 			UseTLS:         true,
 		},
+		ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+		ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 	}
 }

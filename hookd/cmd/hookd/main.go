@@ -2,20 +2,22 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
+	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"net/http"
-	"os"
-	"os/signal"
 )
 
 type Message struct {
@@ -32,6 +34,8 @@ func init() {
 	flag.IntVar(&cfg.ApplicationID, "github-app-id", cfg.ApplicationID, "Github App ID.")
 	flag.IntVar(&cfg.InstallID, "github-install-id", cfg.InstallID, "Github App installation ID.")
 	flag.StringVar(&cfg.KeyFile, "github-key-file", cfg.KeyFile, "Path to PEM key owned by Github App.")
+	flag.StringVar(&cfg.ClientID, "github-client-id", cfg.ClientID, "Client ID of the Github App.")
+	flag.StringVar(&cfg.ClientSecret, "github-client-secret", cfg.ClientSecret, "Client secret of the GitHub App.")
 
 	flag.StringVar(&cfg.ListenAddress, "listen-address", cfg.ListenAddress, "IP:PORT")
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
@@ -104,6 +108,23 @@ func run() error {
 	deploymentHandler := &server.DeploymentHandler{Handler: baseHandler}
 
 	http.Handle("/events", deploymentHandler)
+	http.Handle("/auth/login", &auth.LoginHandler{
+		ClientID: cfg.ClientID,
+	})
+	http.Handle("/auth/callback", &auth.CallbackHandler{
+		ClientID:     cfg.ClientID,
+		ClientSecret: cfg.ClientSecret,
+	})
+	http.Handle("/auth/form", &auth.FormHandler{
+		ApplicationClient: installationClient,
+	})
+	http.Handle("/auth/submit", &auth.SubmittedFormHandler{
+		TeamRepositoryStorage: teamRepositoryStorage,
+		ApplicationClient:     installationClient,
+	})
+
+	http.Handle("/auth/logout", &auth.LogoutHandler{})
+
 	srv := &http.Server{
 		Addr: cfg.ListenAddress,
 	}

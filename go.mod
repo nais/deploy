@@ -38,6 +38,7 @@ require (
 	github.com/smartystreets/goconvey v0.0.0-20190306220146-200a235640ff // indirect
 	github.com/spf13/pflag v1.0.3
 	github.com/stretchr/testify v1.2.2
+	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471 // release-1.13
