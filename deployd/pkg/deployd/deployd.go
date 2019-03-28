@@ -11,9 +11,11 @@ import (
 	"github.com/navikt/deployment/deployd/pkg/kubeclient"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/restmapper"
 )
 
@@ -131,44 +133,56 @@ func Deploy(msg Message, kube *kubeclient.Client) error {
 	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
 
 	for index, r := range payload.Kubernetes.Resources {
-		resource := unstructured.Unstructured{}
-		err = resource.UnmarshalJSON(r)
-		if err != nil {
-			return fmt.Errorf("resource %d: while loading payload: %s", index+1, err)
-		}
 
-		gvk := resource.GroupVersionKind()
-		gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
-		mapping, err := restMapper.RESTMapping(gk, gvk.Version)
-		if err != nil {
-			return fmt.Errorf("resource %d: unable to discover resource using REST mapper: %s", index+1, err)
-		}
-
-		dres := dcli.Resource(mapping.Resource)
-		ns := resource.GetNamespace()
-		deployed := &unstructured.Unstructured{}
-
-		if len(ns) > 0 {
-			nres := dres.Namespace(ns)
-			deployed, err = nres.Update(&resource, metav1.UpdateOptions{})
-			if errors.IsNotFound(err) {
-				deployed, err = nres.Create(&resource, metav1.CreateOptions{})
-			}
-		} else {
-			deployed, err = dres.Update(&resource, metav1.UpdateOptions{})
-			if errors.IsNotFound(err) {
-				deployed, err = dres.Create(&resource, metav1.CreateOptions{})
-			}
-		}
+		deployed, err := deployJSON(r, restMapper, dcli)
 
 		if err != nil {
-			return fmt.Errorf("while deploying resource %d: %s", index+1, err)
+			return fmt.Errorf("resource %d: %s", index+1, err)
 		}
 
 		msg.Logger.Infof("resource %d: team %s successfully deployed %s", index+1, payload.Team, deployed.GetSelfLink())
 	}
 
 	return nil
+}
+
+func deployJSON(data []byte, restMapper meta.RESTMapper, client dynamic.Interface) (*unstructured.Unstructured, error) {
+
+	resource := unstructured.Unstructured{}
+	err := resource.UnmarshalJSON(data)
+	if err != nil {
+		return nil, fmt.Errorf("while decoding payload: %s", err)
+	}
+
+	gvk := resource.GroupVersionKind()
+	gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
+	mapping, err := restMapper.RESTMapping(gk, gvk.Version)
+	if err != nil {
+		return nil, fmt.Errorf("unable to discover resource using REST mapper: %s", err)
+	}
+
+	clusterResource := client.Resource(mapping.Resource)
+	ns := resource.GetNamespace()
+	deployed := &unstructured.Unstructured{}
+
+	if len(ns) > 0 {
+		namespacedResource := clusterResource.Namespace(ns)
+		deployed, err = namespacedResource.Update(&resource, metav1.UpdateOptions{})
+		if errors.IsNotFound(err) {
+			deployed, err = namespacedResource.Create(&resource, metav1.CreateOptions{})
+		}
+	} else {
+		deployed, err = clusterResource.Update(&resource, metav1.UpdateOptions{})
+		if errors.IsNotFound(err) {
+			deployed, err = clusterResource.Create(&resource, metav1.CreateOptions{})
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("deploying to Kubernetes: %s", err)
+	}
+
+	return deployed, nil
 }
 
 func Decode(m sarama.ConsumerMessage, key string) (Message, error) {
