@@ -123,6 +123,10 @@ func run() error {
 		TeamRepositoryStorage: teamRepositoryStorage,
 		ApplicationClient:     installationClient,
 	})
+	http.Handle("/assets/", http.StripPrefix(
+		"/assets",
+		http.FileServer(http.Dir("./assets")),
+	))
 
 	http.Handle("/auth/logout", &auth.LogoutHandler{})
 
