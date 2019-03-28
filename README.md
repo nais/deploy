@@ -4,14 +4,13 @@ Documentation related to the deployment orchestration into Kubernetes using Gith
 ## Overview
 The deployment process goes as follows (key parts of the process is explained in detail below):
 
-1. Install the NAV deployment GitHub application to your repository (one time operation)
-2. Generate a deployment using GitHub's API as part of the CI process for each deployment you want to generate for your application.
-3. `hookd` receives the deployment event, and
+1. [Create a deployment request](https://developer.github.com/v3/repos/deployments/#create-a-deployment) using GitHub's API, as part of the CI process of the application you want to deploy.
+2. `hookd` receives the deployment request, and
    1. Creates deployment status using GitHub's API for invalid deployments, marking the deployment as a failure, which effectively short circuits the deployment process, or
    2. Publishes message to Kafka for all valid deployments.
-4. `deployd` receives message from Kafka regarding the deployment and triggers `kubectl apply`.
-5. `deployd` publishes a message regarding the outcome of the deployment back to Kafka.
-6. `hookd` receives message from Kafka and adds a corresponding deployment status using GitHub's API with the result of the deployment process.
+3. `deployd` receives the request from Kafka and applies your _Kubernetes resources_ into the cluster of choice, on behalf of your team.
+4. `deployd` publishes a message regarding the outcome of the deployment back to Kafka.
+5. `hookd` receives message from Kafka and adds a corresponding deployment status using GitHub's API with the result of the deployment process.
 
 ![Timeline of deployment components](doc/timeline.png)
 
