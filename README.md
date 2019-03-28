@@ -56,24 +56,22 @@ Deployd's main responsibility is to deploy resources into a Kubernetes cluster. 
 
 Check out the repository and run `make`. Dependencies will download automatically, and you should have two binary files at `hookd/hookd` and `deployd/deployd`.
 
-### Kafka
-Hookd and deployd depends on Kafka for process communication.
-Start a local instance in Docker by running the command below. Hookd and deployd will connect to this server by default.
-```
-docker run -it --rm -p 9092:9092 --env ADVERTISED_HOST=localhost --env ADVERTISED_PORT=9092 spotify/kafka
-```
+### External dependencies
+Start the external dependencies by running `docker-compose up`. This will start local Kafka and S3 servers.
 
-You may now connect to Kafka using the syntax below. Note that connecting to `localhost:9092` is the default behavior, so you do not need to specify any command-line flags.
-```
-hookd|deployd --kafka-brokers=localhost:9092 ...
-```
+#### Kafka
+Kafka is used as a communication channel between hookd and deployd. Hookd sends deployment requests to a `deploymentRequests` topic, which fans out
+and in turn hits all the deployd instances. Deployd acts on the information, and then sends a deployment status to the `deploymentStatus` topic.
+Hookd picks up replies to this topic, and publishes the deployment status to Github.
 
-### S3
-Hookd stores team access control lists in an S3 bucket.
-Start a local instance in Docker by running the command below. Hookd will connect to this server by default.
+#### S3
+Used as a configuration backend. Information about repository team access is stored here, and accessed on each deployment request.
+
+The access and secret keys are as follows:
 
 ```
-docker run -it --rm -p 9000:9000 minio/minio server /data
+export S3_ACCESS_KEY=accesskey
+export S3_SECRET_KEY=secretkey
 ```
 
 ### Simulating Github deployment requests

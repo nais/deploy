@@ -1,0 +1,17 @@
+version: "3"
+services:
+  kafka:
+    image: "spotify/kafka"
+    ports:
+      - "9092:9092"
+    environment:
+      ADVERTISED_HOST: localhost
+      ADVERTISED_PORT: 9092
+  minio:
+    image: "minio/minio"
+    ports:
+      - "9000:9000"
+    command: server /data
+    environment:
+      MINIO_ACCESS_KEY: accesskey
+      MINIO_SECRET_KEY: secretkey
