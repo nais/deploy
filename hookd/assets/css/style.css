@@ -1,3 +1,58 @@
 body {
     font-family: Roboto;
 }
+
+a {
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+header {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+header img {
+    width: 150px;
+    height: 150px;
+}
+
+#sign-in {
+    text-align: center;
+}
+
+#sign-in a {
+    color: #000;
+    border-radius: 2px;
+    padding: 5px;
+    background-image: url("/assets/images/octocat.jpg");
+    background-repeat: no-repeat;
+    background-size: 25px 25px;
+    background-position-y: 50%;
+    padding-left: 30px;
+}
+
+footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    border-top: 1px solid darkgray;
+    margin-top: 20px;
+}
+
+footer p {
+    text-align: center;
+    color: #aaa;
+    font-size: .8em;
+}
+
+footer p a {
+    color: #666;
+}
