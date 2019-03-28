@@ -12,6 +12,7 @@ func (h *LogoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Name:   cookieName,
 			Value:  "",
 			MaxAge: 0,
+			Path:   "/",
 		})
 	}
 

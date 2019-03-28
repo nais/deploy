@@ -1,37 +1,168 @@
 {{define "body"}}
-<p>
-    Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
-        href="/auth/logout">sign out</a>.
-</p>
-<h2>Repositories</h2>
-{{if .Repository}}
-<form method="POST" action="/auth/submit">
-    <input readonly name="repository" value="{{.Repository}}">
+<div id="page-container">
+    <p id="authenticated">
+        Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
+            href="/auth/logout">sign out</a>.
+    </p>
 
-    {{if .Teams}}
-    <h2>Teams</h2>
-    <select multiple name="teams">
-        {{range .Teams}}
-        <option value="{{.Name}}">{{.Name}}</option>
-        {{end}}
-    </select>
-    <br>
-    <button type="submit">Grant access</button>
-    {{else}}
-    <p>No teams exist where you are listed as an <strong>admin</strong>.</p>
-    {{end}}
-</form>
+    <div id="repository-spinner">
+        <p>Fetching repositories from GitHub</p>
+        <div class="spinner"></div>
+    </div>
 
-{{else if .Repositories}}
-<form>
-    <select name="repository" onChange="this.form.submit()">
-        <option>Select repository</option>
-        {{range .Repositories}}
-        <option value="{{.Name}}">{{.FullName}}</option>
-        {{end}}
-    </select>
-</form>
-{{else}}
-<p>No repositories exist where you are listed as an <strong>admin</strong>.</p>
-{{end}}
+    <div id="form-container"></div>
+</div>
+
+<script>
+    function getJson(path, success, error) {
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                success(JSON.parse(xhr.responseText));
+            } else {
+                error(xhr);
+            }
+        };
+        xhr.open("GET", path);
+        xhr.send();
+    }
+
+    function fetchRepositoryTeams() {
+        removeElement(
+            document.getElementById("team-list-container"),
+            document.getElementById("team-error")
+        );
+
+        var select = document.getElementById("repository-select")
+        var repository = select.options[select.selectedIndex].value;
+
+        if (!repository) {
+            return;
+        }
+
+        var teamsSpinnerText = document.createElement("p");
+        teamsSpinnerText.innerText = "Loading teams";
+
+        var spinner = document.createElement("div");
+        spinner.classList.add("spinner");
+
+        var teamsSpinner = document.createElement("div");
+        teamsSpinner.id = "teams-spinner"
+        teamsSpinner.append(teamsSpinnerText, spinner);
+
+        var form = document.getElementById("form");
+
+        form.appendChild(teamsSpinner);
+
+        getJson(
+            "/proxy/teams?repository=" + repository,
+            function (teams) {
+                if (!teams.length) {
+                    var errorMessage = document.createElement("p");
+                    errorMessage.id = "team-error";
+                    errorMessage.innerText =
+                        "You are not listed as an admin in any teams in the selected repository. " +
+                        "Either choose a different repository, or have a team maintainer add you to the correct team.";
+
+                    removeElement(
+                        teamsSpinner,
+                        document.getElementById("team-list-container")
+                    );
+                    form.appendChild(errorMessage);
+                    return;
+                }
+
+                var checkboxList = document.createElement("ul");
+                checkboxList.id = "team-list";
+
+                teams.forEach(function (team) {
+                    var label = document.createElement("label");
+                    label.innerText = team.name;
+
+                    var checkbox = document.createElement("input");
+                    checkbox.classList.add("team")
+                    checkbox.type = "checkbox";
+                    checkbox.name = "team[]";
+                    checkbox.value = team.slug;
+
+                    label.insertBefore(checkbox, label.firstChild);
+
+                    var listItem = document.createElement("li");
+                    listItem.appendChild(label);
+                    checkboxList.appendChild(listItem)
+                })
+
+                var teamListContainer = document.createElement("div");
+                teamListContainer.id = "team-list-container";
+
+                var description = document.createElement("p");
+                description.innerText = "Choose one or more teams:";
+
+                var button = document.createElement("button");
+                button.type = "button";
+                button.innerText = "Submit"
+                button.onclick = function () {
+                    // Handle submit
+                };
+
+                removeElement(teamsSpinner);
+
+                teamListContainer.append(description, checkboxList, button);
+                form.append(teamListContainer);
+            },
+            function (request) {
+                removeElement(teamsSpinner);
+                alert("An error occurred when fetching repository teams, please try again.");
+            }
+        );
+    }
+
+    getJson(
+        "/proxy/repositories",
+        function (repositories) {
+            if (!repositories.length) {
+                alert("Could not load any repositories, please sign back in");
+                window.location = "/auth/logout";
+                return;
+            }
+
+            var repositorySelect = document.createElement("select");
+            repositorySelect.id = "repository-select";
+            repositorySelect.name = "repository";
+            repositorySelect.onchange = fetchRepositoryTeams;
+
+            var option = document.createElement("option");
+            option.textContent = "Select repository";
+            option.value = 0;
+            repositorySelect.appendChild(option);
+
+            repositories.forEach(function (repo) {
+                var option = document.createElement("option");
+                option.textContent = repo.full_name;
+                option.value = repo.name;
+                repositorySelect.appendChild(option);
+            });
+
+            var form = document.createElement("form");
+            form.id = "form";
+
+            form.appendChild(repositorySelect);
+
+            removeElement(document.getElementById("repository-spinner"));
+
+            document.getElementById("form-container").appendChild(form);
+        },
+        function (request) {
+            alert("An error occurred when fetching repositories, please sign back in");
+            window.location = "/auth/logout";
+            return;
+        }
+    );
+
+    function removeElement(...el) {
+        el.filter(Boolean).forEach(function (el) {
+            el.parentNode.removeChild(el);
+        })
+    }
+</script>
 {{end}}

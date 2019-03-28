@@ -102,6 +102,16 @@ func teamListsMatch(names []string, teams []*gh.Team) error {
 	return nil
 }
 
+func getAuthenticatedUser(client *gh.Client) (*gh.User, error) {
+	user, _, err := client.Users.Get(context.Background(), "")
+
+	if err != nil {
+		return nil, fmt.Errorf("Could not fetch authenticated user: %s", err)
+	}
+
+	return user, nil
+}
+
 func userClient(oauthtoken string) *gh.Client {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: oauthtoken,

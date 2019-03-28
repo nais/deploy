@@ -73,6 +73,7 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Name:    "accessToken",
 		Value:   accessToken,
 		Expires: time.Now().Add(1 * time.Hour),
+		Path:    "/",
 	}
 	http.SetCookie(w, &cookie)
 	http.Redirect(w, r, "/auth/form", http.StatusFound)

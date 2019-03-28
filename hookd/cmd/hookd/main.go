@@ -116,13 +116,15 @@ func run() error {
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
 	})
-	http.Handle("/auth/form", &auth.FormHandler{
-		ApplicationClient: installationClient,
-	})
+	http.Handle("/auth/form", &auth.FormHandler{})
 	http.Handle("/auth/submit", &auth.SubmittedFormHandler{
 		TeamRepositoryStorage: teamRepositoryStorage,
 		ApplicationClient:     installationClient,
 	})
+	http.Handle("/proxy/teams", &auth.TeamsProxyHandler{
+		ApplicationClient: installationClient,
+	})
+	http.Handle("/proxy/repositories", &auth.RepositoriesProxyHandler{})
 	http.Handle("/assets/", http.StripPrefix(
 		"/assets",
 		http.FileServer(http.Dir("./assets")),
