@@ -23,6 +23,92 @@ const (
 	ClusterName         = "kubernetes"
 )
 
+type Client struct {
+	Base   kubernetes.Interface
+	Config *rest.Config
+}
+
+func New() (*Client, error) {
+	config, err := defaultConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		Base:   client,
+		Config: config,
+	}, nil
+}
+
+func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
+	serviceAccountName := serviceAccountName(team)
+
+	// get service account for this team
+	serviceAccount, err := serviceAccount(c.Base, serviceAccountName)
+	if err != nil {
+		return nil, fmt.Errorf("while retrieving service account: %s", err)
+	}
+
+	// get service account secret token
+	secret, err := serviceAccountSecret(c.Base, *serviceAccount)
+	if err != nil {
+		return nil, fmt.Errorf("while retrieving secret token: %s", err)
+	}
+
+	authInfo := authInfo(*secret)
+
+	teamConfig := clientcmdapi.NewConfig()
+	teamConfig.AuthInfos[serviceAccountName] = &authInfo
+	teamConfig.Clusters[ClusterName] = &clientcmdapi.Cluster{
+		Server:                c.Config.Host,
+		InsecureSkipTLSVerify: c.Config.Insecure,
+	}
+	teamConfig.Contexts[ClusterName] = &clientcmdapi.Context{
+		Namespace: Namespace,
+		AuthInfo:  serviceAccountName,
+		Cluster:   ClusterName,
+	}
+	teamConfig.CurrentContext = ClusterName
+
+	return teamConfig, nil
+}
+
+// TeamClient returns a generic Kubernetes REST client tailored for a specific team.
+// The user is the `serviceuser-TEAM` in the `default` namespace.
+func (c *Client) TeamClient(team string) (kubernetes.Interface, dynamic.Interface, error) {
+	config, err := c.teamConfig(team)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	output, err := clientcmd.Write(*config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("while generating team Kubeconfig: %s", err)
+	}
+
+	rc, err := clientcmd.RESTConfigFromKubeConfig(output)
+	if err != nil {
+		return nil, nil, fmt.Errorf("while generating Kubernetes REST client config: %s", err)
+	}
+
+	k, err := kubernetes.NewForConfig(rc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to generate Kubernetes client: %s", err)
+	}
+
+	d, err := dynamic.NewForConfig(rc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to generate dynamic client: %s", err)
+	}
+
+	return k, d, nil
+}
+
 func defaultConfig() (*rest.Config, error) {
 	cfg, err := rest.InClusterConfig()
 	if err == nil {
@@ -64,84 +150,4 @@ func authInfo(secret v1.Secret) clientcmdapi.AuthInfo {
 	return clientcmdapi.AuthInfo{
 		Token: string(secret.Data["token"]),
 	}
-}
-
-func teamConfig(team string) (*clientcmdapi.Config, error) {
-	config, client, err := BaseClient()
-	if err != nil {
-		return nil, err
-	}
-
-	serviceAccountName := serviceAccountName(team)
-
-	// get service account for this team
-	serviceAccount, err := serviceAccount(client, serviceAccountName)
-	if err != nil {
-		return nil, fmt.Errorf("while retrieving service account: %s", err)
-	}
-
-	// get service account secret token
-	secret, err := serviceAccountSecret(client, *serviceAccount)
-	if err != nil {
-		return nil, fmt.Errorf("while retrieving secret token: %s", err)
-	}
-
-	authInfo := authInfo(*secret)
-
-	teamConfig := clientcmdapi.NewConfig()
-	teamConfig.AuthInfos[serviceAccountName] = &authInfo
-	teamConfig.Clusters[ClusterName] = &clientcmdapi.Cluster{
-		Server:                config.Host,
-		InsecureSkipTLSVerify: config.Insecure,
-	}
-	teamConfig.Contexts[ClusterName] = &clientcmdapi.Context{
-		Namespace: Namespace,
-		AuthInfo:  serviceAccountName,
-		Cluster:   ClusterName,
-	}
-	teamConfig.CurrentContext = ClusterName
-
-	return teamConfig, nil
-}
-
-// BaseClient returns a Kubernetes REST client, as configured through auto-detection.
-func BaseClient() (*rest.Config, kubernetes.Interface, error) {
-	clientConfig, err := defaultConfig()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	client, err := kubernetes.NewForConfig(clientConfig)
-	return clientConfig, client, err
-}
-
-// TeamClient returns a generic Kubernetes REST client tailored for a specific team.
-// The user is the `serviceuser-TEAM` in the `default` namespace.
-func TeamClient(team string) (kubernetes.Interface, dynamic.Interface, error) {
-	config, err := teamConfig(team)
-	if err != nil {
-		return nil, nil, fmt.Errorf("while loading Kubeconfig: %s", err)
-	}
-
-	output, err := clientcmd.Write(*config)
-	if err != nil {
-		return nil, nil, fmt.Errorf("while generating team Kubeconfig: %s", err)
-	}
-
-	rc, err := clientcmd.RESTConfigFromKubeConfig(output)
-	if err != nil {
-		return nil, nil, fmt.Errorf("while generating Kubernetes REST client config: %s", err)
-	}
-
-	k, err := kubernetes.NewForConfig(rc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate Kubernetes client: %s", err)
-	}
-
-	d, err := dynamic.NewForConfig(rc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate dynamic client: %s", err)
-	}
-
-	return k, d, nil
 }

@@ -42,11 +42,11 @@ func run() error {
 	log.Infof("deployd starting up")
 	log.Infof("cluster.................: %s", cfg.Cluster)
 
-	kubeConfig, _, err := kubeclient.BaseClient()
+	kube, err := kubeclient.New()
 	if err != nil {
 		return fmt.Errorf("cannot configure Kubernetes client: %s", err)
 	}
-	log.Infof("kubernetes..............: %s", kubeConfig.Host)
+	log.Infof("kubernetes..............: %s", kube.Config.Host)
 
 	log.Infof("kafka topic for requests: %s", cfg.Kafka.RequestTopic)
 	log.Infof("kafka topic for statuses: %s", cfg.Kafka.StatusTopic)
@@ -73,7 +73,7 @@ func run() error {
 	for {
 		select {
 		case m = <-client.RecvQ:
-			if msg, err := deployd.Handle(client, m, cfg.Cluster); err != nil {
+			if msg, err := deployd.Handle(client, kube, m, cfg.Cluster); err != nil {
 				msg.Logger.Errorf("while transmitting deployment status back to sender: %s", err)
 			}
 

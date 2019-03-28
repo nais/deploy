@@ -3,6 +3,8 @@ package deployd
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/Shopify/sarama"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
@@ -13,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/restmapper"
-	"time"
 )
 
 type Message struct {
@@ -100,7 +101,7 @@ func Preflight(msg Message) error {
 }
 
 // Deploy something to Kubernetes
-func Deploy(msg Message) error {
+func Deploy(msg Message, kube *kubeclient.Client) error {
 	payload := Payload{}
 	err := json.Unmarshal(msg.Request.Payload, &payload)
 	if err != nil {
@@ -118,7 +119,7 @@ func Deploy(msg Message) error {
 
 	msg.Logger.Infof("deploying %d resources to Kubernetes on behalf of team %s", numResources, payload.Team)
 
-	kcli, dcli, err := kubeclient.TeamClient(payload.Team)
+	kcli, dcli, err := kube.TeamClient(payload.Team)
 	if err != nil {
 		return err
 	}
@@ -185,7 +186,7 @@ func Decode(m sarama.ConsumerMessage, key string) (Message, error) {
 	return msg, nil
 }
 
-func Handle(client *kafka.DualClient, m sarama.ConsumerMessage, cluster string) (Message, error) {
+func Handle(client *kafka.DualClient, kube *kubeclient.Client, m sarama.ConsumerMessage, cluster string) (Message, error) {
 	// Decode Kafka payload into Protobuf with logging metadata
 	msg, err := Decode(m, client.SignatureKey)
 	if err != nil {
@@ -205,7 +206,7 @@ func Handle(client *kafka.DualClient, m sarama.ConsumerMessage, cluster string) 
 	err = Preflight(msg)
 	if err == nil {
 		msg.Logger.Infof("deployment request accepted")
-		err = Deploy(msg)
+		err = Deploy(msg, kube)
 		if err != nil {
 			msg.Logger.Errorf("deployment failed: %s", err)
 		}
