@@ -49,24 +49,6 @@ func meetsDeadline(msg Message) error {
 	return nil
 }
 
-func failureMessage(msg Message, handlerError error) *deployment.DeploymentStatus {
-	return &deployment.DeploymentStatus{
-		Deployment:  msg.Request.Deployment,
-		Description: fmt.Sprintf("deployment failed: %s", handlerError),
-		State:       deployment.GithubDeploymentState_failure,
-		DeliveryID:  msg.Request.GetDeliveryID(),
-	}
-}
-
-func successMessage(msg Message) *deployment.DeploymentStatus {
-	return &deployment.DeploymentStatus{
-		Deployment:  msg.Request.Deployment,
-		Description: fmt.Sprintf("deployment succeeded"),
-		State:       deployment.GithubDeploymentState_success,
-		DeliveryID:  msg.Request.GetDeliveryID(),
-	}
-}
-
 func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.DualClient, logger log.Entry) error {
 	payload, err := deployment.WrapMessage(status, client.SignatureKey)
 	if err != nil {
@@ -230,9 +212,9 @@ func Handle(client *kafka.DualClient, kube *kubeclient.Client, m sarama.Consumer
 
 	var status *deployment.DeploymentStatus
 	if err == nil {
-		status = successMessage(msg)
+		status = deployment.NewSuccessStatus(msg.Request)
 	} else {
-		status = failureMessage(msg, err)
+		status = deployment.NewFailureStatus(msg.Request, err)
 	}
 
 	return msg, SendDeploymentStatus(status, client, msg.Logger)

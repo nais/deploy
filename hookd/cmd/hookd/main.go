@@ -141,6 +141,8 @@ func run() error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
+	// This Kafka client loop listens for deployment statuses from deployd.
+	// When they arrive, they are forwarded to the Github Deployments API.
 	for {
 		select {
 		case m := <-kafkaClient.RecvQ:

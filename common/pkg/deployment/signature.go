@@ -34,6 +34,7 @@ func checkMessageSignature(msg SignedMessage, key string) error {
 	return nil
 }
 
+// WrapMessage signs and encodes a protobuf message.
 func WrapMessage(msg proto.Message, key string) ([]byte, error) {
 	payload, err := proto.Marshal(msg)
 	if err != nil {
@@ -43,6 +44,8 @@ func WrapMessage(msg proto.Message, key string) ([]byte, error) {
 	return signMessage(payload, key)
 }
 
+// UnwrapMessage decodes a signed protobuf message, validates the message signature,
+// and returns the typed Protobuf message if the validation succeeds.
 func UnwrapMessage(msg []byte, key string, dest proto.Message) error {
 	wrapped := SignedMessage{}
 	if err := proto.Unmarshal(msg, &wrapped); err != nil {

@@ -39,7 +39,6 @@ func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize fu
 		"delivery_id": h.deliveryID,
 		"event_type":  h.eventType,
 	})
-
 	h.log.Infof("%s %s %s", r.Method, r.RequestURI, h.eventType)
 
 	h.data, err = ioutil.ReadAll(r.Body)
