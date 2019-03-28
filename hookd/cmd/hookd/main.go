@@ -68,6 +68,7 @@ func run() error {
 	log.Infof("kafka topic for statuses: %s", cfg.Kafka.StatusTopic)
 	log.Infof("kafka consumer group....: %s", cfg.Kafka.GroupID)
 	log.Infof("kafka brokers...........: %+v", cfg.Kafka.Brokers)
+	log.Infof("web frontend templates..: %s", auth.TemplateLocation)
 
 	sarama.Logger = kafkaLogger
 

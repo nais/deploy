@@ -16,7 +16,7 @@ type PageData struct {
 	State    string
 }
 
-var TemplateLocation string = "templates/"
+var TemplateLocation = "templates/"
 
 func isTeamMaintainer(client *gh.Client, login string, team *gh.Team) (bool, error) {
 	membership, _, err := client.Teams.GetTeamMembership(context.Background(), team.GetID(), login)
