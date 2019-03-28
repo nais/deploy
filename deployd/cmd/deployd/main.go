@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/deployd/pkg/config"
@@ -73,10 +75,18 @@ func run() error {
 	for {
 		select {
 		case m = <-client.RecvQ:
-			if msg, err := deployd.Handle(client, kube, m, cfg.Cluster); err != nil {
-				msg.Logger.Errorf("while transmitting deployment status back to sender: %s", err)
+			logger := kafka.ConsumerMessageLogger(&m)
+
+			// Check the validity and authenticity of the message.
+			status, err := deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube)
+			if err != nil {
+				logger.Errorf("while deploying: %s", err)
 			}
 
+			err = SendDeploymentStatus(status, client, logger)
+			if err != nil {
+				logger.Errorf("while reporting deployment status: %s", err)
+			}
 
 		case <-signals:
 			return nil
@@ -84,6 +94,32 @@ func run() error {
 
 		client.Consumer.MarkOffset(&m, "")
 	}
+}
+
+func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.DualClient, logger log.Entry) error {
+	payload, err := deployment.WrapMessage(status, client.SignatureKey)
+	if err != nil {
+		return fmt.Errorf("while marshalling response Protobuf message: %s", err)
+	}
+
+	reply := &sarama.ProducerMessage{
+		Topic:     client.ProducerTopic,
+		Timestamp: time.Now(),
+		Value:     sarama.StringEncoder(payload),
+	}
+
+	_, offset, err := client.Producer.SendMessage(reply)
+	if err != nil {
+		return fmt.Errorf("while sending reply over Kafka: %s", err)
+	}
+
+	logger.WithFields(log.Fields{
+		"kafka_offset":    offset,
+		"kafka_timestamp": reply.Timestamp,
+		"kafka_topic":     reply.Topic,
+	}).Infof("deployment response sent successfully")
+
+	return nil
 }
 
 func main() {

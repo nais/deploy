@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Shopify/sarama"
 	"github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/deployd/pkg/kubeclient"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -19,12 +17,6 @@ import (
 	"k8s.io/client-go/restmapper"
 )
 
-type Message struct {
-	KafkaMessage sarama.ConsumerMessage
-	Request      deployment.DeploymentRequest
-	Logger       log.Entry
-}
-
 type Payload struct {
 	Version    [3]int
 	Team       string
@@ -33,61 +25,31 @@ type Payload struct {
 	}
 }
 
-func matchesCluster(msg Message, cluster string) error {
-	if msg.Request.GetCluster() != cluster {
-		return fmt.Errorf("message is addressed to cluster %s, not %s", msg.Request.Cluster, cluster)
+var (
+	ErrNotMyCluster     = fmt.Errorf("your message belongs in another cluster")
+	ErrDeadlineExceeded = fmt.Errorf("deadline exceeded")
+)
+
+func matchesCluster(req deployment.DeploymentRequest, cluster string) error {
+	if req.GetCluster() != cluster {
+		return ErrNotMyCluster
 	}
 	return nil
 }
 
-func meetsDeadline(msg Message) error {
-	deadline := time.Unix(msg.Request.GetDeadline(), 0)
+func meetsDeadline(req deployment.DeploymentRequest) error {
+	deadline := time.Unix(req.GetDeadline(), 0)
 	late := time.Since(deadline)
 	if late > 0 {
-		return fmt.Errorf("deadline exceeded by %s", late.String())
+		return ErrDeadlineExceeded
 	}
 	return nil
 }
 
-func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.DualClient, logger log.Entry) error {
-	payload, err := deployment.WrapMessage(status, client.SignatureKey)
-	if err != nil {
-		return fmt.Errorf("while marshalling response Protobuf message: %s", err)
-	}
-
-	reply := &sarama.ProducerMessage{
-		Topic:     client.ProducerTopic,
-		Timestamp: time.Now(),
-		Value:     sarama.StringEncoder(payload),
-	}
-
-	_, offset, err := client.Producer.SendMessage(reply)
-	if err != nil {
-		return fmt.Errorf("while sending reply over Kafka: %s", err)
-	}
-
-	logger.WithFields(log.Fields{
-		"kafka_offset":    offset,
-		"kafka_timestamp": reply.Timestamp,
-		"kafka_topic":     reply.Topic,
-	}).Infof("deployment response sent successfully")
-
-	return nil
-}
-
-// Check conditions before deployment
-func Preflight(msg Message) error {
-	if err := meetsDeadline(msg); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Deploy something to Kubernetes
-func Deploy(msg Message, kube *kubeclient.Client) error {
+// deployKubernetes something to Kubernetes
+func deployKubernetes(log *log.Entry, req deployment.DeploymentRequest, kube *kubeclient.Client) error {
 	payload := Payload{}
-	err := json.Unmarshal(msg.Request.Payload, &payload)
+	err := json.Unmarshal(req.Payload, &payload)
 	if err != nil {
 		return fmt.Errorf("while decoding payload: %s", err)
 	}
@@ -101,7 +63,7 @@ func Deploy(msg Message, kube *kubeclient.Client) error {
 		return fmt.Errorf("team not specified in deployment payload")
 	}
 
-	msg.Logger.Infof("deploying %d resources to Kubernetes on behalf of team %s", numResources, payload.Team)
+	log.Infof("deploying %d resources to Kubernetes on behalf of team %s", numResources, payload.Team)
 
 	kcli, dcli, err := kube.TeamClient(payload.Team)
 	if err != nil {
@@ -122,7 +84,7 @@ func Deploy(msg Message, kube *kubeclient.Client) error {
 			return fmt.Errorf("resource %d: %s", index+1, err)
 		}
 
-		msg.Logger.Infof("resource %d: team %s successfully deployed %s", index+1, payload.Team, deployed.GetSelfLink())
+		log.Infof("resource %d: team %s successfully deployed %s", index+1, payload.Team, deployed.GetSelfLink())
 	}
 
 	return nil
@@ -167,55 +129,56 @@ func deployJSON(data []byte, restMapper meta.RESTMapper, client dynamic.Interfac
 	return deployed, nil
 }
 
-func Decode(m sarama.ConsumerMessage, key string) (Message, error) {
-	msg := Message{
-		KafkaMessage: m,
-		Logger:       kafka.ConsumerMessageLogger(&m),
+// Prepare decodes a string of bytes into a deployment request,
+// and decides whether or not to allow a deployment.
+//
+// If everything is okay, returns a deployment request. Otherwise, an error.
+func Prepare(msg []byte, key, cluster string, kube *kubeclient.Client) (*deployment.DeploymentRequest, error) {
+	req := &deployment.DeploymentRequest{}
+
+	if err := deployment.UnwrapMessage(msg, key, req); err != nil {
+		return nil, err
 	}
-
-	if err := deployment.UnwrapMessage(m.Value, key, &msg.Request); err != nil {
-		return msg, err
-	}
-
-	msg.Logger = *msg.Logger.WithField("delivery_id", msg.Request.GetDeliveryID())
-
-	return msg, nil
-}
-
-func Handle(client *kafka.DualClient, kube *kubeclient.Client, m sarama.ConsumerMessage, cluster string) (Message, error) {
-	// Decode Kafka payload into Protobuf with logging metadata
-	msg, err := Decode(m, client.SignatureKey)
-	if err != nil {
-		msg.Logger.Errorf("unable to process message: %s", err)
-		return msg, nil
-	}
-
-	msg.Logger.Tracef("incoming request: %s", msg.Request.String())
 
 	// Check if we are the authoritative handler for this message
-	if err = matchesCluster(msg, cluster); err != nil {
-		msg.Logger.Trace(err)
-		client.Consumer.MarkOffset(&m, "")
-		return msg, nil
+	if err := matchesCluster(*req, cluster); err != nil {
+		return req, err
 	}
 
-	err = Preflight(msg)
-	if err == nil {
-		msg.Logger.Infof("deployment request accepted")
-		err = Deploy(msg, kube)
-		if err != nil {
-			msg.Logger.Errorf("deployment failed: %s", err)
+	// Messages that are too old are discarded
+	if err := meetsDeadline(*req); err != nil {
+		return req, err
+	}
+
+	return req, nil
+}
+
+func Run(logger *log.Entry, msg []byte, key, cluster string, kube *kubeclient.Client) (*deployment.DeploymentStatus, error) {
+	// Check the validity and authenticity of the message.
+	req, err := Prepare(msg, key, cluster, kube)
+	if req != nil {
+		repo := req.GetDeployment().GetRepository()
+		logger = log.WithFields(log.Fields{
+			"delivery_id": req.GetDeliveryID(),
+			"repository":  fmt.Sprintf("%s/%s", repo.Owner, repo.Name),
+		})
+	}
+
+	if err != nil {
+		logger.Tracef("discarding incoming message: %s", err)
+		if err != ErrNotMyCluster {
+			return deployment.NewFailureStatus(*req, err), nil
 		}
-	} else {
-		msg.Logger.Warnf("deployment request rejected: %s", err)
+		return nil, nil
 	}
 
-	var status *deployment.DeploymentStatus
-	if err == nil {
-		status = deployment.NewSuccessStatus(msg.Request)
-	} else {
-		status = deployment.NewFailureStatus(msg.Request, err)
+	logger.Infof("accepting incoming deployment request for %s", req.String())
+
+	err = deployKubernetes(logger, *req, kube)
+
+	if err != nil {
+		return deployment.NewFailureStatus(*req, err), nil
 	}
 
-	return msg, SendDeploymentStatus(status, client, msg.Logger)
+	return deployment.NewSuccessStatus(*req), nil
 }
