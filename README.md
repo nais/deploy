@@ -36,7 +36,7 @@ Kafka is used as a communication channel between hookd and deployd. Hookd sends 
 and in turn hits all the deployd instances. Deployd acts on the information, and then sends a deployment status to the `deploymentStatus` topic.
 Hookd picks up replies to this topic, and publishes the deployment status to Github.
 
-### S3
+### Amazon S3 (Amazon Simple Storage Service)
 Used as a configuration backend. Information about repository team access is stored here, and accessed on each deployment request.
 
 ## Usage
