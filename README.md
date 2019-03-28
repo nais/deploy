@@ -52,21 +52,25 @@ In order to do this, you need to have _maintainer_ access rights to your Github 
 
 Visit the [registration portal](https://deployment.prod-sbs.nais.io/auth/login) and follow the instructions.
 
-### Deployment payload
-Deployment payloads are a part of the data sent to Github using the [GitHub Deployment API](https://developer.github.com/v3/repos/deployments/#create-a-deployment).
+### Making a deployment request
+A deployment into the Kubernetes clusters starts with a POST request to the [GitHub Deployment API](https://developer.github.com/v3/repos/deployments/#create-a-deployment).
+The request contains information about which cluster to deploy to, which team to deploy as, and what resources should be applied.
 
-The deployment payload is a JSON object. See [schema](deployd/pkg/deployd/deployd.go).
-
-Example payload:
+Example request:
 ```
 {
-    "version": [1, 0, 0],
-    "team": "github-team-name",
-    "kubernetes": {
-        "resources": [
-            { kind: "Application", apiVersion: "nais.io/v1alpha", metadata: {...}, spec: {...} },
-            { kind: "ConfigMap", apiVersion: "v1", metadata: {...}, spec: {...} },
-        ],
+    "ref": "master",
+    "description": "Automated deployment request from our pretty pipeline",
+    "environment": "prod-sbs",
+    "payload": {
+        "version": [1, 0, 0],
+        "team": "github-team-name",
+        "kubernetes": {
+            "resources": [
+                { kind: "Application", apiVersion: "nais.io/v1alpha", metadata: {...}, spec: {...} },
+                { kind: "ConfigMap", apiVersion: "v1", metadata: {...}, spec: {...} },
+            ],
+        }
     }
 }
 ```
@@ -75,9 +79,10 @@ Example payload:
 
 | Key | Description | Version added |
 |-----|-------------|---------------|
-| version | Array of three digits, denoting major, minor, and patch level version of the deployment payload message format. | 1.0.0 |
-| team | Github team name, used as credentials for deploying into the Kubernetes cluster. | 1.0.0 |
-| kubernetes.resources | List of Kubernetes resources that should be applied into the cluster. | 1.0.0 |
+| environment | Which cluster to deploy to. One of `dev-fss`, `dev-sbs`, `prod-fss`, `prod-sbs`. | N/A |
+| payload.version | Array of three digits, denoting major, minor, and patch level version of the deployment payload message format. | 1.0.0 |
+| payload.team | Github team name, used as credentials for deploying into the Kubernetes cluster. | 1.0.0 |
+| payload.kubernetes.resources | List of Kubernetes resources that should be applied into the cluster. | 1.0.0 |
 
 
 ## Developing
