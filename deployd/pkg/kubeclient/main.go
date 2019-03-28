@@ -2,12 +2,13 @@ package kubeclient
 
 import (
 	"fmt"
+	"os"
+
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Needed for azure auth side effect
 
@@ -66,12 +67,7 @@ func authInfo(secret v1.Secret) clientcmdapi.AuthInfo {
 }
 
 func teamConfig(team string) (*clientcmdapi.Config, error) {
-	clientConfig, err := defaultConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := kubernetes.NewForConfig(clientConfig)
+	config, client, err := BaseClient()
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +91,8 @@ func teamConfig(team string) (*clientcmdapi.Config, error) {
 	teamConfig := clientcmdapi.NewConfig()
 	teamConfig.AuthInfos[serviceAccountName] = &authInfo
 	teamConfig.Clusters[ClusterName] = &clientcmdapi.Cluster{
-		Server:                clientConfig.Host,
-		InsecureSkipTLSVerify: clientConfig.Insecure,
+		Server:                config.Host,
+		InsecureSkipTLSVerify: config.Insecure,
 	}
 	teamConfig.Contexts[ClusterName] = &clientcmdapi.Context{
 		Namespace: Namespace,
@@ -106,6 +102,17 @@ func teamConfig(team string) (*clientcmdapi.Config, error) {
 	teamConfig.CurrentContext = ClusterName
 
 	return teamConfig, nil
+}
+
+// BaseClient returns a Kubernetes REST client, as configured through auto-detection.
+func BaseClient() (*rest.Config, kubernetes.Interface, error) {
+	clientConfig, err := defaultConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	client, err := kubernetes.NewForConfig(clientConfig)
+	return clientConfig, client, err
 }
 
 // TeamClient returns a generic Kubernetes REST client tailored for a specific team.
