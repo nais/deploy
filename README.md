@@ -82,7 +82,7 @@ Example request:
 | environment | Which cluster to deploy to. One of `dev-fss`, `dev-sbs`, `prod-fss`, `prod-sbs`. | N/A |
 | payload.version | Array of three digits, denoting major, minor, and patch level version of the deployment payload message format. | 1.0.0 |
 | payload.team | Github team name, used as credentials for deploying into the Kubernetes cluster. | 1.0.0 |
-| payload.kubernetes.resources | List of Kubernetes resources that should be applied into the cluster. | 1.0.0 |
+| payload.kubernetes.resources | List of Kubernetes resources that should be applied into the cluster. Your `nais.yaml` file goes here, in JSON format instead of YAML. | 1.0.0 |
 
 
 ## Developing
