@@ -3,6 +3,7 @@ package kafka
 import (
 	"crypto/tls"
 	"fmt"
+
 	"github.com/Shopify/sarama"
 	"github.com/bsm/sarama-cluster"
 	log "github.com/sirupsen/logrus"
@@ -99,8 +100,7 @@ func (client *DualClient) ConsumerLoop() {
 
 func ConsumerMessageLogger(msg *sarama.ConsumerMessage) log.Entry {
 	return *log.WithFields(log.Fields{
-		"kafka_offset":    msg.Offset,
-		"kafka_timestamp": msg.Timestamp,
-		"kafka_topic":     msg.Topic,
+		"kafka_offset": msg.Offset,
+		"kafka_topic":  msg.Topic,
 	})
 }
