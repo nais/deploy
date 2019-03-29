@@ -47,13 +47,7 @@ func meetsDeadline(req deployment.DeploymentRequest) error {
 }
 
 // deployKubernetes something to Kubernetes
-func deployKubernetes(log *log.Entry, req deployment.DeploymentRequest, kube *kubeclient.Client) error {
-	payload := Payload{}
-	err := json.Unmarshal(req.Payload, &payload)
-	if err != nil {
-		return fmt.Errorf("while decoding payload: %s", err)
-	}
-
+func deployKubernetes(logger *log.Entry, payload Payload, kube *kubeclient.Client) error {
 	numResources := len(payload.Kubernetes.Resources)
 	if numResources == 0 {
 		return fmt.Errorf("no resources to deploy")
@@ -62,8 +56,6 @@ func deployKubernetes(log *log.Entry, req deployment.DeploymentRequest, kube *ku
 	if len(payload.Team) == 0 {
 		return fmt.Errorf("team not specified in deployment payload")
 	}
-
-	log.Infof("deploying %d resources to Kubernetes on behalf of team %s", numResources, payload.Team)
 
 	kcli, dcli, err := kube.TeamClient(payload.Team)
 	if err != nil {
@@ -84,7 +76,7 @@ func deployKubernetes(log *log.Entry, req deployment.DeploymentRequest, kube *ku
 			return fmt.Errorf("resource %d: %s", index+1, err)
 		}
 
-		log.Infof("resource %d: team %s successfully deployed %s", index+1, payload.Team, deployed.GetSelfLink())
+		logger.Infof("resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
 	}
 
 	return nil
@@ -133,7 +125,7 @@ func deployJSON(data []byte, restMapper meta.RESTMapper, client dynamic.Interfac
 // and decides whether or not to allow a deployment.
 //
 // If everything is okay, returns a deployment request. Otherwise, an error.
-func Prepare(msg []byte, key, cluster string, kube *kubeclient.Client) (*deployment.DeploymentRequest, error) {
+func Prepare(msg []byte, key, cluster string) (*deployment.DeploymentRequest, error) {
 	req := &deployment.DeploymentRequest{}
 
 	if err := deployment.UnwrapMessage(msg, key, req); err != nil {
@@ -153,12 +145,12 @@ func Prepare(msg []byte, key, cluster string, kube *kubeclient.Client) (*deploym
 	return req, nil
 }
 
-func Run(logger *log.Entry, msg []byte, key, cluster string, kube *kubeclient.Client) (*deployment.DeploymentStatus, error) {
+func Run(logger *log.Entry, msg []byte, key, cluster string, kube *kubeclient.Client) *deployment.DeploymentStatus {
 	// Check the validity and authenticity of the message.
-	req, err := Prepare(msg, key, cluster, kube)
+	req, err := Prepare(msg, key, cluster)
 	if req != nil {
 		repo := req.GetDeployment().GetRepository()
-		logger = log.WithFields(log.Fields{
+		logger = logger.WithFields(log.Fields{
 			"delivery_id": req.GetDeliveryID(),
 			"repository":  fmt.Sprintf("%s/%s", repo.Owner, repo.Name),
 		})
@@ -167,18 +159,23 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube *kubeclient.Cl
 	if err != nil {
 		logger.Tracef("discarding incoming message: %s", err)
 		if err != ErrNotMyCluster {
-			return deployment.NewFailureStatus(*req, err), nil
+			return deployment.NewFailureStatus(*req, err)
 		}
-		return nil, nil
+		return nil
 	}
 
-	logger.Infof("accepting incoming deployment request for %s", req.String())
-
-	err = deployKubernetes(logger, *req, kube)
-
+	payload := Payload{}
+	err = json.Unmarshal(req.Payload, &payload)
 	if err != nil {
-		return deployment.NewFailureStatus(*req, err), nil
+		return deployment.NewFailureStatus(*req, fmt.Errorf("error in payload: %s", err))
+	}
+	logger = logger.WithField("team", payload.Team)
+
+	logger.Infof("accepting incoming deployment request")
+
+	if err := deployKubernetes(logger, payload, kube); err != nil {
+		return deployment.NewFailureStatus(*req, err)
 	}
 
-	return deployment.NewSuccessStatus(*req), nil
+	return deployment.NewSuccessStatus(*req)
 }

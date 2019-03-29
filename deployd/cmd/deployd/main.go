@@ -78,9 +78,11 @@ func run() error {
 			logger := kafka.ConsumerMessageLogger(&m)
 
 			// Check the validity and authenticity of the message.
-			status, err := deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube)
-			if err != nil {
-				logger.Errorf("while deploying: %s", err)
+			status := deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube)
+			if status.GetState() == deployment.GithubDeploymentState_success {
+				logger.Infof("deployment successful")
+			} else {
+				logger.Errorf("deployment failed: %s", err)
 			}
 
 			err = SendDeploymentStatus(status, client, logger)
