@@ -5,11 +5,21 @@
 <head>
     <meta charset="utf-8">
     <title>{{block "title" .}}NAV deployment{{end}}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500">
+    <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 
 <body>
-    <h1>NAV deployment</h1>
-    {{template "body" .}}
+    <header>
+        <img id="nais-logo" src="/assets/images/nais_logo_blue_circle.png">
+        <h1>NAIS deployment</h1>
+    </header>
+    <main>
+        {{template "body" .}}
+    </main>
+    <footer>
+        <p>Project available at <a href="https://github.com/navikt/deployment">GitHub</a></p>
+    </footer>
 </body>
 
 </html>

@@ -39,6 +39,7 @@ func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Name:    "authState",
 		Value:   state.String(),
 		Expires: time.Now().Add(10 * time.Minute),
+		Path:    "/",
 	}
 	http.SetCookie(w, &cookie)
 

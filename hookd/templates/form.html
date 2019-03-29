@@ -1,37 +1,186 @@
 {{define "body"}}
-<p>
-    Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
-        href="/auth/logout">sign out</a>.
-</p>
-<h2>Repositories</h2>
-{{if .Repository}}
-<form method="POST" action="/auth/submit">
-    <input readonly name="repository" value="{{.Repository}}">
+<div id="page-container">
+    <p id="authenticated">
+        Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
+            href="/auth/logout">sign out</a>.
+    </p>
 
-    {{if .Teams}}
-    <h2>Teams</h2>
-    <select multiple name="teams">
-        {{range .Teams}}
-        <option value="{{.Name}}">{{.Name}}</option>
-        {{end}}
-    </select>
-    <br>
-    <button type="submit">Grant access</button>
-    {{else}}
-    <p>No teams exist where you are listed as an <strong>admin</strong>.</p>
-    {{end}}
-</form>
+    <p class="hidden error" id="repository-error">
+        An error occurred when fetching repositories, please <a href="/auth/logout">sign back in</a>.
+    </p>
 
-{{else if .Repositories}}
-<form>
-    <select name="repository" onChange="this.form.submit()">
-        <option>Select repository</option>
-        {{range .Repositories}}
-        <option value="{{.Name}}">{{.FullName}}</option>
-        {{end}}
-    </select>
-</form>
-{{else}}
-<p>No repositories exist where you are listed as an <strong>admin</strong>.</p>
-{{end}}
+    <div id="repository-spinner">
+        <p>Fetching repositories from GitHub</p>
+        <div class="spinner"></div>
+    </div>
+
+    <div class="hidden" id="form-container">
+        <form id="form">
+            <select name="repository" id="repository-select" onchange="fetchRepositoryTeams()">
+                <option value="0">Select repository</option>
+            </select>
+
+            <div class="hidden" id="team-spinner">
+                <p>Loading teams</p>
+                <div class="spinner"></div>
+            </div>
+
+            <div class="hidden" id="team-list-container">
+                <p>Choose one or more teams:</p>
+                <ul id="team-list"></ul>
+                <button type="button" onclick="submit()">Submit</button>
+            </div>
+
+            <p class="hidden error" id="team-error">
+                You are not listed as an admin in any teams in the selected repository. Either choose a different
+                repository, or have a team maintainer add you to the correct team.
+            </p>
+        </form>
+    </div>
+</div>
+
+<script>
+    function getJson(path, success, error) {
+        var xhr = new XMLHttpRequest();
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                success(JSON.parse(xhr.responseText));
+            } else {
+                error(xhr);
+            }
+        };
+        xhr.open("GET", path);
+        xhr.send();
+    }
+
+    function fetchRepositoryTeams() {
+        var teamSpinner = el("team-spinner");
+        var teamError = el("team-error");
+        var teamListContainer = el("team-list-container");
+
+        hide(teamError, teamListContainer);
+
+        var select = el("repository-select")
+        var repository = select.options[select.selectedIndex].value;
+
+        if (repository == 0) {
+            hide(teamSpinner);
+            return;
+        }
+
+        show(teamSpinner);
+
+        getJson(
+            "/proxy/teams?repository=" + repository,
+            function (teams) {
+                emptyTeamList();
+
+                if (!teams.length) {
+                    hide(teamSpinner);
+                    show(teamError);
+                    return;
+                }
+
+                var teamList = el("team-list");
+
+                teams.forEach(function (team) {
+                    var label = createTeamLabel(team.name);
+                    var checkbox = createTeamCheckbox(team.slug);
+                    label.insertBefore(checkbox, label.firstChild);
+                    var listItem = document.createElement("li");
+                    listItem.appendChild(label);
+                    teamList.appendChild(listItem)
+                })
+
+                hide(teamSpinner);
+                show(teamListContainer);
+            },
+            function (request) {
+                removeElement(teamsSpinner);
+                alert("An error occurred when fetching repository teams, please try again.");
+            }
+        );
+    }
+
+    getJson(
+        "/proxy/repositories",
+        function (repositories) {
+            if (!repositories.length) {
+                alert("Could not load any repositories, please sign back in");
+                window.location = "/auth/logout";
+                return;
+            }
+
+            var select = el("repository-select");
+
+            repositories.forEach(function (repo) {
+                select.appendChild(createSelectOption(repo.full_name, repo.name));
+            });
+
+            toggle(
+                el("repository-spinner"),
+                el("form-container")
+            );
+        },
+        function (request) {
+            show(el("repository-error"));
+            return;
+        }
+    );
+
+    function emptyTeamList() {
+        el("team-list").innerHTML = "";
+    }
+
+    function el(id) {
+        return document.getElementById(id);
+    }
+
+    function createSelectOption(text, value) {
+        var option = document.createElement("option");
+        option.textContent = text;
+        option.value = value;
+
+        return option;
+    }
+
+    function createTeamLabel(text) {
+        var label = document.createElement("label");
+        label.innerText = text;
+
+        return label;
+    }
+
+    function createTeamCheckbox(value) {
+        var checkbox = document.createElement("input");
+        checkbox.classList.add("team")
+        checkbox.type = "checkbox";
+        checkbox.name = "team[]";
+        checkbox.value = value;
+
+        return checkbox;
+    }
+
+    function hide(...el) {
+        el.filter(Boolean).forEach(function (el) {
+            el.classList.add("hidden");
+        })
+    }
+
+    function show(...el) {
+        el.filter(Boolean).forEach(function (el) {
+            el.classList.remove("hidden");
+        })
+    }
+
+    function toggle(...el) {
+        el.filter(Boolean).forEach(function (el) {
+            el.classList.toggle("hidden");
+        })
+    }
+
+    function submit() {
+        // Handle submit
+    }
+</script>
 {{end}}

@@ -1,0 +1,120 @@
+body,
+select,
+button {
+    font-family: Roboto;
+    font-size: 1em;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+header {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+header img {
+    width: 150px;
+    height: 150px;
+}
+
+#sign-in {
+    text-align: center;
+}
+
+#sign-in a {
+    border-radius: 2px;
+    padding: 5px;
+    background-image: url("/assets/images/octocat.jpg");
+    background-repeat: no-repeat;
+    background-size: 25px 25px;
+    background-position-y: 50%;
+    padding-left: 30px;
+}
+
+#authenticated a {
+    text-decoration: underline;
+}
+
+#authenticated .name,
+#authenticated .login {
+    font-weight: bold;
+}
+
+#page-container,
+#repository-spinner,
+#team-spinner,
+#form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.spinner {
+    border: 5px solid darkgray;
+    border-top: 5px solid white;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.error {
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    padding: 10px;
+    width: 350px;
+    color: #721c24;
+    background-color: #f8d7da;
+}
+
+#form {
+    margin-top: 1em;
+}
+
+#team-list {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+input.team {
+    margin: 5px 10px;
+}
+
+footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    border-top: 1px solid darkgray;
+    margin-top: 20px;
+}
+
+footer p {
+    text-align: center;
+    color: #aaa;
+    font-size: .8em;
+}
