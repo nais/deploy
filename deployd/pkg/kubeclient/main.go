@@ -69,8 +69,9 @@ func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
 	teamConfig := clientcmdapi.NewConfig()
 	teamConfig.AuthInfos[serviceAccountName] = &authInfo
 	teamConfig.Clusters[ClusterName] = &clientcmdapi.Cluster{
-		Server:                c.Config.Host,
-		InsecureSkipTLSVerify: c.Config.Insecure,
+		Server:                   c.Config.Host,
+		InsecureSkipTLSVerify:    c.Config.Insecure,
+		CertificateAuthorityData: c.Config.CAData,
 	}
 	teamConfig.Contexts[ClusterName] = &clientcmdapi.Context{
 		Namespace: Namespace,
