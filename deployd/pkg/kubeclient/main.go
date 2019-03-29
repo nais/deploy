@@ -28,6 +28,10 @@ type Client struct {
 	Config *rest.Config
 }
 
+type TeamClientProvider interface {
+	TeamClient(team string) (TeamClient, error)
+}
+
 func New() (*Client, error) {
 	config, err := defaultConfig()
 	if err != nil {
@@ -78,35 +82,38 @@ func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
 	return teamConfig, nil
 }
 
-// TeamClient returns a generic Kubernetes REST client tailored for a specific team.
+// TeamClient returns a Kubernetes REST client tailored for a specific team.
 // The user is the `serviceuser-TEAM` in the `default` namespace.
-func (c *Client) TeamClient(team string) (kubernetes.Interface, dynamic.Interface, error) {
+func (c *Client) TeamClient(team string) (TeamClient, error) {
 	config, err := c.teamConfig(team)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	output, err := clientcmd.Write(*config)
 	if err != nil {
-		return nil, nil, fmt.Errorf("while generating team Kubeconfig: %s", err)
+		return nil, fmt.Errorf("while generating team Kubeconfig: %s", err)
 	}
 
 	rc, err := clientcmd.RESTConfigFromKubeConfig(output)
 	if err != nil {
-		return nil, nil, fmt.Errorf("while generating Kubernetes REST client config: %s", err)
+		return nil, fmt.Errorf("while generating Kubernetes REST client config: %s", err)
 	}
 
 	k, err := kubernetes.NewForConfig(rc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate Kubernetes client: %s", err)
+		return nil, fmt.Errorf("unable to generate Kubernetes client: %s", err)
 	}
 
 	d, err := dynamic.NewForConfig(rc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to generate dynamic client: %s", err)
+		return nil, fmt.Errorf("unable to generate dynamic client: %s", err)
 	}
 
-	return k, d, nil
+	return &teamClient{
+		structuredClient:   k,
+		unstructuredClient: d,
+	}, nil
 }
 
 func defaultConfig() (*rest.Config, error) {
