@@ -71,6 +71,7 @@ func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
 	teamConfig.Clusters[ClusterName] = &clientcmdapi.Cluster{
 		Server:                   c.Config.Host,
 		InsecureSkipTLSVerify:    c.Config.Insecure,
+		CertificateAuthority:     c.Config.CAFile,
 		CertificateAuthorityData: c.Config.CAData,
 	}
 	teamConfig.Contexts[ClusterName] = &clientcmdapi.Context{
