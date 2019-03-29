@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 
 	gh "github.com/google/go-github/v23/github"
 	log "github.com/sirupsen/logrus"
@@ -90,6 +91,10 @@ func (h *RepositoriesProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 
 		opt.Page = resp.NextPage
 	}
+
+	sort.Slice(allRepos, func(i, j int) bool {
+		return *allRepos[i].Name < *allRepos[j].Name
+	})
 
 	json, err := json.Marshal(allRepos)
 
