@@ -22,6 +22,10 @@ header {
     align-items: center;
 }
 
+.hidden {
+    display: none !important;
+}
+
 header img {
     width: 150px;
     height: 150px;
@@ -52,7 +56,7 @@ header img {
 
 #page-container,
 #repository-spinner,
-#teams-spinner,
+#team-spinner,
 #form {
     display: flex;
     flex-direction: column;
@@ -78,7 +82,7 @@ header img {
     }
 }
 
-#team-error {
+.error {
     border: 1px solid #f5c6cb;
     border-radius: 5px;
     padding: 10px;
