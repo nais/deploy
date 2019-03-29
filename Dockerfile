@@ -15,3 +15,4 @@ WORKDIR /app
 COPY --from=builder /src/hookd/hookd /app/hookd
 COPY --from=builder /src/deployd/deployd /app/deployd
 COPY --from=builder /src/hookd/templates /app/templates
+COPY --from=builder /src/hookd/assets /app/assets

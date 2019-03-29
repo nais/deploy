@@ -127,7 +127,7 @@ func run() error {
 	http.Handle("/proxy/repositories", &auth.RepositoriesProxyHandler{})
 	http.Handle("/assets/", http.StripPrefix(
 		"/assets",
-		http.FileServer(http.Dir("./assets")),
+		http.FileServer(http.Dir(auth.StaticAssetsLocation)),
 	))
 
 	http.Handle("/auth/logout", &auth.LogoutHandler{})

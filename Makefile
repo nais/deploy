@@ -1,6 +1,6 @@
 PROTOC = $(shell which protoc)
 PROTOC_GEN_GO = $(shell which protoc-gen-go)
-HOOKD_ALPINE_LDFLAGS := -X github.com/navikt/deployment/hookd/pkg/auth.TemplateLocation=/app/templates/
+HOOKD_ALPINE_LDFLAGS := -X github.com/navikt/deployment/hookd/pkg/auth.TemplateLocation=/app/templates/ -X github.com/navikt/deployment/hookd/pkg/auth.StaticAssetsLocation=/app/assets/
 
 .PHONY: all docker upload proto hookd deployd
 

@@ -17,6 +17,7 @@ type PageData struct {
 }
 
 var TemplateLocation = "templates/"
+var StaticAssetsLocation = "assets/"
 
 func isTeamMaintainer(client *gh.Client, login string, team *gh.Team) (bool, error) {
 	membership, _, err := client.Teams.GetTeamMembership(context.Background(), team.GetID(), login)
