@@ -11,6 +11,8 @@ import (
 	types "github.com/navikt/deployment/common/pkg/deployment"
 )
 
+const maxDescriptionLength = 140
+
 func SplitFullname(fullName string) (string, string, error) {
 	parts := strings.Split(fullName, "/")
 	if len(parts) != 2 {
@@ -43,7 +45,10 @@ func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus) (*gh.D
 	}
 
 	state := m.GetState().String()
-	description := m.GetDescription()[:140]
+	description := m.GetDescription()
+	if len(description) > maxDescriptionLength {
+		description = description[:maxDescriptionLength]
+	}
 
 	return client.Repositories.CreateDeploymentStatus(
 		context.Background(),
