@@ -82,7 +82,7 @@ func run() error {
 			if status.GetState() == deployment.GithubDeploymentState_success {
 				logger.Infof("deployment successful")
 			} else {
-				logger.Errorf("deployment failed: %s", status.Description)
+				logger.Errorf(status.Description)
 			}
 
 			err = SendDeploymentStatus(status, client, logger)
