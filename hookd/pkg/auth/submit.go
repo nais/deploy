@@ -66,7 +66,7 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = h.TeamRepositoryStorage.Write(repositoryName, teamNames)
+	err = h.TeamRepositoryStorage.Write("navikt/" + repositoryName, teamNames)
 	if err != nil {
 		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
