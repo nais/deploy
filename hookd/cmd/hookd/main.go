@@ -154,11 +154,7 @@ func run() error {
 		case m := <-kafkaClient.RecvQ:
 			msg := Message{
 				KafkaMessage: m,
-				Logger: *log.WithFields(log.Fields{
-					"kafka_offset":    m.Offset,
-					"kafka_timestamp": m.Timestamp,
-					"kafka_topic":     m.Topic,
-				}),
+				Logger:       kafka.ConsumerMessageLogger(&m),
 			}
 
 			msg.Logger.Trace("received incoming message")
