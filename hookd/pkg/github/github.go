@@ -3,11 +3,12 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/bradleyfalzon/ghinstallation"
 	gh "github.com/google/go-github/v23/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"net/http"
-	"strings"
 )
 
 func SplitFullname(fullName string) (string, string, error) {
@@ -42,7 +43,7 @@ func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus) (*gh.D
 	}
 
 	state := m.GetState().String()
-	description := m.GetDescription()
+	description := m.GetDescription()[:140]
 
 	return client.Repositories.CreateDeploymentStatus(
 		context.Background(),
