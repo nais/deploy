@@ -15,7 +15,7 @@
     </div>
 
     <div class="hidden" id="form-container">
-        <form id="form">
+        <form id="form" method="POST" action="/auth/submit">
             <select name="repository" id="repository-select" onchange="fetchRepositoryTeams()">
                 <option value="0">Select repository</option>
             </select>
@@ -180,7 +180,7 @@
     }
 
     function submit() {
-        // Handle submit
+        el("form").submit()
     }
 </script>
 {{end}}

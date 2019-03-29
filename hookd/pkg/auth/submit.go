@@ -48,7 +48,7 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 
 	repositoryName := r.Form.Get("repository")
-	teamNames := r.Form["teams"]
+	teamNames := r.Form["team[]"]
 
 	// retrieve the list of teams administered by the current user
 	teams, err := getFilteredTeams(h.ApplicationClient, repositoryName, user.GetLogin())

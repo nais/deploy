@@ -1,11 +1,14 @@
 {{define "body"}}
-<p>
-    Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
-        href="/auth/logout">sign out</a>.
-</p>
-<h2>Success</h2>
-<p>The Github repository <em>{{.Repository}}</em> has been granted access to deploy on behalf
-of the teams <em>{{.Teams}}</em>.</p>
+    <p>
+        Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
+                href="/auth/logout">sign out</a>.
+    </p>
 
-<p>You can close this window now.</p>
+    <div id="success">
+        <h2>Success</h2>
+        <p>The Github repository <em>{{.Repository}}</em> has been granted access to deploy on behalf
+            of the teams <em>{{.Teams}}</em>.</p>
+
+        <p>You can close this window now.</p>
+    </div>
 {{end}}

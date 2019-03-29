@@ -31,18 +31,17 @@ header img {
     height: 150px;
 }
 
-#sign-in {
+main {
     text-align: center;
 }
 
 #sign-in a {
     border-radius: 2px;
-    padding: 5px;
     background-image: url("/assets/images/octocat.jpg");
     background-repeat: no-repeat;
     background-size: 25px 25px;
     background-position-y: 50%;
-    padding-left: 30px;
+    padding: 5px 5px 5px 30px;
 }
 
 #authenticated a {
