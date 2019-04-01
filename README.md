@@ -52,6 +52,19 @@ In order to do this, you need to have _maintainer_ access rights to your Github 
 
 Visit the [registration portal](https://deployment.prod-sbs.nais.io/auth/login) and follow the instructions.
 
+### Authenticating to the Github API
+There are two ways to authenticate API requests: using a Github App, or with a personal access token.
+
+The first option is unfortunately currently only available to Github organization admins. This means that you have to
+[create a personal access token](https://help.github.com/en/articles/creating-a-personal-access-token-for-the-command-line)
+that your CI pipeline can use to trigger the deployment. The token needs the scope `repo_deployment`, but nothing else.
+
+Usage from curl looks like this:
+
+```
+% curl -u USERNAME:TOKEN https://api.github.com/...
+```
+
 ### Making a deployment request
 A deployment into the Kubernetes clusters starts with a POST request to the [GitHub Deployment API](https://developer.github.com/v3/repos/deployments/#create-a-deployment).
 The request contains information about which cluster to deploy to, which team to deploy as, and what resources should be applied.
