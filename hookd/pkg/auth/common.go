@@ -91,7 +91,7 @@ func teamListsMatch(names []string, teams []*gh.Team) error {
 	for _, teamName := range names {
 		found := false
 		for _, team := range teams {
-			if team.GetName() == teamName {
+			if team.GetSlug() == teamName {
 				found = true
 				break
 			}
