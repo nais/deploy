@@ -97,6 +97,11 @@ Example request:
 | payload.team | Github team name, used as credentials for deploying into the Kubernetes cluster. | 1.0.0 |
 | payload.kubernetes.resources | List of Kubernetes resources that should be applied into the cluster. Your `nais.yaml` file goes here, in JSON format instead of YAML. | 1.0.0 |
 
+#### Payload API versioning
+When making API requests, please use the most recent version `[1, 0, 0]`.
+
+Changes will be rolled out using [semantic versioning](https://semver.org).
+
 
 ## Developing
 
