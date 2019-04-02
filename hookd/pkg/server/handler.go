@@ -12,6 +12,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	webhookTypeDeployment = "deployment"
+)
+
 type Handler struct {
 	w                        http.ResponseWriter
 	r                        *http.Request
@@ -47,9 +51,9 @@ func (h *Handler) prepare(w http.ResponseWriter, r *http.Request, unserialize fu
 		return err
 	}
 
-	if h.eventType == "ping" {
+	if h.eventType != webhookTypeDeployment {
 		w.WriteHeader(http.StatusNoContent)
-		return fmt.Errorf("received ping request")
+		return fmt.Errorf("ignoring unsupported event type '%s'", h.eventType)
 	}
 
 	err = unserialize()
