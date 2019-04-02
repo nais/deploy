@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"fmt"
+
 	"github.com/golang/protobuf/proto"
 )
 
