@@ -88,6 +88,17 @@ Example request:
 }
 ```
 
+The data can be posted from standard input through curl using a command similar to:
+
+```
+curl \
+    -X POST \
+    -d@- \
+    -H "Accept: application/vnd.github.ant-man-preview+json" \
+    -u <USERNAME>:<TOKEN> \
+    https://api.github.com/repos/<OWNER>/<NAME>/deployments
+```
+
 #### Legend
 
 | Key | Description | Version added |
