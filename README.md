@@ -93,12 +93,15 @@ Example request:
 | Key | Description | Version added |
 |-----|-------------|---------------|
 | environment | Which cluster to deploy to. One of `dev-fss`, `dev-sbs`, `prod-fss`, `prod-sbs`. | N/A |
-| payload.version | Array of three digits, denoting major, minor, and patch level version of the deployment payload message format. | 1.0.0 |
+| payload.version | This is the *payload API version*, as described below. Array of three digits, denoting major, minor, and patch level version. | 1.0.0 |
 | payload.team | Github team name, used as credentials for deploying into the Kubernetes cluster. | 1.0.0 |
 | payload.kubernetes.resources | List of Kubernetes resources that should be applied into the cluster. Your `nais.yaml` file goes here, in JSON format instead of YAML. | 1.0.0 |
 
 #### Payload API versioning
 When making API requests, please use the most recent version `[1, 0, 0]`.
+
+This version field have nothing to do with your application version. It is used internally by the deployment orchestrator to
+keep things stable and roll out new features gracefully.
 
 Changes will be rolled out using [semantic versioning](https://semver.org).
 
