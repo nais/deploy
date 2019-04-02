@@ -79,7 +79,10 @@ func run() error {
 
 			// Check the validity and authenticity of the message.
 			status := deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube)
-			if status.GetState() == deployment.GithubDeploymentState_success {
+
+			if status == nil {
+				break
+			} else if status.GetState() == deployment.GithubDeploymentState_success {
 				logger.Infof("deployment successful")
 			} else {
 				logger.Errorf(status.Description)
