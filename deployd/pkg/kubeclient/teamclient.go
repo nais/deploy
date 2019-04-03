@@ -42,20 +42,25 @@ func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*un
 
 	clusterResource := c.unstructuredClient.Resource(mapping.Resource)
 	ns := resource.GetNamespace()
-	deployed := &unstructured.Unstructured{}
 
-	if len(ns) > 0 {
-		namespacedResource := clusterResource.Namespace(ns)
-		deployed, err = namespacedResource.Update(&resource, metav1.UpdateOptions{})
-		if errors.IsNotFound(err) {
-			deployed, err = namespacedResource.Create(&resource, metav1.CreateOptions{})
-		}
-	} else {
-		deployed, err = clusterResource.Update(&resource, metav1.UpdateOptions{})
-		if errors.IsNotFound(err) {
-			deployed, err = clusterResource.Create(&resource, metav1.CreateOptions{})
-		}
+	if len(ns) == 0 {
+		return c.createOrUpdate(clusterResource, resource)
 	}
 
-	return deployed, err
+	namespacedResource := clusterResource.Namespace(ns)
+	return c.createOrUpdate(namespacedResource, resource)
+}
+
+func (c *teamClient) createOrUpdate(client dynamic.ResourceInterface, resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	deployed, err := client.Create(&resource, metav1.CreateOptions{})
+	if !errors.IsAlreadyExists(err) {
+		return deployed, err
+	}
+
+	existing, err := client.Get(resource.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get existing resource: %s", err)
+	}
+	resource.SetResourceVersion(existing.GetResourceVersion())
+	return client.Update(&resource, metav1.UpdateOptions{})
 }
