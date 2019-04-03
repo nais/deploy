@@ -42,3 +42,7 @@ message SignedMessage {
     bytes message = 1;
     bytes signature = 2;
 }
+
+message Payload {
+
+}

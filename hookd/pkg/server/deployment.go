@@ -9,7 +9,7 @@ import (
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/deployd/pkg/deployd"
+	"github.com/navikt/deployment/common/pkg/payload"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 )
@@ -112,19 +112,19 @@ func (h *DeploymentHandler) validateTeamAccess() error {
 		return fmt.Errorf("unable to check if repository has team access: %s", err)
 	}
 
-	payload := deployd.Payload{}
-	err = json.Unmarshal(h.deploymentRequest.GetDeployment().Payload, &payload)
+	p := payload.Payload{}
+	err = json.Unmarshal(h.deploymentRequest.GetDeployment().Payload, &p)
 	if err != nil {
 		return fmt.Errorf("decode error in deployment payload: %s", err)
 	}
 
 	for _, team := range allowedTeams {
-		if payload.Team == team {
+		if p.Team == team {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("the repository '%s' does not have access to deploy as team '%s'", h.repo.GetFullName(), payload.Team)
+	return fmt.Errorf("the repository '%s' does not have access to deploy as team '%s'", h.repo.GetFullName(), p.Team)
 }
 
 func (h *DeploymentHandler) handler() (int, error) {
