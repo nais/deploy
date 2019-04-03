@@ -99,10 +99,8 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 	req, err := Prepare(msg, key, cluster)
 	if req != nil {
 		repo := req.GetDeployment().GetRepository()
-		logger = logger.WithFields(log.Fields{
-			"delivery_id": req.GetDeliveryID(),
-			"repository":  fmt.Sprintf("%s/%s", repo.Owner, repo.Name),
-		})
+		logger.Data["delivery_id"] = req.GetDeliveryID()
+		logger.Data["repository"] = fmt.Sprintf("%s/%s", repo.Owner, repo.Name)
 	}
 
 	if err != nil {
@@ -123,7 +121,7 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 		return deployment.NewFailureStatus(*req, fmt.Errorf("team not specified in deployment payload"))
 	}
 
-	logger = logger.WithField("team", payload.Team)
+	logger.Data["team"] = payload.Team
 
 	teamClient, err := kube.TeamClient(payload.Team)
 	if err != nil {
