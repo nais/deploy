@@ -57,7 +57,9 @@ There are two ways to authenticate API requests: using a Github App, or with a p
 
 The first option is unfortunately currently only available to Github organization admins. This means that you have to
 [create a personal access token](https://help.github.com/en/articles/creating-a-personal-access-token-for-the-command-line)
-that your CI pipeline can use to trigger the deployment. The token needs the scope `repo_deployment`, but nothing else.
+that your CI pipeline can use to trigger the deployment.
+
+The token needs only the scope `repo_deployment`.
 
 Usage from curl looks like this:
 
@@ -96,7 +98,7 @@ curl \
     -d@- \
     -H "Accept: application/vnd.github.ant-man-preview+json" \
     -u <USERNAME>:<TOKEN> \
-    https://api.github.com/repos/<OWNER>/<NAME>/deployments
+    https://api.github.com/repos/navikt/<REPOSITORY_NAME>/deployments
 ```
 
 #### Legend
