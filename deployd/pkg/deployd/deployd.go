@@ -7,6 +7,7 @@ import (
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/deployd/pkg/kubeclient"
+	"github.com/navikt/deployment/deployd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -53,6 +54,8 @@ func deployKubernetes(teamClient kubeclient.TeamClient, logger *log.Entry, paylo
 		if err != nil {
 			return fmt.Errorf("resource %d: %s", index+1, err)
 		}
+
+		metrics.KubernetesResources.Inc()
 
 		logger.Infof("resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
 	}

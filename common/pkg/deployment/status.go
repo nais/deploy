@@ -16,7 +16,7 @@ func NewFailureStatus(req DeploymentRequest, err error) *DeploymentStatus {
 func NewSuccessStatus(req DeploymentRequest) *DeploymentStatus {
 	return &DeploymentStatus{
 		Deployment:  req.Deployment,
-		Description: fmt.Sprintf("deployment succeeded"),
+		Description: fmt.Sprintf("deployment successful"),
 		State:       GithubDeploymentState_success,
 		DeliveryID:  req.GetDeliveryID(),
 	}

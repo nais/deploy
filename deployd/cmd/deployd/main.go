@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/navikt/deployment/deployd/pkg/config"
 	"github.com/navikt/deployment/deployd/pkg/deployd"
 	"github.com/navikt/deployment/deployd/pkg/kubeclient"
+	"github.com/navikt/deployment/deployd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
@@ -23,6 +25,8 @@ func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
+	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
+	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -66,6 +70,11 @@ func run() error {
 
 	go client.ConsumerLoop()
 
+	metricsServer := http.NewServeMux()
+	metricsServer.Handle(cfg.MetricsPath, metrics.Handler())
+	log.Infof("serving metrics on %s endpoint %s", cfg.MetricsListenAddr, cfg.MetricsPath)
+	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
+
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
@@ -81,11 +90,16 @@ func run() error {
 			status := deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube)
 
 			if status == nil {
+				metrics.DeployIgnored.Inc()
 				break
 			} else if status.GetState() == deployment.GithubDeploymentState_success {
-				logger.Infof("deployment successful")
+				logger.Infof(status.GetDescription())
+				metrics.DeploySuccessful.Inc()
+
 			} else {
-				logger.Errorf(status.Description)
+				logger.Errorf(status.GetDescription())
+				metrics.DeployFailed.Inc()
+
 			}
 
 			err = SendDeploymentStatus(status, client, logger)
