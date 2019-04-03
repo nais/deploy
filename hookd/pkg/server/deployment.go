@@ -11,6 +11,7 @@ import (
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/deployd/pkg/deployd"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/metrics"
 )
 
 type DeploymentHandler struct {
@@ -131,6 +132,8 @@ func (h *DeploymentHandler) handler() (int, error) {
 		return http.StatusBadRequest, fmt.Errorf("unsupported event type %s", h.eventType)
 	}
 
+	metrics.WebhookRequests.Inc()
+
 	if err := h.validateTeamAccess(); err != nil {
 		return http.StatusForbidden, err
 	}
@@ -151,6 +154,8 @@ func (h *DeploymentHandler) handler() (int, error) {
 		}
 		return http.StatusInternalServerError, err
 	}
+
+	metrics.Dispatched.Inc()
 
 	err = h.addGithubStatusQueued(deploymentRequest.Deployment)
 

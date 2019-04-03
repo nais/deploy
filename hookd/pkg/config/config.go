@@ -29,6 +29,7 @@ type Config struct {
 	S3            S3
 	ClientID      string
 	ClientSecret  string
+	MetricsPath   string
 }
 
 func DefaultConfig() *Config {
@@ -53,5 +54,6 @@ func DefaultConfig() *Config {
 		},
 		ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
 		ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		MetricsPath:  "/metrics",
 	}
 }

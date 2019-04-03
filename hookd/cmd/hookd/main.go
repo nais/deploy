@@ -14,6 +14,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	log "github.com/sirupsen/logrus"
@@ -131,6 +132,8 @@ func run() error {
 	))
 
 	http.Handle("/auth/logout", &auth.LogoutHandler{})
+
+	http.Handle(cfg.MetricsPath, metrics.Handler())
 
 	srv := &http.Server{
 		Addr: cfg.ListenAddress,
