@@ -90,17 +90,19 @@ func (h *DeploymentHandler) createAndLogDeploymentStatus(st *types.DeploymentSta
 	return err
 }
 
-func (h *DeploymentHandler) addGithubStatusFailure(deployment *types.DeploymentSpec, err error) error {
+func (h *DeploymentHandler) addGithubStatusFailure(req *types.DeploymentRequest, err error) error {
 	return h.createAndLogDeploymentStatus(&types.DeploymentStatus{
-		Deployment:  deployment,
+		Deployment:  req.GetDeployment(),
+		DeliveryID:  req.GetDeliveryID(),
 		State:       types.GithubDeploymentState_failure,
 		Description: fmt.Sprintf("deployment request failed: %s", err),
 	})
 }
 
-func (h *DeploymentHandler) addGithubStatusQueued(deployment *types.DeploymentSpec) error {
+func (h *DeploymentHandler) addGithubStatusQueued(req *types.DeploymentRequest) error {
 	return h.createAndLogDeploymentStatus(&types.DeploymentStatus{
-		Deployment:  deployment,
+		Deployment:  req.GetDeployment(),
+		DeliveryID:  req.GetDeliveryID(),
 		State:       types.GithubDeploymentState_queued,
 		Description: "deployment request has been put on the queue for further processing",
 	})
@@ -148,7 +150,7 @@ func (h *DeploymentHandler) handler() (int, error) {
 	err = h.kafkaPublish(deploymentRequest)
 
 	if err != nil {
-		erro := h.addGithubStatusFailure(deploymentRequest.Deployment, fmt.Errorf("unable to queue deployment request to Kafka"))
+		erro := h.addGithubStatusFailure(deploymentRequest, fmt.Errorf("unable to queue deployment request to Kafka"))
 		if erro != nil {
 			h.log.Errorf("unable to create Github deployment status: %s", erro)
 		}
@@ -157,7 +159,7 @@ func (h *DeploymentHandler) handler() (int, error) {
 
 	metrics.Dispatched.Inc()
 
-	err = h.addGithubStatusQueued(deploymentRequest.Deployment)
+	err = h.addGithubStatusQueued(deploymentRequest)
 
 	if err != nil {
 		h.log.Errorf("unable to create Github deployment status: %s", err)
