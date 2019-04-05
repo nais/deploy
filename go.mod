@@ -43,6 +43,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	gopkg.in/ini.v1 v1.42.0 // indirect
+	gopkg.in/sakura-internet/go-rison.v3 v3.1.0
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471 // release-1.13
 	k8s.io/apimachinery v0.0.0-20190322104434-6d73c65dcf6c // release-1.13
 	k8s.io/client-go v10.0.0+incompatible
