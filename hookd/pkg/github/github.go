@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path"
 	"strings"
 	"time"
 
@@ -53,7 +52,7 @@ func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus, baseur
 	}
 
 	unixTime := time.Now().Unix()
-	url := path.Join(baseurl, "logs") + fmt.Sprintf("?delivery_id=%s&ts=%d", m.GetDeliveryID(), unixTime)
+	url := fmt.Sprintf("%s/logs?delivery_id=%s&ts=%d", baseurl, m.GetDeliveryID(), unixTime)
 
 	return client.Repositories.CreateDeploymentStatus(
 		context.Background(),
