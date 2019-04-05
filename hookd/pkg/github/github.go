@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
+	"time"
 
 	"github.com/bradleyfalzon/ghinstallation"
 	gh "github.com/google/go-github/v23/github"
@@ -29,7 +31,7 @@ func InstallationClient(appId, installId int, keyFile string) (*gh.Client, error
 	return gh.NewClient(&http.Client{Transport: itr}), nil
 }
 
-func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus) (*gh.DeploymentStatus, *gh.Response, error) {
+func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus, baseurl string) (*gh.DeploymentStatus, *gh.Response, error) {
 	if client == nil {
 		return nil, nil, fmt.Errorf("no Github client supplied")
 	}
@@ -50,6 +52,9 @@ func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus) (*gh.D
 		description = description[:maxDescriptionLength]
 	}
 
+	unixTime := time.Now().Unix()
+	url := path.Join(baseurl, "logs") + fmt.Sprintf("delivery_id=%s&ts=%d", m.GetDeliveryID(), unixTime)
+
 	return client.Repositories.CreateDeploymentStatus(
 		context.Background(),
 		repo.GetOwner(),
@@ -58,6 +63,7 @@ func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus) (*gh.D
 		&gh.DeploymentStatusRequest{
 			State:       &state,
 			Description: &description,
+			LogURL:      &url,
 		},
 	)
 }

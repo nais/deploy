@@ -20,7 +20,7 @@ type Config struct {
 	ListenAddress string
 	LogFormat     string
 	LogLevel      string
-	WebhookURL    string
+	BaseURL       string
 	WebhookSecret string
 	ApplicationID int
 	InstallID     int
@@ -38,7 +38,7 @@ func DefaultConfig() *Config {
 		ListenAddress: ":8080",
 		LogFormat:     "text",
 		LogLevel:      "debug",
-		WebhookURL:    "https://hookd/events",
+		BaseURL:       "http://localhost:8080",
 		WebhookSecret: os.Getenv("GITHUB_WEBHOOK_SECRET"),
 		ApplicationID: 0,
 		InstallID:     0,

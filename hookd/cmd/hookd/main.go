@@ -39,6 +39,7 @@ func init() {
 	flag.StringVar(&cfg.ClientID, "github-client-id", cfg.ClientID, "Client ID of the Github App.")
 	flag.StringVar(&cfg.ClientSecret, "github-client-secret", cfg.ClientSecret, "Client secret of the GitHub App.")
 
+	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "Base URL where hookd can be reached.")
 	flag.StringVar(&cfg.ListenAddress, "listen-address", cfg.ListenAddress, "IP:PORT")
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
@@ -174,7 +175,7 @@ func run() error {
 
 			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Status.GetDeliveryID())
 
-			status, _, err := github.CreateDeploymentStatus(installationClient, &msg.Status)
+			status, _, err := github.CreateDeploymentStatus(installationClient, &msg.Status, cfg.BaseURL)
 			if err == nil {
 				msg.Logger.Infof("created GitHub deployment status %d in repository %s", status.GetID(), status.GetRepositoryURL())
 			} else {

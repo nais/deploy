@@ -83,7 +83,7 @@ func (h *DeploymentHandler) unserialize() error {
 }
 
 func (h *DeploymentHandler) createAndLogDeploymentStatus(st *types.DeploymentStatus) error {
-	status, _, err := github.CreateDeploymentStatus(h.GithubInstallationClient, st)
+	status, _, err := github.CreateDeploymentStatus(h.GithubInstallationClient, st, h.Config.BaseURL)
 	if err == nil {
 		h.log.Infof("created GitHub deployment status %d in repository %s", status.GetID(), status.GetRepositoryURL())
 	}
