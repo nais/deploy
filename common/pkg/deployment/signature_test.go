@@ -1,10 +1,11 @@
 package deployment_test
 
 import (
+	"testing"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 const (
@@ -15,8 +16,8 @@ const (
 func TestSignature(t *testing.T) {
 	a := assert.New(t)
 	msg := &deployment.DeploymentRequest{
-		Cluster: "foo",
-		Payload: []byte("bar"),
+		Cluster:     "foo",
+		PayloadSpec: &deployment.Payload{},
 	}
 
 	payload, err := deployment.WrapMessage(msg, secureKey)

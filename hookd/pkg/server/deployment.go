@@ -9,7 +9,6 @@ import (
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/common/pkg/payload"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 )
@@ -37,6 +36,11 @@ func (h *DeploymentHandler) kafkaPayload() (*types.DeploymentRequest, error) {
 	if deployment == nil {
 		return nil, fmt.Errorf("deployment object is empty")
 	}
+	payload, err := types.PayloadFromJSON(deployment.Payload)
+	err = json.Unmarshal(deployment.Payload, payload)
+	if err != nil {
+		return nil, fmt.Errorf("payload object is invalid: %s", err)
+	}
 	return &types.DeploymentRequest{
 		Deployment: &types.DeploymentSpec{
 			Repository: &types.GithubRepository{
@@ -45,11 +49,11 @@ func (h *DeploymentHandler) kafkaPayload() (*types.DeploymentRequest, error) {
 			},
 			DeploymentID: deployment.GetID(),
 		},
-		Payload:    deployment.Payload,
-		DeliveryID: h.deliveryID,
-		Cluster:    deployment.GetEnvironment(),
-		Timestamp:  time.Now().Unix(),
-		Deadline:   time.Now().Add(time.Minute).Unix(),
+		PayloadSpec: payload,
+		DeliveryID:  h.deliveryID,
+		Cluster:     deployment.GetEnvironment(),
+		Timestamp:   time.Now().Unix(),
+		Deadline:    time.Now().Add(time.Minute).Unix(),
 	}, nil
 }
 
@@ -108,25 +112,24 @@ func (h *DeploymentHandler) addGithubStatusQueued(req *types.DeploymentRequest) 
 	})
 }
 
-func (h *DeploymentHandler) validateTeamAccess() error {
+func (h *DeploymentHandler) validateTeamAccess(req *types.DeploymentRequest) error {
 	allowedTeams, err := h.TeamRepositoryStorage.Read(h.repo.GetFullName())
 	if err != nil {
 		return fmt.Errorf("unable to check if repository has team access: %s", err)
 	}
 
-	p := payload.Payload{}
-	err = json.Unmarshal(h.deploymentRequest.GetDeployment().Payload, &p)
-	if err != nil {
-		return fmt.Errorf("decode error in deployment payload: %s", err)
+	team := req.GetPayloadSpec().GetTeam()
+	if len(team) == 0 {
+		return fmt.Errorf("no team was specified in deployment payload")
 	}
 
-	for _, team := range allowedTeams {
-		if p.Team == team {
+	for _, allowedTeam := range allowedTeams {
+		if allowedTeam == team {
 			return nil
 		}
 	}
 
-	return fmt.Errorf("the repository '%s' does not have access to deploy as team '%s'", h.repo.GetFullName(), p.Team)
+	return fmt.Errorf("the repository '%s' does not have access to deploy as team '%s'", h.repo.GetFullName(), team)
 }
 
 func (h *DeploymentHandler) handler() (int, error) {
@@ -136,16 +139,16 @@ func (h *DeploymentHandler) handler() (int, error) {
 
 	metrics.WebhookRequests.Inc()
 
-	if err := h.validateTeamAccess(); err != nil {
-		return http.StatusForbidden, err
-	}
-
-	h.log.Infof("Dispatching deployment for %s", h.repo.GetFullName())
-
 	deploymentRequest, err := h.kafkaPayload()
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
+
+	if err := h.validateTeamAccess(deploymentRequest); err != nil {
+		return http.StatusForbidden, err
+	}
+
+	h.log.Infof("Dispatching deployment for %s", h.repo.GetFullName())
 
 	err = h.kafkaPublish(deploymentRequest)
 

@@ -1,12 +1,10 @@
 package deployd
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/common/pkg/payload"
 	"github.com/navikt/deployment/deployd/pkg/kubeclient"
 	"github.com/navikt/deployment/deployd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
@@ -34,13 +32,25 @@ func meetsDeadline(req deployment.DeploymentRequest) error {
 	return nil
 }
 
-func deployKubernetes(teamClient kubeclient.TeamClient, logger *log.Entry, p payload.Payload) error {
-	numResources := len(p.Kubernetes.Resources)
+func deployKubernetes(teamClient kubeclient.TeamClient, logger *log.Entry, p deployment.Payload) error {
+	resources, err := p.JSONResources()
+	if err != nil {
+		return fmt.Errorf("unserializing kubernetes resources: %s", err)
+	}
+
+	numResources := len(resources)
 	if numResources == 0 {
 		return fmt.Errorf("no resources to deploy")
 	}
 
-	for index, r := range p.Kubernetes.Resources {
+	for index, r := range resources {
+
+		// resource, err := r.UnmarshalResources()
+		// if err != nil {
+		// return fmt.Errorf("unmarshal resource specs: %s", err)
+		// }
+
+		log.Warn(string(r))
 
 		deployed, err := deployJSON(teamClient, r)
 
@@ -107,16 +117,7 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 		return nil
 	}
 
-	p := payload.Payload{}
-	err = json.Unmarshal(req.Payload, &p)
-	if err != nil {
-		return deployment.NewFailureStatus(*req, fmt.Errorf("error in payload: %s", err))
-	}
-
-	if len(p.Team) == 0 {
-		return deployment.NewFailureStatus(*req, fmt.Errorf("team not specified in deployment payload"))
-	}
-
+	p := req.GetPayloadSpec()
 	logger.Data["team"] = p.Team
 
 	teamClient, err := kube.TeamClient(p.Team)
@@ -126,7 +127,7 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 
 	logger.Infof("accepting incoming deployment request")
 
-	if err := deployKubernetes(teamClient, logger, p); err != nil {
+	if err := deployKubernetes(teamClient, logger, *p); err != nil {
 		return deployment.NewFailureStatus(*req, err)
 	}
 

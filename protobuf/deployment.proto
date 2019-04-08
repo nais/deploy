@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package deployment;
 
+import "google/protobuf/struct.proto";
+
 message GithubRepository {
     string owner = 1;
     string name = 2;
@@ -22,13 +24,26 @@ message DeploymentSpec {
     int64 deploymentID = 2;
 }
 
+message Kubernetes {
+    repeated google.protobuf.Struct resources = 1;
+    //repeated google.protobuf.Any resources = 1;
+}
+
+message Payload {
+    repeated int32 version = 1;
+    string team = 2;
+    Kubernetes kubernetes = 3;
+}
+
 message DeploymentRequest {
     DeploymentSpec deployment = 1;
     int64 timestamp = 2;
     int64 deadline = 3;
-    bytes payload = 4;
+    reserved "payload";
+    reserved 4;
     string cluster = 5;
     string deliveryID = 6;
+    Payload payloadSpec = 7;
 }
 
 message DeploymentStatus {
@@ -41,8 +56,4 @@ message DeploymentStatus {
 message SignedMessage {
     bytes message = 1;
     bytes signature = 2;
-}
-
-message Payload {
-
 }
