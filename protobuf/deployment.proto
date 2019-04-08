@@ -26,7 +26,6 @@ message DeploymentSpec {
 
 message Kubernetes {
     repeated google.protobuf.Struct resources = 1;
-    //repeated google.protobuf.Any resources = 1;
 }
 
 message Payload {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v23/github"
@@ -22,13 +23,11 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-type Message struct {
-	KafkaMessage sarama.ConsumerMessage
-	Status       deployment.DeploymentStatus
-	Logger       log.Entry
-}
-
-var cfg = config.DefaultConfig()
+var (
+	cfg           = config.DefaultConfig()
+	retryInterval = time.Second * 5
+	queueSize     = 32
+)
 
 func init() {
 	flag.BoolVar(&cfg.EnableGithub, "github-enabled", cfg.EnableGithub, "Enable connections to Github.")
@@ -100,10 +99,13 @@ func run() error {
 		}
 	}
 
+	requestChan := make(chan deployment.DeploymentRequest, queueSize)
+	statusChan := make(chan deployment.DeploymentStatus, queueSize)
+
 	deploymentHandler := &server.DeploymentHandler{
 		Config:                   *cfg,
-		KafkaClient:              kafkaClient,
-		KafkaTopic:               cfg.Kafka.RequestTopic,
+		DeploymentRequest:        requestChan,
+		DeploymentStatus:         statusChan,
 		SecretToken:              cfg.WebhookSecret,
 		GithubInstallationClient: installationClient,
 		TeamRepositoryStorage:    teamRepositoryStorage,
@@ -152,35 +154,96 @@ func run() error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
-	// This Kafka client loop listens for deployment statuses from deployd.
-	// When they arrive, they are forwarded to the Github Deployments API.
+	// Three loops:
+	//
+	//   1) Listen for deployment status messages from Kafka. Forward them to the
+	//      deployment status queue.
+	//
+	//   2) Process the deployment request queue.
+	//      Requests are put on the Kafka queue. Failed messages are put on the queue again.
+	//
+	//   3) Process the deployment status queue.
+	//      Statuses are posted to Github. Failed messages are put on the queue again.
+	//
 	for {
 		select {
 		case m := <-kafkaClient.RecvQ:
-			msg := Message{
-				KafkaMessage: m,
-				Logger:       kafka.ConsumerMessageLogger(&m),
-			}
+			status := deployment.DeploymentStatus{}
+			logger := kafka.ConsumerMessageLogger(&m)
 
-			msg.Logger.Trace("received incoming message")
-
-			err := deployment.UnwrapMessage(m.Value, kafkaClient.SignatureKey, &msg.Status)
+			err := deployment.UnwrapMessage(m.Value, kafkaClient.SignatureKey, &status)
 			if err != nil {
-				msg.Logger.Error(err)
+				logger = *logger.WithField("delivery_id", status.GetDeliveryID())
+				logger.Errorf("Discarding incoming message: %s", err)
 				kafkaClient.Consumer.MarkOffset(&m, "")
 				continue
 			}
 
-			msg.Logger = *msg.Logger.WithField("delivery_id", msg.Status.GetDeliveryID())
+			statusChan <- status
+			kafkaClient.Consumer.MarkOffset(&m, "")
 
-			status, _, err := github.CreateDeploymentStatus(installationClient, &msg.Status, cfg.BaseURL)
-			if err == nil {
-				msg.Logger.Infof("created GitHub deployment status %d in repository %s", status.GetID(), status.GetRepositoryURL())
-			} else {
-				msg.Logger.Errorf("while sending deployment status to Github: %s", err)
+		case req := <-requestChan:
+			logger := log.WithFields(req.LogFields())
+			logger.Tracef("Sending deployment request")
+
+			payload, err := deployment.WrapMessage(&req, kafkaClient.SignatureKey)
+			if err != nil {
+				logger.Errorf("While marshalling JSON: %s", err)
+				continue
 			}
 
-			kafkaClient.Consumer.MarkOffset(&msg.KafkaMessage, "")
+			msg := sarama.ProducerMessage{
+				Topic:     kafkaClient.ProducerTopic,
+				Value:     sarama.StringEncoder(payload),
+				Timestamp: time.Unix(req.GetTimestamp(), 0),
+			}
+
+			_, _, err = kafkaClient.Producer.SendMessage(&msg)
+			if err == nil {
+				metrics.Dispatched.Inc()
+				logger.Info("Deployment request published to Kafka")
+				statusChan <- deployment.DeploymentStatus{
+					Deployment:  req.GetDeployment(),
+					DeliveryID:  req.GetDeliveryID(),
+					State:       deployment.GithubDeploymentState_queued,
+					Description: "deployment request has been put on the queue for further processing",
+				}
+				continue
+			}
+
+			logger.Errorf("Publishing message to Kafka: %s", err)
+			go func() {
+				logger.Tracef("Retrying in %.0f seconds", retryInterval.Seconds())
+				time.Sleep(retryInterval)
+				requestChan <- req
+				logger.Tracef("Request resubmitted to queue")
+			}()
+
+		case status := <-statusChan:
+			logger := log.WithFields(status.LogFields())
+			logger.Trace("Received deployment status")
+
+			if !cfg.EnableGithub {
+				logger.Warn("Github is disabled; deployment status discarded")
+				continue
+			}
+
+			ghs, _, err := github.CreateDeploymentStatus(installationClient, &status, cfg.BaseURL)
+			if err == nil {
+				logger = logger.WithFields(log.Fields{
+					deployment.LogFieldDeploymentStatusID: ghs.GetID(),
+				})
+				logger.Infof("Published deployment status to GitHub: %s", ghs.GetDescription())
+				continue
+			}
+
+			logger.Errorf("Sending deployment status to Github: %s", err)
+			go func() {
+				logger.Tracef("Retrying in %.0f seconds", retryInterval.Seconds())
+				time.Sleep(retryInterval)
+				statusChan <- status
+				logger.Tracef("Status resubmitted to queue")
+			}()
 
 		case <-signals:
 			return nil

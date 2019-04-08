@@ -44,14 +44,6 @@ func deployKubernetes(teamClient kubeclient.TeamClient, logger *log.Entry, p dep
 	}
 
 	for index, r := range resources {
-
-		// resource, err := r.UnmarshalResources()
-		// if err != nil {
-		// return fmt.Errorf("unmarshal resource specs: %s", err)
-		// }
-
-		log.Warn(string(r))
-
 		deployed, err := deployJSON(teamClient, r)
 
 		if err != nil {
@@ -104,9 +96,8 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 	// Check the validity and authenticity of the message.
 	req, err := Prepare(msg, key, cluster)
 	if req != nil {
-		repo := req.GetDeployment().GetRepository()
-		logger.Data["delivery_id"] = req.GetDeliveryID()
-		logger.Data["repository"] = fmt.Sprintf("%s/%s", repo.Owner, repo.Name)
+		nl := logger.WithFields(req.LogFields())
+		logger.Data = nl.Data // propagate changes down to caller
 	}
 
 	if err != nil {
