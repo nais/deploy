@@ -4,19 +4,25 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+
 	"github.com/minio/minio-go"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	log "github.com/sirupsen/logrus"
-	"io"
+)
+
+var (
+	ErrNotFound = fmt.Errorf("path not found")
 )
 
 const (
-	payloadMaxSize = 65536
+	notFoundMessage = "The specified key does not exist."
 )
 
 type TeamRepositoryStorage interface {
 	Read(repository string) ([]string, error)
 	Write(repository string, teams []string) error
+	IsErrNotFound(err error) bool
 }
 
 type s3storage struct {
@@ -60,6 +66,11 @@ func (s *s3storage) Read(repository string) ([]string, error) {
 	}
 	stat, err := obj.Stat()
 	if err != nil {
+		// We need to be able to return an error message saying that the object wasn't found.
+		// minio doesn't return this as a custom error message, so we use a string comparison instead.
+		if err.Error() == notFoundMessage {
+			return nil, ErrNotFound
+		}
 		return nil, fmt.Errorf("while querying s3 object stats: %s", err)
 	}
 
@@ -96,4 +107,8 @@ func (s *s3storage) Write(repository string, teams []string) error {
 		log.Tracef("S3: payload was: %s", string(payload))
 	}
 	return err
+}
+
+func (s *s3storage) IsErrNotFound(err error) bool {
+	return err.Error() == ErrNotFound.Error()
 }

@@ -100,7 +100,7 @@ func run() error {
 		}
 	}
 
-	baseHandler := server.Handler{
+	deploymentHandler := &server.DeploymentHandler{
 		Config:                   *cfg,
 		KafkaClient:              kafkaClient,
 		KafkaTopic:               cfg.Kafka.RequestTopic,
@@ -108,8 +108,6 @@ func run() error {
 		GithubInstallationClient: installationClient,
 		TeamRepositoryStorage:    teamRepositoryStorage,
 	}
-
-	deploymentHandler := &server.DeploymentHandler{Handler: baseHandler}
 
 	http.Handle("/events", deploymentHandler)
 	http.Handle("/auth/login", &auth.LoginHandler{
