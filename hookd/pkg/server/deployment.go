@@ -144,6 +144,10 @@ func (h *DeploymentHandler) handler() (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
+	if len(deploymentRequest.GetCluster()) == 0 {
+		return http.StatusBadRequest, fmt.Errorf("no environment specified in deployment request")
+	}
+
 	if err := h.validateTeamAccess(deploymentRequest); err != nil {
 		return http.StatusForbidden, err
 	}
