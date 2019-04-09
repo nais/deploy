@@ -18,26 +18,6 @@ The [NAV deployment](https://github.com/apps/nav-deployment) GitHub application 
 This application defines a webhook on all repositories. The webhook fires when CI pipelines creates a deployment on a repository using the
 [GitHub Deployment API](https://developer.github.com/v3/repos/deployments/#create-a-deployment).
 
-### hookd
-This service will receive all deployment events from GitHub.
-
-Its main tasks are to:
-* validate deployment events
-* publish messages to Kafka when a deployment is created
-* report deployment status back to GitHub
-
-The validation part is done by checking if the signature attached to the deployment event is valid, and by checking the format of the deployment. Refer to the [GitHub documentation](https://developer.github.com/webhooks/securing/) as to how webhooks are secured.
-
-### deployd
-Deployd's main responsibility is to deploy resources into a Kubernetes cluster. Additionally it reports the deployment status back to hookd using Kafka.
-
-### Kafka
-Kafka is used as a communication channel between hookd and deployd. Hookd sends deployment requests to a `deploymentRequests` topic, which fans out
-and in turn hits all the deployd instances. Deployd acts on the information, and then sends a deployment status to the `deploymentStatus` topic.
-Hookd picks up replies to this topic, and publishes the deployment status to Github.
-
-### Amazon S3 (Amazon Simple Storage Service)
-Used as a configuration backend. Information about repository team access is stored here, and accessed on each deployment request.
 
 ## Usage
 
@@ -131,6 +111,30 @@ Any status like `queued`, `in progress` or `delayed` means that you need to wait
 | Message | Action |
 |---------|--------|
 | Repository is not registered | Please read the [registering your repository](#registering-your-repository) section. |
+
+
+## Application components
+
+### hookd
+This service will receive all deployment events from GitHub.
+
+Its main tasks are to:
+* validate deployment events
+* publish messages to Kafka when a deployment is created
+* report deployment status back to GitHub
+
+The validation part is done by checking if the signature attached to the deployment event is valid, and by checking the format of the deployment. Refer to the [GitHub documentation](https://developer.github.com/webhooks/securing/) as to how webhooks are secured.
+
+### deployd
+Deployd's main responsibility is to deploy resources into a Kubernetes cluster. Additionally it reports the deployment status back to hookd using Kafka.
+
+### Kafka
+Kafka is used as a communication channel between hookd and deployd. Hookd sends deployment requests to a `deploymentRequests` topic, which fans out
+and in turn hits all the deployd instances. Deployd acts on the information, and then sends a deployment status to the `deploymentStatus` topic.
+Hookd picks up replies to this topic, and publishes the deployment status to Github.
+
+### Amazon S3 (Amazon Simple Storage Service)
+Used as a configuration backend. Information about repository team access is stored here, and accessed on each deployment request.
 
 
 ## Developing
