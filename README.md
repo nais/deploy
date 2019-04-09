@@ -46,7 +46,7 @@ Used as a configuration backend. Information about repository team access is sto
 * Limit write access on your Github repository to team members. After activation, anyone with write access to the repository can deploy Kubernetes resources on behalf of your team.
 * Be a maintainer of a [Github team](https://help.github.com/en/articles/about-teams). The team name must be the same as your Kubernetes _team label_.
 
-### Registering your team
+### Registering your repository
 You need to grant your Github repository access rights to deploy on behalf of your team.
 In order to do this, you need to have _maintainer_ access rights to your Github team, and _admin_ access to the repository.
 
@@ -117,6 +117,20 @@ This version field have nothing to do with your application version. It is used 
 keep things stable and roll out new features gracefully.
 
 Changes will be rolled out using [semantic versioning](https://semver.org).
+
+### Troubleshooting
+First thing, check the logs. To get a link to your logs, please check the deployment status page at
+`https://github.com/navikt/<YOUR_REPOSITORY>/deployments`.
+
+Generally speaking, if the deployment is marked as `error`, the pipeline did not like your request and you need to fix something.
+If the deployment is marked as `failure`, your application did not start as expected.
+Any status like `queued`, `in progress` or `delayed` means that you need to wait for a status update.
+
+#### Common errors
+
+| Message | Action |
+|---------|--------|
+| Repository is not registered | Please read the [registering your repository](#registering-your-repository) section. |
 
 
 ## Developing
