@@ -49,7 +49,7 @@ Usage from curl looks like this:
 
 ### Making a deployment request
 A deployment into the Kubernetes clusters starts with a POST request to the [GitHub Deployment API](https://developer.github.com/v3/repos/deployments/#create-a-deployment).
-The request contains information about which cluster to deploy to, which team to deploy as, and what resources should be applied.
+The request contains information about which environment to deploy to, which team to deploy as, and what resources should be applied.
 
 Example request:
 ```
@@ -81,14 +81,21 @@ curl \
     https://api.github.com/repos/navikt/<REPOSITORY_NAME>/deployments
 ```
 
-#### Legend
+### Deployment request spec
 
 | Key | Description | Version added |
 |-----|-------------|---------------|
-| environment | Which cluster to deploy to. One of `dev-fss`, `dev-sbs`, `prod-fss`, `prod-sbs`. | N/A |
+| environment | Which environment to deploy to. | N/A |
 | payload.version | This is the *payload API version*, as described below. Array of three digits, denoting major, minor, and patch level version. | 1.0.0 |
 | payload.team | Github team name, used as credentials for deploying into the Kubernetes cluster. | 1.0.0 |
 | payload.kubernetes.resources | List of Kubernetes resources that should be applied into the cluster. Your `nais.yaml` file goes here, in JSON format instead of YAML. | 1.0.0 |
+
+#### Environment
+Please use one of the following environments. The usage of `preprod-***` is *not* supported.
+  * `dev-fss`
+  * `dev-sbs`
+  * `prod-fss`
+  * `prod-sbs`
 
 #### Payload API versioning
 When making API requests, please use the most recent version `[1, 0, 0]`.
@@ -111,7 +118,7 @@ Any status like `queued`, `in progress` or `delayed` means that you need to wait
 | Message | Action |
 |---------|--------|
 | Repository is not registered | Please read the [registering your repository](#registering-your-repository) section. |
-| Deployment is `queued` forever | Did you specify the [correct cluster](#legend) in the `environment` variable? |
+| Deployment is `queued` forever | Did you specify the [correct environment](#environment) in the `environment` variable? |
 
 
 ## Application components
