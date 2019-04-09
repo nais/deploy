@@ -111,6 +111,7 @@ Any status like `queued`, `in progress` or `delayed` means that you need to wait
 | Message | Action |
 |---------|--------|
 | Repository is not registered | Please read the [registering your repository](#registering-your-repository) section. |
+| Deployment is `queued` forever | Did you specify the [correct cluster](#legend) in the `environment` variable? |
 
 
 ## Application components
