@@ -94,12 +94,12 @@ func (c *Client) TeamClient(team string) (TeamClient, error) {
 
 	output, err := clientcmd.Write(*config)
 	if err != nil {
-		return nil, fmt.Errorf("while generating team Kubeconfig: %s", err)
+		return nil, fmt.Errorf("generating team Kubeconfig: %s", err)
 	}
 
 	rc, err := clientcmd.RESTConfigFromKubeConfig(output)
 	if err != nil {
-		return nil, fmt.Errorf("while generating Kubernetes REST client config: %s", err)
+		return nil, fmt.Errorf("generating Kubernetes REST client config: %s", err)
 	}
 
 	k, err := kubernetes.NewForConfig(rc)
@@ -121,11 +121,11 @@ func (c *Client) TeamClient(team string) (TeamClient, error) {
 func defaultConfig() (*rest.Config, error) {
 	cfg, err := rest.InClusterConfig()
 	if err == nil {
-		log.Tracef("running inside Kubernetes, using in-cluster configuration")
+		log.Tracef("Running inside Kubernetes, using in-cluster configuration")
 		return cfg, nil
 	}
 	cf := kubeconfig()
-	log.Tracef("not running inside Kubernetes, using configuration file %s", cf)
+	log.Tracef("Not running inside Kubernetes, using configuration file %s", cf)
 	return clientcmd.BuildConfigFromFlags("", cf)
 }
 
@@ -142,7 +142,7 @@ func serviceAccountName(team string) string {
 }
 
 func serviceAccount(client kubernetes.Interface, serviceAccountName string) (*v1.ServiceAccount, error) {
-	log.Tracef("attempting to retrieve service account '%s' in namespace %s", serviceAccountName, Namespace)
+	log.Tracef("Attempting to retrieve service account '%s' in namespace %s", serviceAccountName, Namespace)
 	return client.CoreV1().ServiceAccounts(Namespace).Get(serviceAccountName, metav1.GetOptions{})
 }
 
@@ -151,7 +151,7 @@ func serviceAccountSecret(client kubernetes.Interface, serviceAccount v1.Service
 		return nil, fmt.Errorf("no secret associated with service account '%s'", serviceAccount.Name)
 	}
 	secretRef := serviceAccount.Secrets[0]
-	log.Tracef("attempting to retrieve secret '%s' in namespace %s", secretRef.Name, Namespace)
+	log.Tracef("Attempting to retrieve secret '%s' in namespace %s", secretRef.Name, Namespace)
 	return client.CoreV1().Secrets(Namespace).Get(secretRef.Name, metav1.GetOptions{})
 }
 
