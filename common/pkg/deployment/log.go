@@ -8,7 +8,7 @@ const (
 	LogFieldDeliveryID           = "delivery_id"
 	LogFieldRepository           = "repository"
 	LogFieldDeploymentID         = "deployment_id"
-	LogFieldCluster              = "cluster"
+	LogFieldCluster              = "deployment_cluster"
 	LogFieldTeam                 = "team"
 	LogFieldEventType            = "event_type"
 	LogFieldDeploymentStatusID   = "deployment_status_id"
