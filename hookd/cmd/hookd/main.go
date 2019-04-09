@@ -103,12 +103,10 @@ func run() error {
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
 	deploymentHandler := &server.DeploymentHandler{
-		Config:                   *cfg,
-		DeploymentRequest:        requestChan,
-		DeploymentStatus:         statusChan,
-		SecretToken:              cfg.WebhookSecret,
-		GithubInstallationClient: installationClient,
-		TeamRepositoryStorage:    teamRepositoryStorage,
+		DeploymentRequest:     requestChan,
+		DeploymentStatus:      statusChan,
+		SecretToken:           cfg.WebhookSecret,
+		TeamRepositoryStorage: teamRepositoryStorage,
 	}
 
 	http.Handle("/events", deploymentHandler)

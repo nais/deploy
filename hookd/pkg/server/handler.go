@@ -8,7 +8,6 @@ import (
 
 	gh "github.com/google/go-github/v23/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
@@ -19,13 +18,11 @@ const (
 )
 
 type DeploymentHandler struct {
-	log                      *log.Entry
-	Config                   config.Config
-	GithubInstallationClient *gh.Client
-	SecretToken              string
-	TeamRepositoryStorage    persistence.TeamRepositoryStorage
-	DeploymentStatus         chan types.DeploymentStatus
-	DeploymentRequest        chan types.DeploymentRequest
+	log                   *log.Entry
+	SecretToken           string
+	TeamRepositoryStorage persistence.TeamRepositoryStorage
+	DeploymentStatus      chan types.DeploymentStatus
+	DeploymentRequest     chan types.DeploymentRequest
 }
 
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
