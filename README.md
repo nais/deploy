@@ -118,7 +118,8 @@ Any status like `queued`, `in progress` or `delayed` means that you need to wait
 | Message | Action |
 |---------|--------|
 | Repository is not registered | Please read the [registering your repository](#registering-your-repository) section. |
-| Deployment is `queued` forever | Did you specify the [correct environment](#environment) in the `environment` variable? |
+| Deployment is stuck at `queued` | Did you specify the [correct environment](#environment) in the `environment` variable? |
+| Deployment is stuck at `pending` | Is your repository allowed in the beta trial period? Try #nais-deployment on Slack. |
 
 
 ## Application components
