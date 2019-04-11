@@ -70,6 +70,8 @@ func run() error {
 
 	go client.ConsumerLoop()
 
+	statusChan := make(chan *deployment.DeploymentStatus, 1024)
+
 	metricsServer := http.NewServeMux()
 	metricsServer.Handle(cfg.MetricsPath, metrics.Handler())
 	log.Infof("serving metrics on %s endpoint %s", cfg.MetricsListenAddr, cfg.MetricsPath)
@@ -87,22 +89,20 @@ func run() error {
 			logger := kafka.ConsumerMessageLogger(&m)
 
 			// Check the validity and authenticity of the message.
-			status := deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube)
+			deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube, statusChan)
 
+		case status := <-statusChan:
 			if status == nil {
 				metrics.DeployIgnored.Inc()
 				break
 			} else if status.GetState() == deployment.GithubDeploymentState_success {
-				logger.Infof(status.GetDescription())
 				metrics.DeploySuccessful.Inc()
-
 			} else {
-				logger.Errorf(status.GetDescription())
 				metrics.DeployFailed.Inc()
-
 			}
 
-			err = SendDeploymentStatus(status, client, logger)
+			logger := log.WithFields(status.LogFields())
+			err = SendDeploymentStatus(status, client)
 			if err != nil {
 				logger.Errorf("while reporting deployment status: %s", err)
 			}
@@ -115,7 +115,7 @@ func run() error {
 	}
 }
 
-func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.DualClient, logger log.Entry) error {
+func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.DualClient) error {
 	payload, err := deployment.WrapMessage(status, client.SignatureKey)
 	if err != nil {
 		return fmt.Errorf("while marshalling response Protobuf message: %s", err)
@@ -132,6 +132,7 @@ func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.Dua
 		return fmt.Errorf("while sending reply over Kafka: %s", err)
 	}
 
+	logger := log.WithFields(status.LogFields())
 	logger.WithFields(log.Fields{
 		"kafka_offset":    offset,
 		"kafka_timestamp": reply.Timestamp,

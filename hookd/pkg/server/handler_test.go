@@ -5,11 +5,13 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	gh "github.com/google/go-github/v23/github"
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/server"
@@ -75,6 +77,18 @@ func newHandler() *server.DeploymentHandler {
 	}
 }
 
+func newDeploymentEvent(repoName, environment, payload string) *gh.DeploymentEvent {
+	return &gh.DeploymentEvent{
+		Repo: &gh.Repository{
+			FullName: gh.String(repoName),
+		},
+		Deployment: &gh.Deployment{
+			Environment: gh.String(environment),
+			Payload:     []byte(payload),
+		},
+	}
+}
+
 func setup() handlerTest {
 	buf := make([]byte, 0)
 	ht := handlerTest{
@@ -84,14 +98,24 @@ func setup() handlerTest {
 	}
 	ht.Request = httptest.NewRequest("POST", "/events", ht.Body)
 	ht.Request.Header.Set("X-GitHub-Delivery", uuid.New().String())
+	ht.Request.Header.Set("X-GitHub-Event", "deployment")
+	ht.Request.Header.Set("content-type", "application/json")
 	return ht
 }
 
 func TestDeploymentHandler_ServeHTTP(t *testing.T) {
 
+	t.Run("unsupported event types are silently ignored", func(t *testing.T) {
+		ht := setup()
+		ht.Request.Header.Set("X-GitHub-Event", "ping")
+		ht.Sign(secretToken)
+		ht.Run()
+
+		assert.Equal(t, http.StatusNoContent, ht.Recorder.Code)
+	})
+
 	t.Run("deployment events without signature are rejected", func(t *testing.T) {
 		ht := setup()
-		ht.Request.Header.Set("X-GitHub-Event", "deployment")
 		ht.Body.WriteString("{}")
 		ht.Run()
 
@@ -101,12 +125,32 @@ func TestDeploymentHandler_ServeHTTP(t *testing.T) {
 
 	t.Run("deployment events with wrong signature are rejected", func(t *testing.T) {
 		ht := setup()
-		ht.Request.Header.Set("X-GitHub-Event", "deployment")
 		ht.Body.WriteString("{}")
 		ht.Sign(wrongSecretToken)
 		ht.Run()
 
 		assert.Equal(t, http.StatusForbidden, ht.Recorder.Code)
+		assert.Equal(t, "payload signature check failed", ht.Recorder.Body.String())
+	})
+
+	t.Run("malformed deployment events are rejected", func(t *testing.T) {
+		ht := setup()
+		ht.Body.WriteString("foo and bar")
+		ht.Sign(secretToken)
+		ht.Run()
+
+		assert.Equal(t, http.StatusBadRequest, ht.Recorder.Code)
+	})
+
+	t.Run("deployment requests without team in payload are rejected", func(t *testing.T) {
+		ht := setup()
+		dr := newDeploymentEvent("foo/bar", "env", "{}")
+		b, _ := json.Marshal(dr)
+		ht.Body.Write(b)
+		ht.Sign(secretToken)
+		ht.Run()
+
+		assert.Equal(t, http.StatusBadRequest, ht.Recorder.Code)
 		assert.Equal(t, "payload signature check failed", ht.Recorder.Body.String())
 	})
 }

@@ -65,6 +65,8 @@ func deployJSON(teamClient kubeclient.TeamClient, data []byte) (*unstructured.Un
 		return nil, fmt.Errorf("while decoding payload: %s", err)
 	}
 
+	log.Tracef("Resource URL: %s", resource.GetSelfLink())
+
 	return teamClient.DeployUnstructured(resource)
 }
 
@@ -92,7 +94,7 @@ func Prepare(msg []byte, key, cluster string) (*deployment.DeploymentRequest, er
 	return req, nil
 }
 
-func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.TeamClientProvider) *deployment.DeploymentStatus {
+func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.TeamClientProvider, deployStatus chan *deployment.DeploymentStatus) {
 	// Check the validity and authenticity of the message.
 	req, err := Prepare(msg, key, cluster)
 	if req != nil {
@@ -103,9 +105,9 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 	if err != nil {
 		logger.Tracef("discarding incoming message: %s", err)
 		if err != ErrNotMyCluster {
-			return deployment.NewFailureStatus(*req, err)
+			deployStatus <- deployment.NewFailureStatus(*req, err)
 		}
-		return nil
+		return
 	}
 
 	p := req.GetPayloadSpec()
@@ -113,14 +115,20 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 
 	teamClient, err := kube.TeamClient(p.Team)
 	if err != nil {
-		return deployment.NewFailureStatus(*req, err)
+		deployStatus <- deployment.NewFailureStatus(*req, err)
+
 	}
 
+	var status *deployment.DeploymentStatus
 	logger.Infof("accepting incoming deployment request")
 
 	if err := deployKubernetes(teamClient, logger, *p); err != nil {
-		return deployment.NewFailureStatus(*req, err)
+		status = deployment.NewFailureStatus(*req, err)
+		logger.Errorf(status.GetDescription())
+	} else {
+		status = deployment.NewSuccessStatus(*req)
+		logger.Infof(status.GetDescription())
 	}
 
-	return deployment.NewSuccessStatus(*req)
+	deployStatus <- status
 }
