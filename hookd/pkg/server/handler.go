@@ -117,6 +117,12 @@ func (h *DeploymentHandler) handler(r *http.Request) (int, error) {
 		return http.StatusBadRequest, err
 	}
 
+	if len(deploymentRequest.GetPayloadSpec().GetTeam()) == 0 {
+		err := fmt.Errorf("no team was specified in deployment payload")
+		h.DeploymentStatus <- deploymentStatusError(deploymentRequest, err)
+		return http.StatusBadRequest, err
+	}
+
 	if err := h.validateTeamAccess(deploymentRequest); err != nil {
 		h.DeploymentStatus <- deploymentStatusError(deploymentRequest, err)
 		return http.StatusForbidden, err

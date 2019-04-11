@@ -151,6 +151,6 @@ func TestDeploymentHandler_ServeHTTP(t *testing.T) {
 		ht.Run()
 
 		assert.Equal(t, http.StatusBadRequest, ht.Recorder.Code)
-		assert.Equal(t, "payload signature check failed", ht.Recorder.Body.String())
+		assert.Equal(t, "no team was specified in deployment payload", ht.Recorder.Body.String())
 	})
 }
