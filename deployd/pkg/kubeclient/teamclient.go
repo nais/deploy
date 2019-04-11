@@ -2,7 +2,9 @@ package kubeclient
 
 import (
 	"fmt"
+	"time"
 
+	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -12,6 +14,10 @@ import (
 	"k8s.io/client-go/restmapper"
 )
 
+var (
+	requestInterval = time.Second * 2
+)
+
 type teamClient struct {
 	structuredClient   kubernetes.Interface
 	unstructuredClient dynamic.Interface
@@ -19,6 +25,7 @@ type teamClient struct {
 
 type TeamClient interface {
 	DeployUnstructured(resource unstructured.Unstructured) (*unstructured.Unstructured, error)
+	WaitForDeployment(namespace, name string, deadline time.Time) error
 }
 
 // Implement TeamClient interface
@@ -51,6 +58,48 @@ func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*un
 	return c.createOrUpdate(namespacedResource, resource)
 }
 
+// Returns nil after the next generation of the deployment is successfully rolled out,
+// or error if it has not succeeded within the specified deadline.
+func (c *teamClient) WaitForDeployment(namespace, name string, deadline time.Time) error {
+	var cur *apps.Deployment
+	var nova *apps.Deployment
+	var err error
+
+	cli := c.structuredClient.AppsV1().Deployments(namespace)
+
+	// Get the current deployment object.
+	for deadline.After(time.Now()) {
+		cur, err = cli.Get(name, metav1.GetOptions{})
+		time.Sleep(requestInterval)
+		if err == nil || errors.IsNotFound(err) {
+			break
+		}
+	}
+
+	// Wait until the new deployment object is present in the cluster.
+	for deadline.After(time.Now()) {
+		nova, err = cli.Get(name, metav1.GetOptions{})
+		if err == nil {
+			if cur == nil || nova.Status.ObservedGeneration > cur.Status.ObservedGeneration {
+				break
+			}
+		}
+		time.Sleep(requestInterval)
+	}
+
+	for deadline.After(time.Now()) {
+		if deploymentComplete(nova, &nova.Status) {
+			return nil
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("timeout while waiting for deployment to succeed; last error was: %s", err)
+	}
+
+	return fmt.Errorf("timeout while waiting for deployment to succeed")
+}
+
 func (c *teamClient) createOrUpdate(client dynamic.ResourceInterface, resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	deployed, err := client.Create(&resource, metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
@@ -63,4 +112,16 @@ func (c *teamClient) createOrUpdate(client dynamic.ResourceInterface, resource u
 	}
 	resource.SetResourceVersion(existing.GetResourceVersion())
 	return client.Update(&resource, metav1.UpdateOptions{})
+}
+
+// deploymentComplete considers a deployment to be complete once all of its desired replicas
+// are updated and available, and no old pods are running.
+//
+// Copied verbatim from
+// https://github.com/kubernetes/kubernetes/blob/74bcefc8b2bf88a2f5816336999b524cc48cf6c0/pkg/controller/deployment/util/deployment_util.go#L745
+func deploymentComplete(deployment *apps.Deployment, newStatus *apps.DeploymentStatus) bool {
+	return newStatus.UpdatedReplicas == *(deployment.Spec.Replicas) &&
+		newStatus.Replicas == *(deployment.Spec.Replicas) &&
+		newStatus.AvailableReplicas == *(deployment.Spec.Replicas) &&
+		newStatus.ObservedGeneration >= deployment.Generation
 }

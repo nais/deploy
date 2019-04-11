@@ -15,6 +15,8 @@ import (
 var (
 	ErrNotMyCluster     = fmt.Errorf("your message belongs in another cluster")
 	ErrDeadlineExceeded = fmt.Errorf("deadline exceeded")
+
+	deploymentTimeout = time.Second * 300
 )
 
 func matchesCluster(req deployment.DeploymentRequest, cluster string) error {
@@ -33,32 +35,26 @@ func meetsDeadline(req deployment.DeploymentRequest) error {
 	return nil
 }
 
-func deployKubernetes(teamClient kubeclient.TeamClient, logger *log.Entry, resources []json.RawMessage) error {
-	for index, r := range resources {
-		deployed, err := deployJSON(teamClient, r)
-
-		if err != nil {
-			return fmt.Errorf("resource %d: %s", index+1, err)
-		}
-
-		metrics.KubernetesResources.Inc()
-
-		logger.Infof("resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
+func monitorableResource(resource *unstructured.Unstructured) bool {
+	gvk := resource.GroupVersionKind()
+	if gvk.Kind == "Application" && gvk.Group == "nais.io" {
+		return true
 	}
-
-	return nil
+	if gvk.Kind == "Deployment" && (gvk.Group == "apps" || gvk.Group == "extensions") {
+		return true
+	}
+	return false
 }
 
-func deployJSON(teamClient kubeclient.TeamClient, data []byte) (*unstructured.Unstructured, error) {
-	resource := unstructured.Unstructured{}
-	err := resource.UnmarshalJSON(data)
-	if err != nil {
-		return nil, fmt.Errorf("while decoding payload: %s", err)
+func jsonToResources(json []json.RawMessage) ([]unstructured.Unstructured, error) {
+	resources := make([]unstructured.Unstructured, len(json))
+	for i := range resources {
+		err := resources[i].UnmarshalJSON(json[i])
+		if err != nil {
+			return nil, fmt.Errorf("resource %d: decoding payload: %s", i+1, err)
+		}
 	}
-
-	log.Tracef("Resource URL: %s", resource.GetSelfLink())
-
-	return teamClient.DeployUnstructured(resource)
+	return resources, nil
 }
 
 // Prepare decodes a string of bytes into a deployment request,
@@ -106,27 +102,63 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 
 	teamClient, err := kube.TeamClient(p.Team)
 	if err != nil {
-		deployStatus <- deployment.NewFailureStatus(*req, err)
-
+		deployStatus <- deployment.NewErrorStatus(*req, err)
+		return
 	}
 
-	resources, err := p.JSONResources()
+	rawResources, err := p.JSONResources()
 	if err != nil {
 		deployStatus <- deployment.NewErrorStatus(*req, fmt.Errorf("unserializing kubernetes resources: %s", err))
 		return
 	}
 
-	if len(resources) == 0 {
+	if len(rawResources) == 0 {
 		deployStatus <- deployment.NewErrorStatus(*req, fmt.Errorf("no resources to deploy"))
+		return
+	}
+
+	resources, err := jsonToResources(rawResources)
+	if err != nil {
+		deployStatus <- deployment.NewErrorStatus(*req, err)
 		return
 	}
 
 	logger.Infof("Accepting incoming deployment request")
 
-	if err := deployKubernetes(teamClient, logger, resources); err != nil {
-		deployStatus <- deployment.NewFailureStatus(*req, err)
-		return
+	monitorable := 0
+
+	for index, resource := range resources {
+		if monitorableResource(&resource) {
+
+			monitorable += 1
+			ns := resource.GetNamespace()
+			n := resource.GetName()
+			logger.Infof("Monitoring rollout status of deployment '%s' in namespace '%s' for %s", n, ns, deploymentTimeout.String())
+
+			go func() {
+				err := teamClient.WaitForDeployment(ns, n, time.Now().Add(deploymentTimeout))
+				if err == nil {
+					deployStatus <- deployment.NewSuccessStatus(*req)
+				} else {
+					deployStatus <- deployment.NewFailureStatus(*req, err)
+				}
+			}()
+		}
+
+		deployed, err := teamClient.DeployUnstructured(resource)
+		if err != nil {
+			deployStatus <- deployment.NewFailureStatus(*req, fmt.Errorf("resource %d: %s", index+1, err))
+			return
+		}
+
+		metrics.KubernetesResources.Inc()
+
+		logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
 	}
 
-	deployStatus <- deployment.NewInProgressStatus(*req)
+	if monitorable > 0 {
+		deployStatus <- deployment.NewInProgressStatus(*req)
+	} else {
+		deployStatus <- deployment.NewSuccessStatus(*req)
+	}
 }

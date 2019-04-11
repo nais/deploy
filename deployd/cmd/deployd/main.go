@@ -74,7 +74,7 @@ func run() error {
 
 	metricsServer := http.NewServeMux()
 	metricsServer.Handle(cfg.MetricsPath, metrics.Handler())
-	log.Infof("serving metrics on %s endpoint %s", cfg.MetricsListenAddr, cfg.MetricsPath)
+	log.Infof("Serving metrics on %s endpoint %s", cfg.MetricsListenAddr, cfg.MetricsPath)
 	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
 
 	// Trap SIGINT to trigger a shutdown.
@@ -84,6 +84,7 @@ func run() error {
 	var m sarama.ConsumerMessage
 
 	for {
+	SEL:
 		select {
 		case m = <-client.RecvQ:
 			logger := kafka.ConsumerMessageLogger(&m)
@@ -93,20 +94,23 @@ func run() error {
 
 		case status := <-statusChan:
 			logger := log.WithFields(status.LogFields())
-			if status == nil {
+			switch {
+			case status == nil:
 				metrics.DeployIgnored.Inc()
-				break
-			} else if status.GetState() == deployment.GithubDeploymentState_success {
-				metrics.DeploySuccessful.Inc()
-				logger.Errorf(status.GetDescription())
-			} else {
+				break SEL
+			case status.GetState() == deployment.GithubDeploymentState_error:
+				fallthrough
+			case status.GetState() == deployment.GithubDeploymentState_failure:
 				metrics.DeployFailed.Inc()
+				logger.Errorf(status.GetDescription())
+			default:
+				metrics.DeploySuccessful.Inc()
 				logger.Infof(status.GetDescription())
 			}
 
 			err = SendDeploymentStatus(status, client)
 			if err != nil {
-				logger.Errorf("while reporting deployment status: %s", err)
+				logger.Errorf("While reporting deployment status: %s", err)
 			}
 
 		case <-signals:
@@ -139,7 +143,7 @@ func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.Dua
 		"kafka_offset":    offset,
 		"kafka_timestamp": reply.Timestamp,
 		"kafka_topic":     reply.Topic,
-	}).Infof("deployment response sent successfully")
+	}).Infof("Deployment response sent successfully")
 
 	return nil
 }
