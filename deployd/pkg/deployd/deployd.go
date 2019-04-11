@@ -1,6 +1,7 @@
 package deployd
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -32,17 +33,7 @@ func meetsDeadline(req deployment.DeploymentRequest) error {
 	return nil
 }
 
-func deployKubernetes(teamClient kubeclient.TeamClient, logger *log.Entry, p deployment.Payload) error {
-	resources, err := p.JSONResources()
-	if err != nil {
-		return fmt.Errorf("unserializing kubernetes resources: %s", err)
-	}
-
-	numResources := len(resources)
-	if numResources == 0 {
-		return fmt.Errorf("no resources to deploy")
-	}
-
+func deployKubernetes(teamClient kubeclient.TeamClient, logger *log.Entry, resources []json.RawMessage) error {
 	for index, r := range resources {
 		deployed, err := deployJSON(teamClient, r)
 
@@ -103,7 +94,7 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 	}
 
 	if err != nil {
-		logger.Tracef("discarding incoming message: %s", err)
+		logger.Tracef("Discarding incoming message: %s", err)
 		if err != ErrNotMyCluster {
 			deployStatus <- deployment.NewFailureStatus(*req, err)
 		}
@@ -119,16 +110,23 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 
 	}
 
-	var status *deployment.DeploymentStatus
-	logger.Infof("accepting incoming deployment request")
-
-	if err := deployKubernetes(teamClient, logger, *p); err != nil {
-		status = deployment.NewFailureStatus(*req, err)
-		logger.Errorf(status.GetDescription())
-	} else {
-		status = deployment.NewSuccessStatus(*req)
-		logger.Infof(status.GetDescription())
+	resources, err := p.JSONResources()
+	if err != nil {
+		deployStatus <- deployment.NewErrorStatus(*req, fmt.Errorf("unserializing kubernetes resources: %s", err))
+		return
 	}
 
-	deployStatus <- status
+	if len(resources) == 0 {
+		deployStatus <- deployment.NewErrorStatus(*req, fmt.Errorf("no resources to deploy"))
+		return
+	}
+
+	logger.Infof("Accepting incoming deployment request")
+
+	if err := deployKubernetes(teamClient, logger, resources); err != nil {
+		deployStatus <- deployment.NewFailureStatus(*req, err)
+		return
+	}
+
+	deployStatus <- deployment.NewInProgressStatus(*req)
 }

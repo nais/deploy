@@ -92,16 +92,18 @@ func run() error {
 			deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube, statusChan)
 
 		case status := <-statusChan:
+			logger := log.WithFields(status.LogFields())
 			if status == nil {
 				metrics.DeployIgnored.Inc()
 				break
 			} else if status.GetState() == deployment.GithubDeploymentState_success {
 				metrics.DeploySuccessful.Inc()
+				logger.Errorf(status.GetDescription())
 			} else {
 				metrics.DeployFailed.Inc()
+				logger.Infof(status.GetDescription())
 			}
 
-			logger := log.WithFields(status.LogFields())
 			err = SendDeploymentStatus(status, client)
 			if err != nil {
 				logger.Errorf("while reporting deployment status: %s", err)
