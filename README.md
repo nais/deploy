@@ -12,7 +12,7 @@ The deployment process goes as follows (key parts of the process is explained in
 4. `deployd` publishes a message regarding the outcome of the deployment back to Kafka.
 5. `hookd` receives message from Kafka and adds a corresponding deployment status using GitHub's API with the result of the deployment process.
 
-![Timeline of deployment components](doc/timeline.png)
+![Sequence diagram of deployment components](doc/sequence.png)
 
 The [NAV deployment](https://github.com/apps/nav-deployment) GitHub application is installed in all repositories owned by the `navikt` organization.
 This application defines a webhook on all repositories. The webhook fires when CI pipelines creates a deployment on a repository using the

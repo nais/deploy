@@ -1,0 +1,40 @@
+@startuml component
+
+actor developer as "Developer"
+participant github as "GitHub"
+participant ci as "Automated build tool"
+database registry as "Docker Hub"
+participant hookd
+collections deployd
+participant kubernetes as "NAIS"
+
+==Build phase==
+developer -> github: git push
+github --> developer
+github -> ci: Webhook
+ci --> github
+ci -> registry: Push image
+registry --> ci
+
+==Deploy phase==
+ci -> github: Start deployment
+github -> hookd: Webhook
+hookd -> deployd: Commission deployment
+hookd --> github: Update deployment status
+note left: queued
+deployd -> kubernetes: Deploy
+kubernetes --> deployd
+deployd --> hookd: Report status
+hookd --> github: Update deployment status
+note left: in_progress
+
+loop until timeout or success
+	deployd -> kubernetes: Check rollout status
+	kubernetes --> deployd
+end
+
+deployd --> hookd: Report status
+hookd --> github: Update deployment status
+note left: success
+
+@enduml
