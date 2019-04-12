@@ -2,8 +2,10 @@ package kubeclient
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +17,7 @@ import (
 )
 
 var (
-	requestInterval = time.Second * 2
+	requestInterval = time.Second * 5
 )
 
 type teamClient struct {
@@ -25,7 +27,7 @@ type teamClient struct {
 
 type TeamClient interface {
 	DeployUnstructured(resource unstructured.Unstructured) (*unstructured.Unstructured, error)
-	WaitForDeployment(namespace, name string, deadline time.Time) error
+	WaitForDeployment(logger *log.Entry, namespace, name string, deadline time.Time) error
 }
 
 // Implement TeamClient interface
@@ -60,37 +62,57 @@ func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*un
 
 // Returns nil after the next generation of the deployment is successfully rolled out,
 // or error if it has not succeeded within the specified deadline.
-func (c *teamClient) WaitForDeployment(namespace, name string, deadline time.Time) error {
+func (c *teamClient) WaitForDeployment(logger *log.Entry, namespace, name string, deadline time.Time) error {
 	var cur *apps.Deployment
 	var nova *apps.Deployment
 	var err error
+	var resourceVersion int
+	var updated bool
 
 	cli := c.structuredClient.AppsV1().Deployments(namespace)
 
 	// Get the current deployment object.
 	for deadline.After(time.Now()) {
 		cur, err = cli.Get(name, metav1.GetOptions{})
-		time.Sleep(requestInterval)
-		if err == nil || errors.IsNotFound(err) {
-			break
+		if err == nil {
+			resourceVersion, _ = strconv.Atoi(cur.GetResourceVersion())
+			logger.Tracef("Found current deployment at version %d: %s", resourceVersion, cur.GetSelfLink())
+		} else if errors.IsNotFound(err) {
+			logger.Tracef("Deployment '%s' in namespace '%s' is not currently present in the cluster.", name, namespace)
+		} else {
+			time.Sleep(requestInterval)
+			continue
 		}
+		break
 	}
 
 	// Wait until the new deployment object is present in the cluster.
 	for deadline.After(time.Now()) {
 		nova, err = cli.Get(name, metav1.GetOptions{})
-		if err == nil {
-			if cur == nil || nova.Status.ObservedGeneration > cur.Status.ObservedGeneration {
-				break
-			}
+		if err != nil {
+			time.Sleep(requestInterval)
+			continue
 		}
-		time.Sleep(requestInterval)
-	}
 
-	for deadline.After(time.Now()) {
-		if deploymentComplete(nova, &nova.Status) {
+		rv, _ := strconv.Atoi(nova.GetResourceVersion())
+		if rv > resourceVersion {
+			logger.Tracef("New deployment appeared at version %d: %s", rv, cur.GetSelfLink())
+			resourceVersion = rv
+			updated = true
+		}
+
+		if updated && deploymentComplete(nova, &nova.Status) {
 			return nil
 		}
+
+		logger.WithFields(log.Fields{
+			"deployment_replicas":            nova.Status.Replicas,
+			"deployment_updated_replicas":    nova.Status.UpdatedReplicas,
+			"deployment_available_replicas":  nova.Status.AvailableReplicas,
+			"deployment_observed_generation": nova.Status.ObservedGeneration,
+		}).Tracef("Still waiting for deployment to finish rollout...")
+
+		time.Sleep(requestInterval)
 	}
 
 	if err != nil {
