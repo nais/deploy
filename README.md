@@ -1,23 +1,23 @@
-# Deployment orchestration in NAV
-Documentation related to the deployment orchestration into Kubernetes using Github Deployments.
+# NAIS deployment
 
 ## Overview
-The deployment process goes as follows (key parts of the process is explained in detail below):
+NAIS deployment facilitates application deployment into NAV's Kubernetes clusters using the Github Deployments API.
 
-1. [Create a deployment request](https://developer.github.com/v3/repos/deployments/#create-a-deployment) using GitHub's API, as part of the CI process of the application you want to deploy.
-2. `hookd` receives the deployment request, and
-   1. Creates deployment status using GitHub's API for invalid deployments, marking the deployment as a failure, which effectively short circuits the deployment process, or
-   2. Publishes message to Kafka for all valid deployments.
-3. `deployd` receives the request from Kafka and applies your _Kubernetes resources_ into the cluster of choice, on behalf of your team.
-4. `deployd` publishes a message regarding the outcome of the deployment back to Kafka.
-5. `hookd` receives message from Kafka and adds a corresponding deployment status using GitHub's API with the result of the deployment process.
+Developers push or merge code into the master branch of a Git repository, triggering an automated build using CircleCI, Travis CI, or Jenkins.
+A successful build produces a Docker image artifact, which is uploaded onto Docker Hub.
+The final step in the build pipeline triggers the Github Deployments API, where NAIS deployment hooks in, deploying the application on Kubernetes.
 
 ![Sequence diagram of deployment components](doc/sequence.png)
 
-The [NAV deployment](https://github.com/apps/nav-deployment) GitHub application is installed in all repositories owned by the `navikt` organization.
-This application defines a webhook on all repositories. The webhook fires when CI pipelines creates a deployment on a repository using the
-[GitHub Deployment API](https://developer.github.com/v3/repos/deployments/#create-a-deployment).
+## How it works
 
+1. As the final step in one of your CI pipelines, a [deployment request](https://developer.github.com/v3/repos/deployments/#create-a-deployment) is created using GitHub's API. This will trigger a webhook set up at Github.
+2. `hookd` receives the webhook, verifies its integrity and authenticity, and passes the message on to `deployd` via Kafka.
+3. `deployd` receives the message from `hookd`, assumes the identity of the deploying team, and applies your _Kubernetes resources_ into the specified [environment](#environment).
+4. If the Kubernetes resources contained any _Application_ or _Deployment_ resources, `deployd` will wait until these are rolled out successfully, or a timeout occurs.
+
+Any fatal error will short-circuit the process with a `error` or `failure` status posted back to Github. A successful deployment will result in a `success` status.
+Intermediary statuses might be posted, indicating the current state of the deployment.
 
 ## Usage
 
@@ -35,11 +35,9 @@ Visit the [registration portal](https://deployment.prod-sbs.nais.io/auth/login) 
 ### Authenticating to the Github API
 There are two ways to authenticate API requests: using a Github App, or with a personal access token.
 
-The first option is unfortunately currently only available to Github organization admins. This means that you have to
-[create a personal access token](https://help.github.com/en/articles/creating-a-personal-access-token-for-the-command-line)
-that your CI pipeline can use to trigger the deployment.
-
-The token needs only the scope `repo_deployment`.
+The first option is unfortunately currently only available to Github organization admins. You can still self-service by
+[creating a personal access token](https://help.github.com/en/articles/creating-a-personal-access-token-for-the-command-line)
+that your CI pipeline can use to trigger the deployment. The token needs only the scope `repo_deployment`.
 
 Usage from curl looks like this:
 
@@ -47,10 +45,26 @@ Usage from curl looks like this:
 % curl -u USERNAME:TOKEN https://api.github.com/...
 ```
 
-### Making a deployment request
+### Deployment requests
 A deployment into the Kubernetes clusters starts with a POST request to the [GitHub Deployment API](https://developer.github.com/v3/repos/deployments/#create-a-deployment).
 The request contains information about which environment to deploy to, which team to deploy as, and what resources should be applied.
 
+#### Deploying using deployment-cli
+Our internal tool [deployment-cli](https://github.com/navikt/deployment-cli) will enable you to make deployment requests in a way similar to:
+
+```
+deployment-cli create \
+  --environment=dev-fss \
+  --repository=navikt/deployment \
+  --team=<TEAM> \
+  --version=<VERSION> \
+  --appid=1234 \
+  --key=/path/to/private-key.pem \
+  --resources=nais.yaml \
+  --config=placeholders.json
+```
+
+#### Deploying using cURL
 Example request:
 ```
 {
@@ -106,36 +120,39 @@ keep things stable and roll out new features gracefully.
 Changes will be rolled out using [semantic versioning](https://semver.org).
 
 ### Troubleshooting
-First thing, check the logs. To get a link to your logs, please check the deployment status page at
+Generally speaking, if the deployment status is anything else than `success`, `queued`, or `pending`, it means that your deployment failed.
+
+Please check the logs before asking. To get a link to your logs, please check the deployment status page at
 `https://github.com/navikt/<YOUR_REPOSITORY>/deployments`.
 
-Generally speaking, if the deployment is marked as `error`, the pipeline did not like your request and you need to fix something.
-If the deployment is marked as `failure`, your application did not start as expected.
-Any status like `queued`, `in progress` or `delayed` means that you need to wait for a status update.
+If everything fails, report errors to #nais-deployment on Slack.
 
-#### Common errors
+#### Common scenarios
 
 | Message | Action |
 |---------|--------|
 | Repository _foo/bar_ is not registered | Please read the [registering your repository](#registering-your-repository) section. |
-| Deployment is stuck at `queued` | Did you specify the [correct environment](#environment) in the `environment` variable? |
+| Deployment status `error` | There is an error with your request. The reason should be specified in the error message. |
+| Deployment status `failure` | Your application didn't pass its health checks during the 5 minute startup window. It is probably stuck in a crash loop due to mis-configuration. Check your application logs.
+| Deployment is stuck at `queued` | The deployment hasn't been picked up by the worker process. Did you specify the [correct environment](#environment) in the `environment` variable? |
 | Deployment is stuck at `pending` | Is your repository allowed in the beta trial period? Try #nais-deployment on Slack. |
 
 
 ## Application components
 
 ### hookd
-This service will receive all deployment events from GitHub.
+This service communicates with Github, and acts as a relay between the Internet and our Kubernetes clusters.
 
 Its main tasks are to:
 * validate deployment events
-* publish messages to Kafka when a deployment is created
+* relay deployment requests to _deployd_ using Kafka
 * report deployment status back to GitHub
 
-The validation part is done by checking if the signature attached to the deployment event is valid, and by checking the format of the deployment. Refer to the [GitHub documentation](https://developer.github.com/webhooks/securing/) as to how webhooks are secured.
+The validation part is done by checking if the signature attached to the deployment event is valid, and by checking the format of the deployment.
+Refer to the [GitHub documentation](https://developer.github.com/webhooks/securing/) as to how webhooks are secured.
 
 ### deployd
-Deployd's main responsibility is to deploy resources into a Kubernetes cluster. Additionally it reports the deployment status back to hookd using Kafka.
+Deployd responsibility is to deploy resources into a Kubernetes cluster, and report state changes back to hookd using Kafka.
 
 ### Kafka
 Kafka is used as a communication channel between hookd and deployd. Hookd sends deployment requests to a `deploymentRequests` topic, which fans out
@@ -164,12 +181,14 @@ export S3_SECRET_KEY=secretkey
 ```
 
 ### Simulating Github deployment requests
+When you want to send webhooks to _hookd_ without invoking Github, you can use the `mkdeploy` tool, which simulates these requests.
+
 Start a local Kafka instance as described above. Now run your local hookd instance, disabling Github interactions:
 ```
 hookd/hookd --github-enabled=false --listen-address=127.0.0.1:8080
 ```
 
-You might want to start up `deployd` as well:
+If you want to deploy, you want to start up `deployd` as well:
 ```
 deployd/deployd
 ```
@@ -180,4 +199,5 @@ cd hookd/cmd/mkdeploy
 make
 ```
 
-You can now run the tool, generating deployment requests as you go. Run `./mkdeploy --help` to see which options you can tweak.
+You can now run `mkdeploy`. The default parameters should work fine, but you'll probably want to specify a deployment payload, which, by default, is empty.
+Run `./mkdeploy --help` to see which options you can tweak.
