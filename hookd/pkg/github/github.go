@@ -14,6 +14,11 @@ import (
 
 const maxDescriptionLength = 140
 
+var (
+	ErrEmptyDeployment = fmt.Errorf("empty deployment")
+	ErrEmptyRepository = fmt.Errorf("empty repository")
+)
+
 func SplitFullname(fullName string) (string, string, error) {
 	parts := strings.Split(fullName, "/")
 	if len(parts) != 2 {
@@ -37,12 +42,12 @@ func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus, baseur
 
 	deployment := m.GetDeployment()
 	if deployment == nil {
-		return nil, nil, fmt.Errorf("empty deployment")
+		return nil, nil, ErrEmptyDeployment
 	}
 
 	repo := deployment.GetRepository()
 	if repo == nil {
-		return nil, nil, fmt.Errorf("empty repository")
+		return nil, nil, ErrEmptyRepository
 	}
 
 	state := m.GetState().String()

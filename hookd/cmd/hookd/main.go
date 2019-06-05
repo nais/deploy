@@ -166,6 +166,8 @@ func run() error {
 	for {
 		select {
 		case m := <-kafkaClient.RecvQ:
+			metrics.KafkaQueueSize.Set(float64(len(kafkaClient.RecvQ)))
+
 			status := deployment.DeploymentStatus{}
 			logger := kafka.ConsumerMessageLogger(&m)
 
@@ -181,6 +183,8 @@ func run() error {
 			kafkaClient.Consumer.MarkOffset(&m, "")
 
 		case req := <-requestChan:
+			metrics.DeploymentRequestQueueSize.Set(float64(len(requestChan)))
+
 			logger := log.WithFields(req.LogFields())
 			logger.Tracef("Sending deployment request")
 
@@ -218,6 +222,8 @@ func run() error {
 			}()
 
 		case status := <-statusChan:
+			metrics.GithubStatusQueueSize.Set(float64(len(statusChan)))
+
 			logger := log.WithFields(status.LogFields())
 			logger.Trace("Received deployment status")
 
@@ -232,10 +238,18 @@ func run() error {
 					deployment.LogFieldDeploymentStatusID: ghs.GetID(),
 				})
 				logger.Infof("Published deployment status to GitHub: %s", ghs.GetDescription())
+				metrics.GithubStatus.Inc()
 				continue
 			}
 
 			logger.Errorf("Sending deployment status to Github: %s", err)
+			metrics.GithubStatusFailed.Inc()
+
+			if err == github.ErrEmptyRepository || err == github.ErrEmptyDeployment {
+				logger.Tracef("Error is non-retriable; giving up")
+				continue
+			}
+
 			go func() {
 				logger.Tracef("Retrying in %.0f seconds", retryInterval.Seconds())
 				time.Sleep(retryInterval)
