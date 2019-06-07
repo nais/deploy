@@ -64,6 +64,14 @@ func (s *s3storage) Read(repository string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("while locating s3 object: %s", err)
 	}
+
+	defer func() {
+		err := obj.Close()
+		if err != nil {
+			log.Errorf("while closing s3 object: %s", err)
+		}
+	}()
+
 	stat, err := obj.Stat()
 	if err != nil {
 		// We need to be able to return an error message saying that the object wasn't found.
