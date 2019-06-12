@@ -10,7 +10,6 @@ The final step in the build pipeline triggers the Github Deployments API, where 
 ![Sequence diagram of deployment components](doc/sequence.png)
 
 ## How it works
-
 1. As the final step in one of your CI pipelines, a [deployment request](https://developer.github.com/v3/repos/deployments/#create-a-deployment) is created using GitHub's API. This will trigger a webhook set up at Github.
 2. `hookd` receives the webhook, verifies its integrity and authenticity, and passes the message on to `deployd` via Kafka.
 3. `deployd` receives the message from `hookd`, assumes the identity of the deploying team, and applies your _Kubernetes resources_ into the specified [environment](#environment).
@@ -135,7 +134,6 @@ If everything fails, report errors to #nais-deployment on Slack.
 | Deployment status `error` | There is an error with your request. The reason should be specified in the error message. |
 | Deployment status `failure` | Your application didn't pass its health checks during the 5 minute startup window. It is probably stuck in a crash loop due to mis-configuration. Check your application logs.
 | Deployment is stuck at `queued` | The deployment hasn't been picked up by the worker process. Did you specify the [correct environment](#environment) in the `environment` variable? |
-| Deployment is stuck at `pending` | Is your repository allowed in the beta trial period? Try #nais-deployment on Slack. |
 
 
 ## Application components
