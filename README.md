@@ -132,7 +132,7 @@ If everything fails, report errors to #nais-deployment on Slack.
 |---------|--------|
 | Repository _foo/bar_ is not registered | Please read the [registering your repository](#registering-your-repository) section. |
 | Deployment status `error` | There is an error with your request. The reason should be specified in the error message. |
-| Deployment status `failure` | Your application didn't pass its health checks during the 5 minute startup window. It is probably stuck in a crash loop due to mis-configuration. Check your application logs.
+| Deployment status `failure` | Your application didn't pass its health checks during the 5 minute startup window. It is probably stuck in a crash loop due to mis-configuration. Check your application logs using `kubectl logs <POD>` and event logs using `kubectl describe app <APP>`
 | Deployment is stuck at `queued` | The deployment hasn't been picked up by the worker process. Did you specify the [correct environment](#environment) in the `environment` variable? |
 
 
