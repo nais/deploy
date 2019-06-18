@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -10,6 +11,8 @@ import (
 const (
 	namespace = "deployment"
 	subsystem = "hookd"
+
+	LabelStatusCode = "status_code"
 )
 
 func counter(name, help string) prometheus.Counter {
@@ -30,8 +33,24 @@ func gauge(name, help string) prometheus.Gauge {
 	})
 }
 
+func WebhookRequest(code int) {
+	webhookRequests.With(prometheus.Labels{
+		LabelStatusCode: strconv.Itoa(code),
+	})
+}
+
 var (
-	WebhookRequests            = counter("webhook_requests", "number of incoming Github webhook requests")
+	webhookRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "webhook_requests",
+		Help:      "number of incoming Github webhook requests",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			LabelStatusCode,
+		},
+	)
+
 	Dispatched                 = counter("dispatched", "number of deployment requests accepted and dispatched for deploy")
 	GithubStatus               = counter("github_status", "number of Github status updates posted")
 	GithubStatusFailed         = counter("github_status_failed", "number of Github status updates failed")
@@ -41,7 +60,7 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(WebhookRequests)
+	prometheus.MustRegister(webhookRequests)
 	prometheus.MustRegister(Dispatched)
 	prometheus.MustRegister(GithubStatus)
 	prometheus.MustRegister(KafkaQueueSize)

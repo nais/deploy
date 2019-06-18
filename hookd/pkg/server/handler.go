@@ -28,6 +28,8 @@ type DeploymentHandler struct {
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	code, err := h.handler(r)
 
+	metrics.WebhookRequest(code)
+
 	w.WriteHeader(code)
 
 	if err == nil {
@@ -86,8 +88,6 @@ func (h *DeploymentHandler) handler(r *http.Request) (int, error) {
 	})
 
 	h.log.Infof("Received %s request on %s", r.Method, r.RequestURI)
-
-	metrics.WebhookRequests.Inc()
 
 	if eventType != webhookTypeDeployment {
 		return http.StatusNoContent, fmt.Errorf("ignoring unsupported event type '%s'", eventType)
