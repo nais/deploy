@@ -36,7 +36,7 @@ func gauge(name, help string) prometheus.Gauge {
 func WebhookRequest(code int) {
 	webhookRequests.With(prometheus.Labels{
 		LabelStatusCode: strconv.Itoa(code),
-	})
+	}).Inc()
 }
 
 var (
