@@ -33,7 +33,7 @@ func WebhookRequest(code int) {
 }
 
 func DeploymentStatus(status deployment.DeploymentStatus, githubReturnCode int) {
-	webhookRequests.With(prometheus.Labels{
+	githubStatus.With(prometheus.Labels{
 		LabelStatusCode:      strconv.Itoa(githubReturnCode),
 		LabelDeploymentState: status.GetState().String(),
 	}).Inc()
@@ -78,6 +78,7 @@ var (
 func init() {
 	prometheus.MustRegister(webhookRequests)
 	prometheus.MustRegister(githubStatus)
+
 	prometheus.MustRegister(Dispatched)
 	prometheus.MustRegister(KafkaQueueSize)
 	prometheus.MustRegister(DeploymentRequestQueueSize)
