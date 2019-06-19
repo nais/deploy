@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -12,17 +13,9 @@ const (
 	namespace = "deployment"
 	subsystem = "hookd"
 
-	LabelStatusCode = "status_code"
+	LabelStatusCode      = "status_code"
+	LabelDeploymentState = "deployment_state"
 )
-
-func counter(name, help string) prometheus.Counter {
-	return prometheus.NewCounter(prometheus.CounterOpts{
-		Name:      name,
-		Help:      help,
-		Namespace: namespace,
-		Subsystem: subsystem,
-	})
-}
 
 func gauge(name, help string) prometheus.Gauge {
 	return prometheus.NewGauge(prometheus.GaugeOpts{
@@ -39,6 +32,13 @@ func WebhookRequest(code int) {
 	}).Inc()
 }
 
+func DeploymentStatus(status deployment.DeploymentStatus, githubReturnCode int) {
+	webhookRequests.With(prometheus.Labels{
+		LabelStatusCode:      strconv.Itoa(githubReturnCode),
+		LabelDeploymentState: status.GetState().String(),
+	}).Inc()
+}
+
 var (
 	webhookRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:      "webhook_requests",
@@ -51,9 +51,25 @@ var (
 		},
 	)
 
-	Dispatched                 = counter("dispatched", "number of deployment requests accepted and dispatched for deploy")
-	GithubStatus               = counter("github_status", "number of Github status updates posted")
-	GithubStatusFailed         = counter("github_status_failed", "number of Github status updates failed")
+	githubStatus = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "github_status",
+		Help:      "number of Github status updates posted",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			LabelStatusCode,
+			LabelDeploymentState,
+		},
+	)
+
+	Dispatched = prometheus.NewCounter(prometheus.CounterOpts{
+		Name:      "dispatched",
+		Help:      "number of deployment requests dispatched to Kafka",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	})
+
 	KafkaQueueSize             = gauge("kafka_queue_size", "number of messages received from Kafka and waiting to be processed")
 	DeploymentRequestQueueSize = gauge("deployment_request_queue_size", "number of github status updates waiting to be posted")
 	GithubStatusQueueSize      = gauge("github_status_queue_size", "number of github status updates waiting to be posted")
@@ -61,8 +77,8 @@ var (
 
 func init() {
 	prometheus.MustRegister(webhookRequests)
+	prometheus.MustRegister(githubStatus)
 	prometheus.MustRegister(Dispatched)
-	prometheus.MustRegister(GithubStatus)
 	prometheus.MustRegister(KafkaQueueSize)
 	prometheus.MustRegister(DeploymentRequestQueueSize)
 	prometheus.MustRegister(GithubStatusQueueSize)

@@ -232,18 +232,17 @@ func run() error {
 				continue
 			}
 
-			ghs, _, err := github.CreateDeploymentStatus(installationClient, &status, cfg.BaseURL)
+			ghs, req, err := github.CreateDeploymentStatus(installationClient, &status, cfg.BaseURL)
 			if err == nil {
 				logger = logger.WithFields(log.Fields{
 					deployment.LogFieldDeploymentStatusID: ghs.GetID(),
 				})
 				logger.Infof("Published deployment status to GitHub: %s", ghs.GetDescription())
-				metrics.GithubStatus.Inc()
+				metrics.DeploymentStatus(status, req.StatusCode)
 				continue
 			}
 
 			logger.Errorf("Sending deployment status to Github: %s", err)
-			metrics.GithubStatusFailed.Inc()
 
 			if err == github.ErrEmptyRepository || err == github.ErrEmptyDeployment {
 				logger.Tracef("Error is non-retriable; giving up")
