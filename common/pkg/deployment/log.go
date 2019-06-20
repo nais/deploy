@@ -21,6 +21,8 @@ func (m *DeploymentStatus) LogFields() log.Fields {
 		LogFieldRepository:           m.GetDeployment().GetRepository().FullName(),
 		LogFieldDeploymentID:         m.GetDeployment().GetDeploymentID(),
 		LogFieldDeploymentStatusType: m.GetState().String(),
+		LogFieldTeam:                 m.GetTeam(),
+		LogFieldCluster:              m.GetCluster(),
 	}
 }
 

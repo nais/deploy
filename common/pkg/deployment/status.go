@@ -11,6 +11,7 @@ func NewErrorStatus(req DeploymentRequest, err error) *DeploymentStatus {
 		State:       GithubDeploymentState_error,
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
+		Cluster:     req.GetCluster(),
 	}
 }
 
@@ -21,6 +22,7 @@ func NewFailureStatus(req DeploymentRequest, err error) *DeploymentStatus {
 		State:       GithubDeploymentState_failure,
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
+		Cluster:     req.GetCluster(),
 	}
 }
 
@@ -31,6 +33,7 @@ func NewInProgressStatus(req DeploymentRequest) *DeploymentStatus {
 		State:       GithubDeploymentState_in_progress,
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
+		Cluster:     req.GetCluster(),
 	}
 }
 
@@ -41,5 +44,6 @@ func NewSuccessStatus(req DeploymentRequest) *DeploymentStatus {
 		State:       GithubDeploymentState_success,
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
+		Cluster:     req.GetCluster(),
 	}
 }

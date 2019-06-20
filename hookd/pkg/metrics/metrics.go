@@ -17,6 +17,7 @@ const (
 	LabelDeploymentState = "deployment_state"
 	Repository           = "repository"
 	Team                 = "team"
+	Cluster              = "cluster"
 )
 
 func gauge(name, help string) prometheus.Gauge {
@@ -40,6 +41,7 @@ func DeploymentStatus(status deployment.DeploymentStatus, githubReturnCode int) 
 		LabelDeploymentState: status.GetState().String(),
 		Repository:           status.GetDeployment().GetRepository().FullName(),
 		Team:                 status.GetTeam(),
+		Cluster:              status.GetCluster(),
 	}).Inc()
 }
 
@@ -66,6 +68,7 @@ var (
 			LabelDeploymentState,
 			Repository,
 			Team,
+			Cluster,
 		},
 	)
 

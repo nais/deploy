@@ -229,6 +229,7 @@ func run() error {
 
 			if !cfg.EnableGithub {
 				logger.Warn("Github is disabled; deployment status discarded")
+				metrics.DeploymentStatus(status, 0)
 				continue
 			}
 
