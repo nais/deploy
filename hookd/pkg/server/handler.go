@@ -113,18 +113,18 @@ func (h *DeploymentHandler) handler(r *http.Request) (int, error) {
 	h.log = h.log.WithFields(deploymentRequest.LogFields())
 
 	if err != nil {
-		h.DeploymentStatus <- deploymentStatusError(deploymentRequest, err)
+		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
 		return http.StatusBadRequest, err
 	}
 
 	if len(deploymentRequest.GetPayloadSpec().GetTeam()) == 0 {
 		err := fmt.Errorf("no team was specified in deployment payload")
-		h.DeploymentStatus <- deploymentStatusError(deploymentRequest, err)
+		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
 		return http.StatusBadRequest, err
 	}
 
 	if err := h.validateTeamAccess(deploymentRequest); err != nil {
-		h.DeploymentStatus <- deploymentStatusError(deploymentRequest, err)
+		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
 		return http.StatusForbidden, err
 	}
 
@@ -132,13 +132,4 @@ func (h *DeploymentHandler) handler(r *http.Request) (int, error) {
 	h.DeploymentRequest <- *deploymentRequest
 
 	return http.StatusCreated, nil
-}
-
-func deploymentStatusError(req *types.DeploymentRequest, err error) types.DeploymentStatus {
-	return types.DeploymentStatus{
-		Deployment:  req.GetDeployment(),
-		DeliveryID:  req.GetDeliveryID(),
-		State:       types.GithubDeploymentState_error,
-		Description: fmt.Sprintf("Error in deployment request: %s", err),
-	}
 }
