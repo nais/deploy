@@ -3,6 +3,7 @@ package metrics
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/prometheus/client_golang/prometheus"
@@ -43,6 +44,20 @@ func DeploymentStatus(status deployment.DeploymentStatus, githubReturnCode int) 
 		Team:                 status.GetTeam(),
 		Cluster:              status.GetCluster(),
 	}).Inc()
+
+	if status.GetState() != deployment.GithubDeploymentState_success || githubReturnCode > 299 {
+		return
+	}
+
+	ttd := float64(time.Now().Unix() - status.GetTimestamp())
+
+	leadTime.With(prometheus.Labels{
+		LabelStatusCode:      strconv.Itoa(githubReturnCode),
+		LabelDeploymentState: status.GetState().String(),
+		Repository:           status.GetDeployment().GetRepository().FullName(),
+		Team:                 status.GetTeam(),
+		Cluster:              status.GetCluster(),
+	}).Observe(ttd)
 }
 
 var (
@@ -72,6 +87,21 @@ var (
 		},
 	)
 
+	leadTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:      "webhook_requests",
+		Help:      "number of incoming Github webhook requests",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			LabelStatusCode,
+			LabelDeploymentState,
+			Repository,
+			Team,
+			Cluster,
+		},
+	)
+
 	Dispatched = prometheus.NewCounter(prometheus.CounterOpts{
 		Name:      "dispatched",
 		Help:      "number of deployment requests dispatched to Kafka",
@@ -87,7 +117,7 @@ var (
 func init() {
 	prometheus.MustRegister(webhookRequests)
 	prometheus.MustRegister(githubStatus)
-
+	prometheus.MustRegister(leadTime)
 	prometheus.MustRegister(Dispatched)
 	prometheus.MustRegister(KafkaQueueSize)
 	prometheus.MustRegister(DeploymentRequestQueueSize)

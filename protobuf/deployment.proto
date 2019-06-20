@@ -52,6 +52,7 @@ message DeploymentStatus {
     string deliveryID = 4;
     string team = 5;
     string cluster = 6;
+    int64 timestamp = 7;
 }
 
 message SignedMessage {

@@ -12,6 +12,7 @@ func NewErrorStatus(req DeploymentRequest, err error) *DeploymentStatus {
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
+		Timestamp:   req.GetTimestamp(),
 	}
 }
 
@@ -23,6 +24,7 @@ func NewFailureStatus(req DeploymentRequest, err error) *DeploymentStatus {
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
+		Timestamp:   req.GetTimestamp(),
 	}
 }
 
@@ -34,6 +36,7 @@ func NewInProgressStatus(req DeploymentRequest) *DeploymentStatus {
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
+		Timestamp:   req.GetTimestamp(),
 	}
 }
 
@@ -45,5 +48,6 @@ func NewSuccessStatus(req DeploymentRequest) *DeploymentStatus {
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
+		Timestamp:   req.GetTimestamp(),
 	}
 }
