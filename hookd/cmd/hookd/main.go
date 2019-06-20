@@ -233,12 +233,13 @@ func run() error {
 			}
 
 			ghs, req, err := github.CreateDeploymentStatus(installationClient, &status, cfg.BaseURL)
+			metrics.DeploymentStatus(status, req.StatusCode)
+
 			if err == nil {
 				logger = logger.WithFields(log.Fields{
 					deployment.LogFieldDeploymentStatusID: ghs.GetID(),
 				})
 				logger.Infof("Published deployment status to GitHub: %s", ghs.GetDescription())
-				metrics.DeploymentStatus(status, req.StatusCode)
 				continue
 			}
 
