@@ -88,8 +88,8 @@ var (
 	)
 
 	leadTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:      "webhook_requests",
-		Help:      "number of incoming Github webhook requests",
+		Name:      "lead_time",
+		Help:      "the time it takes from a deploy is made to it is running in the cluster",
 		Namespace: namespace,
 		Subsystem: subsystem,
 	},
