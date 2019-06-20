@@ -50,6 +50,7 @@ message DeploymentStatus {
     GithubDeploymentState state = 2;
     string description = 3;
     string deliveryID = 4;
+    string team = 5;
 }
 
 message SignedMessage {
