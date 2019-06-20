@@ -204,12 +204,8 @@ func run() error {
 			if err == nil {
 				metrics.Dispatched.Inc()
 				logger.Info("Deployment request published to Kafka")
-				statusChan <- deployment.DeploymentStatus{
-					Deployment:  req.GetDeployment(),
-					DeliveryID:  req.GetDeliveryID(),
-					State:       deployment.GithubDeploymentState_queued,
-					Description: "deployment request has been put on the queue for further processing",
-				}
+				st := deployment.NewQueuedStatus(req)
+				statusChan <- *st
 				continue
 			}
 

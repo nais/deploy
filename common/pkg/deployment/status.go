@@ -40,6 +40,17 @@ func NewInProgressStatus(req DeploymentRequest) *DeploymentStatus {
 	}
 }
 
+func NewQueuedStatus(req DeploymentRequest) *DeploymentStatus {
+	return &DeploymentStatus{
+		Deployment:  req.GetDeployment(),
+		DeliveryID:  req.GetDeliveryID(),
+		State:       GithubDeploymentState_queued,
+		Description: "deployment request has been put on the queue for further processing",
+		Team:        req.GetPayloadSpec().GetTeam(),
+		Cluster:     req.GetCluster(),
+	}
+}
+
 func NewSuccessStatus(req DeploymentRequest) *DeploymentStatus {
 	return &DeploymentStatus{
 		Deployment:  req.Deployment,
