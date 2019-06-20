@@ -87,8 +87,8 @@ var (
 		},
 	)
 
-	leadTime = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:      "lead_time",
+	leadTime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:      "lead_time_seconds",
 		Help:      "the time it takes from a deploy is made to it is running in the cluster",
 		Namespace: namespace,
 		Subsystem: subsystem,
