@@ -219,6 +219,7 @@ func run() error {
 
 		case status := <-statusChan:
 			metrics.GithubStatusQueueSize.Set(float64(len(statusChan)))
+			metrics.UpdateQueue(status)
 
 			logger := log.WithFields(status.LogFields())
 			logger.Trace("Received deployment status")

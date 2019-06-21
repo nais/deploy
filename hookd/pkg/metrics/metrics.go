@@ -60,6 +60,26 @@ func DeploymentStatus(status deployment.DeploymentStatus, githubReturnCode int) 
 	}).Observe(ttd)
 }
 
+func UpdateQueue(status deployment.DeploymentStatus) {
+	switch status.GetState() {
+	// These three states are definite and signify the end of a deployment.
+	case deployment.GithubDeploymentState_success:
+		fallthrough
+	case deployment.GithubDeploymentState_error:
+		fallthrough
+	case deployment.GithubDeploymentState_failure:
+		queueSize.Dec()
+
+	// These three states are in-flight: the system is processing them.
+	case deployment.GithubDeploymentState_in_progress:
+		fallthrough
+	case deployment.GithubDeploymentState_queued:
+		fallthrough
+	case deployment.GithubDeploymentState_pending:
+		queueSize.Inc()
+	}
+}
+
 var (
 	webhookRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:      "webhook_requests",
@@ -86,6 +106,13 @@ var (
 			Cluster,
 		},
 	)
+
+	queueSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:      "queue_size",
+		Help:      "number of unfinished deployments",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	})
 
 	leadTime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Name:      "lead_time_seconds",
@@ -117,6 +144,7 @@ var (
 func init() {
 	prometheus.MustRegister(webhookRequests)
 	prometheus.MustRegister(githubStatus)
+	prometheus.MustRegister(queueSize)
 	prometheus.MustRegister(leadTime)
 	prometheus.MustRegister(Dispatched)
 	prometheus.MustRegister(KafkaQueueSize)
