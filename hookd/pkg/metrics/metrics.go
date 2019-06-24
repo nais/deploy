@@ -21,6 +21,10 @@ const (
 	Cluster              = "cluster"
 )
 
+var (
+	qSize int // queueSize
+)
+
 func gauge(name, help string) prometheus.Gauge {
 	return prometheus.NewGauge(prometheus.GaugeOpts{
 		Name:      name,
@@ -68,16 +72,16 @@ func UpdateQueue(status deployment.DeploymentStatus) {
 	case deployment.GithubDeploymentState_error:
 		fallthrough
 	case deployment.GithubDeploymentState_failure:
-		queueSize.Dec()
+		if qSize > 0 {
+			qSize--
+		}
 
-	// These three states are in-flight: the system is processing them.
-	case deployment.GithubDeploymentState_in_progress:
-		fallthrough
+	// The first step in a deployment's lifecycle is to be put on the queue.
 	case deployment.GithubDeploymentState_queued:
-		fallthrough
-	case deployment.GithubDeploymentState_pending:
-		queueSize.Inc()
+		qSize++
 	}
+
+	queueSize.Set(float64(qSize))
 }
 
 var (
