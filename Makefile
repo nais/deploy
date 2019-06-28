@@ -7,8 +7,10 @@ HOOKD_ALPINE_LDFLAGS := -X github.com/navikt/deployment/hookd/pkg/auth.TemplateL
 all: hookd deployd
 
 proto:
-	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=. protobuf/deployment.proto
-	mv protobuf/deployment.pb.go common/pkg/deployment/
+	wget -O deployment.proto https://raw.githubusercontent.com/navikt/protos/master/deployment/deployment.proto
+	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=. deployment.proto
+	mv deployment.pb.go common/pkg/deployment/
+	rm -f deployment.proto
 
 hookd:
 	cd hookd && go build -o hookd cmd/hookd/main.go
