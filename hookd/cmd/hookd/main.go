@@ -74,6 +74,10 @@ func run() error {
 
 	sarama.Logger = kafkaLogger
 
+	if cfg.EnableGithub && (cfg.ApplicationID == 0 || cfg.InstallID == 0) {
+		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")
+	}
+
 	teamRepositoryStorage, err := persistence.NewS3StorageBackend(cfg.S3)
 	if err != nil {
 		return fmt.Errorf("while setting up S3 backend: %s", err)
