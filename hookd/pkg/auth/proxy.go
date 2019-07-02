@@ -1,13 +1,12 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"sort"
 
 	gh "github.com/google/go-github/v23/github"
-	"github.com/shurcooL/githubv4"
+	"github.com/navikt/deployment/hookd/pkg/github"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -63,50 +62,11 @@ func (h *RepositoriesProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	type repo struct {
-		Name                githubv4.String `json:"name"`
-		NameWithOwner       githubv4.String `json:"full_name"`
-		ViewerCanAdminister githubv4.Boolean
-	}
-
-	var query struct {
-		Organization struct {
-			Repositories struct {
-				Nodes      []repo
-				TotalCount githubv4.Int
-
-				PageInfo struct {
-					EndCursor   githubv4.String
-					HasNextPage bool
-				}
-			} `graphql:"repositories(first:100, after: $repositoriesCursor)"`
-		} `graphql:"organization(login: $organization)"`
-	}
-
-	variables := map[string]interface{}{
-		"organization":       githubv4.String("navikt"),
-		"repositoriesCursor": (*githubv4.String)(nil),
-	}
-
-	var allRepos []repo
-	for {
-		err = graphqlClient(accessToken.Value).Query(context.Background(), &query, variables)
-		if err != nil {
-			log.Error(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		for _, repo := range query.Organization.Repositories.Nodes {
-			if repo.ViewerCanAdminister {
-				allRepos = append(allRepos, repo)
-			}
-		}
-
-		if !query.Organization.Repositories.PageInfo.HasNextPage {
-			break
-		}
-		variables["repositoriesCursor"] = githubv4.NewString(query.Organization.Repositories.PageInfo.EndCursor)
+	allRepos, err := github.GetRepositories(graphqlClient(accessToken.Value))
+	if err != nil {
+		log.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	sort.Slice(allRepos, func(i, j int) bool {
