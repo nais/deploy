@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"sort"
 
@@ -65,8 +64,8 @@ func (h *RepositoriesProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 
 	type repo struct {
-		Name             githubv4.String `json:"name"`
-		NameWithOwner    githubv4.String `json:"full_name"`
+		Name                githubv4.String `json:"name"`
+		NameWithOwner       githubv4.String `json:"full_name"`
 		ViewerCanAdminister githubv4.Boolean
 	}
 
@@ -109,8 +108,6 @@ func (h *RepositoriesProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		}
 		variables["repositoriesCursor"] = githubv4.NewString(query.Organization.Repositories.PageInfo.EndCursor)
 	}
-	fmt.Println(allRepos)
-	fmt.Println(len(allRepos))
 
 	sort.Slice(allRepos, func(i, j int) bool {
 		return allRepos[i].Name < allRepos[j].Name
