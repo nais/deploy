@@ -113,7 +113,6 @@ func (h *DeploymentHandler) handler(r *http.Request) (int, error) {
 	h.log = h.log.WithFields(deploymentRequest.LogFields())
 
 	if err != nil {
-		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
 		return http.StatusBadRequest, err
 	}
 

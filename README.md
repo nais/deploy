@@ -64,6 +64,21 @@ export S3_ACCESS_KEY=accesskey
 export S3_SECRET_KEY=secretkey
 ```
 
+### Development on the frontend application
+To enable the frontend on your local instance, you need to configure hookd against the staging deployment application at Github.
+This is required to enable OAuth and Github queries.
+The parameters can be found on the [Github installation page](https://github.com/organizations/navikt/settings/installations/).
+You must also generate a private key for this installation, in order to sign your JSON web tokens.
+
+Configure hookd as follows:
+
+```
+--github-enabled=true \
+--github-install-id=XXXXXX \
+--github-app-id=XXXXXX \
+--github-key-file=/path/to/private-key.pem \
+```
+
 ### Simulating Github deployment requests
 When you want to send webhooks to _hookd_ without invoking Github, you can use the `mkdeploy` tool, which simulates these requests.
 
