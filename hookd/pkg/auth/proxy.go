@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 
 	gh "github.com/google/go-github/v23/github"
+	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -62,38 +64,56 @@ func (h *RepositoriesProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	opt := &gh.RepositoryListByOrgOptions{
-		ListOptions: gh.ListOptions{
-			PerPage: 50,
-		},
+	type repo struct {
+		Name             githubv4.String `json:"name"`
+		NameWithOwner    githubv4.String `json:"full_name"`
+		ViewerCanAdminister githubv4.Boolean
 	}
 
-	var allRepos []*gh.Repository
+	var query struct {
+		Organization struct {
+			Repositories struct {
+				Nodes      []repo
+				TotalCount githubv4.Int
 
+				PageInfo struct {
+					EndCursor   githubv4.String
+					HasNextPage bool
+				}
+			} `graphql:"repositories(first:100, after: $repositoriesCursor)"`
+		} `graphql:"organization(login: $organization)"`
+	}
+
+	variables := map[string]interface{}{
+		"organization":       githubv4.String("navikt"),
+		"repositoriesCursor": (*githubv4.String)(nil),
+	}
+
+	var allRepos []repo
 	for {
-		repos, resp, err := userClient(accessToken.Value).Repositories.ListByOrg(context.Background(), "navikt", opt)
-
+		err = graphqlClient(accessToken.Value).Query(context.Background(), &query, variables)
 		if err != nil {
 			log.Error(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		for _, repo := range repos {
-			if repo.GetPermissions()["admin"] {
+		for _, repo := range query.Organization.Repositories.Nodes {
+			if repo.ViewerCanAdminister {
 				allRepos = append(allRepos, repo)
 			}
 		}
 
-		if resp.NextPage == 0 {
+		if !query.Organization.Repositories.PageInfo.HasNextPage {
 			break
 		}
-
-		opt.Page = resp.NextPage
+		variables["repositoriesCursor"] = githubv4.NewString(query.Organization.Repositories.PageInfo.EndCursor)
 	}
+	fmt.Println(allRepos)
+	fmt.Println(len(allRepos))
 
 	sort.Slice(allRepos, func(i, j int) bool {
-		return *allRepos[i].Name < *allRepos[j].Name
+		return allRepos[i].Name < allRepos[j].Name
 	})
 
 	json, err := json.Marshal(allRepos)

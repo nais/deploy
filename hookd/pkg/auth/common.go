@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	gh "github.com/google/go-github/v23/github"
+	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
@@ -120,6 +121,15 @@ func userClient(oauthtoken string) *gh.Client {
 
 	tc := oauth2.NewClient(context.Background(), ts)
 	return gh.NewClient(tc)
+}
+
+func graphqlClient(oauthtoken string) (*githubv4.Client) {
+	ts := oauth2.StaticTokenSource(&oauth2.Token{
+		AccessToken: oauthtoken,
+	})
+
+	tc := oauth2.NewClient(context.Background(), ts)
+	return githubv4.NewClient(tc)
 }
 
 func templateWithBase(t string) (*template.Template, error) {
