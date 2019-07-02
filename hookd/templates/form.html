@@ -37,9 +37,21 @@
             </p>
         </form>
     </div>
+
+    <div id="app">
+        <h1> Yo! </h1>
+    </div>
+
 </div>
 
 <script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            message: 'Hello Vue!'
+        }
+    })
+
     function getJson(path, success, error) {
         var xhr = new XMLHttpRequest();
         xhr.onload = function () {
