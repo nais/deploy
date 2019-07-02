@@ -75,7 +75,7 @@
             function (teams) {
                 emptyTeamList();
 
-                if (!teams.length) {
+                if (!teams && !teams.length) {
                     hide(teamSpinner);
                     show(teamError);
                     return;
@@ -105,7 +105,7 @@
     getJson(
         "/proxy/repositories",
         function (repositories) {
-            if (!repositories.length) {
+            if (!repositories && !repositories.length) {
                 alert("Could not load any repositories, please sign back in");
                 window.location = "/auth/logout";
                 return;
