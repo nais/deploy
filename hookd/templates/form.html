@@ -109,16 +109,13 @@
                     this.teamList = []
                     this.errors = []
 
-                    const arr = repository.split("/")
-                    const repo = arr[arr.length - 1]
-
                     this.loading = true
-                    this.status = "Fetching teams from GitHub for repo " + repo
+                    this.status = "Fetching teams from GitHub for repo " + repository
 
-                    axios.get("/proxy/teams?repository=" + repo).then(response => {
+                    axios.get("/proxy/teams?repository=" + repository).then(response => {
                         this.loading = false
                         if (!response.data)
-                            this.errors.push("Failed to access teams for " + repo +
+                            this.errors.push("Failed to access teams for " + repository +
                                 ". This could be due to the fact that you are an admin/creator of the repository, but you don't have maintainer access to the team you've selected")
                         if (!response.data.length) {
                             this.errors.push("You are not listed as an admin in any teams in the selected repository.\n " +
@@ -126,7 +123,7 @@
                         }
                         this.teamList = response.data
                     }).catch((error) => {
-                        this.errors.push("Failed to access teams for " + repo + ". Error " + error)
+                        this.errors.push("Failed to access teams for " + repository + ". Error " + error)
                     })
 
                 },
