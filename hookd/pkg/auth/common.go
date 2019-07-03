@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	gh "github.com/google/go-github/v23/github"
-	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -41,14 +40,10 @@ func getTeams(client *gh.Client, repository string) ([]*gh.Team, error) {
 	var allTeams []*gh.Team
 
 	for {
-		org, repo, err := github.SplitFullname(repository)
-		if err != nil {
-			return nil, err
-		}
-		teams, resp, err := client.Repositories.ListTeams(context.Background(), org, repo, opt)
+		teams, resp, err := client.Repositories.ListTeams(context.Background(), "navikt", repository, opt)
 
 		if err != nil {
-			return nil, fmt.Errorf("fetching repository teams: %s", err)
+			return nil, fmt.Errorf("Could not fetch repository teams: %s", err)
 		}
 
 		allTeams = append(allTeams, teams...)
