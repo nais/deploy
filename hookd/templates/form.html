@@ -22,8 +22,9 @@
             </div>
             <div v-if="showTeams">
                 <div class="container" v-for="team in teamList">
-                    <input type="checkbox" name="team[]" v-model="selectedTeams" :value="team.slug">[[ team.name
-                    ]]</input>
+                    <input type="checkbox" name="team[]" v-model="selectedTeams" :value="team.slug">
+                    @[[organization]]/[[ team.name ]]
+                    </input>
                 </div>
             </div>
             <div v-if="loading" v-cloak>
@@ -60,6 +61,9 @@
             },
             delimiters: ['[[', ']]'],
             computed: {
+                organization() {
+                    return this.selectedRepository !== "" ? this.selectedRepository.split("/")[0] : "";
+                },
                 filteredList() {
                     return this.repositoryList.filter(repository => {
                         return repository.name.toLowerCase().includes(this.search.toLowerCase()) ||
@@ -114,7 +118,8 @@
                     axios.get("/proxy/teams?repository=" + repo).then(response => {
                         this.loading = false
                         if (!response.data)
-                            this.errors.push("Failed to access teams for " + repo)
+                            this.errors.push("Failed to access teams for " + repo +
+                                ". This could be due to the fact that you are an admin/creator of the repository, but you don't have maintainer access to the team you've selected")
                         if (!response.data.length) {
                             this.errors.push("You are not listed as an admin in any teams in the selected repository.\n " +
                                 "Either choose a different repository, or have a team maintainer add you to the correct team.")
