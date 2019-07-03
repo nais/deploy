@@ -54,7 +54,7 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	arr := strings.Split(fullName, "/")
 	if len(arr) != 2 {
-		log.Warnf("while parsing the fullname of the repo '%s':", fullName, err)
+		log.Warnf("while parsing the fullname of the repo '%s': %s", fullName, err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
