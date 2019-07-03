@@ -1,12 +1,12 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"sort"
 
 	gh "github.com/google/go-github/v23/github"
+	"github.com/navikt/deployment/hookd/pkg/github"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -62,38 +62,15 @@ func (h *RepositoriesProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	opt := &gh.RepositoryListByOrgOptions{
-		ListOptions: gh.ListOptions{
-			PerPage: 50,
-		},
-	}
-
-	var allRepos []*gh.Repository
-
-	for {
-		repos, resp, err := userClient(accessToken.Value).Repositories.ListByOrg(context.Background(), "navikt", opt)
-
-		if err != nil {
-			log.Error(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		for _, repo := range repos {
-			if repo.GetPermissions()["admin"] {
-				allRepos = append(allRepos, repo)
-			}
-		}
-
-		if resp.NextPage == 0 {
-			break
-		}
-
-		opt.Page = resp.NextPage
+	allRepos, err := github.GetRepositories(graphqlClient(accessToken.Value))
+	if err != nil {
+		log.Error(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	sort.Slice(allRepos, func(i, j int) bool {
-		return *allRepos[i].Name < *allRepos[j].Name
+		return allRepos[i].Name < allRepos[j].Name
 	})
 
 	json, err := json.Marshal(allRepos)
