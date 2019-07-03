@@ -1,198 +1,163 @@
 {{define "body"}}
-<div id="page-container">
-    <p id="authenticated">
-        Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
-            href="/auth/logout">sign out</a>.
-    </p>
+    <div id="page-container">
+        <p id="authenticated">
+            Authenticated as <span class="name">{{.User.Name}}</span> (<span class="login">@{{.User.Login}}</span>), <a
+                    href="/auth/logout">sign out</a>.
+        </p>
 
-    <p class="hidden error" id="repository-error">
-        An error occurred when fetching repositories, please <a href="/auth/logout">sign back in</a>.
-    </p>
-
-    <div id="repository-spinner">
-        <p>Fetching repositories from GitHub</p>
-        <div class="spinner"></div>
-    </div>
-
-    <div class="hidden" id="form-container">
-        <form id="form" method="POST" action="/auth/submit">
-            <select name="repository" id="repository-select" onchange="fetchRepositoryTeams()">
-                <option value="0">Select repository</option>
-            </select>
-
-            <div class="hidden" id="team-spinner">
-                <p>Loading teams</p>
-                <div class="spinner"></div>
+        <form id="app" method="POST" action="/auth/submit" @submit="checkForm">
+            <div v-if="errors.length">
+                <b>Please correct the following error(s):</b>
+                <ul>
+                    <li v-for="error in errors">[[ error ]]</li>
+                </ul>
             </div>
-
-            <div class="hidden" id="team-list-container">
-                <p>Choose one or more teams:</p>
-                <ul id="team-list"></ul>
-                <button type="button" onclick="submit()">Submit</button>
+            <div class="search-wrapper">
+                <input type="text" v-model="search" placeholder="Search title.."/>
+                <button type="button" v-on:click="clear()">Clear</button>
             </div>
-
-            <p class="hidden error" id="team-error">
-                You are not listed as an admin in any teams in the selected repository. Either choose a different
-                repository, or have a team maintainer add you to the correct team.
-            </p>
+            <div v-for="post in filteredList.slice(0,20)" @change="onChange($event)">
+                <input type="radio" name="repository" v-model="selectedRepository" :value="post.full_name">[[
+                post.full_name ]]</input>
+            </div>
+            <div v-if="showTeams">
+                <div v-for="team in teamList" @change="console.log(selectedTeams)">
+                    <input type="checkbox" name="team[]" v-model="selectedTeams" :value="team.slug">[[ team.name
+                    ]]</input>
+                </div>
+            </div>
+            <div v-if="loading" v-cloak>
+                <div id="repository-spinner">
+                    <p>[[ status ]]</p>
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            <div v-if="readyToSubmit">
+                <button type="submit" value="Submit">submit</button>
+            </div>
         </form>
     </div>
 
-    <div id="app">
-        <h1> Yo! </h1>
-    </div>
+    <script>
+        const app = new Vue({
+            el: '#app',
+            data: {
+                repositoryList: [],
+                teamList: [],
+                search: "",
+                loading: true,
 
-</div>
+                selectedTeams: [],
+                selectedRepository: "",
 
-<script>
-    var app = new Vue({
-        el: '#app',
-        data: {
-            message: 'Hello Vue!'
-        }
-    })
-
-    function getJson(path, success, error) {
-        var xhr = new XMLHttpRequest();
-        xhr.onload = function () {
-            if (xhr.status === 200) {
-                success(JSON.parse(xhr.responseText));
-            } else {
-                error(xhr);
-            }
-        };
-        xhr.open("GET", path);
-        xhr.send();
-    }
-
-    function fetchRepositoryTeams() {
-        var teamSpinner = el("team-spinner");
-        var teamError = el("team-error");
-        var teamListContainer = el("team-list-container");
-
-        hide(teamError, teamListContainer);
-
-        var select = el("repository-select")
-        var repository = select.options[select.selectedIndex].value;
-
-        if (repository == 0) {
-            hide(teamSpinner);
-            return;
-        }
-
-        show(teamSpinner);
-
-        getJson(
-            "/proxy/teams?repository=" + repository,
-            function (teams) {
-                emptyTeamList();
-
-                if (!teams && !teams.length) {
-                    hide(teamSpinner);
-                    show(teamError);
-                    return;
-                }
-
-                var teamList = el("team-list");
-
-                teams.forEach(function (team) {
-                    var label = createTeamLabel(team.name);
-                    var checkbox = createTeamCheckbox(team.slug);
-                    label.insertBefore(checkbox, label.firstChild);
-                    var listItem = document.createElement("li");
-                    listItem.appendChild(label);
-                    teamList.appendChild(listItem)
-                })
-
-                hide(teamSpinner);
-                show(teamListContainer);
+                errors: [],
+                status: ""
             },
-            function (request) {
-                removeElement(teamsSpinner);
-                alert("An error occurred when fetching repository teams, please try again.");
+            watch: {
+                repositoryList: function (val) {
+
+                },
+            },
+            delimiters: ['[[', ']]'],
+            computed: {
+                filteredList() {
+                    return this.repositoryList.filter(repository => {
+                        return repository.name.toLowerCase().includes(this.search.toLowerCase()) ||
+                            repository.full_name.includes(this.search.toLowerCase()) ||
+                            ("https://github.com/" + `${repository.full_name}`).includes(this.search.toLowerCase())
+                    })
+                },
+                showTeams() {
+                    return this.search !== "" && this.filteredList.length === 1
+                },
+                readyToSubmit() {
+                    return this.showTeams && this.selectedTeams.length > 0
+                },
+            },
+            methods: {
+                getRepositories: function () {
+                    this.status = "Fetching repository list, hang on..."
+                    this.repositoryList = []
+                    this.errors = []
+
+                    axios.get('/proxy/repositories', {
+                        before: () => {
+                            this.loading = true
+                            this.status = "Fetching repositories from GitHub"
+                        }
+                    }).then(response => {
+                        this.repositoryList = response.data
+                    }).then(() => {
+                        this.loading = false
+                        if (!this.repositoryList) {
+                            alert("Could not load any repositories, please sign back in");
+                            window.location = "/auth/logout";
+                        }
+                        if (!this.repositoryList.length) {
+                            this.errors.push("You don't have the sufficient access to any repo, please check your permissions")
+                        }
+                    }).catch((error) => {
+                        this.errors.push("An error occurred when fetching repositories, please <a href=\"/auth/logout\">sign back in</a>.")
+                        this.errors.push(error)
+                    })
+                },
+                getTeams: function (repository) {
+                    this.teamList = []
+                    this.errors = []
+
+                    const arr = repository.split("/")
+                    const repo = arr[arr.length - 1]
+
+                    this.loading = true
+                    this.status = "Fetching teams from GitHub for repo " + repo
+
+                    axios.get("/proxy/teams?repository=" + repo).then(response => {
+                        console.log("DONE")
+                        this.loading = false
+                        if (!response.data)
+                            this.errors.push("Failed to access teams for " + repo)
+                        if (!response.data.length) {
+                            this.errors.push("You are not listed as an admin in any teams in the selected repository.\n " +
+                                "Either choose a different repository, or have a team maintainer add you to the correct team.")
+                        }
+                        this.teamList = response.data
+                    }).catch((error) => {
+                        this.errors.push("Failed to access teams for " + repo + ". Error " + error)
+                    })
+
+                },
+                onChange(event) {
+                    const repo = event.target.value
+                    this.search = repo
+                    this.getTeams(repo)
+                },
+                checkForm: function (e) {
+                    this.errors = []
+
+                    if (this.selectedRepository && this.selectedTeams) {
+                        return true
+                    }
+
+                    if (!this.selectedRepository) {
+                        this.errors.push("Please select a repository")
+                    }
+
+                    if (!this.selectedTeams) {
+                        this.errors.push("Please selected a team")
+                    }
+
+                },
+                clear() {
+                    this.search = ''
+                    this.selectedRepository = ''
+                    this.selectedTeams = []
+
+                    this.errors = []
+                }
+            },
+            mounted() {
+                this.getRepositories()
             }
-        );
-    }
-
-    getJson(
-        "/proxy/repositories",
-        function (repositories) {
-            if (!repositories && !repositories.length) {
-                alert("Could not load any repositories, please sign back in");
-                window.location = "/auth/logout";
-                return;
-            }
-
-            var select = el("repository-select");
-
-            repositories.forEach(function (repo) {
-                select.appendChild(createSelectOption(repo.full_name, repo.name));
-            });
-
-            toggle(
-                el("repository-spinner"),
-                el("form-container")
-            );
-        },
-        function (request) {
-            show(el("repository-error"));
-            return;
-        }
-    );
-
-    function emptyTeamList() {
-        el("team-list").innerHTML = "";
-    }
-
-    function el(id) {
-        return document.getElementById(id);
-    }
-
-    function createSelectOption(text, value) {
-        var option = document.createElement("option");
-        option.textContent = text;
-        option.value = value;
-
-        return option;
-    }
-
-    function createTeamLabel(text) {
-        var label = document.createElement("label");
-        label.innerText = text;
-
-        return label;
-    }
-
-    function createTeamCheckbox(value) {
-        var checkbox = document.createElement("input");
-        checkbox.classList.add("team")
-        checkbox.type = "checkbox";
-        checkbox.name = "team[]";
-        checkbox.value = value;
-
-        return checkbox;
-    }
-
-    function hide(...el) {
-        el.filter(Boolean).forEach(function (el) {
-            el.classList.add("hidden");
-        })
-    }
-
-    function show(...el) {
-        el.filter(Boolean).forEach(function (el) {
-            el.classList.remove("hidden");
-        })
-    }
-
-    function toggle(...el) {
-        el.filter(Boolean).forEach(function (el) {
-            el.classList.toggle("hidden");
-        })
-    }
-
-    function submit() {
-        el("form").submit()
-    }
-</script>
+        });
+    </script>
 {{end}}

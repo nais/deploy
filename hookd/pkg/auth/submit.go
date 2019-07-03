@@ -1,15 +1,13 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
+	"strings"
 
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
-
-const repositoryOwner = "navikt" // FIXME
 
 type SubmittedFormHandler struct {
 	accessToken           string
@@ -49,9 +47,18 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	repositoryName := r.Form.Get("repository")
-	fullName := fmt.Sprintf("%s/%s", repositoryOwner, repositoryName)
+	var repositoryName string
+
+	fullName := r.Form.Get("repository")
 	teamNames := r.Form["team[]"]
+
+	arr := strings.Split(fullName, "/")
+	if len(arr) != 2 {
+		log.Warnf("while parsing the fullname of the repo '%s':", fullName, err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	repositoryName = arr[1]
 
 	log.Tracef("Request from Github user '%s' that repository '%s' is granted access to the following teams: %+v", user.GetLogin(), fullName, teamNames)
 
