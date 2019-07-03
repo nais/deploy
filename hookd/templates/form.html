@@ -8,20 +8,20 @@
         <form id="app" method="POST" action="/auth/submit" @submit="checkForm">
             <div v-if="errors.length">
                 <b>Please correct the following error(s):</b>
-                <ul>
-                    <li v-for="error in errors">[[ error ]]</li>
-                </ul>
+                <ul class="errors">
+                    <li class="error" v-for="error in errors">[[ error ]]</li>
+                    </ulc>
             </div>
             <div class="search-wrapper">
-                <input type="text" v-model="search" placeholder="Search title.."/>
+                <input class="repository" type="text" v-model="search" placeholder="Search name, organization, url.."/>
                 <button type="button" v-on:click="clear()">Clear</button>
             </div>
-            <div v-for="post in filteredList.slice(0,20)" @change="onChange($event)">
+            <div class="container" v-for="post in filteredList.slice(0,20)" @change="onChange($event)">
                 <input type="radio" name="repository" v-model="selectedRepository" :value="post.full_name">[[
                 post.full_name ]]</input>
             </div>
             <div v-if="showTeams">
-                <div v-for="team in teamList" @change="console.log(selectedTeams)">
+                <div class="container" v-for="team in teamList">
                     <input type="checkbox" name="team[]" v-model="selectedTeams" :value="team.slug">[[ team.name
                     ]]</input>
                 </div>
@@ -33,7 +33,7 @@
                 </div>
             </div>
             <div v-if="readyToSubmit">
-                <button type="submit" value="Submit">submit</button>
+                <button class="submit" type="submit" value="Submit">submit</button>
             </div>
         </form>
     </div>
@@ -97,7 +97,7 @@
                             this.errors.push("You don't have the sufficient access to any repo, please check your permissions")
                         }
                     }).catch((error) => {
-                        this.errors.push("An error occurred when fetching repositories, please <a href=\"/auth/logout\">sign back in</a>.")
+                        this.errors.push("An error occurred when fetching repositories, please logout and sign back in.")
                         this.errors.push(error)
                     })
                 },
@@ -112,7 +112,6 @@
                     this.status = "Fetching teams from GitHub for repo " + repo
 
                     axios.get("/proxy/teams?repository=" + repo).then(response => {
-                        console.log("DONE")
                         this.loading = false
                         if (!response.data)
                             this.errors.push("Failed to access teams for " + repo)

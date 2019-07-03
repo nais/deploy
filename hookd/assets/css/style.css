@@ -88,6 +88,11 @@ main {
     width: 350px;
     color: #721c24;
     background-color: #f8d7da;
+    font-size:14px
+}
+
+.errors {
+    list-style-type: none;
 }
 
 #form {
@@ -101,6 +106,44 @@ main {
 
 input.team {
     margin: 5px 10px;
+}
+
+input.repository {
+    width: 220px;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 4px;
+    background-color: #f1f1f1;
+    font-size: 16px;
+}
+
+button {
+    border-radius: 15%;
+    background-color: #245A7F;
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 14px;
+}
+
+.container {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    font-size: 18px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    border-color: #245A7F;
+}
+
+.submit {
+    font-size: 16px;
 }
 
 footer {
