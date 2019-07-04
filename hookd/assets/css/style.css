@@ -37,7 +37,8 @@ main {
 
 #app {
     text-align: left;
-    max-width: 300px;
+    width:450px;
+    max-width: 450px;
 }
 
 #sign-in a {
@@ -61,7 +62,8 @@ main {
 #page-container,
 #repository-spinner,
 #team-spinner,
-#form {
+#form,
+#app {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -69,6 +71,10 @@ main {
 
 #repository-spinner {
     text-align: center;
+}
+
+.search-wrapper {
+    width: 90%;
 }
 
 .spinner {
@@ -136,7 +142,7 @@ input.team {
 }
 
 input.repository {
-    width: 280px;
+    width: 100%;
     padding: 8px 10px;
     border-radius: 4px;
     border-color: grey;
@@ -156,8 +162,13 @@ button {
     font-size: 14px;
 }
 
+#repositories,
+#teams {
+    width: 90%;
+}
+
 .container {
-    display: block;
+    width:100%;
     margin-top: 10px;
     margin-bottom: 10px;
     cursor: pointer;
@@ -167,6 +178,7 @@ button {
     -ms-user-select: none;
     user-select: none;
     border-color: #245A7F;
+
 }
 
 .submit {

@@ -10,7 +10,10 @@ const app = new Vue({
         selectedRepository: "",
 
         errors: [],
-        status: ""
+        status: "",
+
+        numPost: 5,
+        postInc: 5
     },
     watch: {
         repositoryList: function (val) {
@@ -30,15 +33,25 @@ const app = new Vue({
             })
         },
         showTeams() {
-            return this.search !== "" && this.filteredList.length === 1
+            return !this.loading && this.search !== "" && this.filteredList.length === 1 && this.selectedRepository.includes(this.search);
         },
         readyToSubmit() {
             return this.showTeams && this.selectedTeams.length > 0
         },
+        showErrors() {
+            return this.errors.length > 0 && this.showTeams
+        },
+        noResult() {
+            return !this.loading && this.search !== "" && this.filteredList.length === 0
+        },
+        moreResult() {
+            return (this.numPost + this.postInc) <= this.filteredList.length
+        }
     },
     methods: {
         getRepositories: function () {
             this.status = "Fetching repository list, hang on..."
+            this.errors = []
             this.repositoryList = []
 
             axios.get('/proxy/repositories', {
@@ -64,7 +77,7 @@ const app = new Vue({
         },
         getTeams: function (repository) {
             this.errors = []
-            this.teamList = []
+            this.selectedTeams = []
 
             this.loading = true
             this.status = "Fetching teams from GitHub for repo " + repository
@@ -85,8 +98,9 @@ const app = new Vue({
 
         },
         onChange(event) {
-            const repo = event.target.value
-            this.search = repo
+            const repo = event.target.value;
+
+            this.search = repo;
             this.getTeams(repo)
         },
         checkForm: function (e) {
@@ -114,7 +128,7 @@ const app = new Vue({
         },
         focusInput() {
             this.$refs.search.focus()
-        }
+        },
     },
     mounted() {
         this.focusInput()
