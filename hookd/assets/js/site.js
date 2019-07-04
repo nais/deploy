@@ -1,4 +1,3 @@
-
 const app = new Vue({
     el: '#app',
     data: {
@@ -41,7 +40,6 @@ const app = new Vue({
         getRepositories: function () {
             this.status = "Fetching repository list, hang on..."
             this.repositoryList = []
-            this.errors = []
 
             axios.get('/proxy/repositories', {
                 before: () => {
@@ -65,8 +63,8 @@ const app = new Vue({
             })
         },
         getTeams: function (repository) {
-            this.teamList = []
             this.errors = []
+            this.teamList = []
 
             this.loading = true
             this.status = "Fetching teams from GitHub for repo " + repository
@@ -113,9 +111,13 @@ const app = new Vue({
             this.selectedTeams = []
 
             this.errors = []
+        },
+        focusInput() {
+            this.$refs.search.focus()
         }
     },
     mounted() {
+        this.focusInput()
         this.getRepositories()
     }
 });

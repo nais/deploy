@@ -6,15 +6,15 @@
         </p>
 
         <form id="app" method="POST" action="/auth/submit" @submit="checkForm">
-            <div v-if="errors.length">
+            <div id="errorList" v-if="errors.length">
                 <b>Please correct the following error(s):</b>
                 <ul class="errors">
                     <li class="error" v-for="error in errors">[[ error ]]</li>
-                    </ulc>
+                </ul>
             </div>
             <div class="search-wrapper">
-                <input class="repository" type="text" v-model="search" placeholder="Search name, organization, url.."/>
-                <button type="button" v-on:click="clear()">Clear</button>
+                <input class="repository" type="text" v-model="search" placeholder="Search name, organization, url.."
+                       ref="search"/>
             </div>
             <div class="container" v-for="post in filteredList.slice(0,20)" @change="onChange($event)">
                 <input type="radio" name="repository" v-model="selectedRepository" :value="post.full_name">[[
