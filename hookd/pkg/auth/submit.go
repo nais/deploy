@@ -2,7 +2,6 @@ package auth
 
 import (
 	"net/http"
-	"strings"
 
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
@@ -47,23 +46,13 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var repositoryName string
-
 	fullName := r.Form.Get("repository")
 	teamNames := r.Form["team[]"]
-
-	arr := strings.Split(fullName, "/")
-	if len(arr) != 2 {
-		log.Warnf("while parsing the fullname of the repo '%s': %s", fullName, err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	repositoryName = arr[1]
 
 	log.Tracef("Request from Github user '%s' that repository '%s' is granted access to the following teams: %+v", user.GetLogin(), fullName, teamNames)
 
 	// retrieve the list of teams administered by the current user
-	teams, err := getFilteredTeams(h.ApplicationClient, repositoryName, user.GetLogin())
+	teams, err := getFilteredTeams(h.ApplicationClient, fullName, user.GetLogin())
 	if err != nil {
 		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -89,7 +78,7 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	data := SubmittedFormData{
 		Teams:      teamNames,
-		Repository: repositoryName,
+		Repository: fullName,
 		User:       user,
 	}
 
