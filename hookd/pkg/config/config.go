@@ -17,7 +17,7 @@ type S3 struct {
 }
 
 type Github struct {
-	EnableGithub  bool
+	Enabled       bool
 	ClientID      string
 	ClientSecret  string
 	WebhookSecret string
@@ -62,10 +62,10 @@ func DefaultConfig() *Config {
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),
 		Kafka:         kafka.DefaultConfig(),
 		Github: Github{
-			EnableGithub:  parseBool(getEnv("GITHUB_ENABLED", "false")),
 			ApplicationID: parseInt(getEnv("GITHUB_APP_ID", "0")),
 			ClientID:      getEnv("GITHUB_CLIENT_ID", ""),
 			ClientSecret:  getEnv("GITHUB_CLIENT_SECRET", ""),
+			Enabled:       parseBool(getEnv("GITHUB_ENABLED", "false")),
 			InstallID:     parseInt(getEnv("GITHUB_INSTALL_ID", "0")),
 			KeyFile:       getEnv("GITHUB_KEY_FILE", "private-key.pem"),
 			WebhookSecret: getEnv("GITHUB_WEBHOOK_SECRET", ""),
