@@ -16,20 +16,24 @@ type S3 struct {
 	UseTLS         bool
 }
 
-type Config struct {
+type Github struct {
 	EnableGithub  bool
-	ListenAddress string
-	LogFormat     string
-	LogLevel      string
-	BaseURL       string
+	ClientID      string
+	ClientSecret  string
 	WebhookSecret string
 	ApplicationID int
 	InstallID     int
 	KeyFile       string
+}
+
+type Config struct {
+	ListenAddress string
+	LogFormat     string
+	LogLevel      string
+	BaseURL       string
 	Kafka         kafka.Config
 	S3            S3
-	ClientID      string
-	ClientSecret  string
+	Github        Github
 	MetricsPath   string
 }
 
@@ -53,17 +57,19 @@ func parseInt(str string) int {
 func DefaultConfig() *Config {
 	return &Config{
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
-		ApplicationID: parseInt(getEnv("GITHUB_APP_ID", "0")),
-		ClientID:      getEnv("GITHUB_CLIENT_ID", ""),
-		ClientSecret:  getEnv("GITHUB_CLIENT_SECRET", ""),
-		EnableGithub:  parseBool(getEnv("GITHUB_ENABLED", "false")),
-		InstallID:     parseInt(getEnv("GITHUB_INSTALL_ID", "0")),
-		KeyFile:       getEnv("GITHUB_KEY_FILE", "private-key.pem"),
-		WebhookSecret: getEnv("GITHUB_WEBHOOK_SECRET", ""),
 		ListenAddress: getEnv("LISTEN_ADDRESS", ":8080"),
 		LogFormat:     getEnv("LOG_FORMAT", "text"),
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),
 		Kafka:         kafka.DefaultConfig(),
+		Github: Github{
+			EnableGithub:  parseBool(getEnv("GITHUB_ENABLED", "false")),
+			ApplicationID: parseInt(getEnv("GITHUB_APP_ID", "0")),
+			ClientID:      getEnv("GITHUB_CLIENT_ID", ""),
+			ClientSecret:  getEnv("GITHUB_CLIENT_SECRET", ""),
+			InstallID:     parseInt(getEnv("GITHUB_INSTALL_ID", "0")),
+			KeyFile:       getEnv("GITHUB_KEY_FILE", "private-key.pem"),
+			WebhookSecret: getEnv("GITHUB_WEBHOOK_SECRET", ""),
+		},
 		S3: S3{
 			Endpoint:       getEnv("S3_ENDPOINT", "localhost:9000"),
 			AccessKey:      getEnv("S3_ACCESS_KEY", "accesskey"),
