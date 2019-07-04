@@ -57,12 +57,8 @@ Check out the repository and run `make`. Dependencies will download automaticall
 ### External dependencies
 Start the external dependencies by running `docker-compose up`. This will start local Kafka and S3 servers.
 
-The S3 access and secret keys are as follows:
-
-```
-export S3_ACCESS_KEY=accesskey
-export S3_SECRET_KEY=secretkey
-```
+The S3 access and secret keys are `accesskey` and `secretkey` respectively. Conveniently, these are
+the default options for _hookd_ as well, so you don't have to configure anything.
 
 ### Development on the frontend application
 To enable the frontend on your local instance, you need to configure hookd against the staging deployment application at Github.
@@ -76,20 +72,22 @@ Configure hookd as follows:
 --github-enabled=true \
 --github-install-id=XXXXXX \
 --github-app-id=XXXXXX \
+--github-client-id=XXXXXX \
+--github-client-secret=XXXXXX \
 --github-key-file=/path/to/private-key.pem \
 ```
 
 ### Simulating Github deployment requests
 When you want to send webhooks to _hookd_ without invoking Github, you can use the `mkdeploy` tool, which simulates these requests.
 
-Start a local Kafka instance as described above. Now run your local hookd instance, disabling Github interactions:
+Start a local Kafka instance as described above, and then run your local hookd instance.
 ```
-hookd/hookd --github-enabled=false --listen-address=127.0.0.1:8080
+./hookd/hookd
 ```
 
 If you want to deploy, you want to start up `deployd` as well:
 ```
-deployd/deployd
+./deployd/deployd
 ```
 
 Compile the `mkdeploy` tool:
