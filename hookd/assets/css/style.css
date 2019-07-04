@@ -32,10 +32,11 @@ header img {
 }
 
 main {
-    text-align: left;
+    text-align: center;
 }
 
 #app {
+    text-align: left;
     max-width: 300px;
 }
 

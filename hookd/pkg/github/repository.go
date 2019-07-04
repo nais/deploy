@@ -8,9 +8,9 @@ import (
 )
 
 type repo struct {
-	Name                githubv4.String `json:"name"`
-	NameWithOwner       githubv4.String `json:"full_name"`
-	ViewerCanAdminister githubv4.Boolean
+	Name                string `json:"name"`
+	NameWithOwner       string `json:"full_name"`
+	ViewerCanAdminister bool
 }
 
 func GetRepositories(client *githubv4.Client) (allRepos []repo, err error) {
