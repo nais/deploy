@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"strings"
 
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -70,7 +71,7 @@ func (h *RepositoriesProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 
 	sort.Slice(allRepos, func(i, j int) bool {
-		return allRepos[i].Name < allRepos[j].Name
+		return strings.ToLower(allRepos[i].Name) < strings.ToLower(allRepos[j].Name)
 	})
 
 	json, err := json.Marshal(allRepos)

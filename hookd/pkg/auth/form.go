@@ -40,12 +40,6 @@ func (h *FormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err != nil {
-		log.Error(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	if err = page.Execute(w, data); err != nil {
 		log.Errorf("error while serving page: %s", err)
 	}

@@ -1,15 +1,12 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
 
 	gh "github.com/google/go-github/v23/github"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
-
-const repositoryOwner = "navikt" // FIXME
 
 type SubmittedFormHandler struct {
 	accessToken           string
@@ -49,14 +46,13 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	repositoryName := r.Form.Get("repository")
-	fullName := fmt.Sprintf("%s/%s", repositoryOwner, repositoryName)
+	fullName := r.Form.Get("repository")
 	teamNames := r.Form["team[]"]
 
 	log.Tracef("Request from Github user '%s' that repository '%s' is granted access to the following teams: %+v", user.GetLogin(), fullName, teamNames)
 
 	// retrieve the list of teams administered by the current user
-	teams, err := getFilteredTeams(h.ApplicationClient, repositoryName, user.GetLogin())
+	teams, err := getFilteredTeams(h.ApplicationClient, fullName, user.GetLogin())
 	if err != nil {
 		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -82,7 +78,7 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	data := SubmittedFormData{
 		Teams:      teamNames,
-		Repository: repositoryName,
+		Repository: fullName,
 		User:       user,
 	}
 
