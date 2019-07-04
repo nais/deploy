@@ -30,7 +30,7 @@ var (
 )
 
 func init() {
-	flag.BoolVar(&cfg.Github.EnableGithub, "github-enabled", cfg.Github.EnableGithub, "Enable connections to Github.")
+	flag.BoolVar(&cfg.Github.Enabled, "github-enabled", cfg.Github.Enabled, "Enable connections to Github.")
 	flag.StringVar(&cfg.Github.WebhookSecret, "github-webhook-secret", cfg.Github.WebhookSecret, "Github pre-shared webhook secret key.")
 	flag.IntVar(&cfg.Github.ApplicationID, "github-app-id", cfg.Github.ApplicationID, "Github App ID.")
 	flag.IntVar(&cfg.Github.InstallID, "github-install-id", cfg.Github.InstallID, "Github App installation ID.")
@@ -74,7 +74,7 @@ func run() error {
 
 	sarama.Logger = kafkaLogger
 
-	if cfg.Github.EnableGithub && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
+	if cfg.Github.Enabled && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
 		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")
 	}
 
@@ -96,7 +96,7 @@ func run() error {
 
 	var installationClient *gh.Client
 
-	if cfg.Github.EnableGithub {
+	if cfg.Github.Enabled {
 		installationClient, err = github.InstallationClient(cfg.Github.ApplicationID, cfg.Github.InstallID, cfg.Github.KeyFile)
 		if err != nil {
 			return fmt.Errorf("cannot instantiate Github installation client: %s", err)
@@ -228,7 +228,7 @@ func run() error {
 			logger := log.WithFields(status.LogFields())
 			logger.Trace("Received deployment status")
 
-			if !cfg.Github.EnableGithub {
+			if !cfg.Github.Enabled {
 				logger.Warn("Github is disabled; deployment status discarded")
 				metrics.DeploymentStatus(status, 0)
 				continue
