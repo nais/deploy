@@ -57,7 +57,7 @@ func parseInt(str string) int {
 func DefaultConfig() *Config {
 	return &Config{
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
-		ListenAddress: getEnv("LISTEN_ADDRESS", ":8080"),
+		ListenAddress: getEnv("LISTEN_ADDRESS", "127.0.0.1:8080"),
 		LogFormat:     getEnv("LOG_FORMAT", "text"),
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),
 		Kafka:         kafka.DefaultConfig(),
