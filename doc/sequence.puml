@@ -2,21 +2,24 @@
 
 actor developer as "Developer"
 participant github as "GitHub"
-participant ci as "Automated build tool"
-database registry as "Docker Hub"
+participant ci as "CircleCI"
+database registry as "Package registry"
+participant keyd
 participant hookd
 collections deployd
 participant kubernetes as "NAIS"
 
-==Build phase==
+==Pre-deploy==
 developer -> github: git push
 github --> developer
-github -> ci: Webhook
+github -> ci: Start build
 ci --> github
+ci -> keyd: Request tokens
+keyd -> ci: Upload tokens
 ci -> registry: Push image
 registry --> ci
 
-==Deploy phase==
+==Deploy==
 ci -> github: Start deployment
 github -> hookd: Webhook
 hookd -> deployd: Commission deployment

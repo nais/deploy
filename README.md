@@ -38,6 +38,16 @@ Refer to the [GitHub documentation](https://developer.github.com/webhooks/securi
 ### deployd
 Deployd responsibility is to deploy resources into a Kubernetes cluster, and report state changes back to hookd using Kafka.
 
+### keyd
+Keyd holds on to the private key of a Github App installation. When a CircleCI build job needs to interface with Github,
+it can issue a ping request to `keyd`. Keyd then issues a token using the CircleCI API. The token is signed using the Github App private key,
+and has a lifetime of 10 minutes. The CircleCI job gets the token through an environment variable,
+which is set by `keyd` using the CircleCI API.
+
+Additionally, keyd may be used to propagate _team keys_ to CircleCI, enabling deployment jobs to sign the deployment payload
+with a key unique to the team. This mechanism can be used to prevent unauthorized deployments. To determine which team has access,
+the team connection created using `hookd` can be used.
+
 ### Kafka
 Kafka is used as a communication channel between hookd and deployd. Hookd sends deployment requests to a `deploymentRequests` topic, which fans out
 and in turn hits all the deployd instances. Deployd acts on the information, and then sends a deployment status to the `deploymentStatus` topic.
