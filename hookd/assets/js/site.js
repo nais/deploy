@@ -39,7 +39,7 @@ const app = new Vue({
             return this.showTeams && this.selectedTeams.length > 0
         },
         showErrors() {
-            return this.errors.length > 0 && this.showTeams
+            return this.errors.length > 0 && (this.showTeams || (!this.loading && this.search === ""))
         },
         noResult() {
             return !this.loading && this.search !== "" && this.filteredList.length === 0
@@ -71,6 +71,7 @@ const app = new Vue({
                     this.errors.push("You don't have the sufficient access to any repo, please check your permissions")
                 }
             }).catch((error) => {
+                this.loading = false
                 this.errors.push("An error occurred when fetching repositories, please logout and sign back in.")
                 this.errors.push(error)
             })
@@ -93,6 +94,7 @@ const app = new Vue({
                 }
                 this.teamList = response.data
             }).catch((error) => {
+                this.loading = false
                 this.errors.push("Failed to access teams for " + repository + ". Error " + error)
             })
 

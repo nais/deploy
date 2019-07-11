@@ -70,11 +70,13 @@ func (h *RepositoriesProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	sort.Slice(allRepos, func(i, j int) bool {
-		return strings.ToLower(allRepos[i].Name) < strings.ToLower(allRepos[j].Name)
+	adminRepos := github.FilterRepositoriesByAdmin(allRepos)
+
+	sort.Slice(adminRepos, func(i, j int) bool {
+		return strings.ToLower(adminRepos[i].Name) < strings.ToLower(adminRepos[j].Name)
 	})
 
-	json, err := json.Marshal(allRepos)
+	json, err := json.Marshal(adminRepos)
 
 	if err != nil {
 		log.Error(err)
