@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -27,67 +26,43 @@ type repo struct {
 	CreatedAt           time.Time `json:"-"`
 }
 
-func GetRepositories(client *githubv4.Client) (repos []repo, err error) {
+func GetRepositories(client *githubv4.Client) (allRepos []repo, err error) {
 	var query struct {
 		Organization struct {
 			Repositories struct {
 				Nodes      []repo
-				TotalCount int
+				TotalCount githubv4.Int
 
 				PageInfo struct {
 					EndCursor   githubv4.String
 					HasNextPage bool
 				}
-			} `graphql:"repositories(first:100, after: $repositoriesCursor, orderBy: {field: $field, direction:$dir})"`
+			} `graphql:"repositories(first:100, after: $repositoriesCursor)"`
 		} `graphql:"organization(login: $organization)"`
 	}
 
 	variables := map[string]interface{}{
 		"organization":       githubv4.String("navikt"),
 		"repositoriesCursor": (*githubv4.String)(nil),
-		"field":              githubv4.RepositoryOrderFieldCreatedAt,
-		"dir":                githubv4.OrderDirectionDesc,
 	}
 
-Loop:
 	for {
 		err = client.Query(context.Background(), &query, variables)
 		if err != nil {
 			log.Error(err)
-			return repos, err
+			return
 		}
 
-		repositories.RLock()
 		for _, repo := range query.Organization.Repositories.Nodes {
-			if repo.CreatedAt.After(repositories.lastCreatedAt) {
-				repos = append(repos, repo)
-			} else {
-				repositories.RUnlock()
-				break Loop
-			}
+			allRepos = append(allRepos, repo)
 		}
-		repositories.RUnlock()
 
 		if !query.Organization.Repositories.PageInfo.HasNextPage {
 			break
 		}
 		variables["repositoriesCursor"] = githubv4.NewString(query.Organization.Repositories.PageInfo.EndCursor)
 	}
-
-	repositories.Lock()
-	defer repositories.Unlock()
-
-	allRepos := append(repos, repositories.List...)
-	if len(allRepos) != 0 && len(allRepos) == query.Organization.Repositories.TotalCount {
-		repositories.lastCreatedAt = allRepos[0].CreatedAt
-		repositories.List = allRepos
-	} else {
-		repositories.lastCreatedAt = time.Time{}
-		repositories.List = []repo{}
-		return repositories.List, fmt.Errorf("fetching new repositories, count mismatch")
-	}
-
-	return repositories.List, nil
+	return
 }
 
 func FilterRepositoriesByAdmin(allRepos []repo) (filteredRepos []repo) {
