@@ -33,7 +33,7 @@ const app = new Vue({
             })
         },
         showTeams() {
-            return !this.loading && this.search !== "" && this.filteredList.length === 1 && this.selectedRepository.includes(this.search);
+            return !this.loading && this.search !== "" && this.selectedRepository.includes(this.search);
         },
         readyToSubmit() {
             return this.showTeams && this.selectedTeams.length > 0
@@ -64,7 +64,7 @@ const app = new Vue({
             }).then(() => {
                 this.loading = false
                 if (!this.repositoryList) {
-                    alert("Could not load any repositories, please sign back in");
+                    alert("Could not load any repositories, please refresh or sign back in");
                     window.location = "/auth/logout";
                 }
                 if (!this.repositoryList.length) {

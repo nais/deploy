@@ -39,6 +39,7 @@ main {
     text-align: left;
     width:450px;
     max-width: 450px;
+    padding-bottom: 50px;
 }
 
 #sign-in a {
