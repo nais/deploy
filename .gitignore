@@ -4,6 +4,8 @@
 *.dll
 *.so
 *.dylib
+/cmd/hookd/hookd
+/cmd/deployd/deployd
 
 # Test binary, build with `go test -c`
 *.test

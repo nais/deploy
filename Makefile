@@ -2,7 +2,7 @@ PROTOC = $(shell which protoc)
 PROTOC_GEN_GO = $(shell which protoc-gen-go)
 HOOKD_ALPINE_LDFLAGS := -X github.com/navikt/deployment/hookd/pkg/auth.TemplateLocation=/app/templates/ -X github.com/navikt/deployment/hookd/pkg/auth.StaticAssetsLocation=/app/assets/
 
-.PHONY: all docker upload proto hookd deployd
+.PHONY: all proto hookd deployd alpine test docker upload
 
 all: hookd deployd
 
@@ -13,14 +13,14 @@ proto:
 	rm -f deployment.proto
 
 hookd:
-	cd hookd && go build -o hookd cmd/hookd/main.go
+	go build -o hookd/hookd cmd/hookd/main.go
 
 deployd:
-	cd deployd && go build -o deployd cmd/deployd/main.go
+	go build -o deployd/deployd cmd/deployd/main.go
 
 alpine:
-	cd hookd && go build -a -installsuffix cgo -ldflags "-s $(HOOKD_ALPINE_LDFLAGS)" -o hookd cmd/hookd/main.go
-	cd deployd && go build -a -installsuffix cgo -o deployd cmd/deployd/main.go
+	go build -a -installsuffix cgo -ldflags "-s $(HOOKD_ALPINE_LDFLAGS)" -o hookd/hookd cmd/hookd/main.go
+	go build -a -installsuffix cgo -o deployd/deployd cmd/deployd/main.go
 
 test:
 	go test ./...
