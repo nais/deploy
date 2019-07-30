@@ -18,6 +18,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+func issueToCircleCI(request server.Request, envVar pusher.EnvVar, apiToken string) error {
+	org, repo, err := github.SplitFullname(request.CircleCI.Repository)
+	if err != nil {
+		return err
+	}
+
+	if err = pusher.SetEnvironmentVariable(envVar, org, repo, apiToken); err != nil {
+		return fmt.Errorf("CircleCI: %s", err)
+	}
+
+	log.Infof("Issued GitHub token to CircleCI repository %s", request.CircleCI.Repository)
+
+	return nil
+}
+
 func issuer(key *rsa.PrivateKey, cfg Config) server.Issuer {
 	return func(request server.Request) error {
 		appToken, err := tokens.AppToken(key, cfg.Github.AppID, cfg.Github.Validity)
@@ -36,16 +51,7 @@ func issuer(key *rsa.PrivateKey, cfg Config) server.Issuer {
 				Value: installationToken,
 			}
 
-			org, repo, err := github.SplitFullname(request.CircleCI.Repository)
-			if err != nil {
-				return err
-			}
-
-			if err = pusher.SetEnvironmentVariable(env, org, repo, cfg.CircleCI.Apitoken); err != nil {
-				return fmt.Errorf("CircleCI: %s", err)
-			}
-
-			log.Infof("Issued GitHub token to CircleCI repository %s", request.CircleCI.Repository)
+			return issueToCircleCI(request, env, cfg.CircleCI.Apitoken)
 		}
 
 		return nil
