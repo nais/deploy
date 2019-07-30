@@ -29,6 +29,10 @@ func AppToken(key *rsa.PrivateKey, appID string, duration time.Duration) (string
 // which can be used to perform operations against repositories.
 //
 // See https://developer.github.com/v3/apps/#create-a-new-installation-token
+//
+// FIXME: scoped tokens are not available in the upstream API, but there is an open PR:
+// FIXME: https://github.com/google/go-github/issues/1237
+// FIXME: https://github.com/google/go-github/pull/1238
 func InstallationToken(appToken string, installationID int64) (string, error) {
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(
