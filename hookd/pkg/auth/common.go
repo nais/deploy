@@ -6,7 +6,7 @@ import (
 	"html/template"
 	"path/filepath"
 
-	gh "github.com/google/go-github/v23/github"
+	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"

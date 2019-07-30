@@ -16,7 +16,7 @@ require (
 	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/golang/protobuf v1.3.1
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db // indirect
-	github.com/google/go-github/v23 v23.0.0
+	github.com/google/go-github/v27 v27.0.4
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.2.0 // indirect

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	gh "github.com/google/go-github/v23/github"
+	gh "github.com/google/go-github/v27/github"
 	"golang.org/x/oauth2"
 )
 

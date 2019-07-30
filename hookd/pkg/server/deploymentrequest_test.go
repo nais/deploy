@@ -3,7 +3,7 @@ package server_test
 import (
 	"testing"
 
-	gh "github.com/google/go-github/v23/github"
+	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/stretchr/testify/assert"
 )

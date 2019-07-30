@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	gh "github.com/google/go-github/v23/github"
+	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
