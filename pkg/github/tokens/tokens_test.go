@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 
 	now := float64(time.Now().Unix())
 
-	signed, err := tokens.New(key, appID, duration)
+	signed, err := tokens.AppToken(key, appID, duration)
 	assert.NoError(t, err)
 	assert.True(t, len(signed) > 5)
 

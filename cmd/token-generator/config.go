@@ -14,10 +14,11 @@ import (
 )
 
 type Github struct {
-	Appid      string        `json:"appid"`
-	Keyfile    string        `json:"keyfile"`
-	EnvVarName string        `json:"envvarname"`
-	Validity   time.Duration `json:"validity"`
+	AppID          string        `json:"appid"`
+	InstallationID int64         `json:"installid"`
+	Keyfile        string        `json:"keyfile"`
+	EnvVarName     string        `json:"envvarname"`
+	Validity       time.Duration `json:"validity"`
 }
 
 type Log struct {
@@ -60,6 +61,7 @@ func init() {
 	flag.String("url", "http://localhost:8080", "Base URL where token-generator is accessible from the end user's browser.")
 	flag.String("bind", "127.0.0.1:8080", "IP:PORT to bind the listening socket to.")
 	flag.String("github.appid", "", "Github Application ID.")
+	flag.String("github.installid", "", "Github Application Installation ID.")
 	flag.String("github.keyfile", "", "Path to PEM key owned by Github App.")
 	flag.String("github.envvarname", "GITHUB_TOKEN", "Environment variable name for generated tokens.")
 	flag.Duration("github.validity", time.Minute*3, "Validity time for Github tokens.")

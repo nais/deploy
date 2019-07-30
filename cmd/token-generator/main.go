@@ -20,20 +20,25 @@ import (
 
 func issuer(key *rsa.PrivateKey, cfg Config) server.Issuer {
 	return func(request server.Request) error {
-		token, err := tokens.New(key, cfg.Github.Appid, cfg.Github.Validity)
+		appToken, err := tokens.AppToken(key, cfg.Github.AppID, cfg.Github.Validity)
 		if err != nil {
-			return err
+			return fmt.Errorf("generate app token: %s", err)
+		}
+
+		installationToken, err := tokens.InstallationToken(appToken, cfg.Github.InstallationID)
+		if err != nil {
+			return fmt.Errorf("generate installation token: %s", err)
 		}
 
 		if len(request.CircleCI.Repository) > 0 {
 			env := pusher.EnvVar{
 				Name:  cfg.Github.EnvVarName,
-				Value: token,
+				Value: installationToken,
 			}
 
 			org, repo, err := github.SplitFullname(request.CircleCI.Repository)
 			if err != nil {
-				return fmt.Errorf("CircleCI: %s", err)
+				return err
 			}
 
 			if err = pusher.SetEnvironmentVariable(env, org, repo, cfg.CircleCI.Apitoken); err != nil {
@@ -79,7 +84,7 @@ func run() error {
 
 	// Check that creation of a single token succeeds. If it doesn't, there is
 	// a high chance that we can't sign any tokens at all.
-	_, err = tokens.New(key, cfg.Github.Appid, time.Second)
+	_, err = tokens.AppToken(key, cfg.Github.AppID, time.Second)
 	if err != nil {
 		return fmt.Errorf("test token generation: %s", err)
 	}
