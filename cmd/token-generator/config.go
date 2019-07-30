@@ -13,7 +13,7 @@ import (
 )
 
 type Github struct {
-	Appid   int    `json:"appid"`
+	Appid   string `json:"appid"`
 	Keyfile string `json:"keyfile"`
 }
 
@@ -56,7 +56,7 @@ func init() {
 	// Provide command-line flags
 	flag.String("url", "http://localhost:8080", "Base URL where token-generator is accessible from the end user's browser.")
 	flag.String("bind", "127.0.0.1:8080", "IP:PORT to bind the listening socket to.")
-	flag.Int("github.appid", 0, "Github Application ID.")
+	flag.String("github.appid", "", "Github Application ID.")
 	flag.String("github.keyfile", "", "Path to PEM key owned by Github App.")
 	flag.String("circleci.apitoken", "", "API token for authenticating with CircleCI.")
 	flag.String("log.format", "text", "Log format, either 'json' or 'text'.")
