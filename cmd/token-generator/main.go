@@ -11,6 +11,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
+	"github.com/navikt/deployment/pkg/circleci/pusher"
 	"github.com/navikt/deployment/pkg/github/tokens"
 	"github.com/navikt/deployment/pkg/token-generator/server"
 	log "github.com/sirupsen/logrus"
@@ -20,15 +21,22 @@ const (
 	tokenValidity = time.Minute * 3
 )
 
-func muxer(key *rsa.PrivateKey, cfg Config, requests <-chan server.Request) {
-	for request := range requests {
+func issuer(key *rsa.PrivateKey, cfg Config) server.Issuer {
+	return func(request server.Request) error {
 		token, err := tokens.New(key, cfg.Github.Appid, tokenValidity)
 		if err != nil {
-			log.Errorf("discarding request due to error while creating token: %s", err)
-			continue
+			return err
 		}
 
-		log.Info(request, token)
+		if len(request.CircleCI.Repository) > 0 {
+			if err = pusher.Push(request.CircleCI.Repository); err != nil {
+				return fmt.Errorf("CircleCI: %s", err)
+			}
+		}
+
+		log.Info(token)
+
+		return nil
 	}
 }
 
@@ -69,9 +77,7 @@ func run() error {
 		return fmt.Errorf("test token generation: %s", err)
 	}
 
-	handler := server.New()
-
-	go muxer(key, *cfg, handler.Requests)
+	handler := server.New(issuer(key, *cfg))
 
 	return http.ListenAndServe(cfg.Bind, handler)
 }
