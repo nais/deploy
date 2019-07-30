@@ -19,12 +19,12 @@ deployd:
 	go build -o deployd/deployd cmd/deployd/main.go
 
 token-generator:
-	go build -o token-generator cmd/token-generator/main.go
+	go build -o token-generator cmd/token-generator/*.go
 
 alpine:
 	go build -a -installsuffix cgo -ldflags "-s $(HOOKD_ALPINE_LDFLAGS)" -o hookd/hookd cmd/hookd/main.go
 	go build -a -installsuffix cgo -o deployd/deployd cmd/deployd/main.go
-	go build -a -installsuffix cgo -o token-generator cmd/token-generator/main.go
+	go build -a -installsuffix cgo -o token-generator cmd/token-generator/*.go
 
 test:
 	go test ./...
