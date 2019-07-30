@@ -53,7 +53,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Requ
 
 	err = h.issuer(request)
 	if err != nil {
-		response.WriteHeader(http.StatusServiceUnavailable)
+		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(fmt.Sprintf("Unable to issue token(s): %s\n", err)))
 		return
 	}

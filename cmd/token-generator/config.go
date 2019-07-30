@@ -3,6 +3,7 @@ package main
 import (
 	"sort"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -13,8 +14,10 @@ import (
 )
 
 type Github struct {
-	Appid   string `json:"appid"`
-	Keyfile string `json:"keyfile"`
+	Appid      string        `json:"appid"`
+	Keyfile    string        `json:"keyfile"`
+	EnvVarName string        `json:"envvarname"`
+	Validity   time.Duration `json:"validity"`
 }
 
 type Log struct {
@@ -58,6 +61,8 @@ func init() {
 	flag.String("bind", "127.0.0.1:8080", "IP:PORT to bind the listening socket to.")
 	flag.String("github.appid", "", "Github Application ID.")
 	flag.String("github.keyfile", "", "Path to PEM key owned by Github App.")
+	flag.String("github.envvarname", "GITHUB_TOKEN", "Environment variable name for generated tokens.")
+	flag.Duration("github.validity", time.Minute*3, "Validity time for Github tokens.")
 	flag.String("circleci.apitoken", "", "API token for authenticating with CircleCI.")
 	flag.String("log.format", "text", "Log format, either 'json' or 'text'.")
 	flag.String("log.level", "trace", "Logging verbosity level.")

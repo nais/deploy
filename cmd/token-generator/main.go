@@ -10,6 +10,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/navikt/deployment/common/pkg/logging"
+	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/pkg/circleci/pusher"
 	"github.com/navikt/deployment/pkg/github/tokens"
@@ -17,24 +18,30 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	tokenValidity = time.Minute * 3
-)
-
 func issuer(key *rsa.PrivateKey, cfg Config) server.Issuer {
 	return func(request server.Request) error {
-		token, err := tokens.New(key, cfg.Github.Appid, tokenValidity)
+		token, err := tokens.New(key, cfg.Github.Appid, cfg.Github.Validity)
 		if err != nil {
 			return err
 		}
 
 		if len(request.CircleCI.Repository) > 0 {
-			if err = pusher.Push(request.CircleCI.Repository); err != nil {
+			env := pusher.EnvVar{
+				Name:  cfg.Github.EnvVarName,
+				Value: token,
+			}
+
+			org, repo, err := github.SplitFullname(request.CircleCI.Repository)
+			if err != nil {
 				return fmt.Errorf("CircleCI: %s", err)
 			}
-		}
 
-		log.Info(token)
+			if err = pusher.SetEnvironmentVariable(env, org, repo, cfg.CircleCI.Apitoken); err != nil {
+				return fmt.Errorf("CircleCI: %s", err)
+			}
+
+			log.Infof("Issued GitHub token to CircleCI repository %s", request.CircleCI.Repository)
+		}
 
 		return nil
 	}
