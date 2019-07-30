@@ -26,12 +26,17 @@ type Log struct {
 	Level  string `json:"level"`
 }
 
+type CircleCI struct {
+	Apitoken string `json:"apitoken"`
+}
+
 type Config struct {
-	Bind   string    `json:"bind"`
-	Url    string    `json:"url"`
-	S3     config.S3 `json:"s3"`
-	Log    Log       `json:"log"`
-	Github Github    `json:"github"`
+	Bind     string    `json:"bind"`
+	Url      string    `json:"url"`
+	S3       config.S3 `json:"s3"`
+	Log      Log       `json:"log"`
+	Github   Github    `json:"github"`
+	CircleCI CircleCI  `json:"circleci"`
 }
 
 var (
@@ -57,6 +62,7 @@ func init() {
 	flag.String("bind", "127.0.0.1:8080", "IP:PORT to bind the listening socket to.")
 	flag.Int("github.appid", 0, "Github Application ID.")
 	flag.String("github.keyfile", "", "Path to PEM key owned by Github App.")
+	flag.String("circleci.apitoken", "", "API token for authenticating with CircleCI.")
 	flag.String("log.format", "text", "Log format, either 'json' or 'text'.")
 	flag.String("log.level", "trace", "Logging verbosity level.")
 	flag.String("s3.endpoint", "localhost:9000", "S3 endpoint for state storage.")
@@ -93,6 +99,7 @@ func printConfig(redacted []string) {
 
 func decoderHook(dc *mapstructure.DecoderConfig) {
 	dc.TagName = "json"
+	dc.ErrorUnused = true
 }
 
 func run() error {
