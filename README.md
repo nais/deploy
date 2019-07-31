@@ -36,7 +36,51 @@ The validation part is done by checking if the signature attached to the deploym
 Refer to the [GitHub documentation](https://developer.github.com/webhooks/securing/) as to how webhooks are secured.
 
 ### deployd
-Deployd responsibility is to deploy resources into a Kubernetes cluster, and report state changes back to hookd using Kafka.
+Deployd's responsibility is to deploy resources into a Kubernetes cluster, and report state changes back to hookd using Kafka.
+
+### token-generator
+token-generator is a daemon that can issue credentials out-of-band. For example:
+
+#### Overview
+```
+> POST /
+> {
+>     "repository": "navikt/deployment",
+>     "sources": ["github"],
+>     "sinks": ["circleci"]
+> }
+
+< HTTP/1.1 201 Created
+```
+
+This request will issue a _JSON Web Token_ (JWT) on behalf of a Github App Installation.
+~The token will be scoped to the specific repository in question.~
+(See [go-github #1238](https://github.com/google/go-github/pull/1238))
+Afterwards, the token is uploaded out-of-band to the CircleCI build belonging to this repository.
+The token-generator client cannot see the token unless they retrieve it from CircleCI.
+
+#### Configuration
+
+Create a file `token-generator.yaml` with the following contents and place it in your working directory.
+
+```yaml
+github:
+  appid: 246
+  installid: 753
+  keyfile: github-app-private-key.pem
+circleci:
+  apitoken: 6d9627000451337133713371337a72b40c55a47f
+```
+
+The same configuration can be accessed using flags or environment variables:
+
+```
+./token-generator --help
+
+export GITHUB_APPID=246
+export CIRCLECI_APITOKEN=6d9627000451337133713371337a72b40c55a47f
+./token-generator --github.installid=753 --github.keyfile=github-app-private-key.pem
+```
 
 ### Kafka
 Kafka is used as a communication channel between hookd and deployd. Hookd sends deployment requests to a `deploymentRequests` topic, which fans out
