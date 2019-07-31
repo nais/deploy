@@ -20,7 +20,7 @@ type EnvVar struct {
 // Sink stores credentials as environment variables on CircleCI.
 //
 // https://circleci.com/docs/api/
-func Sink(request types.Request, credentials types.Credentials, apiToken string) error {
+func Sink(request types.Request, credentials types.Credentials, apiToken string, httpClient *http.Client) error {
 	organization, repository, err := github.SplitFullname(request.Repository)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func Sink(request types.Request, credentials types.Credentials, apiToken string)
 	httpRequest.Header.Set("Content-Type", "application/json")
 	httpRequest.SetBasicAuth(apiToken, "")
 
-	httpResponse, err := http.DefaultClient.Do(httpRequest)
+	httpResponse, err := httpClient.Do(httpRequest)
 	if err != nil {
 		return err
 	}

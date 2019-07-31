@@ -80,7 +80,7 @@ func configureSources(cfg Config) (*types.SourceFuncs, error) {
 func configureSinks(cfg Config) (*types.SinkFuncs, error) {
 	return &types.SinkFuncs{
 		"circleci": func(request types.Request, credentials types.Credentials) error {
-			return circleci_sink.Sink(request, credentials, cfg.CircleCI.Apitoken)
+			return circleci_sink.Sink(request, credentials, cfg.CircleCI.Apitoken, http.DefaultClient)
 		},
 	}, nil
 }
