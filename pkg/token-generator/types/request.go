@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/jjeffery/stringset"
 )
@@ -27,4 +28,8 @@ func (r *Request) Validate() error {
 		return nil
 	}
 	return fmt.Errorf("token requests must specify at least one source and at least one sink")
+}
+
+func (r *Request) Bind(request *http.Request) error {
+	return r.Validate()
 }
