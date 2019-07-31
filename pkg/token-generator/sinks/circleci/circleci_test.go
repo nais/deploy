@@ -11,10 +11,14 @@ import (
 )
 
 const (
+	// input params
 	apiToken    = "my api token"
 	githubToken = "v1.something"
 	repository  = "org/myrepository"
+
+	// output params
 	url         = "https://circleci.com/api/v1.1/project/github/org/myrepository/envvar"
+	payload     = `{"name":"GITHUB_TOKEN","value":"v1.something"}`
 )
 
 type RoundTripFunc func(req *http.Request) *http.Response
@@ -30,7 +34,7 @@ func NewTestClient(fn RoundTripFunc) *http.Client {
 	}
 }
 
-// Check that the CircleCI client uses the correct URL, API key
+// Check that the CircleCI client uses the correct URL, API key and payload.
 func TestSink(t *testing.T) {
 	httpClient := NewTestClient(func(req *http.Request) *http.Response {
 
@@ -42,7 +46,7 @@ func TestSink(t *testing.T) {
 		assert.Equal(t, apiToken, user)
 		assert.Equal(t, "", pass)
 		assert.Equal(t, url, req.URL.String())
-		assert.Equal(t, `{"name":"GITHUB_TOKEN","value":"v1.something"}`, string(body))
+		assert.Equal(t, payload, string(body))
 
 		return &http.Response{
 			StatusCode: http.StatusOK,
