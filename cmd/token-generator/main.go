@@ -13,6 +13,7 @@ import (
 	"github.com/navikt/deployment/pkg/token-generator/sinks/circleci"
 	"github.com/navikt/deployment/pkg/token-generator/sources/github"
 	"github.com/navikt/deployment/pkg/token-generator/types"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -58,10 +59,12 @@ func run() error {
 
 	router := chi.NewRouter()
 	router.Use(
+		middleware.Logger,
 		middleware.AllowContentType("application/json"),
 		middleware.Timeout(cfg.Http.Timeout),
 	)
 	router.Post("/create", handler.ServeHTTP)
+	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 
 	return http.ListenAndServe(cfg.Bind, router)
 }
