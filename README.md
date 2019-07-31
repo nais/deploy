@@ -57,7 +57,10 @@ This request will issue a _JSON Web Token_ (JWT) on behalf of a Github App Insta
 ~The token will be scoped to the specific repository in question.~
 (See [go-github #1238](https://github.com/google/go-github/pull/1238))
 Afterwards, the token is uploaded out-of-band to the CircleCI build belonging to this repository.
-The token-generator client cannot see the token unless they retrieve it from CircleCI.
+The token is valid for one hour and is available as the environment variable `$GITHUB_TOKEN`.
+The client sees only the HTTP response. The token itself is available to CircleCI jobs.
+Calls to this API will block, returning only when either the token has been uploaded,
+or when an error occurred.
 
 #### Configuration
 
