@@ -12,6 +12,7 @@ type Sink string
 
 // Request payload submitted when making a token request.
 type Request struct {
+	ID         string        `json:""`
 	Repository string        `json:"repository"`
 	Sources    stringset.Set `json:"sources"`
 	Sinks      stringset.Set `json:"sinks"`

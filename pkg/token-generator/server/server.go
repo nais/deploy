@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/navikt/deployment/pkg/token-generator/types"
 	log "github.com/sirupsen/logrus"
 )
@@ -16,6 +17,10 @@ type Issuer func(types.Request) error
 type Handler struct {
 	issuer Issuer
 }
+
+const (
+	CorrelationIDHeader = "X-Correlation-ID"
+)
 
 // Accept HTTP POST requests with a JSON payload that can be unmarshalled into a Request object.
 // The Handler's issuer callback function will be called upon each request. This function must be thread-safe.
@@ -34,7 +39,11 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Requ
 		return
 	}
 
-	request := types.Request{}
+	request := types.Request{
+		ID: uuid.New().String(),
+	}
+
+	response.Header().Set(CorrelationIDHeader, request.ID)
 
 	err = json.Unmarshal(body, &request)
 	if err != nil {
@@ -46,14 +55,14 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Requ
 	err = request.Validate()
 	if err != nil {
 		response.WriteHeader(http.StatusBadRequest)
-		response.Write([]byte(fmt.Sprint(err)))
+		response.Write([]byte(fmt.Sprintf("%s\n", err)))
 		return
 	}
 
 	err = h.issuer(request)
 	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(fmt.Sprintf("Unable to issue token(s): %s\n", err)))
+		response.WriteHeader(http.StatusServiceUnavailable)
+		response.Write([]byte(fmt.Sprintf("%s\n", err)))
 		return
 	}
 

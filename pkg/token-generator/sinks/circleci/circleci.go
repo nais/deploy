@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/pkg/token-generator/types"
 )
@@ -57,8 +55,7 @@ func Sink(request types.Request, credentials types.Credentials, apiToken string)
 
 	if httpResponse.StatusCode > 299 {
 		respBody, _ := ioutil.ReadAll(httpResponse.Body)
-		log.Error(httpResponse.Status, string(respBody))
-		return fmt.Errorf(httpResponse.Status)
+		return fmt.Errorf("%s: %s", httpResponse.Status, string(respBody))
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rsa"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -71,6 +72,27 @@ func Credentials(request InstallationTokenRequest) (*types.Credentials, error) {
 	}
 
 	return &types.Credentials{
-		Token:  installationToken,
+		Token: installationToken,
 	}, nil
+}
+
+func RSAPrivateKeyFromPEMFile(filename string) (*rsa.PrivateKey, error) {
+	keyBytes, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("read private key: %s", err)
+	}
+
+	key, err := jwt.ParseRSAPrivateKeyFromPEM(keyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse private key: %s", err)
+	}
+
+	// Check that creation of a single token succeeds. If it doesn't, there is
+	// a high chance that we can't sign any tokens at all.
+	_, err = AppToken(key, "", time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("token generation with private key: %s", err)
+	}
+
+	return key, nil
 }
