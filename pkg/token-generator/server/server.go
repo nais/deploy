@@ -6,27 +6,19 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/navikt/deployment/pkg/token-generator/types"
 	log "github.com/sirupsen/logrus"
 )
 
-// Request payload submitted when making a token request.
-type Request struct {
-	CircleCI CircleCI `json:"circleci,omitempty"`
-}
-
-type CircleCI struct {
-	Repository string `json:"repository,omitempty"`
-}
-
 // Function that will issue tokens to remote services based on a Request payload.
-type Issuer func(Request) error
+type Issuer func(types.Request) error
 
 type Handler struct {
 	issuer Issuer
 }
 
 // Accept HTTP POST requests with a JSON payload that can be unmarshalled into a Request object.
-// The Handler's issuer callback function will be called upon each request.
+// The Handler's issuer callback function will be called upon each request. This function must be thread-safe.
 // Token issuing is synchronous, so when this function returns 201, clients can proceed with their task.
 func (h *Handler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Request) {
 	if httpRequest.Method != http.MethodPost {
@@ -42,12 +34,19 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Requ
 		return
 	}
 
-	request := Request{}
+	request := types.Request{}
 
 	err = json.Unmarshal(body, &request)
 	if err != nil {
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write([]byte(fmt.Sprintf("JSON error in request: %s\n", err)))
+		return
+	}
+
+	err = request.Validate()
+	if err != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte(fmt.Sprint(err)))
 		return
 	}
 

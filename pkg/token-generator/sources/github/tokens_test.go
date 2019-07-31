@@ -1,4 +1,4 @@
-package tokens_test
+package github_source_test
 
 import (
 	"crypto/rand"
@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/navikt/deployment/pkg/github/tokens"
+	"github.com/navikt/deployment/pkg/token-generator/sources/github"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 
 	now := float64(time.Now().Unix())
 
-	signed, err := tokens.AppToken(key, appID, duration)
+	signed, err := github_source.AppToken(key, appID, duration)
 	assert.NoError(t, err)
 	assert.True(t, len(signed) > 5)
 

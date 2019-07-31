@@ -1,13 +1,25 @@
-package tokens
+package github_source
 
 import (
 	"context"
 	"crypto/rsa"
+	"fmt"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	gh "github.com/google/go-github/v27/github"
+	"github.com/navikt/deployment/pkg/token-generator/types"
 	"golang.org/x/oauth2"
+)
+
+type InstallationTokenRequest struct {
+	Key            *rsa.PrivateKey
+	ApplicationID  string
+	InstallationID int64
+}
+
+const (
+	appTokenValidity = time.Second * 30
 )
 
 // Creates a new GitHub App JWT, signed with the specified key and
@@ -45,4 +57,20 @@ func InstallationToken(appToken string, installationID int64) (string, error) {
 	token, _, err := client.Apps.CreateInstallationToken(ctx, installationID)
 
 	return token.GetToken(), err
+}
+
+func Credentials(request InstallationTokenRequest) (*types.Credentials, error) {
+	appToken, err := AppToken(request.Key, request.ApplicationID, appTokenValidity)
+	if err != nil {
+		return nil, fmt.Errorf("generate app token: %s", err)
+	}
+
+	installationToken, err := InstallationToken(appToken, request.InstallationID)
+	if err != nil {
+		return nil, fmt.Errorf("generate installation token: %s", err)
+	}
+
+	return &types.Credentials{
+		Token:  installationToken,
+	}, nil
 }

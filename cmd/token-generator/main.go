@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rsa"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -9,49 +8,93 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/navikt/deployment/common/pkg/logging"
-	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
-	"github.com/navikt/deployment/pkg/circleci/pusher"
-	"github.com/navikt/deployment/pkg/github/tokens"
 	"github.com/navikt/deployment/pkg/token-generator/server"
+	"github.com/navikt/deployment/pkg/token-generator/sinks/circleci"
+	"github.com/navikt/deployment/pkg/token-generator/sources/github"
+	"github.com/navikt/deployment/pkg/token-generator/types"
 	log "github.com/sirupsen/logrus"
 )
 
-func issueToCircleCI(request server.Request, envVar pusher.EnvVar, apiToken string) error {
-	org, repo, err := github.SplitFullname(request.CircleCI.Repository)
+// Configure all credential sources and return them.
+func configureSources(cfg Config) (*types.SourceFuncs, error) {
+	keyBytes, err := ioutil.ReadFile(cfg.Github.Keyfile)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("read private key: %s", err)
 	}
 
-	if err = pusher.SetEnvironmentVariable(envVar, org, repo, apiToken); err != nil {
-		return fmt.Errorf("CircleCI: %s", err)
+	key, err := jwt.ParseRSAPrivateKeyFromPEM(keyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("parse private key: %s", err)
 	}
 
-	log.Infof("Issued GitHub token to CircleCI repository %s", request.CircleCI.Repository)
+	// Check that creation of a single token succeeds. If it doesn't, there is
+	// a high chance that we can't sign any tokens at all.
+	_, err = github_source.AppToken(key, cfg.Github.AppID, time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("test token generation: %s", err)
+	}
 
-	return nil
+	return &types.SourceFuncs{
+		"github": func(request types.Request) (*types.Credentials, error) {
+			return github_source.Credentials(github_source.InstallationTokenRequest{
+				InstallationID: cfg.Github.InstallationID,
+				ApplicationID:  cfg.Github.AppID,
+				Key:            key,
+			})
+		},
+	}, nil
+
 }
 
-func issuer(key *rsa.PrivateKey, cfg Config) server.Issuer {
-	return func(request server.Request) error {
-		appToken, err := tokens.AppToken(key, cfg.Github.AppID, cfg.Github.Validity)
-		if err != nil {
-			return fmt.Errorf("generate app token: %s", err)
-		}
+// Configure all credential sinks and return them.
+func configureSinks(cfg Config) (*types.SinkFuncs, error) {
+	return &types.SinkFuncs{
+		"circleci": func(request types.Request, credentials types.Credentials) error {
+			return circleci_sink.Sink(request, credentials, cfg.CircleCI.Apitoken)
+		},
+	}, nil
+}
 
-		installationToken, err := tokens.InstallationToken(appToken, cfg.Github.InstallationID)
-		if err != nil {
-			return fmt.Errorf("generate installation token: %s", err)
-		}
+func issuer(sources types.SourceFuncs, sinks types.SinkFuncs) server.Issuer {
+	return func(request types.Request) error {
+		var credentials = make([]types.Credentials, 0)
+		var logger = log.WithFields(log.Fields{
+			"requestID": uuid.New().String(),
+		})
 
-		if len(request.CircleCI.Repository) > 0 {
-			env := pusher.EnvVar{
-				Name:  cfg.Github.EnvVarName,
-				Value: installationToken,
+		// Draw credentials from all sources
+		for name, source := range sources {
+			for _, requestedSource := range request.Sources {
+				if name == requestedSource {
+					credential, err := source(request)
+					if err != nil {
+						logger.Errorf("sources: %s: %s", name, err)
+						return fmt.Errorf("unable to get credentials from %s", name)
+					}
+					credential.Source = name
+					credentials = append(credentials, *credential)
+					log.Tracef("sources: %s: got credentials", name)
+				}
 			}
+		}
 
-			return issueToCircleCI(request, env, cfg.CircleCI.Apitoken)
+		// Push credentials to all sinks
+		for name, sink := range sinks {
+			for _, requestedSink := range request.Sinks {
+				if name == requestedSink {
+					for _, credential := range credentials {
+						err := sink(request, credential)
+						if err != nil {
+							logger.Errorf("sinks: %s: %s", name, err)
+							return fmt.Errorf("unable to push credentials to %s", name)
+						}
+						log.Tracef("sinks: %s: pushed credentials", name)
+					}
+				}
+			}
 		}
 
 		return nil
@@ -78,24 +121,17 @@ func run() error {
 		return fmt.Errorf("while setting up S3 backend: %s", err)
 	}
 
-	keyBytes, err := ioutil.ReadFile(cfg.Github.Keyfile)
+	sources, err := configureSources(*cfg)
 	if err != nil {
-		return fmt.Errorf("read private key: %s", err)
+		return err
 	}
 
-	key, err := jwt.ParseRSAPrivateKeyFromPEM(keyBytes)
+	sinks, err := configureSinks(*cfg)
 	if err != nil {
-		return fmt.Errorf("parse private key: %s", err)
+		return err
 	}
 
-	// Check that creation of a single token succeeds. If it doesn't, there is
-	// a high chance that we can't sign any tokens at all.
-	_, err = tokens.AppToken(key, cfg.Github.AppID, time.Second)
-	if err != nil {
-		return fmt.Errorf("test token generation: %s", err)
-	}
-
-	handler := server.New(issuer(key, *cfg))
+	handler := server.New(issuer(*sources, *sinks))
 
 	return http.ListenAndServe(cfg.Bind, handler)
 }
