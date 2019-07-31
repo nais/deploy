@@ -67,8 +67,8 @@ func issuer(sources types.SourceFuncs, sinks types.SinkFuncs) server.Issuer {
 
 		// Draw credentials from all sources
 		for name, source := range sources {
-			for _, requestedSource := range request.Sources {
-				if name == requestedSource {
+			for _, requestedSource := range request.Sources.Values() {
+				if name == types.Source(requestedSource) {
 					credential, err := source(request)
 					if err != nil {
 						logger.Errorf("sources: %s: %s", name, err)
@@ -83,8 +83,8 @@ func issuer(sources types.SourceFuncs, sinks types.SinkFuncs) server.Issuer {
 
 		// Push credentials to all sinks
 		for name, sink := range sinks {
-			for _, requestedSink := range request.Sinks {
-				if name == requestedSink {
+			for _, requestedSink := range request.Sinks.Values() {
+				if name == types.Sink(requestedSink) {
 					for _, credential := range credentials {
 						err := sink(request, credential)
 						if err != nil {

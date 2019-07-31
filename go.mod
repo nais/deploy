@@ -23,6 +23,7 @@ require (
 	github.com/gophercloud/gophercloud v0.0.0-20190322012505-7851cae1a132 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190212212710-3befbb6ad0cc // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
+	github.com/jjeffery/stringset v1.0.2
 	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
