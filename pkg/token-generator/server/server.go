@@ -40,7 +40,8 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Requ
 	}
 
 	request := types.Request{
-		ID: uuid.New().String(),
+		ID:      uuid.New().String(),
+		Context: httpRequest.Context(),
 	}
 
 	response.Header().Set(CorrelationIDHeader, request.ID)

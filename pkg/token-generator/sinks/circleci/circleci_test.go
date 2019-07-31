@@ -1,6 +1,7 @@
 package circleci_sink_test
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -17,8 +18,8 @@ const (
 	repository  = "org/myrepository"
 
 	// output params
-	url         = "https://circleci.com/api/v1.1/project/github/org/myrepository/envvar"
-	payload     = `{"name":"GITHUB_TOKEN","value":"v1.something"}`
+	url     = "https://circleci.com/api/v1.1/project/github/org/myrepository/envvar"
+	payload = `{"name":"GITHUB_TOKEN","value":"v1.something"}`
 )
 
 type RoundTripFunc func(req *http.Request) *http.Response
@@ -55,6 +56,7 @@ func TestSink(t *testing.T) {
 
 	request := types.Request{
 		Repository: repository,
+		Context:    context.Background(),
 	}
 	credentials := types.Credentials{
 		Source: "github",

@@ -17,6 +17,7 @@ type InstallationTokenRequest struct {
 	Key            *rsa.PrivateKey
 	ApplicationID  string
 	InstallationID int64
+	Context        context.Context
 }
 
 const (
@@ -46,8 +47,7 @@ func AppToken(key *rsa.PrivateKey, appID string, duration time.Duration) (string
 // FIXME: scoped tokens are not available in the upstream API, but there is an open PR:
 // FIXME: https://github.com/google/go-github/issues/1237
 // FIXME: https://github.com/google/go-github/pull/1238
-func InstallationToken(appToken string, installationID int64) (string, error) {
-	ctx := context.Background()
+func InstallationToken(ctx context.Context, appToken string, installationID int64) (string, error) {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: appToken},
 	)
@@ -66,7 +66,7 @@ func Credentials(request InstallationTokenRequest) (*types.Credentials, error) {
 		return nil, fmt.Errorf("generate app token: %s", err)
 	}
 
-	installationToken, err := InstallationToken(appToken, request.InstallationID)
+	installationToken, err := InstallationToken(request.Context, appToken, request.InstallationID)
 	if err != nil {
 		return nil, fmt.Errorf("generate installation token: %s", err)
 	}

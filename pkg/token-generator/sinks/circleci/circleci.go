@@ -45,6 +45,7 @@ func Sink(request types.Request, credentials types.Credentials, apiToken string,
 		return err
 	}
 
+	httpRequest = httpRequest.WithContext(request.Context)
 	httpRequest.Header.Set("Content-Type", "application/json")
 	httpRequest.SetBasicAuth(apiToken, "")
 

@@ -76,6 +76,7 @@ func configureSources(cfg Config) (*types.SourceFuncs, error) {
 	return &types.SourceFuncs{
 		"github": func(request types.Request) (*types.Credentials, error) {
 			return github_source.Credentials(github_source.InstallationTokenRequest{
+				Context:        request.Context,
 				InstallationID: cfg.Github.InstallationID,
 				ApplicationID:  cfg.Github.AppID,
 				Key:            githubKey,

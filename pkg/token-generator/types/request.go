@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/jjeffery/stringset"
@@ -12,10 +13,13 @@ type Sink string
 
 // Request payload submitted when making a token request.
 type Request struct {
-	ID         string        `json:""`
 	Repository string        `json:"repository"`
 	Sources    stringset.Set `json:"sources"`
 	Sinks      stringset.Set `json:"sinks"`
+
+	// Metadata
+	ID      string          `json:",omitempty"`
+	Context context.Context `json:",omitempty"`
 }
 
 func (r *Request) Validate() error {
