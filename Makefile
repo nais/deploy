@@ -4,7 +4,7 @@ HOOKD_ALPINE_LDFLAGS := -X github.com/navikt/deployment/hookd/pkg/auth.TemplateL
 
 .PHONY: all proto hookd deployd token-generator alpine test docker upload
 
-all: hookd deployd
+all: hookd deployd token-generator
 
 proto:
 	wget -O deployment.proto https://raw.githubusercontent.com/navikt/protos/master/deployment/deployment.proto
