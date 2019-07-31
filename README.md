@@ -43,7 +43,7 @@ token-generator is a daemon that can issue credentials out-of-band. For example:
 
 #### Overview
 ```
-> POST /
+> POST /create
 > {
 >     "repository": "navikt/deployment",
 >     "sources": ["github"],
@@ -51,6 +51,9 @@ token-generator is a daemon that can issue credentials out-of-band. For example:
 > }
 
 < HTTP/1.1 201 Created
+< X-Correlation-Id: 59b7112f-2c50-4a69-acfd-775f8a14b3bc
+< Date: Wed, 31 Jul 2019 13:17:26 GMT
+< Content-Length: 0
 ```
 
 This request will issue a _JSON Web Token_ (JWT) on behalf of a Github App Installation.
@@ -61,6 +64,8 @@ The token is valid for one hour and is available as the environment variable `$G
 The client sees only the HTTP response. The token itself is available to CircleCI jobs.
 Calls to this API will block, returning only when either the token has been uploaded,
 or when an error occurred.
+
+If you run into trouble, you can search the logs for `correlation-id:"..."`.
 
 #### Configuration
 

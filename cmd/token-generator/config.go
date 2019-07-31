@@ -30,6 +30,10 @@ type CircleCI struct {
 	Apitoken string `json:"apitoken"`
 }
 
+type Http struct {
+	Timeout time.Duration `json:"timeout"`
+}
+
 type Config struct {
 	Bind     string    `json:"bind"`
 	Url      string    `json:"url"`
@@ -37,6 +41,7 @@ type Config struct {
 	Log      Log       `json:"log"`
 	Github   Github    `json:"github"`
 	CircleCI CircleCI  `json:"circleci"`
+	Http     Http      `json:"http"`
 }
 
 var (
@@ -68,6 +73,7 @@ func init() {
 	flag.String("circleci.apitoken", "", "API token for authenticating with CircleCI.")
 	flag.String("log.format", "text", "Log format, either 'json' or 'text'.")
 	flag.String("log.level", "trace", "Logging verbosity level.")
+	flag.Duration("http.timeout", time.Second*30, "Total time allowed per incoming request.")
 	flag.String("s3.endpoint", "localhost:9000", "S3 endpoint for state storage.")
 	flag.String("s3.accesskey", "accesskey", "S3 access key.")
 	flag.String("s3.secretkey", "secretkey", "S3 secret key.")

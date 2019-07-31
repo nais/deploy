@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/pkg/token-generator/server"
@@ -54,7 +56,14 @@ func run() error {
 
 	handler := server.New(issuer(*sources, *sinks))
 
-	return http.ListenAndServe(cfg.Bind, handler)
+	router := chi.NewRouter()
+	router.Use(
+		middleware.AllowContentType("application/json"),
+		middleware.Timeout(cfg.Http.Timeout),
+	)
+	router.Post("/create", handler.ServeHTTP)
+
+	return http.ListenAndServe(cfg.Bind, router)
 }
 
 // Configure all credential sources and return them.
