@@ -6,11 +6,12 @@ import (
 	"os"
 
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	chi_middleware "github.com/go-chi/chi/middleware"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/pkg/token-generator/apikeys"
 	"github.com/navikt/deployment/pkg/token-generator/azure"
+	"github.com/navikt/deployment/pkg/token-generator/middleware"
 	"github.com/navikt/deployment/pkg/token-generator/server"
 	"github.com/navikt/deployment/pkg/token-generator/sinks/circleci"
 	"github.com/navikt/deployment/pkg/token-generator/sources/github"
@@ -88,24 +89,32 @@ func run() error {
 
 	router := chi.NewRouter()
 
+	// Base settings for all requests
 	router.Use(
-		middleware.Logger,
-		middleware.Timeout(cfg.Http.Timeout),
+		chi_middleware.Logger,
+		chi_middleware.Timeout(cfg.Http.Timeout),
 	)
 
+	// Mount /metrics endpoint with no authentication
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 
+	// Mount /tokens for API requests
+	// Requests must provide valid API keys.
 	router.Route("/tokens", func(r chi.Router) {
-		r.Use(server.ApiKeyMiddlewareHandler(apiKeySource))
-		r.Use(middleware.AllowContentType("application/json"))
+		r.Use(middleware.ApiKeyMiddlewareHandler(apiKeySource))
+		r.Use(chi_middleware.AllowContentType("application/json"))
 		r.Post("/create", tokenIssuer.ServeHTTP)
 	})
 
+	// Mount /user for authenticated requests.
+	// Requests must provide valid JWT tokens,
+	// otherwise they will be redirected to /auth/login.
 	router.Route("/user", func(r chi.Router) {
-		r.Use(server.JWTMiddlewareHandler(azureCertificates))
+		r.Use(middleware.JWTMiddlewareHandler(azureCertificates))
 		r.Get("/", authHandler.Echo)
 	})
 
+	// OAuth 2.0 auth code flow using Azure.
 	router.Route("/auth", func(r chi.Router) {
 		r.Get("/login", authHandler.Authorize)
 		r.Get("/callback", authHandler.Callback)

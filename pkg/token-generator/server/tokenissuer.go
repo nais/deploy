@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
+	"github.com/navikt/deployment/pkg/token-generator/httperr"
 	"github.com/navikt/deployment/pkg/token-generator/types"
 )
 
@@ -27,7 +28,7 @@ func (h *TokenIssuerHandler) ServeHTTP(response http.ResponseWriter, httpRequest
 
 	err := render.Bind(httpRequest, &request)
 	if err != nil {
-		render.Render(response, httpRequest, ErrInvalidRequest(err))
+		render.Render(response, httpRequest, httperr.ErrInvalidRequest(err))
 		return
 	}
 
@@ -38,7 +39,7 @@ func (h *TokenIssuerHandler) ServeHTTP(response http.ResponseWriter, httpRequest
 
 	err = h.issuer(request)
 	if err != nil {
-		render.Render(response, httpRequest, ErrUnavailable(err))
+		render.Render(response, httpRequest, httperr.ErrUnavailable(err))
 		return
 	}
 

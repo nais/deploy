@@ -1,4 +1,4 @@
-package server_test
+package middleware_test
 
 import (
 	"net/http"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/navikt/deployment/pkg/token-generator/apikeys"
-	"github.com/navikt/deployment/pkg/token-generator/server"
+	"github.com/navikt/deployment/pkg/token-generator/middleware"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,8 +21,8 @@ func TestApiKeyMiddlewareHandler(t *testing.T) {
 
 	t.Run("missing API key results in a blocked request", func(t *testing.T) {
 		source := apikeys.NewMemoryStore()
-		middleware := server.ApiKeyMiddlewareHandler(source)
-		handler := middleware(fail)
+		mw := middleware.ApiKeyMiddlewareHandler(source)
+		handler := mw(fail)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "/create", nil)
@@ -34,8 +34,8 @@ func TestApiKeyMiddlewareHandler(t *testing.T) {
 
 	t.Run("invalid API keys are blocked", func(t *testing.T) {
 		source := apikeys.NewMemoryStore()
-		middleware := server.ApiKeyMiddlewareHandler(source)
-		handler := middleware(fail)
+		mw := middleware.ApiKeyMiddlewareHandler(source)
+		handler := mw(fail)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "/create", nil)
@@ -51,8 +51,8 @@ func TestApiKeyMiddlewareHandler(t *testing.T) {
 
 	t.Run("valid API keys pass through middleware", func(t *testing.T) {
 		source := apikeys.NewMemoryStore()
-		middleware := server.ApiKeyMiddlewareHandler(source)
-		handler := middleware(succeed)
+		mw := middleware.ApiKeyMiddlewareHandler(source)
+		handler := mw(succeed)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "/create", nil)
@@ -67,5 +67,3 @@ func TestApiKeyMiddlewareHandler(t *testing.T) {
 	})
 }
 
-func TestJWTMiddlewareHandler(t *testing.T) {
-}

@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
+	"github.com/navikt/deployment/pkg/token-generator/httperr"
+	"github.com/navikt/deployment/pkg/token-generator/session"
 	"golang.org/x/oauth2"
 )
 
@@ -17,10 +19,12 @@ type authHandler struct {
 }
 
 var (
-	azureAuthorizeURL = "https://login.microsoftonline.com/%s/oauth2/%s"
-
 	ErrStateNoMatch = errors.New("the 'state' parameter doesn't match, maybe you are a victim of cross-site request forgery")
 )
+
+func azureAuthorizeURL(tenant, endpoint string) string {
+	return fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/%s", tenant, endpoint)
+}
 
 func NewAuthHandler(clientID, clientSecret, tenant, redirectURL, resource string) *authHandler {
 	handler := &authHandler{
@@ -29,8 +33,8 @@ func NewAuthHandler(clientID, clientSecret, tenant, redirectURL, resource string
 			ClientSecret: clientSecret,
 			RedirectURL:  redirectURL,
 			Endpoint: oauth2.Endpoint{
-				AuthURL:   fmt.Sprintf(azureAuthorizeURL, tenant, "authorize"),
-				TokenURL:  fmt.Sprintf(azureAuthorizeURL, tenant, "token"),
+				AuthURL:   azureAuthorizeURL(tenant, "authorize"),
+				TokenURL:  azureAuthorizeURL(tenant, "token"),
 				AuthStyle: oauth2.AuthStyleInParams,
 			},
 		},
@@ -43,7 +47,7 @@ func NewAuthHandler(clientID, clientSecret, tenant, redirectURL, resource string
 
 // Authorize redirects a client to sign in with their Microsoft account
 func (h *authHandler) Authorize(w http.ResponseWriter, r *http.Request) {
-	session := GetSession(r)
+	session := session.GetSession(r)
 	session.State = uuid.New().String()
 	session.Save()
 
@@ -57,21 +61,21 @@ func (h *authHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 // Note that the token that is stored in the session must be further validated
 // before trusting the client.
 func (h *authHandler) Callback(w http.ResponseWriter, r *http.Request) {
-	session := GetSession(r)
+	session := session.GetSession(r)
 
 	if session.State != r.FormValue("state") {
-		render.Render(w, r, ErrInvalidRequest(ErrStateNoMatch))
+		render.Render(w, r, httperr.ErrInvalidRequest(ErrStateNoMatch))
 		return
 	}
 
 	token, err := h.config.Exchange(r.Context(), r.FormValue("code"))
 	if err != nil {
-		render.Render(w, r, ErrForbidden(err))
+		render.Render(w, r, httperr.ErrForbidden(err))
 		return
 	}
 
 	if !token.Valid() {
-		render.Render(w, r, ErrForbidden(fmt.Errorf("invalid token")))
+		render.Render(w, r, httperr.ErrForbidden(fmt.Errorf("invalid token")))
 		return
 	}
 
@@ -80,7 +84,7 @@ func (h *authHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, session.Cookie())
 
 	if err != nil {
-		render.Render(w, r, ErrUnavailable(err))
+		render.Render(w, r, httperr.ErrUnavailable(err))
 		return
 	}
 
@@ -89,7 +93,7 @@ func (h *authHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 // Echo is a debug function
 func (h *authHandler) Echo(w http.ResponseWriter, r *http.Request) {
-	session := GetSession(r)
+	session := session.GetSession(r)
 	if session.Token == nil {
 		http.Redirect(w, r, "/auth/login", http.StatusTemporaryRedirect)
 		return
