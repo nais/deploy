@@ -1,59 +1,53 @@
 package server
 
 import (
-	"encoding/gob"
 	"net/http"
 
-	"github.com/gorilla/securecookie"
-	"github.com/gorilla/sessions"
+	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
 
 var (
 	// Keep sessions in-memory, and invalidate them on every program launch.
-	sessionStore = sessions.NewCookieStore(securecookie.GenerateRandomKey(32))
+	sessions = make(map[string]Session)
 )
 
 const (
-	sessionIdentifier = `token-generator`
+	sessionCookie = "X-Token-Generator-Session"
 )
 
 type Session struct {
+	id    string
 	Token *oauth2.Token
 	State string
 }
 
-func init() {
-	gob.Register(&Session{})
+func (s *Session) ID() string {
+	if len(s.id) == 0 {
+		s.id = uuid.New().String()
+	}
+	return s.id
 }
 
-func GetSession(r *http.Request) (*Session, func(w http.ResponseWriter, r *http.Request) error, error) {
-	session, err := sessionStore.Get(r, sessionIdentifier)
-	if err != nil {
-		// in case there is an error with our current session data, just reset it.
-		if session == nil {
-			panic(err)
-		}
-	}
-
-	session.Options = &sessions.Options{
+func (s *Session) Cookie() *http.Cookie {
+	return &http.Cookie{
+		Name:     sessionCookie,
+		Value:    s.ID(),
 		Path:     "/",
 		MaxAge:   86400,
 		HttpOnly: true,
 	}
+}
 
-	var data = &Session{}
-	var ok bool
+func (s *Session) Save() {
+	sessions[s.ID()] = *s
+}
 
-	if data, ok = session.Values["data"].(*Session); !ok {
-		// session cookie has invalid data.
-		data = &Session{}
+func GetSession(r *http.Request) Session {
+	cookie, err := r.Cookie(sessionCookie)
+	if cookie == nil || err != nil {
+		return Session{}
 	}
 
-	save := func(w http.ResponseWriter, r *http.Request) error {
-		session.Values["data"] = data
-		return session.Save(r, w)
-	}
-
-	return data, save, nil
+	return sessions[cookie.Value]
 }

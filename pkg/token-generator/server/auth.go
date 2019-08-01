@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
@@ -44,30 +43,21 @@ func NewAuthHandler(clientID, clientSecret, tenant, objectID, redirectURL, resou
 
 // Authorize redirects a client to sign in with their Microsoft account
 func (h *authHandler) Authorize(w http.ResponseWriter, r *http.Request) {
-	session, save, err := GetSession(r)
-
-	if err == nil {
-		session.State = uuid.New().String()
-		err = save(w, r)
-	}
-
-	if err != nil {
-		render.Render(w, r, ErrUnavailable(err))
-		return
-	}
+	session := GetSession(r)
+	session.State = uuid.New().String()
+	session.Save()
 
 	authorizeURL := h.config.AuthCodeURL(session.State, h.authCodeOption)
 
+	http.SetCookie(w, session.Cookie())
 	http.Redirect(w, r, authorizeURL, http.StatusTemporaryRedirect)
 }
 
-// Callback is called when Microsoft has authorized the user
+// Callback is called when Microsoft has authorized the user.
+// Note that the token that is stored in the session must be further validated
+// before trusting the client.
 func (h *authHandler) Callback(w http.ResponseWriter, r *http.Request) {
-	session, save, err := GetSession(r)
-	if err != nil {
-		render.Render(w, r, ErrUnavailable(err))
-		return
-	}
+	session := GetSession(r)
 
 	if session.State != r.FormValue("state") {
 		render.Render(w, r, ErrInvalidRequest(ErrStateNoMatch))
@@ -86,7 +76,9 @@ func (h *authHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session.Token = token
-	err = save(w, r)
+	session.Save()
+	http.SetCookie(w, session.Cookie())
+
 	if err != nil {
 		render.Render(w, r, ErrUnavailable(err))
 		return
@@ -97,7 +89,6 @@ func (h *authHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 // Echo is a debug function
 func (h *authHandler) Echo(w http.ResponseWriter, r *http.Request) {
-	session, _, _ := GetSession(r)
-	logrus.Trace(session.Token)
-	w.WriteHeader(200)
+	session := GetSession(r)
+	render.JSON(w, r, session)
 }
