@@ -90,5 +90,9 @@ func (h *authHandler) Callback(w http.ResponseWriter, r *http.Request) {
 // Echo is a debug function
 func (h *authHandler) Echo(w http.ResponseWriter, r *http.Request) {
 	session := GetSession(r)
+	if session.Token == nil {
+		http.Redirect(w, r, "/auth/login", http.StatusTemporaryRedirect)
+		return
+	}
 	render.JSON(w, r, session)
 }

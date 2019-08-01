@@ -2,14 +2,17 @@ package server
 
 import (
 	"net/http"
+	"sync"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 )
 
 var (
 	// Keep sessions in-memory, and invalidate them on every program launch.
-	sessions = make(map[string]Session)
+	sessions    = make(map[string]Session)
+	sessionLock sync.Mutex
 )
 
 const (
@@ -19,10 +22,13 @@ const (
 type Session struct {
 	id    string
 	Token *oauth2.Token
+	JWT   *jwt.Token
 	State string
 }
 
 func (s *Session) ID() string {
+	sessionLock.Lock()
+	defer sessionLock.Unlock()
 	if len(s.id) == 0 {
 		s.id = uuid.New().String()
 	}
@@ -40,6 +46,8 @@ func (s *Session) Cookie() *http.Cookie {
 }
 
 func (s *Session) Save() {
+	sessionLock.Lock()
+	defer sessionLock.Unlock()
 	sessions[s.ID()] = *s
 }
 

@@ -40,6 +40,7 @@ type Azure struct {
 	Tenant       string `json:"tenant"`
 	RedirectURL  string `json:"redirecturl"`
 	Resource     string `json:"resource"`
+	DiscoveryURL string `json:"discoveryurl"`
 }
 
 type Config struct {
@@ -94,6 +95,7 @@ func init() {
 	flag.String("azure.tenant", "", "Azure tenant")
 	flag.String("azure.redirecturl", "", "Azure redirecturl")
 	flag.String("azure.resource", "", "Azure resource")
+	flag.String("azure.discoveryurl", "", "Azure discoveryurl")
 }
 
 // Print out all configuration options except secret stuff.

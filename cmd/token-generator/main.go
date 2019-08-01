@@ -10,6 +10,7 @@ import (
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/pkg/token-generator/apikeys"
+	"github.com/navikt/deployment/pkg/token-generator/azure"
 	"github.com/navikt/deployment/pkg/token-generator/server"
 	"github.com/navikt/deployment/pkg/token-generator/sinks/circleci"
 	"github.com/navikt/deployment/pkg/token-generator/sources/github"
@@ -63,6 +64,18 @@ func run() error {
 	}
 	log.Infof("(fixme) API keys for this service is http basic auth `admin:admin`")
 
+	log.Infof("Discover Microsoft signing certificates from %s...", cfg.Azure.DiscoveryURL)
+	azureKeyDiscovery, err := azure.DiscoverURL(cfg.Azure.DiscoveryURL)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Decoding certificates...")
+	azureCertificates, err := azureKeyDiscovery.Map()
+	if err != nil {
+		return err
+	}
+
 	tokenIssuer := server.New(issuer(*sources, *sinks))
 
 	authHandler := server.NewAuthHandler(
@@ -88,11 +101,18 @@ func run() error {
 		r.Post("/create", tokenIssuer.ServeHTTP)
 	})
 
+	router.Route("/user", func(r chi.Router) {
+		r.Use(server.JWTMiddlewareHandler(azureCertificates))
+		r.Get("/", authHandler.Echo)
+	})
+
 	router.Route("/auth", func(r chi.Router) {
 		r.Get("/login", authHandler.Authorize)
 		r.Get("/callback", authHandler.Callback)
 		r.Get("/echo", authHandler.Echo)
 	})
+
+	log.Infof("Ready to accept connections")
 
 	return http.ListenAndServe(cfg.Bind, router)
 }
