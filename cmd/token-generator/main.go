@@ -63,17 +63,22 @@ func run() error {
 	}
 	log.Infof("(fixme) API keys for this service is http basic auth `admin:admin`")
 
-	handler := server.New(issuer(*sources, *sinks))
+	tokenIssuer := server.New(issuer(*sources, *sinks))
 
 	router := chi.NewRouter()
+
 	router.Use(
 		middleware.Logger,
 		middleware.AllowContentType("application/json"),
 		middleware.Timeout(cfg.Http.Timeout),
-		server.ApiKeyMiddlewareHandler(apiKeySource),
 	)
-	router.Post("/create", handler.ServeHTTP)
+
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
+
+	router.Route("/tokens", func(r chi.Router) {
+		r.Use(server.ApiKeyMiddlewareHandler(apiKeySource))
+		r.Post("/create", tokenIssuer.ServeHTTP)
+	})
 
 	return http.ListenAndServe(cfg.Bind, router)
 }
