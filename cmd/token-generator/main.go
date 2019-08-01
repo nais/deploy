@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
+	"github.com/navikt/deployment/pkg/token-generator/apikeys"
 	"github.com/navikt/deployment/pkg/token-generator/server"
 	"github.com/navikt/deployment/pkg/token-generator/sinks/circleci"
 	"github.com/navikt/deployment/pkg/token-generator/sources/github"
@@ -55,6 +56,13 @@ func run() error {
 		return err
 	}
 
+	apiKeySource := apikeys.NewMemoryStore()
+	err = apiKeySource.Write("admin", "admin")
+	if err != nil {
+		return err
+	}
+	log.Infof("(fixme) API keys for this service is http basic auth `admin:admin`")
+
 	handler := server.New(issuer(*sources, *sinks))
 
 	router := chi.NewRouter()
@@ -62,6 +70,7 @@ func run() error {
 		middleware.Logger,
 		middleware.AllowContentType("application/json"),
 		middleware.Timeout(cfg.Http.Timeout),
+		server.ApiKeyMiddlewareHandler(apiKeySource),
 	)
 	router.Post("/create", handler.ServeHTTP)
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
