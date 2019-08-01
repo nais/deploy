@@ -65,11 +65,19 @@ func run() error {
 
 	tokenIssuer := server.New(issuer(*sources, *sinks))
 
+	authHandler := server.NewAuthHandler(
+		cfg.Azure.ClientID,
+		cfg.Azure.ClientSecret,
+		cfg.Azure.Tenant,
+		cfg.Azure.ObjectID,
+		cfg.Azure.RedirectURL,
+		cfg.Azure.Resource,
+	)
+
 	router := chi.NewRouter()
 
 	router.Use(
 		middleware.Logger,
-		middleware.AllowContentType("application/json"),
 		middleware.Timeout(cfg.Http.Timeout),
 	)
 
@@ -77,7 +85,14 @@ func run() error {
 
 	router.Route("/tokens", func(r chi.Router) {
 		r.Use(server.ApiKeyMiddlewareHandler(apiKeySource))
+		r.Use(middleware.AllowContentType("application/json"))
 		r.Post("/create", tokenIssuer.ServeHTTP)
+	})
+
+	router.Route("/auth", func(r chi.Router) {
+		r.Get("/login", authHandler.Authorize)
+		r.Get("/callback", authHandler.Callback)
+		r.Get("/echo", authHandler.Echo)
 	})
 
 	return http.ListenAndServe(cfg.Bind, router)

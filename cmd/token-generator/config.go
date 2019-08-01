@@ -34,6 +34,15 @@ type Http struct {
 	Timeout time.Duration `json:"timeout"`
 }
 
+type Azure struct {
+	ClientID     string `json:"clientid"`
+	ClientSecret string `json:"clientsecret"`
+	Tenant       string `json:"tenant"`
+	ObjectID     string `json:"objectid"`
+	RedirectURL  string `json:"redirecturl"`
+	Resource     string `json:"resource"`
+}
+
 type Config struct {
 	Bind     string    `json:"bind"`
 	Url      string    `json:"url"`
@@ -42,11 +51,12 @@ type Config struct {
 	Github   Github    `json:"github"`
 	CircleCI CircleCI  `json:"circleci"`
 	Http     Http      `json:"http"`
+	Azure    Azure     `json:"azure"`
 }
 
 var (
 	// These configuration options should never be printed.
-	redactKeys = []string{"s3.accesskey", "s3.secretkey"}
+	redactKeys = []string{"s3.accesskey", "s3.secretkey", "circleci.apitoken", "azure.clientsecret"}
 )
 
 func init() {
@@ -80,6 +90,12 @@ func init() {
 	flag.String("s3.bucketname", "deployments.nais.io/v2", "S3 bucket name.")
 	flag.String("s3.bucketlocation", "", "S3 bucket location.")
 	flag.Bool("s3.secure", false, "Use TLS for S3 connections.")
+	flag.String("azure.clientid", "", "Azure clientid")
+	flag.String("azure.clientsecret", "", "Azure clientsecret")
+	flag.String("azure.tenant", "", "Azure tenant")
+	flag.String("azure.objectid", "", "Azure objectid")
+	flag.String("azure.redirecturl", "", "Azure redirecturl")
+	flag.String("azure.resource", "", "Azure resource")
 }
 
 // Print out all configuration options except secret stuff.

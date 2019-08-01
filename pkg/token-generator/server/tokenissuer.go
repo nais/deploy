@@ -11,7 +11,7 @@ import (
 // Function that will issue tokens to remote services based on a Request payload.
 type Issuer func(types.Request) error
 
-type Handler struct {
+type TokenIssuerHandler struct {
 	issuer Issuer
 }
 
@@ -22,7 +22,7 @@ const (
 // Accept HTTP POST requests with a JSON payload that can be unmarshalled into a Request object.
 // The Handler's issuer callback function will be called upon each request. This function must be thread-safe.
 // Token issuing is synchronous, so when this function returns 201, clients can proceed with their task.
-func (h *Handler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Request) {
+func (h *TokenIssuerHandler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Request) {
 	request := types.Request{}
 
 	err := render.Bind(httpRequest, &request)
@@ -45,8 +45,8 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Requ
 	response.WriteHeader(http.StatusCreated)
 }
 
-func New(issuer Issuer) *Handler {
-	return &Handler{
+func New(issuer Issuer) *TokenIssuerHandler {
+	return &TokenIssuerHandler{
 		issuer: issuer,
 	}
 }
