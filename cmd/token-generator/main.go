@@ -69,7 +69,6 @@ func run() error {
 		cfg.Azure.ClientID,
 		cfg.Azure.ClientSecret,
 		cfg.Azure.Tenant,
-		cfg.Azure.ObjectID,
 		cfg.Azure.RedirectURL,
 		cfg.Azure.Resource,
 	)

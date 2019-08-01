@@ -22,7 +22,7 @@ var (
 	ErrStateNoMatch = errors.New("the 'state' parameter doesn't match, maybe you are a victim of cross-site request forgery")
 )
 
-func NewAuthHandler(clientID, clientSecret, tenant, objectID, redirectURL, resource string) *authHandler {
+func NewAuthHandler(clientID, clientSecret, tenant, redirectURL, resource string) *authHandler {
 	handler := &authHandler{
 		config: oauth2.Config{
 			ClientID:     clientID,
