@@ -8,12 +8,12 @@ import (
 )
 
 type S3 struct {
-	Endpoint       string
-	AccessKey      string
-	SecretKey      string
-	BucketName     string
-	BucketLocation string
-	UseTLS         bool
+	Endpoint       string `json:"endpoint"`
+	AccessKey      string `json:"accesskey"`
+	SecretKey      string `json:"secretkey"`
+	BucketName     string `json:"bucketname"`
+	BucketLocation string `json:"bucketlocation"`
+	UseTLS         bool   `json:"secure"`
 }
 
 type Github struct {

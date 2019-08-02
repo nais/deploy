@@ -30,9 +30,9 @@ func New(level, format string) (*standardLogger, error) {
 
 	switch format {
 	case "json":
-		l.logger.SetFormatter(jsonFormatter())
+		l.logger.SetFormatter(JsonFormatter())
 	case "text":
-		l.logger.SetFormatter(textFormatter())
+		l.logger.SetFormatter(TextFormatter())
 	default:
 		return nil, fmt.Errorf("log format '%s' is not recognized", format)
 	}

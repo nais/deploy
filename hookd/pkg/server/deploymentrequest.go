@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	gh "github.com/google/go-github/v23/github"
+	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/github"
 )

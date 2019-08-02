@@ -2,18 +2,19 @@ package logging
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
-func textFormatter() log.Formatter {
+func TextFormatter() log.Formatter {
 	return &log.TextFormatter{
 		DisableTimestamp: false,
 		FullTimestamp:    true,
 	}
 }
 
-func jsonFormatter() log.Formatter {
+func JsonFormatter() log.Formatter {
 	return &log.JSONFormatter{
 		TimestampFormat: time.RFC3339Nano,
 	}
@@ -22,9 +23,9 @@ func jsonFormatter() log.Formatter {
 func Setup(level, format string) error {
 	switch format {
 	case "json":
-		log.SetFormatter(jsonFormatter())
+		log.SetFormatter(JsonFormatter())
 	case "text":
-		log.SetFormatter(textFormatter())
+		log.SetFormatter(TextFormatter())
 	default:
 		return fmt.Errorf("log format '%s' is not recognized", format)
 	}

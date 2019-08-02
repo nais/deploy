@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	gh "github.com/google/go-github/v23/github"
+	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"

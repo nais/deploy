@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	gh "github.com/google/go-github/v23/github"
+	gh "github.com/google/go-github/v27/github"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"

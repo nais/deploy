@@ -36,7 +36,77 @@ The validation part is done by checking if the signature attached to the deploym
 Refer to the [GitHub documentation](https://developer.github.com/webhooks/securing/) as to how webhooks are secured.
 
 ### deployd
-Deployd responsibility is to deploy resources into a Kubernetes cluster, and report state changes back to hookd using Kafka.
+Deployd's responsibility is to deploy resources into a Kubernetes cluster, and report state changes back to hookd using Kafka.
+
+### token-generator
+token-generator is a daemon that can issue credentials out-of-band. For example:
+
+#### Overview
+```
+> POST /api/v1/tokens/create
+> Authorization: Basic YWRtaW46YWRtaW4=
+> {
+>     "repository": "navikt/deployment",
+>     "sources": ["github"],
+>     "sinks": ["circleci"]
+> }
+---
+< HTTP/1.1 201 Created
+< X-Correlation-Id: 59b7112f-2c50-4a69-acfd-775f8a14b3bc
+< Date: Wed, 31 Jul 2019 13:17:26 GMT
+< Content-Length: 0
+```
+
+This request will issue a _JSON Web Token_ (JWT) on behalf of a Github App Installation.
+~The token will be scoped to the specific repository in question.~
+(See [go-github #1238](https://github.com/google/go-github/pull/1238))
+Afterwards, the token is uploaded out-of-band to the CircleCI build belonging to this repository.
+The token is valid for one hour and is available as the environment variable `$GITHUB_TOKEN`.
+The client sees only the HTTP response. The token itself is available to CircleCI jobs.
+Calls to this API will block, returning only when either the token has been uploaded,
+or when an error occurred.
+
+If you run into trouble, you can search the logs for `correlation-id:"..."`.
+
+#### User portal
+
+Users can log in with their Azure credentials in the user portal at `http://localhost:8080`.
+
+In the future, the user portal will enable users to provision API keys to their team.
+
+#### Configuration
+
+Create a file `token-generator.yaml` with the following contents and place it in your working directory.
+
+```yaml
+# for the 'github' source
+github:
+  appid: 246
+  installid: 753
+  keyfile: github-app-private-key.pem
+
+# for the 'circleci' sink
+circleci:
+  apitoken: 6d9627000451337133713371337a72b40c55a47f
+
+# for the user portal
+azure:
+  tenant: 39273030-3046-400d-9ee4-34d916ecdc97
+  clientid: 306b4e93-3987-4c45-ae38-d16e403e0144
+  clientsecret: eW91d2lzaAo=
+  redirecturl: http://localhost:8080/auth/callback
+  discoveryurl: https://login.microsoftonline.com/39273030-3046-400d-9ee4-34d916ecdc97/discovery/keys
+```
+
+The same configuration can be accessed using flags or environment variables:
+
+```
+./token-generator --help
+
+export GITHUB_APPID=246
+export CIRCLECI_APITOKEN=6d9627000451337133713371337a72b40c55a47f
+./token-generator --github.installid=753 --github.keyfile=github-app-private-key.pem
+```
 
 ### Kafka
 Kafka is used as a communication channel between hookd and deployd. Hookd sends deployment requests to a `deploymentRequests` topic, which fans out
