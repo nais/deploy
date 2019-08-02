@@ -43,7 +43,7 @@ token-generator is a daemon that can issue credentials out-of-band. For example:
 
 #### Overview
 ```
-> POST /tokens/create
+> POST /api/v1/tokens/create
 > Authorization: Basic YWRtaW46YWRtaW4=
 > {
 >     "repository": "navikt/deployment",
@@ -68,17 +68,34 @@ or when an error occurred.
 
 If you run into trouble, you can search the logs for `correlation-id:"..."`.
 
+#### User portal
+
+Users can log in with their Azure credentials in the user portal at `http://localhost:8080`.
+
+In the future, the user portal will enable users to provision API keys to their team.
+
 #### Configuration
 
 Create a file `token-generator.yaml` with the following contents and place it in your working directory.
 
 ```yaml
+# for the 'github' source
 github:
   appid: 246
   installid: 753
   keyfile: github-app-private-key.pem
+
+# for the 'circleci' sink
 circleci:
   apitoken: 6d9627000451337133713371337a72b40c55a47f
+
+# for the user portal
+azure:
+  tenant: 39273030-3046-400d-9ee4-34d916ecdc97
+  clientid: 306b4e93-3987-4c45-ae38-d16e403e0144
+  clientsecret: eW91d2lzaAo=
+  redirecturl: http://localhost:8080/auth/callback
+  discoveryurl: https://login.microsoftonline.com/39273030-3046-400d-9ee4-34d916ecdc97/discovery/keys
 ```
 
 The same configuration can be accessed using flags or environment variables:
