@@ -43,6 +43,14 @@ type Azure struct {
 	DiscoveryURL string `json:"discoveryurl"`
 }
 
+func (a *Azure) HasConfig() bool {
+	return a.ClientID != "" &&
+		a.ClientSecret != "" &&
+		a.Tenant != "" &&
+		a.RedirectURL != "" &&
+		a.DiscoveryURL != ""
+}
+
 type Config struct {
 	Bind     string    `json:"bind"`
 	Url      string    `json:"url"`

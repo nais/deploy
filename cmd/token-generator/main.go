@@ -31,6 +31,7 @@ func main() {
 func run() error {
 	var err error
 	var cfg *Config
+	var azureCertificates map[string]azure.CertificateList
 
 	cfg, err = configuration()
 	if err != nil {
@@ -65,16 +66,18 @@ func run() error {
 	}
 	log.Infof("(fixme) API keys for this service is http basic auth `admin:admin`")
 
-	log.Infof("Discover Microsoft signing certificates from %s...", cfg.Azure.DiscoveryURL)
-	azureKeyDiscovery, err := azure.DiscoverURL(cfg.Azure.DiscoveryURL)
-	if err != nil {
-		return err
-	}
+	if cfg.Azure.HasConfig() {
+		log.Infof("Discover Microsoft signing certificates from %s...", cfg.Azure.DiscoveryURL)
+		azureKeyDiscovery, err := azure.DiscoverURL(cfg.Azure.DiscoveryURL)
+		if err != nil {
+			return err
+		}
 
-	log.Infof("Decoding certificates...")
-	azureCertificates, err := azureKeyDiscovery.Map()
-	if err != nil {
-		return err
+		log.Infof("Decoding certificates...")
+		azureCertificates, err = azureKeyDiscovery.Map()
+		if err != nil {
+			return err
+		}
 	}
 
 	tokenIssuer := server.New(issuer(*sources, *sinks))
@@ -106,20 +109,27 @@ func run() error {
 		r.Post("/v1/tokens/create", tokenIssuer.ServeHTTP)
 	})
 
-	// Mount /user for authenticated requests.
-	// Requests must provide valid JWT tokens,
-	// otherwise they will be redirected to /auth/login.
-	router.Route("/user", func(r chi.Router) {
-		r.Use(middleware.JWTMiddlewareHandler(azureCertificates))
-		r.Get("/", authHandler.Echo)
-	})
+	// These endpoints require OAuth configuration.
+	if cfg.Azure.HasConfig() {
 
-	// OAuth 2.0 auth code flow using Azure.
-	router.Route("/auth", func(r chi.Router) {
-		r.Get("/login", authHandler.Authorize)
-		r.Get("/callback", authHandler.Callback)
-		r.Get("/echo", authHandler.Echo)
-	})
+		// Mount /user for authenticated requests.
+		// Requests must provide valid JWT tokens,
+		// otherwise they will be redirected to /auth/login.
+		router.Route("/user", func(r chi.Router) {
+			r.Use(middleware.JWTMiddlewareHandler(azureCertificates))
+			r.Get("/", authHandler.Echo)
+		})
+
+		// OAuth 2.0 auth code flow using Azure.
+		router.Route("/auth", func(r chi.Router) {
+			r.Get("/login", authHandler.Authorize)
+			r.Get("/callback", authHandler.Callback)
+			r.Get("/echo", authHandler.Echo)
+		})
+
+	} else {
+		log.Warnf("Endpoints /user and /auth are unavailable due to missing Azure configuration")
+	}
 
 	log.Infof("Ready to accept connections")
 
