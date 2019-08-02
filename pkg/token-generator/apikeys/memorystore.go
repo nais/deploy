@@ -1,27 +1,37 @@
 package apikeys
 
-var _ Source = &MemoryStore{}
+import (
+	"golang.org/x/crypto/bcrypt"
+)
 
-type MemoryStore struct {
+var _ Source = &memoryStore{}
+
+type memoryStore struct {
 	keys map[string]string
 }
 
-func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{
+func NewMemoryStore() *memoryStore {
+	return &memoryStore{
 		keys: make(map[string]string),
 	}
 }
 
-func (m *MemoryStore) Write(team, key string) error {
-	m.keys[team] = key
+func (m *memoryStore) Write(team, key string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(key), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	m.keys[team] = string(hash)
 	return nil
 }
 
-func (m *MemoryStore) Validate(team, key string) error {
+func (m *memoryStore) Validate(team, key string) error {
 	if _, ok := m.keys[team]; !ok {
 		return ErrInvalidTeamOrKey
 	}
-	if m.keys[team] != key {
+	err := bcrypt.CompareHashAndPassword([]byte(m.keys[team]), []byte(key))
+	if err != nil {
 		return ErrInvalidTeamOrKey
 	}
 	return nil

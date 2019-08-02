@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
 	"github.com/navikt/deployment/common/pkg/logging"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/pkg/token-generator/apikeys"
 	"github.com/navikt/deployment/pkg/token-generator/azure"
 	"github.com/navikt/deployment/pkg/token-generator/middleware"
@@ -32,6 +31,7 @@ func run() error {
 	var err error
 	var cfg *Config
 	var azureCertificates map[string]azure.CertificateList
+	var apiKeySource apikeys.Source
 
 	cfg, err = configuration()
 	if err != nil {
@@ -44,22 +44,30 @@ func run() error {
 
 	printConfig(redactKeys)
 
-	_, err = persistence.NewS3StorageBackend(cfg.S3)
-	if err != nil {
-		return fmt.Errorf("while setting up S3 backend: %s", err)
-	}
-
+	log.Infof("Configuring sources")
 	sources, err := configureSources(*cfg)
 	if err != nil {
 		return err
 	}
 
+	log.Infof("Configuring sinks")
 	sinks, err := configureSinks(*cfg)
 	if err != nil {
 		return err
 	}
 
-	apiKeySource := apikeys.NewMemoryStore()
+	if len(cfg.Storage.Bucketname) == 0 {
+		log.Infof("Configuring in-memory API key storage")
+		apiKeySource = apikeys.NewMemoryStore()
+	} else {
+		log.Infof("Configuring Google Cloud Storage for API keys")
+		apiKeySource, err = apikeys.NewGoogleCloudStore(cfg.Storage.Keyfile, cfg.Storage.Bucketname)
+		if err != nil {
+			return err
+		}
+	}
+
+	log.Infof("(fixme) write api key")
 	err = apiKeySource.Write("admin", "admin")
 	if err != nil {
 		return err
@@ -67,13 +75,13 @@ func run() error {
 	log.Infof("(fixme) API keys for this service is http basic auth `admin:admin`")
 
 	if cfg.Azure.HasConfig() {
-		log.Infof("Discover Microsoft signing certificates from %s...", cfg.Azure.DiscoveryURL)
+		log.Infof("Discover Microsoft signing certificates from %s", cfg.Azure.DiscoveryURL)
 		azureKeyDiscovery, err := azure.DiscoverURL(cfg.Azure.DiscoveryURL)
 		if err != nil {
 			return err
 		}
 
-		log.Infof("Decoding certificates...")
+		log.Infof("Decoding certificates for %d keys", len(azureKeyDiscovery.Keys))
 		azureCertificates, err = azureKeyDiscovery.Map()
 		if err != nil {
 			return err
@@ -95,6 +103,7 @@ func run() error {
 	// Base settings for all requests
 	router.Use(
 		chi_middleware.Logger,
+		chi_middleware.StripSlashes,
 		chi_middleware.Timeout(cfg.Http.Timeout),
 	)
 

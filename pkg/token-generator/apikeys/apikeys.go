@@ -14,4 +14,3 @@ type Source interface {
 	Validate(team, key string) error
 	Write(team, key string) error
 }
-

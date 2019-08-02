@@ -89,13 +89,18 @@ github:
 circleci:
   apitoken: 6d9627000451337133713371337a72b40c55a47f
 
-# for the user portal
+# optional; for the user portal.
 azure:
   tenant: 39273030-3046-400d-9ee4-34d916ecdc97
   clientid: 306b4e93-3987-4c45-ae38-d16e403e0144
   clientsecret: eW91d2lzaAo=
   redirecturl: http://localhost:8080/auth/callback
   discoveryurl: https://login.microsoftonline.com/39273030-3046-400d-9ee4-34d916ecdc97/discovery/keys
+
+# optional; for Google Cloud Storage backed API key storage.
+storage:
+  bucketname: your-gcs-bucket
+  keyfile: your-credentials.json
 ```
 
 The same configuration can be accessed using flags or environment variables:
@@ -119,16 +124,20 @@ Used as a configuration backend. Information about repository team access is sto
 
 ## Developing
 
-### Compiling hookd and deployd
+### Compiling
 [Install Golang 1.12 or newer](https://golang.org/doc/install).
 
-Check out the repository and run `make`. Dependencies will download automatically, and you should have two binary files at `hookd/hookd` and `deployd/deployd`.
+Check out the repository and run `make`. Dependencies will download automatically, and you should have three binary files at `hookd/hookd`, `deployd/deployd` and `token-generator`.
 
 ### External dependencies
 Start the external dependencies by running `docker-compose up`. This will start local Kafka and S3 servers.
 
 The S3 access and secret keys are `accesskey` and `secretkey` respectively. Conveniently, these are
 the default options for _hookd_ as well, so you don't have to configure anything.
+
+### token-generator
+* Set up a google cloud storage bucket
+* Create a credentials file
 
 ### Development on the frontend application
 To enable the frontend on your local instance, you need to configure hookd against the staging deployment application at Github.

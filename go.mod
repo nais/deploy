@@ -1,7 +1,7 @@
 module github.com/navikt/deployment
 
 require (
-	cloud.google.com/go v0.37.1 // indirect
+	cloud.google.com/go v0.37.1
 	contrib.go.opencensus.io/exporter/ocagent v0.4.9 // indirect
 	github.com/Azure/go-autorest v11.5.2+incompatible // indirect
 	github.com/DataDog/zstd v1.3.5 // indirect
@@ -23,8 +23,6 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gophercloud/gophercloud v0.0.0-20190322012505-7851cae1a132 // indirect
-	github.com/gorilla/securecookie v1.1.1
-	github.com/gorilla/sessions v1.2.0
 	github.com/gregjones/httpcache v0.0.0-20190212212710-3befbb6ad0cc // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
 	github.com/jjeffery/stringset v1.0.2
@@ -48,7 +46,9 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.2.2
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/oauth2 v0.0.0-20190226205417-e64efc72b421
+	google.golang.org/api v0.2.0
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/sakura-internet/go-rison.v3 v3.1.0
 	k8s.io/api v0.0.0-20190222213804-5cb15d344471 // release-1.13

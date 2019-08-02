@@ -9,7 +9,6 @@ import (
 	flag "github.com/spf13/pflag"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/spf13/viper"
 )
 
@@ -43,6 +42,11 @@ type Azure struct {
 	DiscoveryURL string `json:"discoveryurl"`
 }
 
+type Storage struct {
+	Keyfile    string `json:"keyfile"`
+	Bucketname string `json:"bucketname"`
+}
+
 func (a *Azure) HasConfig() bool {
 	return a.ClientID != "" &&
 		a.ClientSecret != "" &&
@@ -52,14 +56,14 @@ func (a *Azure) HasConfig() bool {
 }
 
 type Config struct {
-	Bind     string    `json:"bind"`
-	Url      string    `json:"url"`
-	S3       config.S3 `json:"s3"`
-	Log      Log       `json:"log"`
-	Github   Github    `json:"github"`
-	CircleCI CircleCI  `json:"circleci"`
-	Http     Http      `json:"http"`
-	Azure    Azure     `json:"azure"`
+	Bind     string   `json:"bind"`
+	Url      string   `json:"url"`
+	Storage  Storage  `json:"storage"`
+	Log      Log      `json:"log"`
+	Github   Github   `json:"github"`
+	CircleCI CircleCI `json:"circleci"`
+	Http     Http     `json:"http"`
+	Azure    Azure    `json:"azure"`
 }
 
 var (
@@ -92,12 +96,8 @@ func init() {
 	flag.String("log.format", "text", "Log format, either 'json' or 'text'.")
 	flag.String("log.level", "trace", "Logging verbosity level.")
 	flag.Duration("http.timeout", time.Second*30, "Total time allowed per incoming request.")
-	flag.String("s3.endpoint", "localhost:9000", "S3 endpoint for state storage.")
-	flag.String("s3.accesskey", "accesskey", "S3 access key.")
-	flag.String("s3.secretkey", "secretkey", "S3 secret key.")
-	flag.String("s3.bucketname", "deployments.nais.io/v2", "S3 bucket name.")
-	flag.String("s3.bucketlocation", "", "S3 bucket location.")
-	flag.Bool("s3.secure", false, "Use TLS for S3 connections.")
+	flag.String("storage.bucketname", "", "Google Cloud Storage bucket name.")
+	flag.String("storage.keyfile", "", "Path to JSON credentials file.")
 	flag.String("azure.clientid", "", "Azure clientid")
 	flag.String("azure.clientsecret", "", "Azure clientsecret")
 	flag.String("azure.tenant", "", "Azure tenant")
