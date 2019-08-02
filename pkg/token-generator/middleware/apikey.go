@@ -12,7 +12,7 @@ import (
 type middleware func(http.Handler) http.Handler
 
 var (
-	ErrInvalidBasicAuth = errors.New("invalid data in basic auth")
+	ErrInvalidBasicAuth = errors.New("access requires API keys")
 )
 
 func ApiKeyMiddlewareHandler(source apikeys.Source) middleware {

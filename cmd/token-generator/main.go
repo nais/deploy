@@ -98,12 +98,12 @@ func run() error {
 	// Mount /metrics endpoint with no authentication
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 
-	// Mount /tokens for API requests
-	// Requests must provide valid API keys.
-	router.Route("/tokens", func(r chi.Router) {
+	// Mount /api for API requests
+	// All requests must provide a valid API key.
+	router.Route("/api", func(r chi.Router) {
 		r.Use(middleware.ApiKeyMiddlewareHandler(apiKeySource))
 		r.Use(chi_middleware.AllowContentType("application/json"))
-		r.Post("/create", tokenIssuer.ServeHTTP)
+		r.Post("/v1/tokens/create", tokenIssuer.ServeHTTP)
 	})
 
 	// Mount /user for authenticated requests.
