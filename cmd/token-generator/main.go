@@ -90,6 +90,8 @@ func run() error {
 
 	tokenIssuer := server.New(issuer(*sources, *sinks))
 
+	apikeyIssuer := server.NewAPIKeyIssuer(apiKeySource)
+
 	authHandler := server.NewAuthHandler(
 		cfg.Azure.ClientID,
 		cfg.Azure.ClientSecret,
@@ -110,23 +112,24 @@ func run() error {
 	// Mount /metrics endpoint with no authentication
 	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 
-	// Mount /api for API requests
+	// Mount /api/v1/tokens for API requests
 	// All requests must provide a valid API key.
-	router.Route("/api", func(r chi.Router) {
+	router.Route("/api/v1/tokens", func(r chi.Router) {
 		r.Use(middleware.ApiKeyMiddlewareHandler(apiKeySource))
 		r.Use(chi_middleware.AllowContentType("application/json"))
-		r.Post("/v1/tokens/create", tokenIssuer.ServeHTTP)
+		r.Post("/", tokenIssuer.ServeHTTP)
 	})
 
 	// These endpoints require OAuth configuration.
 	if cfg.Azure.HasConfig() {
 
-		// Mount /user for authenticated requests.
+		// Mount /api/v1/apikeys for authenticated requests.
 		// Requests must provide valid JWT tokens,
 		// otherwise they will be redirected to /auth/login.
-		router.Route("/user", func(r chi.Router) {
+		router.Route("/api/v1/apikeys", func(r chi.Router) {
+			r.Use(chi_middleware.AllowContentType("application/json"))
 			r.Use(middleware.JWTMiddlewareHandler(azureCertificates))
-			r.Get("/", authHandler.Echo)
+			r.Post("/", apikeyIssuer.ServeHTTP)
 		})
 
 		// OAuth 2.0 auth code flow using Azure.
@@ -137,7 +140,7 @@ func run() error {
 		})
 
 	} else {
-		log.Warnf("Endpoints /user and /auth are unavailable due to missing Azure configuration")
+		log.Warnf("Endpoints /auth and /api/v1/apikeys are unavailable due to missing Azure configuration")
 	}
 
 	log.Infof("Ready to accept connections")
@@ -153,7 +156,7 @@ func configureSources(cfg Config) (*types.SourceFuncs, error) {
 	}
 
 	return &types.SourceFuncs{
-		"github": func(request types.Request) (*types.Credentials, error) {
+		"github": func(request types.TokenIssuerRequest) (*types.Credentials, error) {
 			return github_source.Credentials(github_source.InstallationTokenRequest{
 				Context:        request.Context,
 				InstallationID: cfg.Github.InstallationID,
@@ -168,7 +171,7 @@ func configureSources(cfg Config) (*types.SourceFuncs, error) {
 // Configure all credential sinks and return them.
 func configureSinks(cfg Config) (*types.SinkFuncs, error) {
 	return &types.SinkFuncs{
-		"circleci": func(request types.Request, credentials types.Credentials) error {
+		"circleci": func(request types.TokenIssuerRequest, credentials types.Credentials) error {
 			return circleci_sink.Sink(request, credentials, cfg.CircleCI.Apitoken, http.DefaultClient)
 		},
 	}, nil
@@ -185,7 +188,7 @@ func configureSinks(cfg Config) (*types.SinkFuncs, error) {
 //
 // The caller will receive a generic error message while the true error is logged.
 func issuer(sources types.SourceFuncs, sinks types.SinkFuncs) server.Issuer {
-	return func(request types.Request) error {
+	return func(request types.TokenIssuerRequest) error {
 		var credentials = make([]types.Credentials, 0)
 		var logger = log.WithFields(log.Fields{
 			"correlationID": request.ID,

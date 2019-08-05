@@ -1,8 +1,8 @@
 package types
 
-type SourceFunc func(Request) (*Credentials, error)
+type SourceFunc func(TokenIssuerRequest) (*Credentials, error)
 
-type SinkFunc func(Request, Credentials) error
+type SinkFunc func(TokenIssuerRequest, Credentials) error
 
 type SourceFuncs map[Source]SourceFunc
 

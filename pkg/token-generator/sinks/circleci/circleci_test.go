@@ -54,7 +54,7 @@ func TestSink(t *testing.T) {
 		}
 	})
 
-	request := types.Request{
+	request := types.TokenIssuerRequest{
 		Repository: repository,
 		Context:    context.Background(),
 	}

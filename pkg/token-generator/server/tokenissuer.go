@@ -10,7 +10,7 @@ import (
 )
 
 // Function that will issue tokens to remote services based on a Request payload.
-type Issuer func(types.Request) error
+type Issuer func(types.TokenIssuerRequest) error
 
 type TokenIssuerHandler struct {
 	issuer Issuer
@@ -24,7 +24,7 @@ const (
 // The Handler's issuer callback function will be called upon each request. This function must be thread-safe.
 // Token issuing is synchronous, so when this function returns 201, clients can proceed with their task.
 func (h *TokenIssuerHandler) ServeHTTP(response http.ResponseWriter, httpRequest *http.Request) {
-	request := types.Request{}
+	request := types.TokenIssuerRequest{}
 
 	err := render.Bind(httpRequest, &request)
 	if err != nil {

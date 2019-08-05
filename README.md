@@ -43,7 +43,7 @@ token-generator is a daemon that can issue credentials out-of-band. For example:
 
 #### Overview
 ```
-> POST /api/v1/tokens/create
+> POST /api/v1/tokens
 > Authorization: Basic YWRtaW46YWRtaW4=
 > {
 >     "repository": "navikt/deployment",
