@@ -32,7 +32,7 @@ func JWTMiddlewareHandler(certificates map[string]azure.CertificateList) middlew
 
 			// Parse and validate the JSON Web Token.
 			// Any errors and the client must log in again.
-			token, err := jwt.Parse(sess.Token.AccessToken, validator)
+			token, err := jwt.ParseWithClaims(sess.Token.AccessToken, &sess.Claims, validator)
 
 			if err != nil {
 				log.Infof("invalid token: %s", err)

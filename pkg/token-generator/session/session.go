@@ -23,12 +23,19 @@ const (
 	sessionCookie = "X-Token-Generator-Session"
 )
 
+// Contents of the JWT
+type Claims struct {
+	jwt.MapClaims
+	UPN string `json:"upn"`
+}
+
 // Contents of the session object.
 type Session struct {
-	id    string
-	Token *oauth2.Token
-	JWT   *jwt.Token
-	State string
+	id     string
+	Token  *oauth2.Token
+	JWT    *jwt.Token
+	Claims Claims
+	State  string
 }
 
 // Generate a unique session ID if not already exists,

@@ -38,7 +38,6 @@ type Azure struct {
 	ClientSecret string `json:"clientsecret"`
 	Tenant       string `json:"tenant"`
 	RedirectURL  string `json:"redirecturl"`
-	Resource     string `json:"resource"`
 	DiscoveryURL string `json:"discoveryurl"`
 }
 
@@ -102,7 +101,6 @@ func init() {
 	flag.String("azure.clientsecret", "", "Azure clientsecret")
 	flag.String("azure.tenant", "", "Azure tenant")
 	flag.String("azure.redirecturl", "", "Azure redirecturl")
-	flag.String("azure.resource", "", "Azure resource")
 	flag.String("azure.discoveryurl", "", "Azure discoveryurl")
 }
 

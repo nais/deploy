@@ -22,27 +22,11 @@ var (
 	ErrStateNoMatch = errors.New("the 'state' parameter doesn't match, maybe you are a victim of cross-site request forgery")
 )
 
-func azureAuthorizeURL(tenant, endpoint string) string {
-	return fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/%s", tenant, endpoint)
-}
-
-func NewAuthHandler(clientID, clientSecret, tenant, redirectURL, resource string) *authHandler {
-	handler := &authHandler{
-		config: oauth2.Config{
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-			RedirectURL:  redirectURL,
-			Endpoint: oauth2.Endpoint{
-				AuthURL:   azureAuthorizeURL(tenant, "authorize"),
-				TokenURL:  azureAuthorizeURL(tenant, "token"),
-				AuthStyle: oauth2.AuthStyleInParams,
-			},
-		},
+func NewAuthHandler(config oauth2.Config) *authHandler {
+	return &authHandler{
+		config:         config,
+		authCodeOption: oauth2.SetAuthURLParam("resource", config.ClientID),
 	}
-
-	handler.authCodeOption = oauth2.SetAuthURLParam("resource", resource)
-
-	return handler
 }
 
 // Authorize redirects a client to sign in with their Microsoft account

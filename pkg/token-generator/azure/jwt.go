@@ -38,3 +38,6 @@ func JWTValidator(certificates map[string]CertificateList) jwt.Keyfunc {
 	}
 }
 
+func AuthorizeURL(tenant, endpoint string) string {
+	return fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/%s", tenant, endpoint)
+}

@@ -88,17 +88,24 @@ func run() error {
 		}
 	}
 
-	tokenIssuer := server.New(issuer(*sources, *sinks))
-
-	apikeyIssuer := server.NewAPIKeyIssuer(apiKeySource)
-
-	authHandler := server.NewAuthHandler(
+	oauthUserConfig := azure.NewUserConfig(
 		cfg.Azure.ClientID,
 		cfg.Azure.ClientSecret,
 		cfg.Azure.Tenant,
 		cfg.Azure.RedirectURL,
-		cfg.Azure.Resource,
 	)
+
+	oauthServerConfig := azure.NewApplicationConfig(
+		cfg.Azure.ClientID,
+		cfg.Azure.ClientSecret,
+		cfg.Azure.Tenant,
+	)
+
+	tokenIssuer := server.New(issuer(*sources, *sinks))
+
+	apikeyIssuer := server.NewAPIKeyIssuer(apiKeySource, oauthServerConfig)
+
+	authHandler := server.NewAuthHandler(oauthUserConfig)
 
 	router := chi.NewRouter()
 

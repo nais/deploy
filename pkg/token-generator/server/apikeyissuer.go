@@ -7,13 +7,15 @@ import (
 	"github.com/navikt/deployment/pkg/token-generator/apikeys"
 	"github.com/navikt/deployment/pkg/token-generator/httperr"
 	"github.com/navikt/deployment/pkg/token-generator/types"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 const (
+	// amount of entropy in generated api keys
 	apiKeyEntropyBytes = 32
 )
 
-func NewAPIKeyIssuer(source apikeys.Source) http.HandlerFunc {
+func NewAPIKeyIssuer(source apikeys.Source, config clientcredentials.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		request := types.APIKeyRequest{}
 
@@ -22,6 +24,12 @@ func NewAPIKeyIssuer(source apikeys.Source) http.HandlerFunc {
 			render.Render(w, r, httperr.ErrInvalidRequest(err))
 			return
 		}
+
+		// FIXME: validate that user is admin of the team
+		// sess := session.GetSession(r)
+		// client := config.Client(r.Context())
+		// graph := azure.NewGraphAPI(client)
+		// groups, err := graph.UserMemberOf(sess.Claims.UPN)
 
 		apikey, err := apikeys.New(apiKeyEntropyBytes)
 		if err != nil {
