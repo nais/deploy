@@ -72,7 +72,7 @@ func (h *authHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/auth/echo", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/api/v1/apikeys", http.StatusTemporaryRedirect)
 }
 
 // Echo is a debug function
