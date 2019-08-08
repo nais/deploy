@@ -10,12 +10,12 @@ import (
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/pkg/token-generator/apikeys"
 	"github.com/navikt/deployment/pkg/token-generator/azure"
-	"github.com/navikt/deployment/pkg/token-generator/metrics"
 	"github.com/navikt/deployment/pkg/token-generator/middleware"
 	"github.com/navikt/deployment/pkg/token-generator/server"
 	"github.com/navikt/deployment/pkg/token-generator/sinks/circleci"
 	"github.com/navikt/deployment/pkg/token-generator/sources/github"
 	"github.com/navikt/deployment/pkg/token-generator/types"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -118,7 +118,7 @@ func run() error {
 	)
 
 	// Mount /metrics endpoint with no authentication
-	router.Get("/metrics", metrics.Handler().ServeHTTP)
+	router.Get("/metrics", promhttp.Handler().ServeHTTP)
 
 	// Mount /api/v1/tokens for API requests
 	// All requests must provide a valid API key.
