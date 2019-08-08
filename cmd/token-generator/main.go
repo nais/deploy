@@ -111,6 +111,7 @@ func run() error {
 
 	// Base settings for all requests
 	router.Use(
+		middleware.PrometheusMiddlewareHandler("token-generator"),
 		chi_middleware.Logger,
 		chi_middleware.StripSlashes,
 		chi_middleware.Timeout(cfg.Http.Timeout),
