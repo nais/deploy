@@ -1,19 +1,18 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/go-chi/render"
 	"github.com/navikt/deployment/pkg/token-generator/azure"
+	"github.com/navikt/deployment/pkg/token-generator/httperr"
 	"github.com/navikt/deployment/pkg/token-generator/session"
-	log "github.com/sirupsen/logrus"
 )
 
-const (
-	authorizeEndpoint = "/auth/login"
-)
-
-// Return a middleware that will redirect the client if not logged in via OAuth2.
+// Middleware that decodes a JWT token, validates it, and
+// grants access only if it is valid.
 func JWTMiddlewareHandler(certificates map[string]azure.CertificateList) middleware {
 
 	// Validator function for the token. We pass the list of
@@ -23,20 +22,18 @@ func JWTMiddlewareHandler(certificates map[string]azure.CertificateList) middlew
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 
-			// If the client doesn't have a session cookie, they must log in.
+			// Check if the user has a token in their session.
 			sess := session.GetSession(r)
 			if sess.Token == nil {
-				http.Redirect(w, r, authorizeEndpoint, http.StatusTemporaryRedirect)
+				render.Render(w, r, httperr.ErrUnauthorized(fmt.Errorf("no token")))
 				return
 			}
 
 			// Parse and validate the JSON Web Token.
-			// Any errors and the client must log in again.
 			token, err := jwt.ParseWithClaims(sess.Token.AccessToken, &sess.Claims, validator)
 
 			if err != nil {
-				log.Infof("invalid token: %s", err)
-				http.Redirect(w, r, authorizeEndpoint, http.StatusTemporaryRedirect)
+				render.Render(w, r, httperr.ErrUnauthorized(fmt.Errorf("invalid token: %s", err)))
 				return
 			}
 

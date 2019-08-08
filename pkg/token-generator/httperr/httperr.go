@@ -25,6 +25,15 @@ func (e *ErrResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func ErrUnauthorized(err error) render.Renderer {
+	return &ErrResponse{
+		Err:            err,
+		HTTPStatusCode: http.StatusUnauthorized,
+		StatusText:     "credentials required",
+		ErrorText:      err.Error(),
+	}
+}
+
 func ErrForbidden(err error) render.Renderer {
 	return &ErrResponse{
 		Err:            err,
