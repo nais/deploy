@@ -11,8 +11,11 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Build and publish Docker image
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         version=$(./version.sh)
         image=docker.pkg.github.com/navikt/deployment/deployment:${version}
+        docker login -u navikt -p $GITHUB_TOKEN
         docker build --tag $image .
         docker push $image
