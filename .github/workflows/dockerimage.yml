@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Build and publish Docker image
 
 on: [push]
 
@@ -10,5 +10,9 @@ jobs:
  
     steps:
     - uses: actions/checkout@v1
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+    - name: Build and publish Docker image
+      run: |
+        version=$(./version.sh)
+        image=docker.pkg.github.com/navikt/deployment/deployment:${version}
+        docker build --tag $image .
+        docker push $image
