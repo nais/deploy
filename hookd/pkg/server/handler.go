@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
@@ -68,7 +67,7 @@ func (h *DeploymentHandler) validateTeamAccess(req *types.DeploymentRequest) err
 	}
 
 	for _, allowedTeam := range allowedTeams {
-		if strings.ToLower(allowedTeam) == strings.ToLower(team) {
+		if allowedTeam == team {
 			return nil
 		}
 	}
