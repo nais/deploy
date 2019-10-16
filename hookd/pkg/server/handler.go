@@ -1,8 +1,14 @@
 package server
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/navikt/deployment/hookd/pkg/github"
+	"hash"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -14,19 +20,164 @@ import (
 )
 
 const (
-	webhookTypeDeployment = "deployment"
+	SignatureHeader         = "X-NAIS-Signature"
+	FailedAuthenticationMsg = "failed authentication"
 )
 
 type DeploymentHandler struct {
-	log                   *log.Entry
-	SecretToken           string
-	TeamRepositoryStorage persistence.TeamRepositoryStorage
-	DeploymentStatus      chan types.DeploymentStatus
-	DeploymentRequest     chan types.DeploymentRequest
+	log               *log.Entry
+	SecretToken       string
+	APIKeyStorage     persistence.ApiKeyStorage
+	DeploymentStatus  chan types.DeploymentStatus
+	DeploymentRequest chan types.DeploymentRequest
+	DeploymentCreator func(string) (*gh.Deployment, error)
+}
+
+type DeploymentRequest struct {
+	Resources  json.RawMessage `json:"resources,omitempty"`
+	Team       string          `json:"team,omitempty"`
+	Cluster    string          `json:"cluster,omitempty"`
+	Owner      string          `json:"owner,omitempty"`
+	Repository string          `json:"repository,omitempty"`
+}
+
+type DeploymentResponse struct {
+	GithubDeployment *gh.Deployment `json:"githubDeployment,omitempty"`
+	CorrelationID    string         `json:"correlationID,omitempty"`
+	Message          string         `json:"message,omitempty"`
+}
+
+func (r *DeploymentResponse) render(w io.Writer) {
+	json.NewEncoder(w).Encode(r)
+}
+
+func (r *DeploymentRequest) validate() error {
+
+	if len(r.Owner) == 0 {
+		return fmt.Errorf("no repository owner specified")
+	}
+
+	if len(r.Repository) == 0 {
+		return fmt.Errorf("no repository specified")
+	}
+
+	if len(r.Cluster) == 0 {
+		return fmt.Errorf("no cluster specified")
+	}
+
+	if len(r.Team) == 0 {
+		return fmt.Errorf("no team specified")
+	}
+
+	if len(r.Resources) == 0 {
+		return fmt.Errorf("no resources specified")
+	}
+
+	return nil
 }
 
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	code, err := h.handler(r)
+	var err error
+	var deploymentResponse DeploymentResponse
+	deliveryID, err := uuid.NewRandom()
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		deploymentResponse.Message = fmt.Sprintf("unable to create correlation id: %s", err)
+		deploymentResponse.render(w)
+		return
+	}
+
+	deploymentResponse.CorrelationID = deliveryID.String()
+
+	data, err := ioutil.ReadAll(r.Body)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		deploymentResponse.Message = fmt.Sprintf("unable to read request body: %s", err)
+		deploymentResponse.render(w)
+		return
+	}
+
+	h.log = log.WithFields(log.Fields{
+		types.LogFieldDeliveryID: deliveryID,
+	})
+
+	h.log.Infof("Received %s request on %s", r.Method, r.RequestURI)
+
+	deploymentRequest := &DeploymentRequest{}
+	if err := json.Unmarshal(data, deploymentRequest); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = fmt.Sprintf("unable to unmarshal request body: %s", err)
+		deploymentResponse.render(w)
+		return
+	}
+
+	token, err := h.APIKeyStorage.Read(deploymentRequest.Team)
+
+	if err != nil {
+		if h.APIKeyStorage.IsErrNotFound(err) {
+			w.WriteHeader(http.StatusForbidden)
+			deploymentResponse.Message = FailedAuthenticationMsg
+			deploymentResponse.render(w)
+			return
+		}
+
+		w.WriteHeader(http.StatusServiceUnavailable)
+		deploymentResponse.Message = "unable to fetch team apikey from storage"
+		deploymentResponse.render(w)
+		h.log.Errorf("unable to fetch team apikey from storage: %s", err)
+		return
+	}
+
+	signature := r.Header.Get(SignatureHeader)
+
+	if !validateMAC(data, []byte(signature), token) {
+		w.WriteHeader(http.StatusForbidden)
+		deploymentResponse.Message = FailedAuthenticationMsg
+		deploymentResponse.render(w)
+		return
+	}
+
+	deploymentResponse.GithubDeployment, err = h.DeploymentCreator(deploymentRequest.Repository)
+
+	if err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		deploymentResponse.Message = "unable to create GitHub deployment"
+		deploymentResponse.render(w)
+		h.log.Errorf("unable to create GitHub deployment: %s", err)
+		return
+	}
+
+	DeploymentRequestFromEvent()
+
+	//if err != nil {
+	//	return http.StatusForbidden, err
+	//}
+	//
+	//deploymentEvent := &gh.DeploymentEvent{}
+	//
+	//h.log = h.log.WithFields(deploymentRequest.LogFields())
+	//
+	//if err != nil {
+	//	return http.StatusBadRequest, err
+	//}
+	//
+	//if len(deploymentRequest.GetPayloadSpec().GetTeam()) == 0 {
+	//	err := fmt.Errorf("no team was specified in deployment payload")
+	//	h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
+	//	return http.StatusBadRequest, err
+	//}
+	//
+	//if err := h.validateTeamAccess(deploymentRequest); err != nil {
+	//	h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
+	//	return http.StatusForbidden, err
+	//}
+	//
+	//h.log.Infof("Validation successful; dispatching deployment")
+	//h.DeploymentRequest <- *deploymentRequest
+
+	code, err := http.StatusCreated, nil
 
 	metrics.WebhookRequest(code)
 
@@ -49,6 +200,10 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.log.Errorf("Additionally, while responding to HTTP request: %s", err)
+}
+
+func getTeamToken(s string) (, interface{}) {
+
 }
 
 func (h *DeploymentHandler) validateTeamAccess(req *types.DeploymentRequest) error {
@@ -78,7 +233,12 @@ func (h *DeploymentHandler) validateTeamAccess(req *types.DeploymentRequest) err
 func (h *DeploymentHandler) handler(r *http.Request) (int, error) {
 	var err error
 
-	deliveryID := r.Header.Get("X-GitHub-Delivery")
+	deliveryID, err := uuid.NewRandom()
+
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("unable to create correlation id: %s", err)
+	}
+
 	eventType := r.Header.Get("X-GitHub-Event")
 	sig := r.Header.Get("X-Hub-Signature")
 
@@ -131,4 +291,17 @@ func (h *DeploymentHandler) handler(r *http.Request) (int, error) {
 	h.DeploymentRequest <- *deploymentRequest
 
 	return http.StatusCreated, nil
+}
+
+// genMAC generates the HMAC signature for a message provided the secret key using SHA256
+func genMAC(message, key []byte) []byte {
+	mac := hmac.New(sha256.New, key)
+	mac.Write(message)
+	return mac.Sum(nil)
+}
+
+// validateMAC reports whether messageMAC is a valid HMAC tag for message.
+func validateMAC(message, messageMAC, key []byte, ) bool {
+	expectedMAC := genMAC(message, key)
+	return hmac.Equal(messageMAC, expectedMAC)
 }
