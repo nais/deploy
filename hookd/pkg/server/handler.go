@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	"github.com/navikt/deployment/hookd/pkg/github"
-	"hash"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -79,7 +77,11 @@ func (r *DeploymentRequest) validate() error {
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var deploymentResponse DeploymentResponse
-	deliveryID, err := uuid.NewRandom()
+	correlationID, err := uuid.NewRandom()
+
+	h.log = log.WithFields(log.Fields{
+		types.LogFieldDeliveryID: correlationID,
+	})
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -88,7 +90,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deploymentResponse.CorrelationID = deliveryID.String()
+	deploymentResponse.CorrelationID = correlationID.String()
 
 	data, err := ioutil.ReadAll(r.Body)
 
@@ -98,10 +100,6 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		deploymentResponse.render(w)
 		return
 	}
-
-	h.log = log.WithFields(log.Fields{
-		types.LogFieldDeliveryID: deliveryID,
-	})
 
 	h.log.Infof("Received %s request on %s", r.Method, r.RequestURI)
 
@@ -139,7 +137,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deploymentResponse.GithubDeployment, err = h.DeploymentCreator(deploymentRequest.Repository)
+	deployment, err := h.DeploymentCreator(deploymentRequest.Repository)
+	deploymentResponse.GithubDeployment = deployment
 
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -149,8 +148,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	DeploymentRequestFromEvent()
-
+	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deployment, correlationID.String())
 	//if err != nil {
 	//	return http.StatusForbidden, err
 	//}
@@ -202,95 +200,10 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.log.Errorf("Additionally, while responding to HTTP request: %s", err)
 }
 
-func getTeamToken(s string) (, interface{}) {
-
-}
-
-func (h *DeploymentHandler) validateTeamAccess(req *types.DeploymentRequest) error {
-	fullName := req.GetDeployment().GetRepository().FullName()
-	allowedTeams, err := h.TeamRepositoryStorage.Read(fullName)
-	if err != nil {
-		if h.TeamRepositoryStorage.IsErrNotFound(err) {
-			return fmt.Errorf("repository '%s' is not registered", fullName)
-		}
-		return fmt.Errorf("unable to check if repository has team access: %s", err)
-	}
-
-	team := req.GetPayloadSpec().GetTeam()
-	if len(team) == 0 {
-		return fmt.Errorf("no team was specified in deployment payload")
-	}
-
-	for _, allowedTeam := range allowedTeams {
-		if allowedTeam == team {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("the repository '%s' does not have access to deploy as team '%s'", fullName, team)
-}
-
-func (h *DeploymentHandler) handler(r *http.Request) (int, error) {
-	var err error
-
-	deliveryID, err := uuid.NewRandom()
-
-	if err != nil {
-		return http.StatusInternalServerError, fmt.Errorf("unable to create correlation id: %s", err)
-	}
-
-	eventType := r.Header.Get("X-GitHub-Event")
-	sig := r.Header.Get("X-Hub-Signature")
-
-	h.log = log.WithFields(log.Fields{
-		types.LogFieldDeliveryID: deliveryID,
-		types.LogFieldEventType:  eventType,
-	})
-
-	h.log.Infof("Received %s request on %s", r.Method, r.RequestURI)
-
-	if eventType != webhookTypeDeployment {
-		return http.StatusNoContent, fmt.Errorf("ignoring unsupported event type '%s'", eventType)
-	}
-
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-
-	err = gh.ValidateSignature(sig, data, []byte(h.SecretToken))
-	if err != nil {
-		return http.StatusForbidden, err
-	}
-
-	deploymentEvent := &gh.DeploymentEvent{}
-	if err := json.Unmarshal(data, deploymentEvent); err != nil {
-		return http.StatusBadRequest, err
-	}
-
-	deploymentRequest, err := DeploymentRequest(deploymentEvent, deliveryID)
-
-	h.log = h.log.WithFields(deploymentRequest.LogFields())
-
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
-
-	if len(deploymentRequest.GetPayloadSpec().GetTeam()) == 0 {
-		err := fmt.Errorf("no team was specified in deployment payload")
-		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
-		return http.StatusBadRequest, err
-	}
-
-	if err := h.validateTeamAccess(deploymentRequest); err != nil {
-		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
-		return http.StatusForbidden, err
-	}
-
-	h.log.Infof("Validation successful; dispatching deployment")
-	h.DeploymentRequest <- *deploymentRequest
-
-	return http.StatusCreated, nil
+// validateMAC reports whether messageMAC is a valid HMAC tag for message.
+func validateMAC(message, messageMAC, key []byte) bool {
+	expectedMAC := genMAC(message, key)
+	return hmac.Equal(messageMAC, expectedMAC)
 }
 
 // genMAC generates the HMAC signature for a message provided the secret key using SHA256
@@ -298,10 +211,4 @@ func genMAC(message, key []byte) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write(message)
 	return mac.Sum(nil)
-}
-
-// validateMAC reports whether messageMAC is a valid HMAC tag for message.
-func validateMAC(message, messageMAC, key []byte, ) bool {
-	expectedMAC := genMAC(message, key)
-	return hmac.Equal(messageMAC, expectedMAC)
 }
