@@ -19,6 +19,10 @@ var (
 	deploymentTimeout = time.Second * 300
 )
 
+const (
+	DefaultTeamclientNamespace = "default"
+)
+
 func matchesCluster(req deployment.DeploymentRequest, cluster string) error {
 	if req.GetCluster() != cluster {
 		return ErrNotMyCluster
@@ -100,7 +104,7 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 	p := req.GetPayloadSpec()
 	logger.Data["team"] = p.Team
 
-	teamClient, err := kube.TeamClient(p.Team)
+	teamClient, err := kube.TeamClient(p.Team, DefaultTeamclientNamespace)
 	if err != nil {
 		deployStatus <- deployment.NewErrorStatus(*req, err)
 		return
