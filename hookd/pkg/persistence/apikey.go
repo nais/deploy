@@ -1,14 +1,7 @@
 package persistence
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
-
-	"github.com/minio/minio-go"
-	"github.com/navikt/deployment/hookd/pkg/config"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -16,10 +9,20 @@ var (
 )
 
 const (
-	notFoundMessage = "The specified key does not exist."
+	NotFoundMessage = "The specified key does not exist."
 )
 
 type ApiKeyStorage interface {
 	Read(team string) ([]byte, error)
 	IsErrNotFound(err error) bool
+}
+
+type MockApiKeyStorage struct{}
+
+func (a *MockApiKeyStorage) Read(team string) ([]byte, error) {
+	return []byte("asdf"), nil
+}
+
+func (a *MockApiKeyStorage) IsErrNotFound(err error) bool {
+	return true
 }

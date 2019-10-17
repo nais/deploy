@@ -108,7 +108,7 @@ func (h *GithubDeploymentHandler) handler(r *http.Request) (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	deploymentRequest, err := DeploymentRequest(deploymentEvent, deliveryID)
+	deploymentRequest, err := DeploymentRequestFromEvent(deploymentEvent, deliveryID)
 
 	h.log = h.log.WithFields(deploymentRequest.LogFields())
 

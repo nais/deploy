@@ -19,11 +19,9 @@ var (
 // The event is validated, and if any fields are missing, an error is returned.
 // Any error from this function should be considered user error.
 func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, deliveryID string) (*types.DeploymentRequest, error) {
-
-	resources, err := types.PayloadFromJSON(r.Resources)
-	err = json.Unmarshal(deployment.Payload, resources) //TODO does this make sense?
-	if err != nil {
-		return nil, fmt.Errorf("resources are invalid: %s", err)
+	p := &types.Payload{}
+	if err := json.Unmarshal(r.Resources, p.Kubernetes.Resources); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal kubernetes resources: %s", err)
 	}
 
 	now := time.Now()
@@ -35,7 +33,7 @@ func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, d
 			},
 			DeploymentID: deployment.GetID(),
 		},
-		PayloadSpec: resources,
+		PayloadSpec: p,
 		DeliveryID:  deliveryID,
 		Cluster:     r.Cluster,
 		Timestamp:   now.Unix(),

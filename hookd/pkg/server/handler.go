@@ -12,7 +12,6 @@ import (
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,7 +27,7 @@ type DeploymentHandler struct {
 	APIKeyStorage     persistence.ApiKeyStorage
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
-	DeploymentCreator func(string) (*gh.Deployment, error)
+	DeploymentCreator func(DeploymentRequest) (*gh.Deployment, error)
 }
 
 type DeploymentRequest struct {
@@ -37,6 +36,7 @@ type DeploymentRequest struct {
 	Cluster    string          `json:"cluster,omitempty"`
 	Owner      string          `json:"owner,omitempty"`
 	Repository string          `json:"repository,omitempty"`
+	Ref        string          `json:"ref,omitempty"`
 }
 
 type DeploymentResponse struct {
@@ -111,6 +111,13 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := deploymentRequest.validate(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = fmt.Sprintf("invalid deployment request: %s", err)
+		deploymentResponse.render(w)
+		return
+	}
+
 	token, err := h.APIKeyStorage.Read(deploymentRequest.Team)
 
 	if err != nil {
@@ -137,7 +144,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deployment, err := h.DeploymentCreator(deploymentRequest.Repository)
+	deployment, err := h.DeploymentCreator(*deploymentRequest)
 	deploymentResponse.GithubDeployment = deployment
 
 	if err != nil {
@@ -149,55 +156,19 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deployment, correlationID.String())
-	//if err != nil {
-	//	return http.StatusForbidden, err
-	//}
-	//
-	//deploymentEvent := &gh.DeploymentEvent{}
-	//
-	//h.log = h.log.WithFields(deploymentRequest.LogFields())
-	//
-	//if err != nil {
-	//	return http.StatusBadRequest, err
-	//}
-	//
-	//if len(deploymentRequest.GetPayloadSpec().GetTeam()) == 0 {
-	//	err := fmt.Errorf("no team was specified in deployment payload")
-	//	h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
-	//	return http.StatusBadRequest, err
-	//}
-	//
-	//if err := h.validateTeamAccess(deploymentRequest); err != nil {
-	//	h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
-	//	return http.StatusForbidden, err
-	//}
-	//
-	//h.log.Infof("Validation successful; dispatching deployment")
-	//h.DeploymentRequest <- *deploymentRequest
-
-	code, err := http.StatusCreated, nil
-
-	metrics.WebhookRequest(code)
-
-	w.WriteHeader(code)
-
-	if err == nil {
-		h.log.Infof("Request finished successfully with status code %d", code)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = "unable to create deployment message"
+		deploymentResponse.render(w)
+		h.log.Errorf("unable to create deployment message: %s", err)
 		return
 	}
 
-	if code < 400 {
-		h.log.Infof("Request finished successfully with status code %d: %s", code, err)
-		return
-	}
+	h.DeploymentRequest <- *deployMsg
 
-	h.log.Errorf("Request failed with status code %d: %s", code, err)
-	_, err = w.Write([]byte(err.Error()))
-	if err == nil {
-		return
-	}
-
-	h.log.Errorf("Additionally, while responding to HTTP request: %s", err)
+	w.WriteHeader(http.StatusCreated)
+	deploymentResponse.render(w)
+	h.log.Infof("created deployment message to cluster %s for repo %s/%s", deploymentRequest.Cluster, deploymentRequest.Owner, deploymentRequest.Repository)
 }
 
 // validateMAC reports whether messageMAC is a valid HMAC tag for message.
