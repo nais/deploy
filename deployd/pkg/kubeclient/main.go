@@ -20,7 +20,6 @@ import (
 )
 
 const (
-	Namespace           = "default"
 	ServiceUserTemplate = "serviceuser-%s"
 	ClusterName         = "kubernetes"
 )
@@ -35,7 +34,7 @@ type Client struct {
 }
 
 type TeamClientProvider interface {
-	TeamClient(team string) (TeamClient, error)
+	TeamClient(team, namespace string, autoCreateServiceAccount bool) (TeamClient, error)
 }
 
 func New() (*Client, error) {
@@ -55,7 +54,7 @@ func New() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
+func (c *Client) teamConfig(team, namespace string, autoCreateServiceAccount bool) (*clientcmdapi.Config, error) {
 	serviceAccountName := serviceAccountName(team)
 
 	// Get service account for this team. If it does not exist, create it.
@@ -64,14 +63,16 @@ func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
 	//
 	// Kubernetes needs some time to generate the service account token,
 	// so we insert a small pause to wait for it.
-	_, err := createServiceAccount(c.Base, serviceAccountName)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return nil, fmt.Errorf("while generating service account: %s", err)
-	} else if err == nil {
-		time.Sleep(tokenGenerationTimeout)
+	if autoCreateServiceAccount {
+		_, err := createServiceAccount(c.Base, serviceAccountName, namespace)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return nil, fmt.Errorf("while generating service account: %s", err)
+		} else if err == nil {
+			time.Sleep(tokenGenerationTimeout)
+		}
 	}
 
-	serviceAccount, err := serviceAccount(c.Base, serviceAccountName)
+	serviceAccount, err := serviceAccount(c.Base, serviceAccountName, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("while retrieving service account: %s", err)
 	}
@@ -93,7 +94,7 @@ func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
 		CertificateAuthorityData: c.Config.CAData,
 	}
 	teamConfig.Contexts[ClusterName] = &clientcmdapi.Context{
-		Namespace: Namespace,
+		Namespace: namespace,
 		AuthInfo:  serviceAccountName,
 		Cluster:   ClusterName,
 	}
@@ -104,8 +105,8 @@ func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
 
 // TeamClient returns a Kubernetes REST client tailored for a specific team.
 // The user is the `serviceuser-TEAM` in the `default` namespace.
-func (c *Client) TeamClient(team string) (TeamClient, error) {
-	config, err := c.teamConfig(team)
+func (c *Client) TeamClient(team, namespace string, autoCreateServiceAccount bool) (TeamClient, error) {
+	config, err := c.teamConfig(team, namespace, autoCreateServiceAccount)
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +160,9 @@ func serviceAccountName(team string) string {
 	return fmt.Sprintf(ServiceUserTemplate, team)
 }
 
-func serviceAccount(client kubernetes.Interface, serviceAccountName string) (*v1.ServiceAccount, error) {
-	log.Tracef("Attempting to retrieve service account '%s' in namespace %s", serviceAccountName, Namespace)
-	return client.CoreV1().ServiceAccounts(Namespace).Get(serviceAccountName, metav1.GetOptions{})
+func serviceAccount(client kubernetes.Interface, serviceAccountName, namespace string) (*v1.ServiceAccount, error) {
+	log.Tracef("Attempting to retrieve service account '%s' in namespace %s", serviceAccountName, namespace)
+	return client.CoreV1().ServiceAccounts(namespace).Get(serviceAccountName, metav1.GetOptions{})
 }
 
 func serviceAccountSecret(client kubernetes.Interface, serviceAccount v1.ServiceAccount) (*v1.Secret, error) {
@@ -169,19 +170,19 @@ func serviceAccountSecret(client kubernetes.Interface, serviceAccount v1.Service
 		return nil, fmt.Errorf("no secret associated with service account '%s'", serviceAccount.Name)
 	}
 	secretRef := serviceAccount.Secrets[0]
-	log.Tracef("Attempting to retrieve secret '%s' in namespace %s", secretRef.Name, Namespace)
-	return client.CoreV1().Secrets(Namespace).Get(secretRef.Name, metav1.GetOptions{})
+	log.Tracef("Attempting to retrieve secret '%s' in namespace %s", secretRef.Name, serviceAccount.Namespace)
+	return client.CoreV1().Secrets(serviceAccount.Namespace).Get(secretRef.Name, metav1.GetOptions{})
 }
 
-func createServiceAccount(client kubernetes.Interface, serviceAccountName string) (*v1.ServiceAccount, error) {
-	log.Tracef("Attempting to create service account '%s' in namespace %s", serviceAccountName, Namespace)
+func createServiceAccount(client kubernetes.Interface, serviceAccountName, namespace string) (*v1.ServiceAccount, error) {
+	log.Tracef("Attempting to create service account '%s' in namespace %s", serviceAccountName, namespace)
 	serviceAccount := v1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceAccountName,
-			Namespace: Namespace,
+			Namespace: namespace,
 		},
 	}
-	return client.CoreV1().ServiceAccounts(Namespace).Create(&serviceAccount)
+	return client.CoreV1().ServiceAccounts(namespace).Create(&serviceAccount)
 }
 
 func authInfo(secret v1.Secret) clientcmdapi.AuthInfo {
