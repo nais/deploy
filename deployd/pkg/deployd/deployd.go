@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/deployd/pkg/config"
 	"github.com/navikt/deployment/deployd/pkg/kubeclient"
 	"github.com/navikt/deployment/deployd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
@@ -85,9 +86,11 @@ func Prepare(msg []byte, key, cluster string) (*deployment.DeploymentRequest, er
 	return req, nil
 }
 
-func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.TeamClientProvider, deployStatus chan *deployment.DeploymentStatus) {
+func Run(logger *log.Entry, msg []byte, key string, cfg config.Config, kube kubeclient.TeamClientProvider, deployStatus chan *deployment.DeploymentStatus) {
+	var namespace string
+
 	// Check the validity and authenticity of the message.
-	req, err := Prepare(msg, key, cluster)
+	req, err := Prepare(msg, key, cfg.Cluster)
 	if req != nil {
 		nl := logger.WithFields(req.LogFields())
 		logger.Data = nl.Data // propagate changes down to caller
@@ -104,7 +107,13 @@ func Run(logger *log.Entry, msg []byte, key, cluster string, kube kubeclient.Tea
 	p := req.GetPayloadSpec()
 	logger.Data["team"] = p.Team
 
-	teamClient, err := kube.TeamClient(p.Team, DefaultTeamclientNamespace)
+	if cfg.TeamNamespaces {
+		namespace = p.Team
+	} else {
+		namespace = DefaultTeamclientNamespace
+	}
+
+	teamClient, err := kube.TeamClient(p.Team, namespace, cfg.AutoCreateServiceAccount)
 	if err != nil {
 		deployStatus <- deployment.NewErrorStatus(*req, err)
 		return

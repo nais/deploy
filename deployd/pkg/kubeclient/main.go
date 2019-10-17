@@ -34,7 +34,7 @@ type Client struct {
 }
 
 type TeamClientProvider interface {
-	TeamClient(team, namespace string) (TeamClient, error)
+	TeamClient(team, namespace string, autoCreateServiceAccount bool) (TeamClient, error)
 }
 
 func New() (*Client, error) {
@@ -54,7 +54,7 @@ func New() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) teamConfig(team, namespace string) (*clientcmdapi.Config, error) {
+func (c *Client) teamConfig(team, namespace string, autoCreateServiceAccount bool) (*clientcmdapi.Config, error) {
 	serviceAccountName := serviceAccountName(team)
 
 	// Get service account for this team. If it does not exist, create it.
@@ -63,11 +63,13 @@ func (c *Client) teamConfig(team, namespace string) (*clientcmdapi.Config, error
 	//
 	// Kubernetes needs some time to generate the service account token,
 	// so we insert a small pause to wait for it.
-	_, err := createServiceAccount(c.Base, serviceAccountName, namespace)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return nil, fmt.Errorf("while generating service account: %s", err)
-	} else if err == nil {
-		time.Sleep(tokenGenerationTimeout)
+	if autoCreateServiceAccount {
+		_, err := createServiceAccount(c.Base, serviceAccountName, namespace)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return nil, fmt.Errorf("while generating service account: %s", err)
+		} else if err == nil {
+			time.Sleep(tokenGenerationTimeout)
+		}
 	}
 
 	serviceAccount, err := serviceAccount(c.Base, serviceAccountName, namespace)
@@ -103,8 +105,8 @@ func (c *Client) teamConfig(team, namespace string) (*clientcmdapi.Config, error
 
 // TeamClient returns a Kubernetes REST client tailored for a specific team.
 // The user is the `serviceuser-TEAM` in the `default` namespace.
-func (c *Client) TeamClient(team, namespace string) (TeamClient, error) {
-	config, err := c.teamConfig(team, namespace)
+func (c *Client) TeamClient(team, namespace string, autoCreateServiceAccount bool) (TeamClient, error) {
+	config, err := c.teamConfig(team, namespace, autoCreateServiceAccount)
 	if err != nil {
 		return nil, err
 	}
