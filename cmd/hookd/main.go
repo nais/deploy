@@ -112,8 +112,8 @@ func run() error {
 		DeploymentStatus:  statusChan,
 		SecretToken:       cfg.Github.WebhookSecret,
 		APIKeyStorage:     &persistence.MockApiKeyStorage{},
-		DeploymentCreator: func(deploy server.DeploymentRequest) (*gh.Deployment, error) {
-			deployment, _, err := installationClient.Repositories.CreateDeployment(context.Background(), deploy.Owner, deploy.Repository,
+		DeploymentCreator: func(ctx context.Context, deploy server.DeploymentRequest) (*gh.Deployment, error) {
+			deployment, _, err := installationClient.Repositories.CreateDeployment(ctx, deploy.Owner, deploy.Repository,
 				&gh.DeploymentRequest{Environment: &deploy.Cluster, Ref: &deploy.Ref})
 
 			return deployment, err
