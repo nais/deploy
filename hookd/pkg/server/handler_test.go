@@ -44,9 +44,31 @@ type testCase struct {
 type githubClient struct{}
 
 func (g *githubClient) CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error) {
-	return &gh.Deployment{
-		ID: gh.Int64(deploymentID),
-	}, nil
+	switch repository {
+	case "unavailable":
+		return nil, fmt.Errorf("GitHub is down!")
+	default:
+		return &gh.Deployment{
+			ID: gh.Int64(deploymentID),
+		}, nil
+	}
+}
+
+type apiKeyStorage struct{}
+
+func (a *apiKeyStorage) Read(team string) ([]byte, error) {
+	switch team {
+	case "notfound":
+		return nil, persistence.ErrNotFound
+	case "unavailable":
+		return nil, fmt.Errorf("service unavailable")
+	default:
+		return secretKey, nil
+	}
+}
+
+func (a *apiKeyStorage) IsErrNotFound(err error) bool {
+	return err == persistence.ErrNotFound
 }
 
 func fileReader(file string) io.Reader {
@@ -101,9 +123,7 @@ func subTest(t *testing.T, name string) {
 	requests := make(chan types.DeploymentRequest, 1024)
 	statuses := make(chan types.DeploymentStatus, 1024)
 	ghClient := githubClient{}
-	apiKeyStore := persistence.MockApiKeyStorage{
-		Key: secretKey,
-	}
+	apiKeyStore := apiKeyStorage{}
 
 	handler := server.DeploymentHandler{
 		DeploymentRequest: requests,

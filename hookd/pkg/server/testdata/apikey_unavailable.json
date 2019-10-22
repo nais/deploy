@@ -1,0 +1,20 @@
+{
+  "request": {
+    "body": {
+      "resources": [
+        {}
+      ],
+      "team": "unavailable",
+      "cluster": "local",
+      "owner": "foo",
+      "repository": "bar",
+      "ref": "master"
+    }
+  },
+  "response": {
+    "statusCode": 502,
+    "body": {
+      "message": "unable to communicate with api key service"
+    }
+  }
+}

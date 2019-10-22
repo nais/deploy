@@ -109,7 +109,7 @@ func run() error {
 	deploymentHandler := &server.DeploymentHandler{
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
-		APIKeyStorage:     &persistence.MockApiKeyStorage{},
+		APIKeyStorage:     &persistence.StaticKeyApiKeyStorage{},
 		GithubClient:      github.New(installationClient),
 	}
 

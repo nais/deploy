@@ -154,8 +154,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.WriteHeader(http.StatusServiceUnavailable)
-		deploymentResponse.Message = "unable to fetch team apikey from storage"
+		w.WriteHeader(http.StatusBadGateway)
+		deploymentResponse.Message = "unable to communicate with api key service"
 		deploymentResponse.render(w)
 		h.log.Errorf("unable to fetch team apikey from storage: %s", err)
 		return
@@ -185,7 +185,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deploymentResponse.GithubDeployment = deployment
 
 	if err != nil {
-		w.WriteHeader(http.StatusServiceUnavailable)
+		w.WriteHeader(http.StatusBadGateway)
 		deploymentResponse.Message = "unable to create GitHub deployment"
 		deploymentResponse.render(w)
 		h.log.Errorf("unable to create GitHub deployment: %s", err)
