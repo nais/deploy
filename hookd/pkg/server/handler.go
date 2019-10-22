@@ -70,10 +70,14 @@ func (r *DeploymentRequest) validate() error {
 		return fmt.Errorf("no team specified")
 	}
 
+	if len(r.Ref) == 0 {
+		return fmt.Errorf("no commit ref specified")
+	}
+
 	list := make([]interface{}, 0)
 	err := json.Unmarshal(r.Resources, &list)
 	if err != nil {
-		return fmt.Errorf("resources field must be a list: %s", err)
+		return fmt.Errorf("resources field must be a list")
 	} else if len(list) == 0 {
 		return fmt.Errorf("resources must contain at least one Kubernetes resource")
 	}
