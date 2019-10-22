@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/google/uuid"
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
@@ -27,7 +30,7 @@ type DeploymentHandler struct {
 	APIKeyStorage     persistence.ApiKeyStorage
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
-	DeploymentCreator func(DeploymentRequest) (*gh.Deployment, error)
+	DeploymentCreator func(context.Context, DeploymentRequest) (*gh.Deployment, error)
 }
 
 type DeploymentRequest struct {
@@ -67,8 +70,12 @@ func (r *DeploymentRequest) validate() error {
 		return fmt.Errorf("no team specified")
 	}
 
-	if len(r.Resources) == 0 {
-		return fmt.Errorf("no resources specified")
+	list := make([]interface{}, 0)
+	err := json.Unmarshal(r.Resources, &list)
+	if err != nil {
+		return fmt.Errorf("resources field must be a list: %s", err)
+	} else if len(list) == 0 {
+		return fmt.Errorf("resources must contain at least one Kubernetes resource")
 	}
 
 	return nil
@@ -111,6 +118,12 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.log = h.log.WithFields(log.Fields{
+		types.LogFieldTeam:       deploymentRequest.Team,
+		types.LogFieldCluster:    deploymentRequest.Cluster,
+		types.LogFieldRepository: fmt.Sprintf("%s/%s", deploymentRequest.Owner, deploymentRequest.Repository),
+	})
+
 	if err := deploymentRequest.validate(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = fmt.Sprintf("invalid deployment request: %s", err)
@@ -125,6 +138,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
 			deploymentResponse.Message = FailedAuthenticationMsg
 			deploymentResponse.render(w)
+			h.log.Errorf("%s: %s", FailedAuthenticationMsg, err)
 			return
 		}
 
@@ -135,16 +149,26 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	signature := r.Header.Get(SignatureHeader)
+	encodedSignature := r.Header.Get(SignatureHeader)
+	signature, err := hex.DecodeString(encodedSignature)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = "HMAC digest must be hex encoded"
+		deploymentResponse.render(w)
+		h.log.Errorf("unable to validate team: %s", err)
+		return
+
+	}
 
 	if !validateMAC(data, []byte(signature), token) {
 		w.WriteHeader(http.StatusForbidden)
 		deploymentResponse.Message = FailedAuthenticationMsg
 		deploymentResponse.render(w)
+		h.log.Errorf("%s: HMAC signature error", FailedAuthenticationMsg)
 		return
 	}
 
-	deployment, err := h.DeploymentCreator(*deploymentRequest)
+	deployment, err := h.DeploymentCreator(r.Context(), *deploymentRequest)
 	deploymentResponse.GithubDeployment = deployment
 
 	if err != nil {

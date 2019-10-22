@@ -20,7 +20,7 @@ type ApiKeyStorage interface {
 type MockApiKeyStorage struct{}
 
 func (a *MockApiKeyStorage) Read(team string) ([]byte, error) {
-	return []byte("asdf"), nil
+	return []byte("1234"), nil
 }
 
 func (a *MockApiKeyStorage) IsErrNotFound(err error) bool {
