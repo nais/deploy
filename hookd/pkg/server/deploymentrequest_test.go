@@ -27,7 +27,7 @@ func TestDeploymentRequest(t *testing.T) {
 				Payload:     []byte(payload),
 			},
 		}
-		req, err := server.DeploymentRequest(ev, deliveryID)
+		req, err := server.DeploymentRequestFromEvent(ev, deliveryID)
 		assert.NoError(t, err)
 		assert.NotNil(t, req)
 		assert.Equal(t, deliveryID, req.GetDeliveryID())

@@ -3,60 +3,68 @@ package main
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	gh "github.com/google/go-github/v27/github"
-	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
-	flag "github.com/spf13/pflag"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
+
+	"github.com/navikt/deployment/hookd/pkg/server"
+	log "github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
 )
 
 type Config struct {
-	URL         string
-	Repository  string
-	Payload     string
-	Environment string
-	Description string
-	HMACKey     string
+	DryRun     bool
+	URL        string
+	Team       string
+	Ref        string
+	Owner      string
+	Repository string
+	Payload    string
+	Cluster    string
+	HMACKey    string
 }
 
 var cfg = DefaultConfig()
 
 func DefaultConfig() Config {
 	return Config{
-		URL:         "http://localhost:8080/events",
-		Repository:  "navikt/deployment",
-		Payload:     "{}",
-		Environment: "local",
-		Description: "test deployment only done locally",
+		URL:        "http://localhost:8080/api/v1/deploy",
+		Team:       "nobody",
+		Ref:        "master",
+		Owner:      "navikt",
+		Repository: "deployment",
+		Payload:    "[]",
+		Cluster:    "local",
 	}
 }
 
 func init() {
 	flag.ErrHelp = fmt.Errorf("\nmkdeploy creates Github deployment request payloads, signs them, and submits them to a hookd server.\n")
 
-	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Full name of Github repository.")
+	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Don't actually make a HTTP request.")
+	flag.StringVar(&cfg.URL, "url", cfg.URL, "URL to call.")
+	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment.")
+	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Commit hash, tag or branch.")
+	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of git repository.")
+	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
 	flag.StringVar(&cfg.Payload, "payload", cfg.Payload, "Deployment payload.")
-	flag.StringVar(&cfg.Environment, "environment", cfg.Environment, "Environment to deploy to.")
-	flag.StringVar(&cfg.Description, "description", cfg.Description, "Deployment description.")
+	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Cluster to deploy to.")
 	flag.StringVar(&cfg.HMACKey, "hmac", cfg.HMACKey, "Webhook pre-shared key.")
 }
 
 func mkpayload(w io.Writer) error {
-	req := gh.DeploymentEvent{
-		Deployment: &gh.Deployment{
-			Description: &cfg.Description,
-			Environment: &cfg.Environment,
-			Payload:     json.RawMessage(cfg.Payload),
-		},
-		Repo: &gh.Repository{
-			FullName: &cfg.Repository,
-		},
+	req := server.DeploymentRequest{
+		Resources:  json.RawMessage(cfg.Payload),
+		Team:       cfg.Team,
+		Cluster:    cfg.Cluster,
+		Ref:        cfg.Ref,
+		Owner:      cfg.Owner,
+		Repository: cfg.Repository,
 	}
 
 	enc := json.NewEncoder(w)
@@ -66,7 +74,7 @@ func mkpayload(w io.Writer) error {
 }
 
 func mksig(data, key []byte) string {
-	hasher := hmac.New(sha1.New, key)
+	hasher := hmac.New(sha256.New, key)
 	hasher.Write(data)
 	sum := hasher.Sum(nil)
 	return hex.EncodeToString(sum)
@@ -84,35 +92,33 @@ func run() error {
 	}
 	bufstr := buf.String()
 
-	key, err := hex.DecodeString(cfg.HMACKey)
-	if err != nil {
-		return fmt.Errorf("error decoding hmac key %q: %v", cfg.HMACKey, err)
-	}
-
-	sig := mksig(buf.Bytes(), key)
+	sig := mksig(buf.Bytes(), []byte(cfg.HMACKey))
 
 	req, err := http.NewRequest("POST", cfg.URL, buf)
 	if err != nil {
 		return fmt.Errorf("error creating http request: %v", err)
 	}
 
-	u, _ := uuid.NewRandom()
-
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add("X-Hub-Signature", fmt.Sprintf("sha1=%s", sig))
-	req.Header.Add("X-GitHub-Event", "deployment")
-	req.Header.Add("X-GitHub-Delivery", u.String())
+	req.Header.Add(server.SignatureHeader, fmt.Sprintf("%s", sig))
 
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("error making http request: %v", err)
-	}
-
-	log.Infof("delivery id: %s", u.String())
-	log.Infof("status.....: %s", resp.Status)
-	log.Infof("data sent..:")
+	log.Infof("data sent....:")
 	log.Info(bufstr)
+
+	if !cfg.DryRun {
+
+		client := http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return fmt.Errorf("error making http request: %v", err)
+		}
+
+		log.Infof("status.......: %s", resp.Status)
+		log.Infof("data received:")
+
+		body, _ := ioutil.ReadAll(resp.Body)
+		log.Infof(string(body))
+	}
 
 	return err
 }

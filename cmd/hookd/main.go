@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -107,13 +108,29 @@ func run() error {
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
 	deploymentHandler := &server.DeploymentHandler{
+		DeploymentRequest: requestChan,
+		DeploymentStatus:  statusChan,
+		SecretToken:       cfg.Github.WebhookSecret,
+		APIKeyStorage:     &persistence.MockApiKeyStorage{},
+		DeploymentCreator: func(ctx context.Context, deploy server.DeploymentRequest) (*gh.Deployment, error) {
+			deployment, _, err := installationClient.Repositories.CreateDeployment(ctx, deploy.Owner, deploy.Repository,
+				&gh.DeploymentRequest{Environment: &deploy.Cluster, Ref: &deploy.Ref})
+
+			return deployment, err
+		},
+	}
+	githubDeploymentHandler := &server.GithubDeploymentHandler{
 		DeploymentRequest:     requestChan,
 		DeploymentStatus:      statusChan,
 		SecretToken:           cfg.Github.WebhookSecret,
 		TeamRepositoryStorage: teamRepositoryStorage,
 	}
 
-	http.Handle("/events", deploymentHandler)
+	// FIXME: feature switched off
+	_ = deploymentHandler
+	// http.Handle("/api/v1/deploy", deploymentHandler)
+
+	http.Handle("/events", githubDeploymentHandler)
 	http.Handle("/auth/login", &auth.LoginHandler{
 		ClientID: cfg.Github.ClientID,
 	})

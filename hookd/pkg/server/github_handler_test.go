@@ -44,7 +44,7 @@ func (s *mockRepository) IsErrNotFound(err error) bool {
 }
 
 type handlerTest struct {
-	Handler  *server.DeploymentHandler
+	Handler  *server.GithubDeploymentHandler
 	Body     *bytes.Buffer
 	Request  *http.Request
 	Recorder *httptest.ResponseRecorder
@@ -61,7 +61,7 @@ func (h *handlerTest) Sign(key string) {
 	h.Request.Header.Set("X-Hub-Signature", fmt.Sprintf("sha1=%s", hex.EncodeToString(sum)))
 }
 
-func newHandler() *server.DeploymentHandler {
+func newHandler() *server.GithubDeploymentHandler {
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
@@ -69,7 +69,7 @@ func newHandler() *server.DeploymentHandler {
 		Contents: make(map[string][]string, 0),
 	}
 
-	return &server.DeploymentHandler{
+	return &server.GithubDeploymentHandler{
 		DeploymentRequest:     requestChan,
 		DeploymentStatus:      statusChan,
 		TeamRepositoryStorage: store,
