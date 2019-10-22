@@ -27,7 +27,6 @@ const (
 
 type DeploymentHandler struct {
 	log               *log.Entry
-	SecretToken       string
 	APIKeyStorage     persistence.ApiKeyStorage
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
@@ -201,18 +200,21 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.DeploymentRequest <- *deployMsg
 
 	w.WriteHeader(http.StatusCreated)
+	deploymentResponse.Message = "deployment request accepted and dispatched"
 	deploymentResponse.render(w)
+
 	h.log.Infof("created deployment message to cluster %s for repo %s/%s", deploymentRequest.Cluster, deploymentRequest.Owner, deploymentRequest.Repository)
 }
 
 // validateMAC reports whether messageMAC is a valid HMAC tag for message.
 func validateMAC(message, messageMAC, key []byte) bool {
-	expectedMAC := genMAC(message, key)
+	expectedMAC := GenMAC(message, key)
+	log.Error(hex.EncodeToString(expectedMAC))
 	return hmac.Equal(messageMAC, expectedMAC)
 }
 
-// genMAC generates the HMAC signature for a message provided the secret key using SHA256
-func genMAC(message, key []byte) []byte {
+// GenMAC generates the HMAC signature for a message provided the secret key using SHA256
+func GenMAC(message, key []byte) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write(message)
 	return mac.Sum(nil)

@@ -109,10 +109,10 @@ func run() error {
 	deploymentHandler := &server.DeploymentHandler{
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
-		SecretToken:       cfg.Github.WebhookSecret,
 		APIKeyStorage:     &persistence.MockApiKeyStorage{},
 		GithubClient:      github.New(installationClient),
 	}
+
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
 		DeploymentRequest:     requestChan,
 		DeploymentStatus:      statusChan,

@@ -17,10 +17,12 @@ type ApiKeyStorage interface {
 	IsErrNotFound(err error) bool
 }
 
-type MockApiKeyStorage struct{}
+type MockApiKeyStorage struct {
+	Key []byte
+}
 
 func (a *MockApiKeyStorage) Read(team string) ([]byte, error) {
-	return []byte("1234"), nil
+	return a.Key, nil
 }
 
 func (a *MockApiKeyStorage) IsErrNotFound(err error) bool {
