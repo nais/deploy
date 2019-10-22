@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/navikt/deployment/hookd/pkg/github"
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
@@ -22,15 +22,16 @@ import (
 const (
 	SignatureHeader         = "X-NAIS-Signature"
 	FailedAuthenticationMsg = "failed authentication"
+	DirectDeployGithubTask  = "NAIS_DIRECT_DEPLOY"
 )
 
 type DeploymentHandler struct {
 	log               *log.Entry
 	SecretToken       string
 	APIKeyStorage     persistence.ApiKeyStorage
+	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
-	DeploymentCreator func(context.Context, DeploymentRequest) (*gh.Deployment, error)
 }
 
 type DeploymentRequest struct {
@@ -79,6 +80,14 @@ func (r *DeploymentRequest) validate() error {
 	}
 
 	return nil
+}
+
+func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
+	return gh.DeploymentRequest{
+		Environment: gh.String(r.Cluster),
+		Ref:         gh.String(r.Ref),
+		Task:        gh.String(DirectDeployGithubTask),
+	}
 }
 
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -168,7 +177,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deployment, err := h.DeploymentCreator(r.Context(), *deploymentRequest)
+	githubRequest := deploymentRequest.GithubDeploymentRequest()
+	deployment, err := h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
 	deploymentResponse.GithubDeployment = deployment
 
 	if err != nil {

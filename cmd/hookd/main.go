@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -112,12 +111,7 @@ func run() error {
 		DeploymentStatus:  statusChan,
 		SecretToken:       cfg.Github.WebhookSecret,
 		APIKeyStorage:     &persistence.MockApiKeyStorage{},
-		DeploymentCreator: func(ctx context.Context, deploy server.DeploymentRequest) (*gh.Deployment, error) {
-			deployment, _, err := installationClient.Repositories.CreateDeployment(ctx, deploy.Owner, deploy.Repository,
-				&gh.DeploymentRequest{Environment: &deploy.Cluster, Ref: &deploy.Ref})
-
-			return deployment, err
-		},
+		GithubClient:      github.New(installationClient),
 	}
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
 		DeploymentRequest:     requestChan,
