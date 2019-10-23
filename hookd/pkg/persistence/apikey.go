@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrNotFound = fmt.Errorf("path not found")
+	ErrNotFound = fmt.Errorf("api key not found")
 )
 
 const (
@@ -51,21 +51,25 @@ func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
 
 	resp, err := s.HttpClient.Do(req)
 
-	if resp != nil && resp.StatusCode == http.StatusNotFound {
-		return nil, ErrNotFound
-	}
-
 	if err != nil {
 		return nil, fmt.Errorf("unable to get key from Vault: %s", err)
 	}
 
-	var vaultResp VaultResponse
-	decoder := json.NewDecoder(resp.Body)
-	if err := decoder.Decode(&vaultResp); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal response from vault: %s", err)
-	}
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var vaultResp VaultResponse
+		decoder := json.NewDecoder(resp.Body)
+		defer resp.Body.Close()
+		if err := decoder.Decode(&vaultResp); err != nil {
+			return nil, fmt.Errorf("unable to unmarshal response from vault: %s", err)
+		}
 
-	return []byte(vaultResp.Data[s.KeyName]), err
+		return []byte(vaultResp.Data[s.KeyName]), err
+	case http.StatusNotFound:
+		return nil, ErrNotFound
+	default:
+		return nil, fmt.Errorf("unsuccessful http status code from vault: %d", resp.StatusCode)
+	}
 }
 func (s *VaultApiKeyStorage) IsErrNotFound(err error) bool {
 	return err == ErrNotFound

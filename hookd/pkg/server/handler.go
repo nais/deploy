@@ -155,7 +155,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.WriteHeader(http.StatusBadGateway)
-		deploymentResponse.Message = "unable to communicate with api key service"
+		deploymentResponse.Message = "something wrong happened when communicating with api key service"
 		deploymentResponse.render(w)
 		h.log.Errorf("unable to fetch team apikey from storage: %s", err)
 		return
