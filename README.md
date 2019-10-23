@@ -70,11 +70,8 @@ The code can be derived by hashing the request body using the SHA256 algorithm t
 ```json
 {
   "githubDeployment": { ... },
-  "correlationID": "",
-  "message": "successful deployment",
-	GithubDeployment *gh.Deployment `json:"githubDeployment,omitempty"`
-	CorrelationID    string         `json:"correlationID,omitempty"`
-	Message          string         `json:"message,omitempty"`
+  "correlationID": "9a0d1702-e7c5-448f-8a90-1e5ee29a043b",
+  "message": "successful deployment"
 }
 ```
 
