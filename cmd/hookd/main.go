@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -53,8 +54,8 @@ func init() {
 	flag.StringVar(&cfg.Vault.Path, "vault-path", cfg.Vault.Path, "Base path to Vault KV API key store.")
 	flag.StringVar(&cfg.Vault.Address, "vault-address", cfg.Vault.Address, "Address to Vault server.")
 	flag.StringVar(&cfg.Vault.KeyName, "vault-key-name", cfg.Vault.KeyName, "API keys are stored in this key.")
-	flag.StringVar(&cfg.Vault.TokenFile, "vault-token-file", cfg.Vault.TokenFile, "Vault JWT retrieved from this file.")
-	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault JWT (overrides --vault-token-file).")
+	flag.StringVar(&cfg.Vault.TokenFile, "vault-token-file", cfg.Vault.TokenFile, "Vault JWT retrieved from this file (overrides --vault-token).")
+	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault JWT.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -107,6 +108,14 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("cannot instantiate Github installation client: %s", err)
 		}
+	}
+
+	if len(cfg.Vault.TokenFile) > 0 {
+		tok, err := ioutil.ReadFile(cfg.Vault.TokenFile)
+		if err != nil {
+			return fmt.Errorf("read Vault token file: %s", err)
+		}
+		cfg.Vault.Token = string(tok)
 	}
 
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
