@@ -38,7 +38,7 @@ func DefaultConfig() Config {
 		Ref:        "master",
 		Owner:      "navikt",
 		Repository: "deployment",
-		Payload:    "[]",
+		Payload:    "[{}]",
 		Cluster:    "local",
 	}
 }
