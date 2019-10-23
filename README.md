@@ -130,10 +130,19 @@ Used as a configuration backend. Information about repository team access is sto
 Check out the repository and run `make`. Dependencies will download automatically, and you should have three binary files at `hookd/hookd`, `deployd/deployd` and `token-generator`.
 
 ### External dependencies
-Start the external dependencies by running `docker-compose up`. This will start local Kafka and S3 servers.
+Start the external dependencies by running `docker-compose up`. This will start local Kafka, S3, and Vault servers.
 
 The S3 access and secret keys are `accesskey` and `secretkey` respectively. Conveniently, these are
 the default options for _hookd_ as well, so you don't have to configure anything.
+
+### Vault
+The `/api/v1/deploy` endpoint uses Hashicorp Vault to store teams' API keys. To make this work, set up a Vault KV store version 1
+on the server specified by `--vault-address` and on the path specified by `--vault-path`.
+
+For instance, with the default values of `--vault-address=http://localhost:8080 --vault-path=/v1/apikey/nais-deploy --vault-key=key`:
+
+* Set up `/apikey` as a KV v1 store.
+* Create secrets under `/apikey/nais-deploy/<team>` with key `key` and the pre-shared secret as the value.
 
 ### token-generator
 * Set up a google cloud storage bucket
