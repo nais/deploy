@@ -128,8 +128,13 @@ func run() error {
 	deploymentHandler := &server.DeploymentHandler{
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
-		APIKeyStorage:     &persistence.StaticKeyApiKeyStorage{},
 		GithubClient:      githubClient,
+		APIKeyStorage: &persistence.VaultApiKeyStorage{
+			Address: cfg.Vault.Address,
+			Path:    cfg.Vault.Path,
+			KeyName: cfg.Vault.KeyName,
+			Token:   cfg.Vault.Token,
+		},
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
@@ -140,8 +145,8 @@ func run() error {
 	}
 
 	// FIXME: feature switched off
-	_ = deploymentHandler
-	// http.Handle("/api/v1/deploy", deploymentHandler)
+	//_ = deploymentHandler
+	http.Handle("/api/v1/deploy", deploymentHandler)
 
 	http.Handle("/events", githubDeploymentHandler)
 	http.Handle("/auth/login", &auth.LoginHandler{

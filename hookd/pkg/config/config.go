@@ -92,7 +92,7 @@ func DefaultConfig() *Config {
 			Address:   getEnv("VAULT_ADDRESS", "http://localhost:8200"),
 			KeyName:   getEnv("VAULT_KEY_NAME", "key"),
 			Path:      getEnv("VAULT_PATH", "/v1/apikey/nais-deploy"),
-			Token:     getEnv("VAULT_TOKEN", ""),
+			Token:     getEnv("VAULT_TOKEN", "123456789"),
 		},
 		MetricsPath: getEnv("METRICS_PATH", "/metrics"),
 	}
