@@ -50,6 +50,12 @@ func init() {
 	flag.StringVar(&cfg.S3.BucketLocation, "s3-bucket-location", cfg.S3.BucketLocation, "S3 bucket location.")
 	flag.BoolVar(&cfg.S3.UseTLS, "s3-secure", cfg.S3.UseTLS, "Use TLS for S3 connections.")
 
+	flag.StringVar(&cfg.Vault.Path, "vault-path", cfg.Vault.Path, "Base path to Vault KV API key store.")
+	flag.StringVar(&cfg.Vault.Address, "vault-address", cfg.Vault.Address, "Address to Vault server.")
+	flag.StringVar(&cfg.Vault.KeyName, "vault-key-name", cfg.Vault.KeyName, "API keys are stored in this key.")
+	flag.StringVar(&cfg.Vault.TokenFile, "vault-token-file", cfg.Vault.TokenFile, "Vault JWT retrieved from this file.")
+	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault JWT (overrides --vault-token-file).")
+
 	kafka.SetupFlags(&cfg.Kafka)
 }
 
