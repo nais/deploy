@@ -144,8 +144,6 @@ func run() error {
 		TeamRepositoryStorage: teamRepositoryStorage,
 	}
 
-	// FIXME: feature switched off
-	//_ = deploymentHandler
 	http.Handle("/api/v1/deploy", deploymentHandler)
 
 	http.Handle("/events", githubDeploymentHandler)
