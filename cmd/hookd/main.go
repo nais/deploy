@@ -130,10 +130,11 @@ func run() error {
 		DeploymentStatus:  statusChan,
 		GithubClient:      githubClient,
 		APIKeyStorage: &persistence.VaultApiKeyStorage{
-			Address: cfg.Vault.Address,
-			Path:    cfg.Vault.Path,
-			KeyName: cfg.Vault.KeyName,
-			Token:   cfg.Vault.Token,
+			Address:    cfg.Vault.Address,
+			Path:       cfg.Vault.Path,
+			KeyName:    cfg.Vault.KeyName,
+			Token:      cfg.Vault.Token,
+			HttpClient: http.DefaultClient,
 		},
 	}
 
