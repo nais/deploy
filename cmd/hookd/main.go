@@ -102,12 +102,16 @@ func run() error {
 	go kafkaClient.ConsumerLoop()
 
 	var installationClient *gh.Client
+	var githubClient github.Client
 
 	if cfg.Github.Enabled {
 		installationClient, err = github.InstallationClient(cfg.Github.ApplicationID, cfg.Github.InstallID, cfg.Github.KeyFile)
 		if err != nil {
 			return fmt.Errorf("cannot instantiate Github installation client: %s", err)
 		}
+		githubClient = github.New(installationClient)
+	} else {
+		githubClient = github.FakeClient()
 	}
 
 	if len(cfg.Vault.TokenFile) > 0 {
@@ -125,7 +129,7 @@ func run() error {
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
 		APIKeyStorage:     &persistence.StaticKeyApiKeyStorage{},
-		GithubClient:      github.New(installationClient),
+		GithubClient:      githubClient,
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
