@@ -22,6 +22,79 @@ Intermediary statuses might be posted, indicating the current state of the deplo
 
 The usage documentation has been moved to [NAIS platform documentation](https://github.com/nais/doc/tree/master/content/deploy).
 
+### Deploy API
+
+Post to `/api/v1/deploy` to deploy one or more resources into one of our Kubernetes clusters.
+
+Successful requests result in creation of a _deployment_ object on GitHub. Use this object
+to track the status of your deployment.
+
+#### Request specification
+
+```json
+{
+  "resources": [
+    {
+      "kind": "Application",
+      "apiVersion": "nais.io/v1alpha1",
+      "metadata": { ... },
+      "spec": { ... },
+    }
+  ],
+  "team": "nobody",
+  "cluster": "local",
+  "owner": "navikt",
+  "repository": "deployment",
+  "ref": "master"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| resources | list[object] | Array of Kubernetes resources |
+| team | string | Team tag |
+| cluster | string | Kubernetes cluster, see [NAIS clusters](https://doc.nais.io/clusters) |
+| owner | string | GitHub repository owner |
+| repository | string | GitHub repository name |
+| ref | string | GitHub commit hash or tag |
+
+Additionally, the header `X-NAIS-Signature` must contain a keyed-hash message authentication code (HMAC).
+The code can be derived by hashing the request body using the SHA256 algorithm together with your team's NAIS Deploy API key.
+
+#### Request headers
+
+| Field | Type | Description |
+|-------|------|-------------|
+#### Response specification
+
+```json
+{
+  "githubDeployment": { ... },
+  "correlationID": "",
+  "message": "successful deployment",
+	GithubDeployment *gh.Deployment `json:"githubDeployment,omitempty"`
+	CorrelationID    string         `json:"correlationID,omitempty"`
+	Message          string         `json:"message,omitempty"`
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| githubDeployment | object | [Data returned from GitHub Deployments API](https://developer.github.com/v3/repos/deployments/#get-a-single-deployment) |
+| correlationID | string | UUID used for correlation tracking across systems, especially in logs |
+| message | string | Human readable indication of API result |
+
+#### Response status codes
+
+| Code | Retriable | Description |
+|-------|------|-------------|
+| 201 | N/A | The request was valid and will be deployed. Track the status of your deployment using the GitHub Deployments API. |
+| 400 | NO | The request contains errors and cannot be processed. Check the `message` field for details.
+| 403 | MAYBE | Authentication failed. Check that you're supplying the correct `team`, using the correct API key, and properly signing the request. |
+| 404 | NO | Wrong URL. |
+| 5xx | YES | NAIS deploy is having problems and is currently being fixed. Retry later. |
+
+
 ## Application components
 
 ### hookd
