@@ -42,7 +42,7 @@ func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, d
 			Team:    r.Team,
 			Version: payloadVersion,
 			Kubernetes: &types.Kubernetes{
-				Resources: []*structpb.Struct{},
+				Resources: resources,
 			},
 		},
 		DeliveryID: deliveryID,
