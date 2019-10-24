@@ -155,7 +155,7 @@ func run() error {
 	// Base settings for all requests
 	router.Use(
 		middleware.RequestLogger(),
-		middleware.PrometheusMiddlewareHandler("token-generator"),
+		middleware.PrometheusMiddlewareHandler("hookd"),
 		chi_middleware.StripSlashes,
 		chi_middleware.Timeout(requestTimeout),
 	)
