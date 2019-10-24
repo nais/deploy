@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/go-chi/chi"
+	chi_middleware "github.com/go-chi/chi/middleware"
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
@@ -18,16 +20,19 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
+	"github.com/navikt/deployment/hookd/pkg/middleware"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/hookd/pkg/server"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
 
 var (
-	cfg           = config.DefaultConfig()
-	retryInterval = time.Second * 5
-	queueSize     = 32
+	cfg            = config.DefaultConfig()
+	retryInterval  = time.Second * 5
+	queueSize      = 32
+	requestTimeout = time.Second * 3
 )
 
 func init() {
@@ -145,48 +150,83 @@ func run() error {
 		TeamRepositoryStorage: teamRepositoryStorage,
 	}
 
-	http.Handle("/api/v1/deploy", deploymentHandler)
+	router := chi.NewRouter()
 
-	http.Handle("/events", githubDeploymentHandler)
-	http.Handle("/auth/login", &auth.LoginHandler{
-		ClientID: cfg.Github.ClientID,
+	// Base settings for all requests
+	router.Use(
+		middleware.PrometheusMiddlewareHandler("token-generator"),
+		chi_middleware.Logger,
+		chi_middleware.StripSlashes,
+		chi_middleware.Timeout(requestTimeout),
+	)
+
+	// Mount /metrics endpoint with no authentication
+	router.Get(cfg.MetricsPath, promhttp.Handler().ServeHTTP)
+
+	// Deployment logs accessible via shorthand URL
+	router.HandleFunc("/logs", logproxy.HandleFunc)
+
+	// Mount /api/v1 for API requests
+	// Only application/json content type allowed
+	router.Route("/api/v1", func(r chi.Router) {
+		r.Use(chi_middleware.AllowContentType("application/json"))
+		r.Post("/deploy", deploymentHandler.ServeHTTP)
 	})
-	http.Handle("/auth/callback", &auth.CallbackHandler{
-		ClientID:     cfg.Github.ClientID,
-		ClientSecret: cfg.Github.ClientSecret,
+
+	// Mount /events for "legacy" GitHub deployment handling
+	router.Post("/events", githubDeploymentHandler.ServeHTTP)
+
+	// "Legacy" user authentication and repository/team connections
+	router.Route("/auth", func(r chi.Router) {
+		loginHandler := &auth.LoginHandler{
+			ClientID: cfg.Github.ClientID,
+		}
+		logoutHandler := &auth.LogoutHandler{}
+		callbackHandler := &auth.CallbackHandler{
+			ClientID:     cfg.Github.ClientID,
+			ClientSecret: cfg.Github.ClientSecret,
+		}
+		formHandler := &auth.FormHandler{}
+		submittedFormHandler := &auth.SubmittedFormHandler{
+			TeamRepositoryStorage: teamRepositoryStorage,
+			ApplicationClient:     installationClient,
+		}
+
+		r.Get("/login", loginHandler.ServeHTTP)
+		r.Get("/logout", logoutHandler.ServeHTTP)
+		r.Get("/callback", callbackHandler.ServeHTTP)
+		r.Get("/form", formHandler.ServeHTTP)
+		r.Post("/submit", submittedFormHandler.ServeHTTP)
+
 	})
-	http.Handle("/auth/form", &auth.FormHandler{})
-	http.Handle("/auth/submit", &auth.SubmittedFormHandler{
-		TeamRepositoryStorage: teamRepositoryStorage,
-		ApplicationClient:     installationClient,
+
+	// "Legacy" proxy/caching layer between user, application, and GitHub.
+	router.Route("/proxy", func(r chi.Router) {
+		teamProxyHandler := &auth.TeamsProxyHandler{
+			ApplicationClient: installationClient,
+		}
+		repositoryProxyHandler := &auth.RepositoriesProxyHandler{}
+
+		r.Get("/teams", teamProxyHandler.ServeHTTP)
+		r.Get("/repositories", repositoryProxyHandler.ServeHTTP)
 	})
-	http.Handle("/proxy/teams", &auth.TeamsProxyHandler{
-		ApplicationClient: installationClient,
-	})
-	http.Handle("/proxy/repositories", &auth.RepositoriesProxyHandler{})
-	http.Handle("/assets/", http.StripPrefix(
+
+	// "Legacy" static assets (css, js, images)
+	staticHandler := http.StripPrefix(
 		"/assets",
 		http.FileServer(http.Dir(auth.StaticAssetsLocation)),
-	))
-
-	http.Handle("/auth/logout", &auth.LogoutHandler{})
-
-	http.Handle(cfg.MetricsPath, metrics.Handler())
-
-	http.HandleFunc("/logs", logproxy.HandleFunc)
-
-	srv := &http.Server{
-		Addr: cfg.ListenAddress,
-	}
+	)
+	router.Get("/assets", staticHandler.ServeHTTP)
 
 	go func() {
-		err := srv.ListenAndServe()
+		err := http.ListenAndServe(cfg.ListenAddress, router)
 		if err != nil {
 			log.Error(err)
 		}
 	}()
 
-	// Trap SIGINT to trigger a shutdown.
+	log.Infof("Ready to accept connections")
+
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
