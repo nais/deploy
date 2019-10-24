@@ -61,10 +61,6 @@ to track the status of your deployment.
 Additionally, the header `X-NAIS-Signature` must contain a keyed-hash message authentication code (HMAC).
 The code can be derived by hashing the request body using the SHA256 algorithm together with your team's NAIS Deploy API key.
 
-#### Request headers
-
-| Field | Type | Description |
-|-------|------|-------------|
 #### Response specification
 
 ```json
