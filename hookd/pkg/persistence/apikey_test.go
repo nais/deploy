@@ -28,9 +28,9 @@ func TestVaultApiKeyStorage(t *testing.T) {
 			_, _ = io.WriteString(w,
 				fmt.Sprintf(`{
                     "data": {
-                      "key": "%s"
+                      "%s": "%s"
                     }
-                 }`, ApiKey))
+                 }`, defaults.KeyName, ApiKey))
 		case Nonexistent:
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("not found"))
