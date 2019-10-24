@@ -157,7 +157,6 @@ func run() error {
 		middleware.RequestLogger(),
 		middleware.PrometheusMiddlewareHandler("hookd"),
 		chi_middleware.StripSlashes,
-		chi_middleware.Timeout(requestTimeout),
 	)
 
 	// Mount /metrics endpoint with no authentication
@@ -169,7 +168,10 @@ func run() error {
 	// Mount /api/v1 for API requests
 	// Only application/json content type allowed
 	router.Route("/api/v1", func(r chi.Router) {
-		r.Use(chi_middleware.AllowContentType("application/json"))
+		r.Use(
+			chi_middleware.AllowContentType("application/json"),
+			chi_middleware.Timeout(requestTimeout),
+		)
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
 	})
 
