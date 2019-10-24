@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
@@ -26,7 +27,6 @@ const (
 )
 
 type DeploymentHandler struct {
-	log               *log.Entry
 	APIKeyStorage     persistence.ApiKeyStorage
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
@@ -98,9 +98,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var deploymentResponse DeploymentResponse
 	correlationID, err := uuid.NewRandom()
 
-	h.log = log.WithFields(log.Fields{
-		types.LogFieldDeliveryID: correlationID,
-	})
+	fields := middleware.RequestLogEntry(r)
+	logger := log.WithFields(*fields)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -120,8 +119,6 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log.Infof("Received %s request on %s", r.Method, r.RequestURI)
-
 	deploymentRequest := &DeploymentRequest{}
 	if err := json.Unmarshal(data, deploymentRequest); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -130,7 +127,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.log = h.log.WithFields(log.Fields{
+	logger = logger.WithFields(log.Fields{
 		types.LogFieldTeam:       deploymentRequest.Team,
 		types.LogFieldCluster:    deploymentRequest.Cluster,
 		types.LogFieldRepository: fmt.Sprintf("%s/%s", deploymentRequest.Owner, deploymentRequest.Repository),
@@ -150,14 +147,14 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
 			deploymentResponse.Message = FailedAuthenticationMsg
 			deploymentResponse.render(w)
-			h.log.Errorf("%s: %s", FailedAuthenticationMsg, err)
+			logger.Errorf("%s: %s", FailedAuthenticationMsg, err)
 			return
 		}
 
 		w.WriteHeader(http.StatusBadGateway)
 		deploymentResponse.Message = "something wrong happened when communicating with api key service"
 		deploymentResponse.render(w)
-		h.log.Errorf("unable to fetch team apikey from storage: %s", err)
+		logger.Errorf("unable to fetch team apikey from storage: %s", err)
 		return
 	}
 
@@ -167,7 +164,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = "HMAC digest must be hex encoded"
 		deploymentResponse.render(w)
-		h.log.Errorf("unable to validate team: %s", err)
+		logger.Errorf("unable to validate team: %s", err)
 		return
 
 	}
@@ -176,7 +173,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		deploymentResponse.Message = FailedAuthenticationMsg
 		deploymentResponse.render(w)
-		h.log.Errorf("%s: HMAC signature error", FailedAuthenticationMsg)
+		logger.Errorf("%s: HMAC signature error", FailedAuthenticationMsg)
 		return
 	}
 
@@ -188,7 +185,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 		deploymentResponse.Message = "unable to create GitHub deployment"
 		deploymentResponse.render(w)
-		h.log.Errorf("unable to create GitHub deployment: %s", err)
+		logger.Errorf("unable to create GitHub deployment: %s", err)
 		return
 	}
 
@@ -197,7 +194,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = "unable to create deployment message"
 		deploymentResponse.render(w)
-		h.log.Errorf("unable to create deployment message: %s", err)
+		logger.Errorf("unable to create deployment message: %s", err)
 		return
 	}
 
@@ -207,7 +204,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deploymentResponse.Message = "deployment request accepted and dispatched"
 	deploymentResponse.render(w)
 
-	h.log.Infof("created deployment message to cluster %s for repo %s/%s", deploymentRequest.Cluster, deploymentRequest.Owner, deploymentRequest.Repository)
+	logger.Infof("created deployment message to cluster %s for repo %s/%s", deploymentRequest.Cluster, deploymentRequest.Owner, deploymentRequest.Repository)
 }
 
 // validateMAC reports whether messageMAC is a valid HMAC tag for message.
