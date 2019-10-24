@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
@@ -26,7 +27,6 @@ const (
 )
 
 type DeploymentHandler struct {
-	log               *log.Entry
 	APIKeyStorage     persistence.ApiKeyStorage
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
@@ -96,68 +96,30 @@ func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var deploymentResponse DeploymentResponse
-	correlationID, err := uuid.NewRandom()
 
-	h.log = log.WithFields(log.Fields{
-		types.LogFieldDeliveryID: correlationID,
-	})
+	fields := middleware.RequestLogFields(r)
+	logger := log.WithFields(fields)
 
+	requestID, err := uuid.NewRandom()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		deploymentResponse.Message = fmt.Sprintf("unable to create correlation id: %s", err)
+		deploymentResponse.Message = fmt.Sprintf("unable to generate request id")
 		deploymentResponse.render(w)
+		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return
 	}
 
-	deploymentResponse.CorrelationID = correlationID.String()
+	logger = logger.WithField(types.LogFieldDeliveryID, requestID.String())
+	deploymentResponse.CorrelationID = requestID.String()
+
+	logger.Debugf("Incoming request")
 
 	data, err := ioutil.ReadAll(r.Body)
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		deploymentResponse.Message = fmt.Sprintf("unable to read request body: %s", err)
 		deploymentResponse.render(w)
-		return
-	}
-
-	h.log.Infof("Received %s request on %s", r.Method, r.RequestURI)
-
-	deploymentRequest := &DeploymentRequest{}
-	if err := json.Unmarshal(data, deploymentRequest); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		deploymentResponse.Message = fmt.Sprintf("unable to unmarshal request body: %s", err)
-		deploymentResponse.render(w)
-		return
-	}
-
-	h.log = h.log.WithFields(log.Fields{
-		types.LogFieldTeam:       deploymentRequest.Team,
-		types.LogFieldCluster:    deploymentRequest.Cluster,
-		types.LogFieldRepository: fmt.Sprintf("%s/%s", deploymentRequest.Owner, deploymentRequest.Repository),
-	})
-
-	if err := deploymentRequest.validate(); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		deploymentResponse.Message = fmt.Sprintf("invalid deployment request: %s", err)
-		deploymentResponse.render(w)
-		return
-	}
-
-	token, err := h.APIKeyStorage.Read(deploymentRequest.Team)
-
-	if err != nil {
-		if h.APIKeyStorage.IsErrNotFound(err) {
-			w.WriteHeader(http.StatusForbidden)
-			deploymentResponse.Message = FailedAuthenticationMsg
-			deploymentResponse.render(w)
-			h.log.Errorf("%s: %s", FailedAuthenticationMsg, err)
-			return
-		}
-
-		w.WriteHeader(http.StatusBadGateway)
-		deploymentResponse.Message = "something wrong happened when communicating with api key service"
-		deploymentResponse.render(w)
-		h.log.Errorf("unable to fetch team apikey from storage: %s", err)
+		logger.Error(deploymentResponse.Message)
 		return
 	}
 
@@ -167,18 +129,68 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = "HMAC digest must be hex encoded"
 		deploymentResponse.render(w)
-		h.log.Errorf("unable to validate team: %s", err)
+		logger.Errorf("unable to validate team: %s: %s", deploymentResponse.Message, err)
 		return
-
 	}
+
+	logger.Debugf("Request has hex encoded data in signature header")
+
+	deploymentRequest := &DeploymentRequest{}
+	if err := json.Unmarshal(data, deploymentRequest); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = fmt.Sprintf("unable to unmarshal request body: %s", err)
+		deploymentResponse.render(w)
+		logger.Error(deploymentResponse.Message)
+		return
+	}
+
+	logger = logger.WithFields(log.Fields{
+		types.LogFieldTeam:       deploymentRequest.Team,
+		types.LogFieldCluster:    deploymentRequest.Cluster,
+		types.LogFieldRepository: fmt.Sprintf("%s/%s", deploymentRequest.Owner, deploymentRequest.Repository),
+	})
+
+	logger.Debugf("Request has valid JSON")
+
+	if err := deploymentRequest.validate(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = fmt.Sprintf("invalid deployment request: %s", err)
+		deploymentResponse.render(w)
+		logger.Error(deploymentResponse.Message)
+		return
+	}
+
+	logger.Debugf("Request body validated successfully")
+
+	token, err := h.APIKeyStorage.Read(deploymentRequest.Team)
+
+	if err != nil {
+		if h.APIKeyStorage.IsErrNotFound(err) {
+			w.WriteHeader(http.StatusForbidden)
+			deploymentResponse.Message = FailedAuthenticationMsg
+			deploymentResponse.render(w)
+			logger.Errorf("%s: %s", FailedAuthenticationMsg, err)
+			return
+		}
+
+		w.WriteHeader(http.StatusBadGateway)
+		deploymentResponse.Message = "something wrong happened when communicating with api key service"
+		deploymentResponse.render(w)
+		logger.Errorf("unable to fetch team apikey from storage: %s", err)
+		return
+	}
+
+	logger.Debugf("Team API key retrieved from storage")
 
 	if !validateMAC(data, []byte(signature), token) {
 		w.WriteHeader(http.StatusForbidden)
 		deploymentResponse.Message = FailedAuthenticationMsg
 		deploymentResponse.render(w)
-		h.log.Errorf("%s: HMAC signature error", FailedAuthenticationMsg)
+		logger.Errorf("%s: HMAC signature error", FailedAuthenticationMsg)
 		return
 	}
+
+	logger.Debugf("HMAC signature validated successfully")
 
 	githubRequest := deploymentRequest.GithubDeploymentRequest()
 	deployment, err := h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
@@ -188,16 +200,19 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 		deploymentResponse.Message = "unable to create GitHub deployment"
 		deploymentResponse.render(w)
-		h.log.Errorf("unable to create GitHub deployment: %s", err)
+		logger.Errorf("unable to create GitHub deployment: %s", err)
 		return
 	}
 
-	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deployment, correlationID.String())
+	logger = logger.WithField(types.LogFieldDeploymentID, deployment.GetID())
+	logger.Debugf("GitHub deployment created successfully")
+
+	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deployment, deploymentResponse.CorrelationID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = "unable to create deployment message"
 		deploymentResponse.render(w)
-		h.log.Errorf("unable to create deployment message: %s", err)
+		logger.Errorf("unable to create deployment message: %s", err)
 		return
 	}
 
@@ -207,13 +222,12 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deploymentResponse.Message = "deployment request accepted and dispatched"
 	deploymentResponse.render(w)
 
-	h.log.Infof("created deployment message to cluster %s for repo %s/%s", deploymentRequest.Cluster, deploymentRequest.Owner, deploymentRequest.Repository)
+	logger.Info("Deployment request processed successfully")
 }
 
 // validateMAC reports whether messageMAC is a valid HMAC tag for message.
 func validateMAC(message, messageMAC, key []byte) bool {
 	expectedMAC := GenMAC(message, key)
-	log.Error(hex.EncodeToString(expectedMAC))
 	return hmac.Equal(messageMAC, expectedMAC)
 }
 
