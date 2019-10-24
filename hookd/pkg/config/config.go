@@ -16,6 +16,14 @@ type S3 struct {
 	UseTLS         bool   `json:"secure"`
 }
 
+type Vault struct {
+	TokenFile string
+	Token     string
+	Address   string
+	Path      string
+	KeyName   string
+}
+
 type Github struct {
 	Enabled       bool
 	ClientID      string
@@ -34,6 +42,7 @@ type Config struct {
 	Kafka         kafka.Config
 	S3            S3
 	Github        Github
+	Vault         Vault
 	MetricsPath   string
 }
 
@@ -77,6 +86,13 @@ func DefaultConfig() *Config {
 			BucketName:     getEnv("S3_BUCKET_NAME", "deployments.nais.io"),
 			BucketLocation: getEnv("S3_BUCKET_LOCATION", ""),
 			UseTLS:         parseBool(getEnv("S3_SECURE", "false")),
+		},
+		Vault: Vault{
+			TokenFile: getEnv("VAULT_TOKEN_FILE", ""),
+			Address:   getEnv("VAULT_ADDRESS", "http://localhost:8200"),
+			KeyName:   getEnv("VAULT_KEY_NAME", "key"),
+			Path:      getEnv("VAULT_PATH", "/v1/apikey/nais-deploy"),
+			Token:     getEnv("VAULT_TOKEN", "123456789"),
 		},
 		MetricsPath: getEnv("METRICS_PATH", "/metrics"),
 	}

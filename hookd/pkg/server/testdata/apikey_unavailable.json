@@ -14,7 +14,7 @@
   "response": {
     "statusCode": 502,
     "body": {
-      "message": "unable to communicate with api key service"
+      "message": "something wrong happened when communicating with api key service"
     }
   }
 }
