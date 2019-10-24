@@ -14,19 +14,18 @@ import (
 var (
 	// Deployment request's time to live before it is considered too old.
 	ttl = time.Minute * 1
+
+	// Payload API version
+	payloadVersion = []int32{1, 0, 0}
 )
 
 // DeploymentRequestFromEvent creates a deployment request from a Github Deployment Event.
 // The event is validated, and if any fields are missing, an error is returned.
 // Any error from this function should be considered user error.
 func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, deliveryID string) (*types.DeploymentRequest, error) {
-	p := &types.Payload{
-		Kubernetes: &types.Kubernetes{
-			Resources: []*structpb.Struct{},
-		},
-	}
+	var resources []*structpb.Struct
 
-	if err := json.Unmarshal(r.Resources, &p.Kubernetes.Resources); err != nil {
+	if err := json.Unmarshal(r.Resources, &resources); err != nil {
 		return nil, fmt.Errorf("unable to unmarshal kubernetes resources: %s", err)
 	}
 
@@ -39,11 +38,17 @@ func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, d
 			},
 			DeploymentID: deployment.GetID(),
 		},
-		PayloadSpec: p,
-		DeliveryID:  deliveryID,
-		Cluster:     r.Cluster,
-		Timestamp:   now.Unix(),
-		Deadline:    now.Add(ttl).Unix(),
+		PayloadSpec: &types.Payload{
+			Team:    r.Team,
+			Version: payloadVersion,
+			Kubernetes: &types.Kubernetes{
+				Resources: []*structpb.Struct{},
+			},
+		},
+		DeliveryID: deliveryID,
+		Cluster:    r.Cluster,
+		Timestamp:  now.Unix(),
+		Deadline:   now.Add(ttl).Unix(),
 	}, nil
 }
 

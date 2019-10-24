@@ -6,7 +6,6 @@ import (
 	"time"
 
 	chi_middleware "github.com/go-chi/chi/middleware"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -31,8 +30,6 @@ func RequestLogger() func(next http.Handler) http.Handler {
 			requestStartTime := time.Now()
 
 			fields := requestLogFields(r)
-			fields["delivery_id"], _ = uuid.NewRandom()
-			log.WithFields(fields).Printf("%s %s", r.Method, r.RequestURI)
 
 			ww := chi_middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 
@@ -50,14 +47,14 @@ func RequestLogger() func(next http.Handler) http.Handler {
 	}
 }
 
-// RequestLogEntry returns the in-context LogEntry for a request.
-func RequestLogEntry(r *http.Request) *log.Fields {
+// RequestLogFields returns the in-context LogEntry for a request.
+func RequestLogFields(r *http.Request) log.Fields {
 	v := r.Context().Value(LogEntryCtxKey)
 	switch x := v.(type) {
-	case *log.Fields:
+	case log.Fields:
 		return x
 	default:
-		return &log.Fields{}
+		return log.Fields{}
 	}
 }
 

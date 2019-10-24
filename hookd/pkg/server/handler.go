@@ -96,34 +96,51 @@ func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var deploymentResponse DeploymentResponse
-	correlationID, err := uuid.NewRandom()
 
-	fields := middleware.RequestLogEntry(r)
-	logger := log.WithFields(*fields)
+	fields := middleware.RequestLogFields(r)
+	logger := log.WithFields(fields)
 
+	requestID, err := uuid.NewRandom()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		deploymentResponse.Message = fmt.Sprintf("unable to create correlation id: %s", err)
+		deploymentResponse.Message = fmt.Sprintf("unable to generate request id")
 		deploymentResponse.render(w)
+		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return
 	}
 
-	deploymentResponse.CorrelationID = correlationID.String()
+	logger = logger.WithField(types.LogFieldDeliveryID, requestID.String())
+	deploymentResponse.CorrelationID = requestID.String()
+
+	logger.Debugf("Incoming request")
 
 	data, err := ioutil.ReadAll(r.Body)
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		deploymentResponse.Message = fmt.Sprintf("unable to read request body: %s", err)
 		deploymentResponse.render(w)
+		logger.Error(deploymentResponse.Message)
 		return
 	}
+
+	encodedSignature := r.Header.Get(SignatureHeader)
+	signature, err := hex.DecodeString(encodedSignature)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = "HMAC digest must be hex encoded"
+		deploymentResponse.render(w)
+		logger.Errorf("unable to validate team: %s: %s", deploymentResponse.Message, err)
+		return
+	}
+
+	logger.Debugf("Request has hex encoded data in signature header")
 
 	deploymentRequest := &DeploymentRequest{}
 	if err := json.Unmarshal(data, deploymentRequest); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = fmt.Sprintf("unable to unmarshal request body: %s", err)
 		deploymentResponse.render(w)
+		logger.Error(deploymentResponse.Message)
 		return
 	}
 
@@ -133,12 +150,17 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		types.LogFieldRepository: fmt.Sprintf("%s/%s", deploymentRequest.Owner, deploymentRequest.Repository),
 	})
 
+	logger.Debugf("Request has valid JSON")
+
 	if err := deploymentRequest.validate(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = fmt.Sprintf("invalid deployment request: %s", err)
 		deploymentResponse.render(w)
+		logger.Error(deploymentResponse.Message)
 		return
 	}
+
+	logger.Debugf("Request body validated successfully")
 
 	token, err := h.APIKeyStorage.Read(deploymentRequest.Team)
 
@@ -158,16 +180,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodedSignature := r.Header.Get(SignatureHeader)
-	signature, err := hex.DecodeString(encodedSignature)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		deploymentResponse.Message = "HMAC digest must be hex encoded"
-		deploymentResponse.render(w)
-		logger.Errorf("unable to validate team: %s", err)
-		return
-
-	}
+	logger.Debugf("Team API key retrieved from storage")
 
 	if !validateMAC(data, []byte(signature), token) {
 		w.WriteHeader(http.StatusForbidden)
@@ -176,6 +189,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Errorf("%s: HMAC signature error", FailedAuthenticationMsg)
 		return
 	}
+
+	logger.Debugf("HMAC signature validated successfully")
 
 	githubRequest := deploymentRequest.GithubDeploymentRequest()
 	deployment, err := h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
@@ -189,7 +204,10 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deployment, correlationID.String())
+	logger = logger.WithField(types.LogFieldDeploymentID, deployment.GetID())
+	logger.Debugf("GitHub deployment created successfully")
+
+	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deployment, deploymentResponse.CorrelationID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = "unable to create deployment message"
@@ -204,13 +222,12 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deploymentResponse.Message = "deployment request accepted and dispatched"
 	deploymentResponse.render(w)
 
-	logger.Infof("created deployment message to cluster %s for repo %s/%s", deploymentRequest.Cluster, deploymentRequest.Owner, deploymentRequest.Repository)
+	logger.Info("Deployment request processed successfully")
 }
 
 // validateMAC reports whether messageMAC is a valid HMAC tag for message.
 func validateMAC(message, messageMAC, key []byte) bool {
 	expectedMAC := GenMAC(message, key)
-	log.Error(hex.EncodeToString(expectedMAC))
 	return hmac.Equal(messageMAC, expectedMAC)
 }
 
