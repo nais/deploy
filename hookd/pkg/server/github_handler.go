@@ -108,6 +108,10 @@ func (h *GithubDeploymentHandler) handler(r *http.Request) (int, error) {
 		return http.StatusBadRequest, err
 	}
 
+	if deploymentEvent.GetDeployment().GetTask() == DirectDeployGithubTask {
+		return http.StatusNoContent, fmt.Errorf("ignoring webhook originating from direct deployment through hookd")
+	}
+
 	deploymentRequest, err := DeploymentRequestFromEvent(deploymentEvent, deliveryID)
 
 	h.log = h.log.WithFields(deploymentRequest.LogFields())
