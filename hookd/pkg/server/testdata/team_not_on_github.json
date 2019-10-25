@@ -1,0 +1,20 @@
+{
+  "request": {
+    "body": {
+      "resources": [
+        {}
+      ],
+      "team": "team_not_on_github",
+      "cluster": "local",
+      "owner": "foo",
+      "repository": "bar",
+      "ref": "master"
+    }
+  },
+  "response": {
+    "statusCode": 502,
+    "body": {
+      "message": "unable to create GitHub deployment"
+    }
+  }
+}

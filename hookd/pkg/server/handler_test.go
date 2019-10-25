@@ -43,6 +43,17 @@ type testCase struct {
 
 type githubClient struct{}
 
+func (g *githubClient) TeamAllowed(ctx context.Context, owner, repository, teamName string) (bool, error) {
+	switch teamName {
+	case "team_not_repo_owner":
+		return false, nil
+	case "team_not_on_github":
+		return false, fmt.Errorf("team does not manage repository")
+	default:
+		return true, nil
+	}
+}
+
 func (g *githubClient) CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error) {
 	switch repository {
 	case "unavailable":

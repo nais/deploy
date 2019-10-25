@@ -32,7 +32,7 @@ var (
 	cfg            = config.DefaultConfig()
 	retryInterval  = time.Second * 5
 	queueSize      = 32
-	requestTimeout = time.Second * 3
+	requestTimeout = time.Second * 10
 )
 
 func init() {
