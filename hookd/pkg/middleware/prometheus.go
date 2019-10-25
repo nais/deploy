@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	defaultBuckets = []float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5}
+	defaultBuckets = []float64{.001, .01, .05, .1, .5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5}
 )
 
 const (
