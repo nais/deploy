@@ -83,7 +83,7 @@ The code can be derived by hashing the request body using the SHA256 algorithm t
 |-------|------|-------------|
 | 201 | N/A | The request was valid and will be deployed. Track the status of your deployment using the GitHub Deployments API. |
 | 400 | NO | The request contains errors and cannot be processed. Check the `message` field for details.
-| 403 | MAYBE | Authentication failed. Check that you're supplying the correct `team`, using the correct API key, and properly signing the request. |
+| 403 | MAYBE | Authentication failed. Check that you're supplying the correct `team`; that the team is present on GitHub and has admin access to your repository; that you're using the correct API key; and properly HMAC signing the request. |
 | 404 | NO | Wrong URL. |
 | 5xx | YES | NAIS deploy is having problems and is currently being fixed. Retry later. |
 

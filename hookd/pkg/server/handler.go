@@ -96,6 +96,7 @@ func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var deploymentResponse DeploymentResponse
+	var githubDeployment *gh.Deployment
 
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
@@ -192,9 +193,27 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debugf("HMAC signature validated successfully")
 
+	err = h.GithubClient.TeamAllowed(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, deploymentRequest.Team)
+	switch err {
+	case nil:
+		logger.Debugf("Team access to repository on GitHub validated successfully")
+	case github.ErrTeamNotExist, github.ErrTeamNoAccess:
+		deploymentResponse.Message = err.Error()
+		w.WriteHeader(http.StatusForbidden)
+		deploymentResponse.render(w)
+		logger.Error(err)
+		return
+	default:
+		deploymentResponse.Message = "unable to communicate with GitHub"
+		w.WriteHeader(http.StatusBadGateway)
+		deploymentResponse.render(w)
+		logger.Errorf("%s: %s", deploymentResponse.Message, err)
+		return
+	}
+
 	githubRequest := deploymentRequest.GithubDeploymentRequest()
-	deployment, err := h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
-	deploymentResponse.GithubDeployment = deployment
+	githubDeployment, err = h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
+	deploymentResponse.GithubDeployment = githubDeployment
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
@@ -204,10 +223,10 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger = logger.WithField(types.LogFieldDeploymentID, deployment.GetID())
+	logger = logger.WithField(types.LogFieldDeploymentID, githubDeployment.GetID())
 	logger.Debugf("GitHub deployment created successfully")
 
-	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deployment, deploymentResponse.CorrelationID)
+	deployMsg, err := DeploymentRequestMessage(deploymentRequest, githubDeployment, deploymentResponse.CorrelationID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = "unable to create deployment message"
