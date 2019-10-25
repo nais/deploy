@@ -193,25 +193,27 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debugf("HMAC signature validated successfully")
 
-	teamAllowed, err := h.GithubClient.TeamAllowed(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, deploymentRequest.Team)
-	if err == nil {
-		if teamAllowed == false {
-			w.WriteHeader(http.StatusForbidden)
-			deploymentResponse.Message = fmt.Sprintf("team '%s' does not manage GitHub repository '%s/%s'",
-				deploymentRequest.Team,
-				deploymentRequest.Owner,
-				deploymentRequest.Repository,
-			)
-			deploymentResponse.render(w)
-			logger.Errorf(deploymentResponse.Message)
-			return
-		}
-		githubRequest := deploymentRequest.GithubDeploymentRequest()
-		githubDeployment, err = h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
-		deploymentResponse.GithubDeployment = githubDeployment
+	err = h.GithubClient.TeamAllowed(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, deploymentRequest.Team)
+	switch err {
+	case nil:
+		logger.Debugf("Team access to repository on GitHub validated successfully")
+	case github.ErrTeamNotExist, github.ErrTeamNoAccess:
+		deploymentResponse.Message = err.Error()
+		w.WriteHeader(http.StatusForbidden)
+		deploymentResponse.render(w)
+		logger.Error(err)
+		return
+	default:
+		deploymentResponse.Message = "unable to communicate with GitHub"
+		w.WriteHeader(http.StatusBadGateway)
+		deploymentResponse.render(w)
+		logger.Errorf("%s: %s", deploymentResponse.Message, err)
+		return
 	}
 
-	logger.Debugf("Team access to repository on GitHub validated successfully")
+	githubRequest := deploymentRequest.GithubDeploymentRequest()
+	githubDeployment, err = h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
+	deploymentResponse.GithubDeployment = githubDeployment
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	gh "github.com/google/go-github/v27/github"
+	"github.com/navikt/deployment/hookd/pkg/github"
 
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
@@ -43,14 +44,14 @@ type testCase struct {
 
 type githubClient struct{}
 
-func (g *githubClient) TeamAllowed(ctx context.Context, owner, repository, teamName string) (bool, error) {
+func (g *githubClient) TeamAllowed(ctx context.Context, owner, repository, teamName string) error {
 	switch teamName {
 	case "team_not_repo_owner":
-		return false, nil
+		return github.ErrTeamNoAccess
 	case "team_not_on_github":
-		return false, fmt.Errorf("team does not manage repository")
+		return github.ErrTeamNotExist
 	default:
-		return true, nil
+		return nil
 	}
 }
 

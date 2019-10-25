@@ -12,9 +12,9 @@
     }
   },
   "response": {
-    "statusCode": 502,
+    "statusCode": 403,
     "body": {
-      "message": "unable to create GitHub deployment"
+      "message": "team does not exist on GitHub"
     }
   }
 }

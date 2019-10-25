@@ -14,7 +14,7 @@
   "response": {
     "statusCode": 403,
     "body": {
-      "message": "team 'team_not_repo_owner' does not manage GitHub repository 'foo/bar'"
+      "message": "team has no admin access to repository"
     }
   }
 }
