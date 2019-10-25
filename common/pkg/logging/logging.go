@@ -11,6 +11,7 @@ func TextFormatter() log.Formatter {
 	return &log.TextFormatter{
 		DisableTimestamp: false,
 		FullTimestamp:    true,
+		TimestampFormat:  time.RFC3339Nano,
 	}
 }
 
