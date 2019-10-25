@@ -218,7 +218,7 @@ func run() error {
 		"/assets",
 		http.FileServer(http.Dir(auth.StaticAssetsLocation)),
 	)
-	router.Get("/assets", staticHandler.ServeHTTP)
+	router.Handle("/assets/*", staticHandler)
 
 	go func() {
 		err := http.ListenAndServe(cfg.ListenAddress, router)
