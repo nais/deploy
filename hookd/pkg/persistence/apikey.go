@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -65,7 +66,7 @@ func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
 			return nil, fmt.Errorf("unable to unmarshal response from Vault: %s", err)
 		}
 
-		return []byte(vaultResp.Data[s.KeyName]), err
+		return hex.DecodeString(vaultResp.Data[s.KeyName])
 	case http.StatusNotFound:
 		return nil, ErrNotFound
 	default:
