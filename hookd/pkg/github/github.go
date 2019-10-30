@@ -10,6 +10,7 @@ import (
 	"github.com/bradleyfalzon/ghinstallation"
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/hookd/pkg/logproxy"
 )
 
 const maxDescriptionLength = 140
@@ -56,8 +57,7 @@ func CreateDeploymentStatus(client *gh.Client, m *types.DeploymentStatus, baseur
 		description = description[:maxDescriptionLength]
 	}
 
-	unixTime := time.Now().Unix()
-	url := fmt.Sprintf("%s/logs?delivery_id=%s&ts=%d", baseurl, m.GetDeliveryID(), unixTime)
+	url := logproxy.MakeURL(baseurl, m.GetDeliveryID(), time.Now())
 
 	return client.Repositories.CreateDeploymentStatus(
 		context.Background(),
