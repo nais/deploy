@@ -3,6 +3,7 @@ package persistence
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -61,14 +62,15 @@ func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
 		decoder := json.NewDecoder(resp.Body)
 		defer resp.Body.Close()
 		if err := decoder.Decode(&vaultResp); err != nil {
-			return nil, fmt.Errorf("unable to unmarshal response from vault: %s", err)
+			return nil, fmt.Errorf("unable to unmarshal response from Vault: %s", err)
 		}
 
 		return []byte(vaultResp.Data[s.KeyName]), err
 	case http.StatusNotFound:
 		return nil, ErrNotFound
 	default:
-		return nil, fmt.Errorf("unsuccessful http status code from vault: %d", resp.StatusCode)
+		body, _ := ioutil.ReadAll(resp.Body)
+		return nil, fmt.Errorf("Vault returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
 }
 func (s *VaultApiKeyStorage) IsErrNotFound(err error) bool {
