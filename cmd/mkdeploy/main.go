@@ -92,7 +92,11 @@ func run() error {
 	}
 	bufstr := buf.String()
 
-	sig := mksig(buf.Bytes(), []byte(cfg.HMACKey))
+	decoded, err := hex.DecodeString(cfg.HMACKey)
+	if err != nil {
+		return fmt.Errorf("HMAC key must be a hex encoded string: %s", err)
+	}
+	sig := mksig(buf.Bytes(), decoded)
 
 	req, err := http.NewRequest("POST", cfg.URL, buf)
 	if err != nil {
@@ -104,6 +108,7 @@ func run() error {
 
 	log.Infof("data sent....:")
 	fmt.Printf(bufstr)
+	log.Infof("signature....: %s", sig)
 
 	if !cfg.DryRun {
 
