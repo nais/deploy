@@ -31,7 +31,7 @@ type Middleware struct {
 }
 
 // NewMiddleware returns a new prometheus Middleware handler.
-func PrometheusMiddlewareHandler(name string, buckets ...float64) middleware {
+func PrometheusMiddleware(name string, buckets ...float64) *Middleware {
 	var m Middleware
 	m.reqs = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -57,18 +57,30 @@ func PrometheusMiddlewareHandler(name string, buckets ...float64) middleware {
 	prometheus.MustRegister(m.reqs)
 	prometheus.MustRegister(m.latency)
 
+	return &m
+}
+
+func (m *Middleware) Initialize(path, method string, code int) {
+	m.reqs.WithLabelValues(
+		strconv.Itoa(code),
+		method,
+		path,
+	)
+}
+
+func (m *Middleware) Handler() middleware {
 	return m.handler
 }
 
-func (c Middleware) handler(next http.Handler) http.Handler {
+func (m Middleware) handler(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		ww := chi_middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
 		statusCode := strconv.Itoa(ww.Status())
 		duration := time.Since(start)
-		c.reqs.WithLabelValues(statusCode, r.Method, r.URL.Path).Inc()
-		c.latency.WithLabelValues(statusCode, r.Method, r.URL.Path).Observe(duration.Seconds())
+		m.reqs.WithLabelValues(statusCode, r.Method, r.URL.Path).Inc()
+		m.latency.WithLabelValues(statusCode, r.Method, r.URL.Path).Observe(duration.Seconds())
 	}
 	return http.HandlerFunc(fn)
 }

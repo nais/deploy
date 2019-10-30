@@ -161,10 +161,22 @@ func run() error {
 
 	router := chi.NewRouter()
 
+	// Pre-populate deployment request metrics
+	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
+	for _, code := range []int{
+		http.StatusCreated,
+		http.StatusBadRequest,
+		http.StatusForbidden,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	} {
+		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
+	}
+
 	// Base settings for all requests
 	router.Use(
 		middleware.RequestLogger(),
-		middleware.PrometheusMiddlewareHandler("hookd"),
+		prometheusMiddleware.Handler(),
 		chi_middleware.StripSlashes,
 	)
 
