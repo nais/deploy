@@ -1,16 +1,18 @@
 package persistence_test
 
 import (
+	"encoding/hex"
 	"fmt"
-	"github.com/navikt/deployment/hookd/pkg/config"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/navikt/deployment/hookd/pkg/config"
+	"github.com/navikt/deployment/hookd/pkg/persistence"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -25,12 +27,13 @@ func TestVaultApiKeyStorage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch teamname(r.URL) {
 		case Existing:
+			encoded := hex.EncodeToString([]byte(ApiKey))
 			_, _ = io.WriteString(w,
 				fmt.Sprintf(`{
                     "data": {
                       "%s": "%s"
                     }
-                 }`, defaults.KeyName, ApiKey))
+                 }`, defaults.KeyName, encoded))
 		case Nonexistent:
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("not found"))
