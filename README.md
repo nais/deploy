@@ -65,17 +65,19 @@ The code can be derived by hashing the request body using the SHA256 algorithm t
 
 ```json
 {
-  "githubDeployment": { ... },
+  "logURL": "http://localhost:8080/logs?delivery_id=9a0d1702-e7c5-448f-8a90-1e5ee29a043b&ts=1572437924",
   "correlationID": "9a0d1702-e7c5-448f-8a90-1e5ee29a043b",
-  "message": "successful deployment"
+  "message": "successful deployment",
+  "githubDeployment": { ... }
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| githubDeployment | object | [Data returned from GitHub Deployments API](https://developer.github.com/v3/repos/deployments/#get-a-single-deployment) |
+| logURL | string | Direct link to human readable frontend where logs for this specific deployment can be read |
 | correlationID | string | UUID used for correlation tracking across systems, especially in logs |
 | message | string | Human readable indication of API result |
+| githubDeployment | object | [Data returned from GitHub Deployments API](https://developer.github.com/v3/repos/deployments/#get-a-single-deployment) |
 
 #### Response status codes
 

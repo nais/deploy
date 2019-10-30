@@ -131,6 +131,7 @@ func run() error {
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
 	deploymentHandler := &server.DeploymentHandler{
+		BaseURL:           cfg.BaseURL,
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
 		GithubClient:      githubClient,

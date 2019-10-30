@@ -103,7 +103,7 @@ func run() error {
 	req.Header.Add(server.SignatureHeader, fmt.Sprintf("%s", sig))
 
 	log.Infof("data sent....:")
-	log.Info(bufstr)
+	fmt.Printf(bufstr)
 
 	if !cfg.DryRun {
 
@@ -117,7 +117,7 @@ func run() error {
 		log.Infof("data received:")
 
 		body, _ := ioutil.ReadAll(resp.Body)
-		log.Infof(string(body))
+		fmt.Print(string(body))
 	}
 
 	return err

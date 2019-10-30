@@ -9,9 +9,11 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	gh "github.com/google/go-github/v27/github"
@@ -31,6 +33,7 @@ type DeploymentHandler struct {
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
+	BaseURL           string
 }
 
 type DeploymentRequest struct {
@@ -43,9 +46,10 @@ type DeploymentRequest struct {
 }
 
 type DeploymentResponse struct {
-	GithubDeployment *gh.Deployment `json:"githubDeployment,omitempty"`
-	CorrelationID    string         `json:"correlationID,omitempty"`
 	Message          string         `json:"message,omitempty"`
+	CorrelationID    string         `json:"correlationID,omitempty"`
+	LogURL           string         `json:"logURL,omitempty"`
+	GithubDeployment *gh.Deployment `json:"githubDeployment,omitempty"`
 }
 
 func (r *DeploymentResponse) render(w io.Writer) {
@@ -112,6 +116,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger = logger.WithField(types.LogFieldDeliveryID, requestID.String())
 	deploymentResponse.CorrelationID = requestID.String()
+	deploymentResponse.LogURL = logproxy.MakeURL(h.BaseURL, requestID.String(), time.Now())
 
 	logger.Debugf("Incoming request")
 
