@@ -5,14 +5,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/navikt/deployment/hookd/pkg/metrics"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/navikt/deployment/hookd/pkg/metrics"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -88,7 +89,7 @@ func (s *VaultApiKeyStorage) refreshToken() error {
 	s.Token = vaultAuthResponse.Auth.ClientToken
 
 	s.LeaseDuration = vaultAuthResponse.Auth.LeaseDuration
-	logrus.Infof("set lease duration to: %s", s.LeaseDuration)
+	logrus.Infof("set lease duration to %d seconds", s.LeaseDuration)
 
 	return nil
 }
