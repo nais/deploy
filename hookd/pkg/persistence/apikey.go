@@ -1,13 +1,18 @@
 package persistence
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/metrics"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
+	"time"
 )
 
 var (
@@ -24,12 +29,15 @@ type ApiKeyStorage interface {
 }
 
 type VaultApiKeyStorage struct {
-	Address     string
-	Path        string
-	AuthPath    string
-	KeyName     string
-	Credentials string
-	HttpClient  *http.Client
+	Address       string
+	Path          string
+	AuthPath      string
+	AuthRole      string
+	KeyName       string
+	Credentials   string
+	Token         string
+	LeaseDuration int
+	HttpClient    *http.Client
 }
 
 type VaultResponse struct {
@@ -40,7 +48,12 @@ type VaultAuthRequest struct {
 	JWT  string `json:"jwt"`
 	Role string `json:"role"`
 }
+
 type VaultAuthResponse struct {
+	Auth struct {
+		ClientToken   string `json:"client_token"`
+		LeaseDuration int    `json:"lease_duration"`
+	} `json:"auth"`
 }
 
 func (s *VaultApiKeyStorage) refreshToken() error {
@@ -51,9 +64,44 @@ func (s *VaultApiKeyStorage) refreshToken() error {
 	}
 
 	u.Path = s.AuthPath
-	authRequest := VaultAuthRequest{JWT: s.Credentials, Role: "something"}
-	json.Marshal()
-	http.Post(u.String(), "application/json")
+	b, err := json.Marshal(VaultAuthRequest{JWT: s.Credentials, Role: s.AuthRole})
+
+	if err != nil {
+		return fmt.Errorf("unable to marshal vault auth request: %s", err)
+	}
+
+	resp, err := http.Post(u.String(), "application/json", bytes.NewReader(b))
+	if resp != nil {
+		metrics.VaultTokenRefresh.WithLabelValues(strconv.Itoa(resp.StatusCode)).Inc()
+	}
+
+	if err != nil {
+		return fmt.Errorf("unable to perform post request to vault: %s", err)
+	}
+
+	var vaultAuthResponse VaultAuthResponse
+
+	if err := json.NewDecoder(resp.Body).Decode(&vaultAuthResponse); err != nil {
+		return fmt.Errorf("unable to decode auth response from vault: %s", err)
+	}
+
+	s.Token = vaultAuthResponse.Auth.ClientToken
+	s.LeaseDuration = vaultAuthResponse.Auth.LeaseDuration
+
+	return nil
+}
+
+func (s *VaultApiKeyStorage) RefreshLoop() {
+	timer := time.NewTimer(1 * time.Second)
+	for range timer.C {
+		if err := s.refreshToken(); err != nil {
+			logrus.Errorf("unable to refresh token: %s", err)
+			timer.Reset(1 * time.Minute)
+			continue
+		}
+		logrus.Info("successfully refreshed vault token")
+		timer.Reset(time.Duration(float64(s.LeaseDuration)*0.8) * time.Second)
+	}
 }
 
 func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {

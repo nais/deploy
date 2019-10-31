@@ -121,12 +121,25 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
+	apiKeys := &persistence.VaultApiKeyStorage{
+		Address:    cfg.Vault.Address,
+		Path:       cfg.Vault.Path,
+		AuthPath:   cfg.Vault.AuthPath,
+		AuthRole:   cfg.Vault.AuthRole,
+		KeyName:    cfg.Vault.KeyName,
+		Token:      cfg.Vault.Token,
+		HttpClient: http.DefaultClient,
+	}
+
 	if len(cfg.Vault.CredentialsFile) > 0 {
 		credentials, err := ioutil.ReadFile(cfg.Vault.CredentialsFile)
 		if err != nil {
 			return fmt.Errorf("read Vault token file: %s", err)
 		}
-		cfg.Vault.Token = string(credentials)
+		apiKeys.Credentials = string(credentials)
+		apiKeys.Token = ""
+
+		go apiKeys.RefreshLoop()
 	}
 
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
@@ -137,15 +150,7 @@ func run() error {
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
 		GithubClient:      githubClient,
-		APIKeyStorage: &persistence.VaultApiKeyStorage{
-			Address:     cfg.Vault.Address,
-			Path:        cfg.Vault.Path,
-			AuthPath:    cfg.Vault.AuthPath,
-			AuthRole:    cfg.Vault.AuthRole,
-			KeyName:     cfg.Vault.KeyName,
-			Credentials: cfg.Vault.Token,
-			HttpClient:  http.DefaultClient,
-		},
+		APIKeyStorage:     apiKeys,
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
