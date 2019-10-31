@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/fsnotify/fsnotify"
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
 	gh "github.com/google/go-github/v27/github"
@@ -67,8 +66,6 @@ func init() {
 }
 
 func run() error {
-	var watcher *fsnotify.Watcher
-
 	flag.Parse()
 
 	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
@@ -122,18 +119,7 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	// Watch Vault token for changes and feed into client
-	watcher, err = fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("unable to create file system watch: %s", err)
-	}
-
 	if len(cfg.Vault.TokenFile) > 0 {
-		err = watcher.Add(cfg.Vault.TokenFile)
-		if err != nil {
-			return fmt.Errorf("unable to watch Vault token file for updates: %s", err)
-		}
-
 		tok, err := ioutil.ReadFile(cfg.Vault.TokenFile)
 		if err != nil {
 			return fmt.Errorf("read Vault token file: %s", err)
@@ -149,7 +135,13 @@ func run() error {
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
 		GithubClient:      githubClient,
-		APIKeyStorage:     makeAPIKeyStorage(),
+		APIKeyStorage: &persistence.VaultApiKeyStorage{
+			Address:    cfg.Vault.Address,
+			Path:       cfg.Vault.Path,
+			KeyName:    cfg.Vault.KeyName,
+			Token:      cfg.Vault.Token,
+			HttpClient: http.DefaultClient,
+		},
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
@@ -241,7 +233,6 @@ func run() error {
 	)
 	router.Handle("/assets/*", staticHandler)
 
-	// HTTP handler runs in a separate thread
 	go func() {
 		err := http.ListenAndServe(cfg.ListenAddress, router)
 		if err != nil {
@@ -359,18 +350,6 @@ func run() error {
 
 		case <-signals:
 			return nil
-
-		case <-watcher.Events:
-			log.Infof("Re-reading Vault token file %s", cfg.Vault.TokenFile)
-			tok, err := ioutil.ReadFile(cfg.Vault.TokenFile)
-			if err != nil {
-				return fmt.Errorf("read Vault token file: %s", err)
-			}
-			cfg.Vault.Token = string(tok)
-			deploymentHandler.APIKeyStorage = makeAPIKeyStorage()
-
-		case err = <-watcher.Errors:
-			return fmt.Errorf("file system watcher: %s", err)
 		}
 	}
 }
@@ -380,15 +359,5 @@ func main() {
 	if err != nil {
 		log.Errorf("Fatal error: %s", err)
 		os.Exit(1)
-	}
-}
-
-func makeAPIKeyStorage() persistence.ApiKeyStorage {
-	return &persistence.VaultApiKeyStorage{
-		Address:    cfg.Vault.Address,
-		Path:       cfg.Vault.Path,
-		KeyName:    cfg.Vault.KeyName,
-		Token:      cfg.Vault.Token,
-		HttpClient: http.DefaultClient,
 	}
 }
