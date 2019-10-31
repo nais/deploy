@@ -18,7 +18,7 @@ type S3 struct {
 
 type Vault struct {
 	CredentialsFile string
-	Credentials     string
+	Token           string
 	Address         string
 	Path            string
 	AuthPath        string
@@ -90,13 +90,13 @@ func DefaultConfig() *Config {
 			UseTLS:         parseBool(getEnv("S3_SECURE", "false")),
 		},
 		Vault: Vault{
-			CredentialsFile: getEnv("VAULT_TOKEN_FILE", ""),
+			CredentialsFile: getEnv("VAULT_CREDENTIALS_FILE", ""),
 			Address:         getEnv("VAULT_ADDRESS", "http://localhost:8200"),
 			KeyName:         getEnv("VAULT_KEY_NAME", "key"),
 			Path:            getEnv("VAULT_PATH", "/v1/apikey/nais-deploy"),
 			AuthPath:        getEnv("VAULT_AUTH_PATH", "/v1/auth/kubernetes/login"),
 			AuthRole:        getEnv("VAULT_AUTH_ROLE", ""),
-			Credentials:     getEnv("VAULT_TOKEN", "123456789"),
+			Token:           getEnv("VAULT_TOKEN", "123456789"),
 		},
 		MetricsPath: getEnv("METRICS_PATH", "/metrics"),
 	}

@@ -61,8 +61,8 @@ func init() {
 	flag.StringVar(&cfg.Vault.AuthRole, "vault-auth-role", cfg.Vault.AuthRole, "Role used for Vault authentication.")
 	flag.StringVar(&cfg.Vault.Address, "vault-address", cfg.Vault.Address, "Address to Vault server.")
 	flag.StringVar(&cfg.Vault.KeyName, "vault-key-name", cfg.Vault.KeyName, "API keys are stored in this key.")
-	flag.StringVar(&cfg.Vault.CredentialsFile, "vault-token-file", cfg.Vault.CredentialsFile, "Vault JWT retrieved from this file (overrides --vault-token).")
-	flag.StringVar(&cfg.Vault.Credentials, "vault-token", cfg.Vault.Credentials, "Vault JWT.")
+	flag.StringVar(&cfg.Vault.CredentialsFile, "vault-credentials-file", cfg.Vault.CredentialsFile, "Credentials for authenticating against Vault retrieved from this file (overrides --vault-token).")
+	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault static token.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -126,7 +126,7 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("read Vault token file: %s", err)
 		}
-		cfg.Vault.Credentials = string(credentials)
+		cfg.Vault.Token = string(credentials)
 	}
 
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
@@ -143,7 +143,7 @@ func run() error {
 			AuthPath:    cfg.Vault.AuthPath,
 			AuthRole:    cfg.Vault.AuthRole,
 			KeyName:     cfg.Vault.KeyName,
-			Credentials: cfg.Vault.Credentials,
+			Credentials: cfg.Vault.Token,
 			HttpClient:  http.DefaultClient,
 		},
 	}
