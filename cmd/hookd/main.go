@@ -57,6 +57,8 @@ func init() {
 	flag.BoolVar(&cfg.S3.UseTLS, "s3-secure", cfg.S3.UseTLS, "Use TLS for S3 connections.")
 
 	flag.StringVar(&cfg.Vault.Path, "vault-path", cfg.Vault.Path, "Base path to Vault KV API key store.")
+	flag.StringVar(&cfg.Vault.AuthPath, "vault-auth-path", cfg.Vault.AuthPath, "Path to Vault authentication endpoint.")
+	flag.StringVar(&cfg.Vault.AuthRole, "vault-auth-role", cfg.Vault.AuthRole, "Role used for Vault authentication.")
 	flag.StringVar(&cfg.Vault.Address, "vault-address", cfg.Vault.Address, "Address to Vault server.")
 	flag.StringVar(&cfg.Vault.KeyName, "vault-key-name", cfg.Vault.KeyName, "API keys are stored in this key.")
 	flag.StringVar(&cfg.Vault.CredentialsFile, "vault-token-file", cfg.Vault.CredentialsFile, "Vault JWT retrieved from this file (overrides --vault-token).")
@@ -138,6 +140,8 @@ func run() error {
 		APIKeyStorage: &persistence.VaultApiKeyStorage{
 			Address:     cfg.Vault.Address,
 			Path:        cfg.Vault.Path,
+			AuthPath:    cfg.Vault.AuthPath,
+			AuthRole:    cfg.Vault.AuthRole,
 			KeyName:     cfg.Vault.KeyName,
 			Credentials: cfg.Vault.Credentials,
 			HttpClient:  http.DefaultClient,

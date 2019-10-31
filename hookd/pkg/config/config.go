@@ -21,6 +21,8 @@ type Vault struct {
 	Credentials     string
 	Address         string
 	Path            string
+	AuthPath        string
+	AuthRole        string
 	KeyName         string
 }
 
@@ -92,6 +94,8 @@ func DefaultConfig() *Config {
 			Address:         getEnv("VAULT_ADDRESS", "http://localhost:8200"),
 			KeyName:         getEnv("VAULT_KEY_NAME", "key"),
 			Path:            getEnv("VAULT_PATH", "/v1/apikey/nais-deploy"),
+			AuthPath:        getEnv("VAULT_AUTH_PATH", "/v1/auth/kubernetes/login"),
+			AuthRole:        getEnv("VAULT_AUTH_ROLE", ""),
 			Credentials:     getEnv("VAULT_TOKEN", "123456789"),
 		},
 		MetricsPath: getEnv("METRICS_PATH", "/metrics"),
