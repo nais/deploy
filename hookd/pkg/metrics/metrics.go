@@ -140,6 +140,17 @@ var (
 		Subsystem: subsystem,
 	})
 
+	VaultTokenRefresh = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "vault_token_refresh",
+		Help:      "number of token refresh calls made to Vault",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			LabelStatusCode,
+		},
+	)
+
 	KafkaQueueSize             = gauge("kafka_queue_size", "number of messages received from Kafka and waiting to be processed")
 	DeploymentRequestQueueSize = gauge("deployment_request_queue_size", "number of github status updates waiting to be posted")
 	GithubStatusQueueSize      = gauge("github_status_queue_size", "number of github status updates waiting to be posted")
@@ -151,6 +162,7 @@ func init() {
 	prometheus.MustRegister(queueSize)
 	prometheus.MustRegister(leadTime)
 	prometheus.MustRegister(Dispatched)
+	prometheus.MustRegister(VaultTokenRefresh)
 	prometheus.MustRegister(KafkaQueueSize)
 	prometheus.MustRegister(DeploymentRequestQueueSize)
 	prometheus.MustRegister(GithubStatusQueueSize)
