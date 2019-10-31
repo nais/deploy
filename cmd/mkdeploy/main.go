@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/ghodss/yaml"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -90,11 +91,17 @@ func run() error {
 
 	flag.Parse()
 
+	files := make([][]byte, len(cfg.Resource))
 	resources := make([]json.RawMessage, len(cfg.Resource))
+
 	for i, path := range cfg.Resource {
-		resources[i], err = ioutil.ReadFile(path)
+		files[i], err = ioutil.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("open '%s': %s", path, err)
+			return fmt.Errorf("%s: open file: %s", path, err)
+		}
+		resources[i], err = yaml.YAMLToJSON(files[i])
+		if err != nil {
+			return fmt.Errorf("%s: convert yaml to json: %s", path, err)
 		}
 	}
 
