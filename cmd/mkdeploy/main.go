@@ -24,7 +24,7 @@ type Config struct {
 	Ref        string
 	Owner      string
 	Repository string
-	Payload    string
+	Resource   []string
 	Cluster    string
 	HMACKey    string
 }
@@ -38,7 +38,7 @@ func DefaultConfig() Config {
 		Ref:        "master",
 		Owner:      "navikt",
 		Repository: "deployment",
-		Payload:    "[{}]",
+		Resource:   []string{},
 		Cluster:    "local",
 	}
 }
@@ -52,14 +52,19 @@ func init() {
 	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Commit hash, tag or branch.")
 	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of git repository.")
 	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
-	flag.StringVar(&cfg.Payload, "payload", cfg.Payload, "Deployment payload.")
+	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "Files with Kubernetes resources.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Cluster to deploy to.")
 	flag.StringVar(&cfg.HMACKey, "hmac", cfg.HMACKey, "Webhook pre-shared key.")
 }
 
-func mkpayload(w io.Writer) error {
+func mkpayload(w io.Writer, resources []json.RawMessage) error {
+	allResources, err := json.Marshal(resources)
+	if err != nil {
+		return err
+	}
+
 	req := server.DeploymentRequest{
-		Resources:  json.RawMessage(cfg.Payload),
+		Resources:  allResources,
 		Team:       cfg.Team,
 		Cluster:    cfg.Cluster,
 		Ref:        cfg.Ref,
@@ -81,12 +86,22 @@ func mksig(data, key []byte) string {
 }
 
 func run() error {
+	var err error
+
 	flag.Parse()
+
+	resources := make([]json.RawMessage, len(cfg.Resource))
+	for i, path := range cfg.Resource {
+		resources[i], err = ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("open '%s': %s", path, err)
+		}
+	}
 
 	data := make([]byte, 0)
 	buf := bytes.NewBuffer(data)
 
-	err := mkpayload(buf)
+	err = mkpayload(buf, resources)
 	if err != nil {
 		return err
 	}
