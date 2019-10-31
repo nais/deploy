@@ -86,7 +86,9 @@ func (s *VaultApiKeyStorage) refreshToken() error {
 	}
 
 	s.Token = vaultAuthResponse.Auth.ClientToken
+
 	s.LeaseDuration = vaultAuthResponse.Auth.LeaseDuration
+	logrus.Infof("set lease duration to: %s", s.LeaseDuration)
 
 	return nil
 }
@@ -99,8 +101,10 @@ func (s *VaultApiKeyStorage) RefreshLoop() {
 			timer.Reset(1 * time.Minute)
 			continue
 		}
-		logrus.Info("successfully refreshed vault token")
-		timer.Reset(time.Duration(float64(s.LeaseDuration)*0.8) * time.Second)
+		refreshInterval := int(float64(s.LeaseDuration) * 0.8)
+		duration := time.Duration(refreshInterval) * time.Second
+		timer.Reset(duration)
+		logrus.Infof("successfully refreshed vault token, next refresh in: %s", duration.String())
 	}
 }
 
