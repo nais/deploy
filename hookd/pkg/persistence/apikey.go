@@ -24,24 +24,46 @@ type ApiKeyStorage interface {
 }
 
 type VaultApiKeyStorage struct {
-	Address    string
-	Path       string
-	KeyName    string
-	Token      string
-	HttpClient *http.Client
+	Address     string
+	Path        string
+	AuthPath    string
+	KeyName     string
+	Credentials string
+	HttpClient  *http.Client
 }
 
 type VaultResponse struct {
 	Data map[string]string `json:"data"`
 }
 
+type VaultAuthRequest struct {
+	JWT  string `json:"jwt"`
+	Role string `json:"role"`
+}
+type VaultAuthResponse struct {
+}
+
+func (s *VaultApiKeyStorage) refreshToken() error {
+	u, err := url.Parse(s.Address)
+
+	if err != nil {
+		return fmt.Errorf("unable to construct URL to vault auth: %s", err)
+	}
+
+	u.Path = s.AuthPath
+	authRequest := VaultAuthRequest{JWT: s.Credentials, Role: "something"}
+	json.Marshal()
+	http.Post(u.String(), "application/json")
+}
+
 func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
 	u, err := url.Parse(s.Address)
-	u.Path = path.Join(s.Path, team)
 
 	if err != nil {
 		return nil, fmt.Errorf("unable to construct URL to vault: %s", err)
 	}
+
+	u.Path = path.Join(s.Path, team)
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 
@@ -49,7 +71,7 @@ func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
 		return nil, fmt.Errorf("unable to create HTTP request: %s", err)
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", s.Token))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", s.Credentials))
 
 	resp, err := s.HttpClient.Do(req)
 

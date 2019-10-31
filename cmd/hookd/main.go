@@ -59,8 +59,8 @@ func init() {
 	flag.StringVar(&cfg.Vault.Path, "vault-path", cfg.Vault.Path, "Base path to Vault KV API key store.")
 	flag.StringVar(&cfg.Vault.Address, "vault-address", cfg.Vault.Address, "Address to Vault server.")
 	flag.StringVar(&cfg.Vault.KeyName, "vault-key-name", cfg.Vault.KeyName, "API keys are stored in this key.")
-	flag.StringVar(&cfg.Vault.TokenFile, "vault-token-file", cfg.Vault.TokenFile, "Vault JWT retrieved from this file (overrides --vault-token).")
-	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault JWT.")
+	flag.StringVar(&cfg.Vault.CredentialsFile, "vault-token-file", cfg.Vault.CredentialsFile, "Vault JWT retrieved from this file (overrides --vault-token).")
+	flag.StringVar(&cfg.Vault.Credentials, "vault-token", cfg.Vault.Credentials, "Vault JWT.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -119,12 +119,12 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	if len(cfg.Vault.TokenFile) > 0 {
-		tok, err := ioutil.ReadFile(cfg.Vault.TokenFile)
+	if len(cfg.Vault.CredentialsFile) > 0 {
+		credentials, err := ioutil.ReadFile(cfg.Vault.CredentialsFile)
 		if err != nil {
 			return fmt.Errorf("read Vault token file: %s", err)
 		}
-		cfg.Vault.Token = string(tok)
+		cfg.Vault.Credentials = string(credentials)
 	}
 
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
@@ -136,11 +136,11 @@ func run() error {
 		DeploymentStatus:  statusChan,
 		GithubClient:      githubClient,
 		APIKeyStorage: &persistence.VaultApiKeyStorage{
-			Address:    cfg.Vault.Address,
-			Path:       cfg.Vault.Path,
-			KeyName:    cfg.Vault.KeyName,
-			Token:      cfg.Vault.Token,
-			HttpClient: http.DefaultClient,
+			Address:     cfg.Vault.Address,
+			Path:        cfg.Vault.Path,
+			KeyName:     cfg.Vault.KeyName,
+			Credentials: cfg.Vault.Credentials,
+			HttpClient:  http.DefaultClient,
 		},
 	}
 

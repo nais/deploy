@@ -48,11 +48,11 @@ func TestVaultApiKeyStorage(t *testing.T) {
 	defer server.Close()
 
 	vault := persistence.VaultApiKeyStorage{
-		HttpClient: server.Client(),
-		Address:    server.URL,
-		Path:       defaults.Path,
-		KeyName:    defaults.KeyName,
-		Token:      defaults.Token,
+		HttpClient:  server.Client(),
+		Address:     server.URL,
+		Path:        defaults.Path,
+		KeyName:     defaults.KeyName,
+		Credentials: defaults.Credentials,
 	}
 
 	t.Run("finds api keys in vault", func(t *testing.T) {
