@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/fsnotify/fsnotify"
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
 	gh "github.com/google/go-github/v27/github"
@@ -58,17 +57,17 @@ func init() {
 	flag.BoolVar(&cfg.S3.UseTLS, "s3-secure", cfg.S3.UseTLS, "Use TLS for S3 connections.")
 
 	flag.StringVar(&cfg.Vault.Path, "vault-path", cfg.Vault.Path, "Base path to Vault KV API key store.")
+	flag.StringVar(&cfg.Vault.AuthPath, "vault-auth-path", cfg.Vault.AuthPath, "Path to Vault authentication endpoint.")
+	flag.StringVar(&cfg.Vault.AuthRole, "vault-auth-role", cfg.Vault.AuthRole, "Role used for Vault authentication.")
 	flag.StringVar(&cfg.Vault.Address, "vault-address", cfg.Vault.Address, "Address to Vault server.")
 	flag.StringVar(&cfg.Vault.KeyName, "vault-key-name", cfg.Vault.KeyName, "API keys are stored in this key.")
-	flag.StringVar(&cfg.Vault.TokenFile, "vault-token-file", cfg.Vault.TokenFile, "Vault JWT retrieved from this file (overrides --vault-token).")
-	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault JWT.")
+	flag.StringVar(&cfg.Vault.CredentialsFile, "vault-credentials-file", cfg.Vault.CredentialsFile, "Credentials for authenticating against Vault retrieved from this file (overrides --vault-token).")
+	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault static token.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
 
 func run() error {
-	var watcher *fsnotify.Watcher
-
 	flag.Parse()
 
 	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
@@ -122,23 +121,25 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	// Watch Vault token for changes and feed into client
-	watcher, err = fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("unable to create file system watch: %s", err)
+	apiKeys := &persistence.VaultApiKeyStorage{
+		Address:    cfg.Vault.Address,
+		Path:       cfg.Vault.Path,
+		AuthPath:   cfg.Vault.AuthPath,
+		AuthRole:   cfg.Vault.AuthRole,
+		KeyName:    cfg.Vault.KeyName,
+		Token:      cfg.Vault.Token,
+		HttpClient: http.DefaultClient,
 	}
 
-	if len(cfg.Vault.TokenFile) > 0 {
-		err = watcher.Add(cfg.Vault.TokenFile)
-		if err != nil {
-			return fmt.Errorf("unable to watch Vault token file for updates: %s", err)
-		}
-
-		tok, err := ioutil.ReadFile(cfg.Vault.TokenFile)
+	if len(cfg.Vault.CredentialsFile) > 0 {
+		credentials, err := ioutil.ReadFile(cfg.Vault.CredentialsFile)
 		if err != nil {
 			return fmt.Errorf("read Vault token file: %s", err)
 		}
-		cfg.Vault.Token = string(tok)
+		apiKeys.Credentials = string(credentials)
+		apiKeys.Token = ""
+
+		go apiKeys.RefreshLoop()
 	}
 
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
@@ -149,7 +150,7 @@ func run() error {
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
 		GithubClient:      githubClient,
-		APIKeyStorage:     makeAPIKeyStorage(),
+		APIKeyStorage:     apiKeys,
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
@@ -241,7 +242,6 @@ func run() error {
 	)
 	router.Handle("/assets/*", staticHandler)
 
-	// HTTP handler runs in a separate thread
 	go func() {
 		err := http.ListenAndServe(cfg.ListenAddress, router)
 		if err != nil {
@@ -359,18 +359,6 @@ func run() error {
 
 		case <-signals:
 			return nil
-
-		case <-watcher.Events:
-			log.Infof("Re-reading Vault token file %s", cfg.Vault.TokenFile)
-			tok, err := ioutil.ReadFile(cfg.Vault.TokenFile)
-			if err != nil {
-				return fmt.Errorf("read Vault token file: %s", err)
-			}
-			cfg.Vault.Token = string(tok)
-			deploymentHandler.APIKeyStorage = makeAPIKeyStorage()
-
-		case err = <-watcher.Errors:
-			return fmt.Errorf("file system watcher: %s", err)
 		}
 	}
 }
@@ -380,15 +368,5 @@ func main() {
 	if err != nil {
 		log.Errorf("Fatal error: %s", err)
 		os.Exit(1)
-	}
-}
-
-func makeAPIKeyStorage() persistence.ApiKeyStorage {
-	return &persistence.VaultApiKeyStorage{
-		Address:    cfg.Vault.Address,
-		Path:       cfg.Vault.Path,
-		KeyName:    cfg.Vault.KeyName,
-		Token:      cfg.Vault.Token,
-		HttpClient: http.DefaultClient,
 	}
 }
