@@ -21,7 +21,9 @@ var (
 )
 
 const (
-	NotFoundMessage = "The specified key does not exist."
+	NotFoundMessage          = "The specified key does not exist."
+	RefreshIntervalFactor    = 0.8
+	InitialTokenWaitDuration = 1 * time.Millisecond
 )
 
 type ApiKeyStorage interface {
@@ -61,14 +63,14 @@ func (s *VaultApiKeyStorage) refreshToken() error {
 	u, err := url.Parse(s.Address)
 
 	if err != nil {
-		return fmt.Errorf("unable to construct URL to vault auth: %s", err)
+		return fmt.Errorf("unable to construct auth URL: %s", err)
 	}
 
 	u.Path = s.AuthPath
 	b, err := json.Marshal(VaultAuthRequest{JWT: s.Credentials, Role: s.AuthRole})
 
 	if err != nil {
-		return fmt.Errorf("unable to marshal vault auth request: %s", err)
+		return fmt.Errorf("unable to marshal auth request: %s", err)
 	}
 
 	resp, err := http.Post(u.String(), "application/json", bytes.NewReader(b))
@@ -77,35 +79,36 @@ func (s *VaultApiKeyStorage) refreshToken() error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("unable to perform post request to vault: %s", err)
+		return fmt.Errorf("unable to perform auth request: %s", err)
 	}
 
 	var vaultAuthResponse VaultAuthResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&vaultAuthResponse); err != nil {
-		return fmt.Errorf("unable to decode auth response from vault: %s", err)
+		return fmt.Errorf("unable to decode auth response: %s", err)
 	}
 
 	s.Token = vaultAuthResponse.Auth.ClientToken
 
 	s.LeaseDuration = vaultAuthResponse.Auth.LeaseDuration
-	logrus.Infof("set lease duration to %d seconds", s.LeaseDuration)
+	logrus.Debugf("set lease duration to %d seconds", s.LeaseDuration)
 
 	return nil
 }
 
 func (s *VaultApiKeyStorage) RefreshLoop() {
-	timer := time.NewTimer(1 * time.Second)
+	timer := time.NewTimer(InitialTokenWaitDuration)
+
 	for range timer.C {
 		if err := s.refreshToken(); err != nil {
-			logrus.Errorf("unable to refresh token: %s", err)
+			logrus.Errorf("unable to refresh Vault token: %s", err)
 			timer.Reset(1 * time.Minute)
 			continue
 		}
-		refreshInterval := int(float64(s.LeaseDuration) * 0.8)
+		refreshInterval := int(float64(s.LeaseDuration) * RefreshIntervalFactor)
 		duration := time.Duration(refreshInterval) * time.Second
 		timer.Reset(duration)
-		logrus.Infof("successfully refreshed vault token, next refresh in: %s", duration.String())
+		logrus.Debugf("successfully refreshed Vault token, next refresh in: %s", duration.String())
 	}
 }
 
@@ -113,7 +116,7 @@ func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
 	u, err := url.Parse(s.Address)
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to construct URL to vault: %s", err)
+		return nil, fmt.Errorf("unable to construct URL to Vault: %s", err)
 	}
 
 	u.Path = path.Join(s.Path, team)
@@ -124,7 +127,7 @@ func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
 		return nil, fmt.Errorf("unable to create HTTP request: %s", err)
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", s.Credentials))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", s.Token))
 
 	resp, err := s.HttpClient.Do(req)
 
