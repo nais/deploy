@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	log "github.com/sirupsen/logrus"
@@ -29,7 +30,10 @@ type Config struct {
 	Repository string
 	Resource   []string
 	Team       string
+	Variables  string
 }
+
+type TemplateVariables map[string]interface{}
 
 var cfg = DefaultConfig()
 
@@ -61,6 +65,7 @@ func init() {
 	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Commit hash, tag or branch.")
 	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
 	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment.")
+	flag.StringVar(&cfg.Variables, "vars", cfg.Variables, "File containing template variables.")
 }
 
 func mkpayload(w io.Writer, resources json.RawMessage) error {
@@ -91,14 +96,44 @@ func wrapResources(resources []json.RawMessage) (result json.RawMessage, err err
 	return json.Marshal(resources)
 }
 
-func fileAsJSON(path string) (json.RawMessage, error) {
+func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
+	template, err := raymond.Parse(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("parse template file: %s", err)
+	}
+
+	output, err := template.Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("execute template: %s", err)
+	}
+
+	return []byte(output), nil
+}
+
+func templateVariablesFromFile(path string) (TemplateVariables, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: open file: %s", path, err)
 	}
 
+	vars := TemplateVariables{}
+	err = yaml.Unmarshal(file, &vars)
+	return vars, err
+}
+
+func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: open file: %s", path, err)
+	}
+
+	templated, err := templatedFile(file, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", path, err)
+	}
+
 	// Since JSON is a subset of YAML, passing JSON through this method is a no-op.
-	data, err := yaml.YAMLToJSON(file)
+	data, err := yaml.YAMLToJSON(templated)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %s", path, err)
 	}
@@ -108,6 +143,7 @@ func fileAsJSON(path string) (json.RawMessage, error) {
 
 func run() error {
 	var err error
+	var templateVariables TemplateVariables
 
 	flag.Parse()
 
@@ -117,10 +153,17 @@ func run() error {
 	}
 	targetURL.Path = deployAPIPath
 
+	if len(cfg.Variables) > 0 {
+		templateVariables, err = templateVariablesFromFile(cfg.Variables)
+		if err != nil {
+			return fmt.Errorf("load template variables: %s", err)
+		}
+	}
+
 	resources := make([]json.RawMessage, len(cfg.Resource))
 
 	for i, path := range cfg.Resource {
-		resources[i], err = fileAsJSON(path)
+		resources[i], err = fileAsJSON(path, templateVariables)
 		if err != nil {
 			return err
 		}
