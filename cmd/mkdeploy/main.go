@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/ghodss/yaml"
@@ -19,22 +20,26 @@ import (
 )
 
 type Config struct {
+	APIKey     string
+	BaseURL    string
+	Cluster    string
 	DryRun     bool
-	URL        string
-	Team       string
-	Ref        string
 	Owner      string
+	Ref        string
 	Repository string
 	Resource   []string
-	Cluster    string
-	HMACKey    string
+	Team       string
 }
 
 var cfg = DefaultConfig()
 
+const (
+	deployAPIPath = "/api/v1/deploy"
+)
+
 func DefaultConfig() Config {
 	return Config{
-		URL:        "http://localhost:8080/api/v1/deploy",
+		BaseURL:    "http://localhost:8080",
 		Team:       "nobody",
 		Ref:        "master",
 		Owner:      "navikt",
@@ -47,25 +52,20 @@ func DefaultConfig() Config {
 func init() {
 	flag.ErrHelp = fmt.Errorf("\nmkdeploy creates Github deployment request payloads, signs them, and submits them to a hookd server.\n")
 
-	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Don't actually make a HTTP request.")
-	flag.StringVar(&cfg.URL, "url", cfg.URL, "URL to call.")
-	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment.")
-	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Commit hash, tag or branch.")
-	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of git repository.")
-	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
 	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "Files with Kubernetes resources.")
+	flag.StringVar(&cfg.APIKey, "apikey", cfg.APIKey, "NAIS Deploy API key.")
+	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "Base URL of API server.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Cluster to deploy to.")
-	flag.StringVar(&cfg.HMACKey, "hmac", cfg.HMACKey, "Webhook pre-shared key.")
+	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Don't actually make a HTTP request.")
+	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of git repository.")
+	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Commit hash, tag or branch.")
+	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
+	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment.")
 }
 
-func mkpayload(w io.Writer, resources []json.RawMessage) error {
-	allResources, err := json.Marshal(resources)
-	if err != nil {
-		return err
-	}
-
+func mkpayload(w io.Writer, resources json.RawMessage) error {
 	req := server.DeploymentRequest{
-		Resources:  allResources,
+		Resources:  resources,
 		Team:       cfg.Team,
 		Cluster:    cfg.Cluster,
 		Ref:        cfg.Ref,
@@ -86,43 +86,69 @@ func mksig(data, key []byte) string {
 	return hex.EncodeToString(sum)
 }
 
+// Wrap JSON resources in a JSON array.
+func wrapResources(resources []json.RawMessage) (result json.RawMessage, err error) {
+	return json.Marshal(resources)
+}
+
+func fileAsJSON(path string) (json.RawMessage, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: open file: %s", path, err)
+	}
+
+	// Since JSON is a subset of YAML, passing JSON through this method is a no-op.
+	data, err := yaml.YAMLToJSON(file)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", path, err)
+	}
+
+	return data, nil
+}
+
 func run() error {
 	var err error
 
 	flag.Parse()
 
-	files := make([][]byte, len(cfg.Resource))
+	targetURL, err := url.Parse(cfg.BaseURL)
+	if err != nil {
+		return fmt.Errorf("wrong format of base URL: %s", err)
+	}
+	targetURL.Path = deployAPIPath
+
 	resources := make([]json.RawMessage, len(cfg.Resource))
 
 	for i, path := range cfg.Resource {
-		files[i], err = ioutil.ReadFile(path)
+		resources[i], err = fileAsJSON(path)
 		if err != nil {
-			return fmt.Errorf("%s: open file: %s", path, err)
-		}
-		resources[i], err = yaml.YAMLToJSON(files[i])
-		if err != nil {
-			return fmt.Errorf("%s: convert yaml to json: %s", path, err)
+			return err
 		}
 	}
 
 	data := make([]byte, 0)
 	buf := bytes.NewBuffer(data)
 
-	err = mkpayload(buf, resources)
+	allResources, err := wrapResources(resources)
+	if err != nil {
+		return err
+	}
+
+	err = mkpayload(buf, allResources)
 	if err != nil {
 		return err
 	}
 	bufstr := buf.String()
 
-	decoded, err := hex.DecodeString(cfg.HMACKey)
+	decoded, err := hex.DecodeString(cfg.APIKey)
 	if err != nil {
 		return fmt.Errorf("HMAC key must be a hex encoded string: %s", err)
 	}
 	sig := mksig(buf.Bytes(), decoded)
 
-	req, err := http.NewRequest("POST", cfg.URL, buf)
+	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
 	if err != nil {
-		return fmt.Errorf("error creating http request: %v", err)
+		return fmt.Errorf("internal error creating http request: %v", err)
 	}
 
 	req.Header.Add("content-type", "application/json")
@@ -132,22 +158,23 @@ func run() error {
 	fmt.Printf(bufstr)
 	log.Infof("signature....: %s", sig)
 
-	if !cfg.DryRun {
-
-		client := http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			return fmt.Errorf("error making http request: %v", err)
-		}
-
-		log.Infof("status.......: %s", resp.Status)
-		log.Infof("data received:")
-
-		body, _ := ioutil.ReadAll(resp.Body)
-		fmt.Print(string(body))
+	if cfg.DryRun {
+		return nil
 	}
 
-	return err
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("status.......: %s", resp.Status)
+	log.Infof("data received:")
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Print(string(body))
+
+	return nil
 }
 
 func main() {
