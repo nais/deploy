@@ -74,6 +74,7 @@ func newHandler() *server.GithubDeploymentHandler {
 		DeploymentStatus:      statusChan,
 		TeamRepositoryStorage: store,
 		SecretToken:           secretToken,
+		Clusters:              validClusters,
 	}
 }
 
@@ -144,7 +145,7 @@ func TestDeploymentHandler_ServeHTTP(t *testing.T) {
 
 	t.Run("deployment requests without team in payload are rejected", func(t *testing.T) {
 		ht := setup()
-		dr := newDeploymentEvent("foo/bar", "env", "{}")
+		dr := newDeploymentEvent("foo/bar", "local", "{}")
 		b, _ := json.Marshal(dr)
 		ht.Body.Write(b)
 		ht.Sign(secretToken)

@@ -23,6 +23,7 @@ type GithubDeploymentHandler struct {
 	TeamRepositoryStorage persistence.TeamRepositoryStorage
 	DeploymentStatus      chan types.DeploymentStatus
 	DeploymentRequest     chan types.DeploymentRequest
+	Clusters              ClusterList
 }
 
 func (h *GithubDeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -114,11 +115,15 @@ func (h *GithubDeploymentHandler) handler(r *http.Request) (int, error) {
 
 	deploymentRequest, err := DeploymentRequestFromEvent(deploymentEvent, deliveryID)
 
-	h.log = h.log.WithFields(deploymentRequest.LogFields())
+	if err == nil {
+		err = h.Clusters.Contains(deploymentRequest.GetCluster())
+	}
 
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
+
+	h.log = h.log.WithFields(deploymentRequest.LogFields())
 
 	if len(deploymentRequest.GetPayloadSpec().GetTeam()) == 0 {
 		err := fmt.Errorf("no team was specified in deployment payload")

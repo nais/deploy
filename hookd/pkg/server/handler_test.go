@@ -27,6 +27,10 @@ const (
 
 var secretKey = []byte("foobar")
 
+var validClusters = []string{
+	"local",
+}
+
 type request struct {
 	Headers map[string]string
 	Body    json.RawMessage
@@ -142,6 +146,7 @@ func subTest(t *testing.T, name string) {
 		DeploymentStatus:  statuses,
 		APIKeyStorage:     &apiKeyStore,
 		GithubClient:      &ghClient,
+		Clusters:          validClusters,
 	}
 
 	handler.ServeHTTP(recorder, request)

@@ -46,6 +46,7 @@ type Config struct {
 	Github        Github
 	Vault         Vault
 	MetricsPath   string
+	Clusters      []string
 }
 
 func getEnv(key, fallback string) string {

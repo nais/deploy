@@ -48,6 +48,7 @@ func init() {
 	flag.StringVar(&cfg.ListenAddress, "listen-address", cfg.ListenAddress, "IP:PORT")
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
+	flag.StringSliceVar(&cfg.Clusters, "clusters", cfg.Clusters, "Comma-separated list of valid clusters that can be deployed to.")
 
 	flag.StringVar(&cfg.S3.Endpoint, "s3-endpoint", cfg.S3.Endpoint, "S3 endpoint for state storage.")
 	flag.StringVar(&cfg.S3.AccessKey, "s3-access-key", cfg.S3.AccessKey, "S3 access key.")
@@ -151,6 +152,7 @@ func run() error {
 		DeploymentStatus:  statusChan,
 		GithubClient:      githubClient,
 		APIKeyStorage:     apiKeys,
+		Clusters:          cfg.Clusters,
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
@@ -158,6 +160,7 @@ func run() error {
 		DeploymentStatus:      statusChan,
 		SecretToken:           cfg.Github.WebhookSecret,
 		TeamRepositoryStorage: teamRepositoryStorage,
+		Clusters:              cfg.Clusters,
 	}
 
 	router := chi.NewRouter()

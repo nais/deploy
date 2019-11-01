@@ -28,12 +28,15 @@ const (
 	DirectDeployGithubTask  = "NAIS_DIRECT_DEPLOY"
 )
 
+type ClusterList []string
+
 type DeploymentHandler struct {
 	APIKeyStorage     persistence.ApiKeyStorage
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
 	BaseURL           string
+	Clusters          ClusterList
 }
 
 type DeploymentRequest struct {
@@ -50,6 +53,15 @@ type DeploymentResponse struct {
 	CorrelationID    string         `json:"correlationID,omitempty"`
 	LogURL           string         `json:"logURL,omitempty"`
 	GithubDeployment *gh.Deployment `json:"githubDeployment,omitempty"`
+}
+
+func (c ClusterList) Contains(cluster string) error {
+	for _, cl := range c {
+		if cl == cluster {
+			return nil
+		}
+	}
+	return fmt.Errorf("cluster '%s' is not a valid choice", cluster)
 }
 
 func (r *DeploymentResponse) render(w io.Writer) {
@@ -158,7 +170,12 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debugf("Request has valid JSON")
 
-	if err := deploymentRequest.validate(); err != nil {
+	err = deploymentRequest.validate()
+	if err == nil {
+		err = h.Clusters.Contains(deploymentRequest.Cluster)
+	}
+
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = fmt.Sprintf("invalid deployment request: %s", err)
 		deploymentResponse.render(w)
