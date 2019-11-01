@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/struct"
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -23,12 +22,10 @@ var (
 // The event is validated, and if any fields are missing, an error is returned.
 // Any error from this function should be considered user error.
 func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, deliveryID string) (*types.DeploymentRequest, error) {
-	var resources []*structpb.Struct
-
-	if err := json.Unmarshal(r.Resources, &resources); err != nil {
-		return nil, fmt.Errorf("unable to unmarshal kubernetes resources: %s", err)
+	kube, err := types.KubernetesFromJSONResources(r.Resources)
+	if err != nil {
+		return nil, err
 	}
-
 	now := time.Now()
 	return &types.DeploymentRequest{
 		Deployment: &types.DeploymentSpec{
@@ -39,11 +36,9 @@ func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, d
 			DeploymentID: deployment.GetID(),
 		},
 		PayloadSpec: &types.Payload{
-			Team:    r.Team,
-			Version: payloadVersion,
-			Kubernetes: &types.Kubernetes{
-				Resources: resources,
-			},
+			Team:       r.Team,
+			Version:    payloadVersion,
+			Kubernetes: kube,
 		},
 		DeliveryID: deliveryID,
 		Cluster:    r.Cluster,
