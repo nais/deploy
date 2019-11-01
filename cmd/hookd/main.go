@@ -291,11 +291,10 @@ func run() error {
 			metrics.DeploymentRequestQueueSize.Set(float64(len(requestChan)))
 
 			logger := log.WithFields(req.LogFields())
-			logger.Tracef("Sending deployment request")
 
 			payload, err := deployment.WrapMessage(&req, kafkaClient.SignatureKey)
 			if err != nil {
-				logger.Errorf("While marshalling JSON: %s", err)
+				logger.Errorf("Marshal JSON for Kafka message: %s", err)
 				continue
 			}
 
@@ -327,10 +326,9 @@ func run() error {
 			metrics.UpdateQueue(status)
 
 			logger := log.WithFields(status.LogFields())
-			logger.Trace("Received deployment status")
 
 			if !cfg.Github.Enabled {
-				logger.Warn("Github is disabled; deployment status discarded")
+				logger.Warn("Process deployment status: discarding message due to GitHub being disabled")
 				metrics.DeploymentStatus(status, 0)
 				continue
 			}
@@ -357,7 +355,7 @@ func run() error {
 				logger.Tracef("Retrying in %.0f seconds", retryInterval.Seconds())
 				time.Sleep(retryInterval)
 				statusChan <- status
-				logger.Tracef("Status resubmitted to queue")
+				logger.Tracef("Deployment status resubmitted to queue")
 			}()
 
 		case <-signals:

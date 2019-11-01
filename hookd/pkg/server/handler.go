@@ -130,7 +130,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deploymentResponse.CorrelationID = requestID.String()
 	deploymentResponse.LogURL = logproxy.MakeURL(h.BaseURL, requestID.String(), time.Now())
 
-	logger.Debugf("Incoming request")
+	logger.Tracef("Incoming request")
 
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -151,7 +151,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debugf("Request has hex encoded data in signature header")
+	logger.Tracef("Request has hex encoded data in signature header")
 
 	deploymentRequest := &DeploymentRequest{}
 	if err := json.Unmarshal(data, deploymentRequest); err != nil {
@@ -168,7 +168,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		types.LogFieldRepository: fmt.Sprintf("%s/%s", deploymentRequest.Owner, deploymentRequest.Repository),
 	})
 
-	logger.Debugf("Request has valid JSON")
+	logger.Tracef("Request has valid JSON")
 
 	err = deploymentRequest.validate()
 	if err == nil {
@@ -183,7 +183,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debugf("Request body validated successfully")
+	logger.Tracef("Request body validated successfully")
 
 	token, err := h.APIKeyStorage.Read(deploymentRequest.Team)
 
@@ -203,7 +203,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debugf("Team API key retrieved from storage")
+	logger.Tracef("Team API key retrieved from storage")
 
 	if !validateMAC(data, []byte(signature), token) {
 		w.WriteHeader(http.StatusForbidden)
@@ -213,12 +213,12 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debugf("HMAC signature validated successfully")
+	logger.Tracef("HMAC signature validated successfully")
 
 	err = h.GithubClient.TeamAllowed(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, deploymentRequest.Team)
 	switch err {
 	case nil:
-		logger.Debugf("Team access to repository on GitHub validated successfully")
+		logger.Tracef("Team access to repository on GitHub validated successfully")
 	case github.ErrTeamNotExist, github.ErrTeamNoAccess:
 		deploymentResponse.Message = err.Error()
 		w.WriteHeader(http.StatusForbidden)
@@ -246,7 +246,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger = logger.WithField(types.LogFieldDeploymentID, githubDeployment.GetID())
-	logger.Debugf("GitHub deployment created successfully")
+	logger.Info("GitHub deployment created successfully")
 
 	deployMsg, err := DeploymentRequestMessage(deploymentRequest, githubDeployment, deploymentResponse.CorrelationID)
 	if err != nil {

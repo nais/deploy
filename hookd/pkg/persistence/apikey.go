@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/navikt/deployment/hookd/pkg/metrics"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -91,7 +91,7 @@ func (s *VaultApiKeyStorage) refreshToken() error {
 	s.Token = vaultAuthResponse.Auth.ClientToken
 
 	s.LeaseDuration = vaultAuthResponse.Auth.LeaseDuration
-	logrus.Debugf("set lease duration to %d seconds", s.LeaseDuration)
+	log.Debugf("Vault: token expires in %d seconds", s.LeaseDuration)
 
 	return nil
 }
@@ -101,14 +101,14 @@ func (s *VaultApiKeyStorage) RefreshLoop() {
 
 	for range timer.C {
 		if err := s.refreshToken(); err != nil {
-			logrus.Errorf("unable to refresh Vault token: %s", err)
+			log.Errorf("Unable to refresh Vault token: %s", err)
 			timer.Reset(1 * time.Minute)
 			continue
 		}
 		refreshInterval := int(float64(s.LeaseDuration) * RefreshIntervalFactor)
 		duration := time.Duration(refreshInterval) * time.Second
 		timer.Reset(duration)
-		logrus.Debugf("successfully refreshed Vault token, next refresh in: %s", duration.String())
+		log.Debugf("Successfully refreshed Vault token, next refresh in %s", duration.String())
 	}
 }
 
