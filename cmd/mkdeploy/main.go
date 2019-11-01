@@ -56,13 +56,13 @@ func DefaultConfig() Config {
 func init() {
 	flag.ErrHelp = fmt.Errorf("\nmkdeploy creates Github deployment request payloads, signs them, and submits them to a hookd server.\n")
 
-	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "Files with Kubernetes resources.")
 	flag.StringVar(&cfg.APIKey, "apikey", cfg.APIKey, "NAIS Deploy API key.")
 	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "Base URL of API server.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Cluster to deploy to.")
 	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Don't actually make a HTTP request.")
 	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of git repository.")
 	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Commit hash, tag or branch.")
+	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "Files with Kubernetes resources.")
 	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
 	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment.")
 	flag.StringVar(&cfg.Variables, "vars", cfg.Variables, "File containing template variables.")
@@ -197,9 +197,8 @@ func run() error {
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add(server.SignatureHeader, fmt.Sprintf("%s", sig))
 
-	log.Infof("data sent....:")
 	fmt.Printf(bufstr)
-	log.Infof("signature....: %s", sig)
+	log.Debugf("signature....: %s", sig)
 
 	if cfg.DryRun {
 		return nil
@@ -211,11 +210,24 @@ func run() error {
 		return err
 	}
 
-	log.Infof("status.......: %s", resp.Status)
-	log.Infof("data received:")
+	log.Infof("status....: %s", resp.Status)
 
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Print(string(body))
+	response := &server.DeploymentResponse{}
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(response)
+	if err != nil {
+		return fmt.Errorf("received invalid response from server: %s", err)
+	}
+
+	log.Infof("message...: %s", response.Message)
+	log.Infof("logs......: %s", response.LogURL)
+	if response.GithubDeployment != nil {
+		log.Infof("github....: %s", response.GithubDeployment.GetURL())
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("deployment failed")
+	}
 
 	return nil
 }
