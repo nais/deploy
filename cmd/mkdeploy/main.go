@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
@@ -76,6 +77,7 @@ func mkpayload(w io.Writer, resources json.RawMessage) error {
 		Ref:        cfg.Ref,
 		Owner:      cfg.Owner,
 		Repository: cfg.Repository,
+		Timestamp:  time.Now().Unix(),
 	}
 
 	enc := json.NewEncoder(w)

@@ -26,7 +26,7 @@ func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, d
 	if err != nil {
 		return nil, err
 	}
-	now := time.Now()
+	now := time.Unix(r.Timestamp, 0)
 	return &types.DeploymentRequest{
 		Deployment: &types.DeploymentSpec{
 			Repository: &types.GithubRepository{

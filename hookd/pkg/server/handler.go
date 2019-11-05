@@ -46,6 +46,7 @@ type DeploymentRequest struct {
 	Owner      string          `json:"owner,omitempty"`
 	Repository string          `json:"repository,omitempty"`
 	Ref        string          `json:"ref,omitempty"`
+	Timestamp  int64           `json:"timestamp"`
 }
 
 type DeploymentResponse struct {

@@ -45,7 +45,8 @@ to track the status of your deployment.
   "cluster": "local",
   "owner": "navikt",
   "repository": "deployment",
-  "ref": "master"
+  "ref": "master",
+  "timestamp": 1572942789,
 }
 ```
 
@@ -57,6 +58,7 @@ to track the status of your deployment.
 | owner | string | GitHub repository owner |
 | repository | string | GitHub repository name |
 | ref | string | GitHub commit hash or tag |
+| timestamp | int64 | Current Unix timestamp |
 
 Additionally, the header `X-NAIS-Signature` must contain a keyed-hash message authentication code (HMAC).
 The code can be derived by hashing the request body using the SHA256 algorithm together with your team's NAIS Deploy API key.
