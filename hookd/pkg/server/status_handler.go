@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,15 +13,13 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
-	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
 
 const (
-	SignatureHeader         = "X-NAIS-Signature"
-	FailedAuthenticationMsg = "failed authentication"
-	MaxTimeSkew             = 30.0
+	// Maximum time, in seconds, that a request timestamp can differ from the current time.
+	MaxTimeSkew = 30.0
 )
 
 type StatusHandler struct {
@@ -32,14 +28,16 @@ type StatusHandler struct {
 }
 
 type StatusRequest struct {
-	DeploymentId string `json:"deploymentId"`
+	DeploymentID int64  `json:"deploymentID"`
+	Owner        string `json:"owner"`
+	Repository   string `json:"repository"`
 	Team         string `json:"team"`
 	Timestamp    int64  `json:"timestamp"`
 }
 
 type StatusResponse struct {
-	Message string                      `json:"message,omitempty"`
-	Status  types.GithubDeploymentState `json:"status,omitempty"`
+	Message string  `json:"message,omitempty"`
+	Status  *string `json:"status,omitempty"`
 }
 
 func (r *StatusResponse) render(w io.Writer) {
@@ -48,7 +46,7 @@ func (r *StatusResponse) render(w io.Writer) {
 
 func (r *StatusRequest) validate() error {
 
-	if len(r.DeploymentId) == 0 {
+	if r.DeploymentID == 0 {
 		return fmt.Errorf("no deployment id specified")
 	}
 
@@ -62,15 +60,6 @@ func (r *StatusRequest) validate() error {
 
 	return nil
 }
-
-//func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
-//	return gh.DeploymentRequest{
-//		Environment: gh.String(r.Cluster),
-//		Ref:         gh.String(r.Ref),
-//		Task:        gh.String(DirectDeployGithubTask),
-//	}
-//}
-//
 
 func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
@@ -155,67 +144,32 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("HMAC signature validated successfully")
-	//
-	//err = h.GithubClient.TeamAllowed(r.Context(), statusRequest.Owner, statusRequest.Repository, statusRequest.Team)
-	//switch err {
-	//case nil:
-	//	logger.Tracef("Team access to repository on GitHub validated successfully")
-	//case github.ErrTeamNotExist, github.ErrTeamNoAccess:
-	//	statusResponse.Message = err.Error()
-	//	w.WriteHeader(http.StatusForbidden)
-	//	statusResponse.render(w)
-	//	logger.Error(err)
-	//	return
-	//default:
-	//	statusResponse.Message = "unable to communicate with GitHub"
-	//	w.WriteHeader(http.StatusBadGateway)
-	//	statusResponse.render(w)
-	//	logger.Errorf("%s: %s", statusResponse.Message, err)
-	//	return
-	//}
-	//
-	//githubRequest := statusRequest.GithubDeploymentRequest()
-	//githubDeployment, err = h.GithubClient.CreateDeployment(r.Context(), statusRequest.Owner, statusRequest.Repository, &githubRequest)
-	//statusResponse.GithubDeployment = githubDeployment
-	//
-	//if err != nil {
-	//	w.WriteHeader(http.StatusBadGateway)
-	//	statusResponse.Message = "unable to create GitHub deployment"
-	//	statusResponse.render(w)
-	//	logger.Errorf("unable to create GitHub deployment: %s", err)
-	//	return
-	//}
-	//
-	//logger = logger.WithField(types.LogFieldDeploymentID, githubDeployment.GetID())
-	//logger.Info("GitHub deployment created successfully")
-	//
-	//deployMsg, err := DeploymentRequestMessage(statusRequest, githubDeployment, statusResponse.CorrelationID)
-	//if err != nil {
-	//	w.WriteHeader(http.StatusBadRequest)
-	//	statusResponse.Message = "unable to create deployment message"
-	//	statusResponse.render(w)
-	//	logger.Errorf("unable to create deployment message: %s", err)
-	//	return
-	//}
-	//
-	//h.DeploymentRequest <- *deployMsg
-	//
-	//w.WriteHeader(http.StatusCreated)
-	//statusResponse.Message = "deployment request accepted and dispatched"
-	//statusResponse.render(w)
 
-	//logger.Info("Deployment request processed successfully")
-}
+	deploymentStatus, err := h.GithubClient.DeploymentStatus(
+		r.Context(),
+		statusRequest.Owner,
+		statusRequest.Repository,
+		statusRequest.DeploymentID,
+	)
 
-// validateMAC reports whether messageMAC is a valid HMAC tag for message.
-func validateMAC(message, messageMAC, key []byte) bool {
-	expectedMAC := GenMAC(message, key)
-	return hmac.Equal(messageMAC, expectedMAC)
-}
+	if err != nil {
+		if err == github.ErrNoDeploymentStatuses {
+			w.WriteHeader(http.StatusNoContent)
+			logger.Info("Deployment status requested but none available")
+			return
+		}
+		w.WriteHeader(http.StatusBadGateway)
+		statusResponse.Message = "unable to return deployment status: GitHub is unavailable"
+		statusResponse.render(w)
+		logger.Errorf("Unable to return deployment status: GitHub is unavailable: %s", err)
+		return
+	}
 
-// GenMAC generates the HMAC signature for a message provided the secret key using SHA256
-func GenMAC(message, key []byte) []byte {
-	mac := hmac.New(sha256.New, key)
-	mac.Write(message)
-	return mac.Sum(nil)
+	w.WriteHeader(http.StatusOK)
+	state := deploymentStatus.GetState()
+	statusResponse.Status = &state
+	statusResponse.Message = "deployment status retrieved successfully"
+	statusResponse.render(w)
+
+	logger.Info("Status request processed successfully")
 }

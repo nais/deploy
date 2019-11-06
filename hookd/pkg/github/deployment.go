@@ -9,13 +9,16 @@ import (
 )
 
 var (
-	ErrTeamNotExist = fmt.Errorf("team does not exist on GitHub")
-	ErrTeamNoAccess = fmt.Errorf("team has no admin access to repository")
+	ErrTeamNotExist         = fmt.Errorf("team does not exist on GitHub")
+	ErrTeamNoAccess         = fmt.Errorf("team has no admin access to repository")
+	ErrNoDeploymentStatuses = fmt.Errorf("no deployment statuses available")
+	ErrGitHubNotEnabled     = fmt.Errorf("GitHub requests are not enabled")
 )
 
 type Client interface {
 	CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error)
 	TeamAllowed(ctx context.Context, owner, repository, team string) error
+	DeploymentStatus(ctx context.Context, owner, repository string, deploymentID int64) (*gh.DeploymentStatus, error)
 }
 
 type client struct {
@@ -53,6 +56,20 @@ func (c *client) CreateDeployment(ctx context.Context, owner, repository string,
 	return deployment, err
 }
 
+func (c *client) DeploymentStatus(ctx context.Context, owner, repository string, deploymentID int64) (*gh.DeploymentStatus, error) {
+	opts := &gh.ListOptions{
+		PerPage: 1,
+	}
+	deploy, _, err := c.client.Repositories.ListDeploymentStatuses(ctx, owner, repository, deploymentID, opts)
+	if err != nil {
+		return nil, err
+	}
+	if len(deploy) == 0 {
+		return nil, ErrNoDeploymentStatuses
+	}
+	return deploy[0], nil
+}
+
 type fakeClient struct{}
 
 func FakeClient() Client {
@@ -60,9 +77,13 @@ func FakeClient() Client {
 }
 
 func (c *fakeClient) CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error) {
-	return nil, fmt.Errorf("GitHub requests are not enabled")
+	return nil, ErrGitHubNotEnabled
 }
 
 func (c *fakeClient) TeamAllowed(ctx context.Context, owner, repository, team string) error {
-	return fmt.Errorf("GitHub requests are not enabled")
+	return ErrGitHubNotEnabled
+}
+
+func (c *fakeClient) DeploymentStatus(ctx context.Context, owner, repository string, deploymentID int64) (*gh.DeploymentStatus, error) {
+	return nil, ErrGitHubNotEnabled
 }

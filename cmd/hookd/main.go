@@ -155,6 +155,11 @@ func run() error {
 		Clusters:          cfg.Clusters,
 	}
 
+	statusHandler := &server.StatusHandler{
+		GithubClient:      githubClient,
+		APIKeyStorage:     apiKeys,
+	}
+
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
 		DeploymentRequest:     requestChan,
 		DeploymentStatus:      statusChan,
@@ -198,6 +203,7 @@ func run() error {
 			chi_middleware.Timeout(requestTimeout),
 		)
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
+		r.Post("/status", statusHandler.ServeHTTP)
 	})
 
 	// Mount /events for "legacy" GitHub deployment handling
