@@ -153,7 +153,11 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
-		if err == github.ErrNoDeploymentStatuses {
+		if err == github.ErrDeploymentNotFound {
+			w.WriteHeader(http.StatusBadRequest)
+			logger.Info("Deployment %d does not exist", statusRequest.DeploymentID)
+			return
+		} else if err == github.ErrNoDeploymentStatuses {
 			w.WriteHeader(http.StatusNoContent)
 			logger.Info("Deployment status requested but none available")
 			return

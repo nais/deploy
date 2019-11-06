@@ -11,6 +11,7 @@ import (
 var (
 	ErrTeamNotExist         = fmt.Errorf("team does not exist on GitHub")
 	ErrTeamNoAccess         = fmt.Errorf("team has no admin access to repository")
+	ErrDeploymentNotFound   = fmt.Errorf("deployment not found")
 	ErrNoDeploymentStatuses = fmt.Errorf("no deployment statuses available")
 	ErrGitHubNotEnabled     = fmt.Errorf("GitHub requests are not enabled")
 )
@@ -60,7 +61,10 @@ func (c *client) DeploymentStatus(ctx context.Context, owner, repository string,
 	opts := &gh.ListOptions{
 		PerPage: 1,
 	}
-	deploy, _, err := c.client.Repositories.ListDeploymentStatuses(ctx, owner, repository, deploymentID, opts)
+	deploy, resp, err := c.client.Repositories.ListDeploymentStatuses(ctx, owner, repository, deploymentID, opts)
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		return nil, ErrDeploymentNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
