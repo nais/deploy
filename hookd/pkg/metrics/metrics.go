@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	qSize int // queueSize
+	deployQueue map[string]interface{}
 )
 
 func gauge(name, help string) prometheus.Gauge {
@@ -72,16 +72,14 @@ func UpdateQueue(status deployment.DeploymentStatus) {
 	case deployment.GithubDeploymentState_error:
 		fallthrough
 	case deployment.GithubDeploymentState_failure:
-		if qSize > 0 {
-			qSize--
-		}
+		delete(deployQueue, status.GetDeliveryID())
 
-	// The first step in a deployment's lifecycle is to be put on the queue.
-	case deployment.GithubDeploymentState_queued:
-		qSize++
+	// Other states mean the deployment is still being processed.
+	default:
+		deployQueue[status.GetDeliveryID()] = new(interface{})
 	}
 
-	queueSize.Set(float64(qSize))
+	queueSize.Set(float64(len(deployQueue)))
 }
 
 var (
