@@ -13,6 +13,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
+	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
@@ -61,6 +62,14 @@ func (r *StatusRequest) validate() error {
 	return nil
 }
 
+func (r *StatusRequest) LogFields() log.Fields {
+	return log.Fields{
+		types.LogFieldDeploymentID: r.DeploymentID,
+		types.LogFieldTeam:         r.Team,
+		types.LogFieldRepository:   fmt.Sprintf("%s/%s", r.Owner, r.Repository),
+	}
+}
+
 func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var statusResponse StatusResponse
@@ -101,6 +110,7 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logger = logger.WithFields(statusRequest.LogFields())
 	logger.Tracef("Request has valid JSON")
 
 	err = statusRequest.validate()
@@ -145,6 +155,8 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("HMAC signature validated successfully")
 
+	logger.Tracef("Querying GitHub for deployment status")
+
 	deploymentStatus, err := h.GithubClient.DeploymentStatus(
 		r.Context(),
 		statusRequest.Owner,
@@ -155,11 +167,11 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == github.ErrDeploymentNotFound {
 			w.WriteHeader(http.StatusBadRequest)
-			logger.Info("Deployment %d does not exist", statusRequest.DeploymentID)
+			logger.Infof("Deployment %d does not exist", statusRequest.DeploymentID)
 			return
 		} else if err == github.ErrNoDeploymentStatuses {
 			w.WriteHeader(http.StatusNoContent)
-			logger.Info("Deployment status requested but none available")
+			logger.Info("Deployment status requested, but none available yet")
 			return
 		}
 		w.WriteHeader(http.StatusBadGateway)
