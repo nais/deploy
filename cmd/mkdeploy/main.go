@@ -42,6 +42,7 @@ var cfg = DefaultConfig()
 
 const (
 	deployAPIPath = "/api/v1/deploy"
+	statusAPIPath = "/api/v1/status"
 	pollInterval  = time.Second * 5
 )
 
@@ -90,7 +91,7 @@ func mkpayload(w io.Writer, resources json.RawMessage) error {
 	return enc.Encode(req)
 }
 
-func mksig(data, key []byte) string {
+func sign(data, key []byte) string {
 	hasher := hmac.New(sha256.New, key)
 	hasher.Write(data)
 	sum := hasher.Sum(nil)
@@ -193,7 +194,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("HMAC key must be a hex encoded string: %s", err)
 	}
-	sig := mksig(buf.Bytes(), decoded)
+	sig := sign(buf.Bytes(), decoded)
 
 	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
 	if err != nil {
@@ -242,21 +243,21 @@ func run() error {
 	for {
 		cont, err := check(response.GithubDeployment.GetID(), decoded, *targetURL)
 		if !cont {
-			if err != nil {
-				return err
-			}
-			break
+			return err
 		}
 		if err != nil {
 			log.Error(err)
 		}
+		time.Sleep(pollInterval)
 	}
 
 	return nil
 }
 
+// Check if a deployment has reached a terminal state.
+// The first return value is true if the state might change, false otherwise.
+// Additionally, returns an error if any error occurred.
 func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
-
 	statusReq := &server.StatusRequest{
 		DeploymentID: deploymentID,
 		Team:         cfg.Team,
@@ -269,20 +270,17 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("unable to marshal status request: %s", err)
 	}
+
+	targetURL.Path = statusAPIPath
 	buf := bytes.NewBuffer(payload)
-
-	sig := mksig(payload, key)
-
-	targetURL.Path = "/api/v1/status"
 	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
 	if err != nil {
 		return false, fmt.Errorf("internal error creating http request: %v", err)
 	}
 
+	signature := sign(payload, key)
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add(server.SignatureHeader, fmt.Sprintf("%s", sig))
-
-	time.Sleep(pollInterval)
+	req.Header.Add(server.SignatureHeader, signature)
 
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil && resp.StatusCode >= 400 && resp.StatusCode < 500 {
@@ -292,7 +290,11 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
 		return true, fmt.Errorf("error making request: %s", err)
 	}
 
-	log.Infof("status....: %s", resp.Status)
+	if resp.StatusCode == http.StatusNoContent {
+		log.Info("deployment: pending creation on GitHub")
+	} else if resp.StatusCode != http.StatusOK {
+		log.Infof("status....: %s", resp.Status)
+	}
 
 	response := &server.StatusResponse{}
 	decoder := json.NewDecoder(resp.Body)
@@ -301,7 +303,10 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
 		return true, fmt.Errorf("received invalid response from server: %s", err)
 	}
 
-	log.Infof("message...: %s", response.Message)
+	if resp.StatusCode != http.StatusOK {
+		log.Infof("message...: %s", response.Message)
+	}
+
 	if response.Status == nil {
 		return true, nil
 	}
