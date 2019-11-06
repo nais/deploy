@@ -16,6 +16,7 @@ import (
 
 	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
+	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -32,6 +33,7 @@ type Config struct {
 	Resource   []string
 	Team       string
 	Variables  string
+	Wait       bool
 }
 
 type TemplateVariables map[string]interface{}
@@ -40,6 +42,7 @@ var cfg = DefaultConfig()
 
 const (
 	deployAPIPath = "/api/v1/deploy"
+	pollInterval  = time.Second * 5
 )
 
 func DefaultConfig() Config {
@@ -67,6 +70,7 @@ func init() {
 	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
 	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment.")
 	flag.StringVar(&cfg.Variables, "vars", cfg.Variables, "File containing template variables.")
+	flag.BoolVar(&cfg.Wait, "wait", cfg.Wait, "Block until deployment reaches final state (success, failure, error).")
 }
 
 func mkpayload(w io.Writer, resources json.RawMessage) error {
@@ -231,7 +235,86 @@ func run() error {
 		return fmt.Errorf("deployment failed")
 	}
 
+	if !cfg.Wait {
+		return nil
+	}
+
+	for {
+		cont, err := check(response.GithubDeployment.GetID(), decoded, *targetURL)
+		if !cont {
+			if err != nil {
+				return err
+			}
+			break
+		}
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
 	return nil
+}
+
+func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
+
+	statusReq := &server.StatusRequest{
+		DeploymentID: deploymentID,
+		Team:         cfg.Team,
+		Owner:        cfg.Owner,
+		Repository:   cfg.Repository,
+		Timestamp:    time.Now().Unix(),
+	}
+
+	payload, err := json.Marshal(statusReq)
+	if err != nil {
+		return false, fmt.Errorf("unable to marshal status request: %s", err)
+	}
+	buf := bytes.NewBuffer(payload)
+
+	sig := mksig(payload, key)
+
+	targetURL.Path = "/api/v1/status"
+	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
+	if err != nil {
+		return false, fmt.Errorf("internal error creating http request: %v", err)
+	}
+
+	req.Header.Add("content-type", "application/json")
+	req.Header.Add(server.SignatureHeader, fmt.Sprintf("%s", sig))
+
+	time.Sleep(pollInterval)
+
+	resp, err := http.DefaultClient.Do(req)
+	if resp != nil && resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		return false, fmt.Errorf("bad request: %s", err)
+	}
+	if err != nil {
+		return true, fmt.Errorf("error making request: %s", err)
+	}
+
+	log.Infof("status....: %s", resp.Status)
+
+	response := &server.StatusResponse{}
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(response)
+	if err != nil {
+		return true, fmt.Errorf("received invalid response from server: %s", err)
+	}
+
+	log.Infof("message...: %s", response.Message)
+	if response.Status == nil {
+		return true, nil
+	}
+
+	log.Infof("deployment: %s", *response.Status)
+
+	status := types.GithubDeploymentState(types.GithubDeploymentState_value[*response.Status])
+	switch status {
+	case types.GithubDeploymentState_success, types.GithubDeploymentState_error, types.GithubDeploymentState_failure:
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func main() {
