@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	deployQueue map[string]interface{}
+	deployQueue = make(map[string]interface{})
 )
 
 func gauge(name, help string) prometheus.Gauge {
