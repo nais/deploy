@@ -116,6 +116,22 @@ func sign(data, key []byte) string {
 	return hex.EncodeToString(sum)
 }
 
+func detectTeam(resource json.RawMessage) string {
+	type teamMeta struct {
+		Metadata struct {
+			Labels struct {
+				Team string `json:"team"`
+			} `json:"labels"`
+		} `json:"metadata"`
+	}
+	buf := &teamMeta{}
+	err := json.Unmarshal(resource, buf)
+	if err != nil {
+		return ""
+	}
+	return buf.Metadata.Labels.Team
+}
+
 // Wrap JSON resources in a JSON array.
 func wrapResources(resources []json.RawMessage) (result json.RawMessage, err error) {
 	return json.Marshal(resources)
@@ -195,6 +211,18 @@ func run() (ExitCode, error) {
 		resources[i], err = fileAsJSON(path, templateVariables)
 		if err != nil {
 			return ExitInvocationFailure, err
+		}
+	}
+
+	if len(cfg.Team) == 0 {
+		log.Infof("Team not specified in --team; attempting auto-detection")
+		for i, path := range cfg.Resource {
+			team := detectTeam(resources[i])
+			if len(team) > 0 {
+				log.Infof("Detected team '%s' in %s", team, path)
+				cfg.Team = team
+				break
+			}
 		}
 	}
 
