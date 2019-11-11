@@ -29,6 +29,7 @@ type Config struct {
 	PrintPayload    bool
 	DryRun          bool
 	Owner           string
+	Quiet           bool
 	Ref             string
 	Repository      string
 	Resource        []string
@@ -84,6 +85,7 @@ func init() {
 	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Run templating, but don't actually make any requests.")
 	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of GitHub repository.")
 	flag.BoolVar(&cfg.PrintPayload, "print-payload", cfg.PrintPayload, "Print templated resources to standard output.")
+	flag.BoolVar(&cfg.Quiet, "quiet", cfg.Quiet, "Suppress printing of informational messages except errors.")
 	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Git commit hash, tag, or branch of the code being deployed.")
 	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "File with Kubernetes resource. Can be specified multiple times.")
 	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of GitHub repository.")
@@ -91,12 +93,18 @@ func init() {
 	flag.StringVar(&cfg.Variables, "vars", cfg.Variables, "File containing template variables.")
 	flag.BoolVar(&cfg.Wait, "wait", cfg.Wait, "Block until deployment reaches final state (success, failure, error).")
 
+	flag.Parse()
+
 	log.SetOutput(os.Stderr)
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp:          true,
 		TimestampFormat:        time.RFC3339Nano,
 		DisableLevelTruncation: true,
 	})
+
+	if cfg.Quiet {
+		log.SetLevel(log.ErrorLevel)
+	}
 }
 
 func mkpayload(w io.Writer, resources json.RawMessage) error {
@@ -192,8 +200,6 @@ func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
 func run() (ExitCode, error) {
 	var err error
 	var templateVariables TemplateVariables
-
-	flag.Parse()
 
 	if len(cfg.Resource) == 0 {
 		return ExitInvocationFailure, fmt.Errorf("at least one Kubernetes resource is required to make sense of the deployment")
