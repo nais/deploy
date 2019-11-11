@@ -1,0 +1,17 @@
+{
+  "request": {
+    "body": {
+      "deploymentID": 123,
+      "team": "nobody",
+      "owner": "foo",
+      "repository": "bar"
+    }
+  },
+  "response": {
+    "statusCode": 200,
+    "body": {
+      "message": "deployment status retrieved successfully",
+      "status": "success"
+    }
+  }
+}

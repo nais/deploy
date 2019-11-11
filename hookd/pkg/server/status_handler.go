@@ -48,7 +48,15 @@ func (r *StatusResponse) render(w io.Writer) {
 func (r *StatusRequest) validate() error {
 
 	if r.DeploymentID == 0 {
-		return fmt.Errorf("no deployment id specified")
+		return fmt.Errorf("no deployment ID specified")
+	}
+
+	if len(r.Owner) == 0 {
+		return fmt.Errorf("no repository owner specified")
+	}
+
+	if len(r.Repository) == 0 {
+		return fmt.Errorf("no repository specified")
 	}
 
 	if len(r.Team) == 0 {

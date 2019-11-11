@@ -1,0 +1,16 @@
+{
+  "request": {
+    "body": {
+      "deploymentID": 123,
+      "team": "notfound",
+      "owner": "foo",
+      "repository": "bar"
+    }
+  },
+  "response": {
+    "statusCode": 403,
+    "body": {
+      "message": "failed authentication"
+    }
+  }
+}

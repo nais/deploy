@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/stretchr/testify/assert"
@@ -37,8 +38,23 @@ func testStatusResponse(t *testing.T, recorder *httptest.ResponseRecorder, respo
 	assert.Equal(t, response.Body.Status, decodedBody.Status)
 }
 
-func statusBody(in []byte) []byte {
-	return in
+// Inject timestamp in request payload
+func addTimestampToBody(in []byte, timeshift int64) []byte {
+	tmp := make(map[string]interface{})
+	err := json.Unmarshal(in, &tmp)
+	if err != nil {
+		return in
+	}
+	if _, ok := tmp["timestamp"]; ok {
+		// timestamp already provided in test fixture
+		return in
+	}
+	tmp["timestamp"] = time.Now().Unix() + timeshift
+	out, err := json.Marshal(tmp)
+	if err != nil {
+		return in
+	}
+	return out
 }
 
 func statusSubTest(t *testing.T, name string) {
@@ -54,11 +70,11 @@ func statusSubTest(t *testing.T, name string) {
 	test := statusTestCase{}
 	err = json.Unmarshal(data, &test)
 	if err != nil {
-		t.Error(data)
+		t.Error(string(data))
 		t.Fail()
 	}
 
-	body := statusBody(test.Request.Body)
+	body := addTimestampToBody(test.Request.Body, 0)
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("GET", "/api/v1/status", bytes.NewReader(body))
 
