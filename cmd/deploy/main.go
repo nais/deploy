@@ -26,6 +26,7 @@ type Config struct {
 	APIKey          string
 	DeployServerURL string
 	Cluster         string
+	PrintPayload    bool
 	DryRun          bool
 	Owner           string
 	Ref             string
@@ -82,6 +83,7 @@ func init() {
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "NAIS cluster to deploy into.")
 	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Run templating, but don't actually make any requests.")
 	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of GitHub repository.")
+	flag.BoolVar(&cfg.PrintPayload, "print-payload", cfg.PrintPayload, "Print templated resources to standard output.")
 	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Git commit hash, tag, or branch of the code being deployed.")
 	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "File with Kubernetes resource. Can be specified multiple times.")
 	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of GitHub repository.")
@@ -224,8 +226,9 @@ func run() (ExitCode, error) {
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add(server.SignatureHeader, fmt.Sprintf("%s", sig))
 
-	fmt.Printf(bufstr)
-	log.Debugf("signature....: %s", sig)
+	if cfg.PrintPayload {
+		fmt.Printf(bufstr)
+	}
 
 	if cfg.DryRun {
 		return ExitSuccess, nil
