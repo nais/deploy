@@ -90,6 +90,13 @@ func init() {
 	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment. Auto-detected if possible.")
 	flag.StringVar(&cfg.Variables, "vars", cfg.Variables, "File containing template variables.")
 	flag.BoolVar(&cfg.Wait, "wait", cfg.Wait, "Block until deployment reaches final state (success, failure, error).")
+
+	log.SetOutput(os.Stderr)
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:          true,
+		TimestampFormat:        time.RFC3339Nano,
+		DisableLevelTruncation: true,
+	})
 }
 
 func mkpayload(w io.Writer, resources json.RawMessage) error {
@@ -133,7 +140,7 @@ func detectTeam(resource json.RawMessage) string {
 }
 
 // Wrap JSON resources in a JSON array.
-func wrapResources(resources []json.RawMessage) (result json.RawMessage, err error) {
+func wrapResources(resources []json.RawMessage) (json.RawMessage, error) {
 	return json.Marshal(resources)
 }
 
@@ -215,7 +222,7 @@ func run() (ExitCode, error) {
 	}
 
 	if len(cfg.Team) == 0 {
-		log.Infof("Team not specified in --team; attempting auto-detection")
+		log.Infof("Team not explicitly specified; attempting auto-detection...")
 		for i, path := range cfg.Resource {
 			team := detectTeam(resources[i])
 			if len(team) > 0 {
@@ -238,11 +245,18 @@ func run() (ExitCode, error) {
 	if err != nil {
 		return ExitInvocationFailure, err
 	}
-	bufstr := buf.String()
+
+	if cfg.PrintPayload {
+		fmt.Printf(buf.String())
+	}
+
+	if cfg.DryRun {
+		return ExitSuccess, nil
+	}
 
 	decoded, err := hex.DecodeString(cfg.APIKey)
 	if err != nil {
-		return ExitInvocationFailure, fmt.Errorf("HMAC key must be a hex encoded string: %s", err)
+		return ExitInvocationFailure, fmt.Errorf("API key must be a hex encoded string: %s", err)
 	}
 	sig := sign(buf.Bytes(), decoded)
 
@@ -254,14 +268,7 @@ func run() (ExitCode, error) {
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add(server.SignatureHeader, fmt.Sprintf("%s", sig))
 
-	if cfg.PrintPayload {
-		fmt.Printf(bufstr)
-	}
-
-	if cfg.DryRun {
-		return ExitSuccess, nil
-	}
-
+	log.Infof("Submitting deployment request to %s...", targetURL.String())
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -290,6 +297,8 @@ func run() (ExitCode, error) {
 	if !cfg.Wait {
 		return ExitSuccess, nil
 	}
+
+	log.Infof("Polling deployment status until it has reached its final state...")
 
 	for {
 		cont, status, err := check(response.GithubDeployment.GetID(), decoded, *targetURL)
@@ -341,6 +350,7 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, e
 
 	if resp.StatusCode == http.StatusNoContent {
 		log.Info("deployment: pending creation on GitHub")
+		return true, ExitSuccess, nil
 	} else if resp.StatusCode != http.StatusOK {
 		log.Infof("status....: %s", resp.Status)
 	}
