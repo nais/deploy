@@ -18,9 +18,7 @@ var (
 	payloadVersion = []int32{1, 0, 0}
 )
 
-// DeploymentRequestFromEvent creates a deployment request from a Github Deployment Event.
-// The event is validated, and if any fields are missing, an error is returned.
-// Any error from this function should be considered user error.
+// DeploymentRequestMessage creates a deployment request from user input provided to the deployment API.
 func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, deliveryID string) (*types.DeploymentRequest, error) {
 	kube, err := types.KubernetesFromJSONResources(r.Resources)
 	if err != nil {
