@@ -70,6 +70,13 @@ func (g *githubClient) CreateDeployment(ctx context.Context, owner, repository s
 	}
 }
 
+func (g *githubClient) DeploymentStatus(ctx context.Context, owner, repository string, deploymentID int64) (*gh.DeploymentStatus, error) {
+	return &gh.DeploymentStatus{
+		ID:    gh.Int64(deploymentID),
+		State: gh.String("success"),
+	}, nil
+}
+
 type apiKeyStorage struct{}
 
 func (a *apiKeyStorage) Read(team string) ([]byte, error) {

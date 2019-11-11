@@ -1,0 +1,19 @@
+{
+  "request": {
+    "headers": {
+      "x-nais-signature": "672e772440ed7107230c8af1fa94fcbb4b75d69bf64c9618817c557f13b9444b"
+    },
+    "body": {
+      "deploymentID": 123,
+      "team": "nobody",
+      "owner": "foo",
+      "repository": "bar"
+    }
+  },
+  "response": {
+    "statusCode": 403,
+    "body": {
+      "message": "failed authentication"
+    }
+  }
+}

@@ -16,6 +16,7 @@ import (
 
 	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
+	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -32,6 +33,7 @@ type Config struct {
 	Resource   []string
 	Team       string
 	Variables  string
+	Wait       bool
 }
 
 type TemplateVariables map[string]interface{}
@@ -40,6 +42,8 @@ var cfg = DefaultConfig()
 
 const (
 	deployAPIPath = "/api/v1/deploy"
+	statusAPIPath = "/api/v1/status"
+	pollInterval  = time.Second * 5
 )
 
 func DefaultConfig() Config {
@@ -67,6 +71,7 @@ func init() {
 	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
 	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment.")
 	flag.StringVar(&cfg.Variables, "vars", cfg.Variables, "File containing template variables.")
+	flag.BoolVar(&cfg.Wait, "wait", cfg.Wait, "Block until deployment reaches final state (success, failure, error).")
 }
 
 func mkpayload(w io.Writer, resources json.RawMessage) error {
@@ -86,7 +91,7 @@ func mkpayload(w io.Writer, resources json.RawMessage) error {
 	return enc.Encode(req)
 }
 
-func mksig(data, key []byte) string {
+func sign(data, key []byte) string {
 	hasher := hmac.New(sha256.New, key)
 	hasher.Write(data)
 	sum := hasher.Sum(nil)
@@ -189,7 +194,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("HMAC key must be a hex encoded string: %s", err)
 	}
-	sig := mksig(buf.Bytes(), decoded)
+	sig := sign(buf.Bytes(), decoded)
 
 	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
 	if err != nil {
@@ -231,7 +236,90 @@ func run() error {
 		return fmt.Errorf("deployment failed")
 	}
 
+	if !cfg.Wait {
+		return nil
+	}
+
+	for {
+		cont, err := check(response.GithubDeployment.GetID(), decoded, *targetURL)
+		if !cont {
+			return err
+		}
+		if err != nil {
+			log.Error(err)
+		}
+		time.Sleep(pollInterval)
+	}
+
 	return nil
+}
+
+// Check if a deployment has reached a terminal state.
+// The first return value is true if the state might change, false otherwise.
+// Additionally, returns an error if any error occurred.
+func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
+	statusReq := &server.StatusRequest{
+		DeploymentID: deploymentID,
+		Team:         cfg.Team,
+		Owner:        cfg.Owner,
+		Repository:   cfg.Repository,
+		Timestamp:    time.Now().Unix(),
+	}
+
+	payload, err := json.Marshal(statusReq)
+	if err != nil {
+		return false, fmt.Errorf("unable to marshal status request: %s", err)
+	}
+
+	targetURL.Path = statusAPIPath
+	buf := bytes.NewBuffer(payload)
+	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
+	if err != nil {
+		return false, fmt.Errorf("internal error creating http request: %v", err)
+	}
+
+	signature := sign(payload, key)
+	req.Header.Add("content-type", "application/json")
+	req.Header.Add(server.SignatureHeader, signature)
+
+	resp, err := http.DefaultClient.Do(req)
+	if resp != nil && resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		return false, fmt.Errorf("bad request: %s", err)
+	}
+	if err != nil {
+		return true, fmt.Errorf("error making request: %s", err)
+	}
+
+	if resp.StatusCode == http.StatusNoContent {
+		log.Info("deployment: pending creation on GitHub")
+	} else if resp.StatusCode != http.StatusOK {
+		log.Infof("status....: %s", resp.Status)
+	}
+
+	response := &server.StatusResponse{}
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(response)
+	if err != nil {
+		return true, fmt.Errorf("received invalid response from server: %s", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		log.Infof("message...: %s", response.Message)
+	}
+
+	if response.Status == nil {
+		return true, nil
+	}
+
+	log.Infof("deployment: %s", *response.Status)
+
+	status := types.GithubDeploymentState(types.GithubDeploymentState_value[*response.Status])
+	switch status {
+	case types.GithubDeploymentState_success, types.GithubDeploymentState_error, types.GithubDeploymentState_failure:
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func main() {
