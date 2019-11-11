@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/stretchr/testify/assert"
 )
@@ -73,17 +72,12 @@ func statusSubTest(t *testing.T, name string) {
 		request.Header.Set(server.SignatureHeader, hex.EncodeToString(mac))
 	}
 
-	requests := make(chan types.DeploymentRequest, 1024)
-	statuses := make(chan types.DeploymentStatus, 1024)
 	ghClient := githubClient{}
 	apiKeyStore := apiKeyStorage{}
 
-	handler := server.DeploymentHandler{
-		DeploymentRequest: requests,
-		DeploymentStatus:  statuses,
-		APIKeyStorage:     &apiKeyStore,
-		GithubClient:      &ghClient,
-		Clusters:          validClusters,
+	handler := server.StatusHandler{
+		APIKeyStorage: &apiKeyStore,
+		GithubClient:  &ghClient,
 	}
 
 	handler.ServeHTTP(recorder, request)
