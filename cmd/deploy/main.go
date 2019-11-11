@@ -23,53 +23,69 @@ import (
 )
 
 type Config struct {
-	APIKey     string
-	BaseURL    string
-	Cluster    string
-	DryRun     bool
-	Owner      string
-	Ref        string
-	Repository string
-	Resource   []string
-	Team       string
-	Variables  string
-	Wait       bool
+	APIKey          string
+	DeployServerURL string
+	Cluster         string
+	DryRun          bool
+	Owner           string
+	Ref             string
+	Repository      string
+	Resource        []string
+	Team            string
+	Variables       string
+	Wait            bool
 }
 
 type TemplateVariables map[string]interface{}
 
 var cfg = DefaultConfig()
 
+var help = `
+deploy prepares and submits Kubernetes resources to a NAIS cluster.
+`
+
 const (
-	deployAPIPath = "/api/v1/deploy"
-	statusAPIPath = "/api/v1/status"
-	pollInterval  = time.Second * 5
+	deployAPIPath       = "/api/v1/deploy"
+	statusAPIPath       = "/api/v1/status"
+	pollInterval        = time.Second * 5
+	defaultRef          = "master"
+	defaultOwner        = "navikt"
+	defaultDeployServer = "https://deployment.prod-sbs.nais.io"
+)
+
+type ExitCode int
+
+const (
+	ExitSuccess ExitCode = iota
+	ExitDeploymentFailure
+	ExitDeploymentError
+	ExitNoDeployment
+	ExitUnavailable
+	ExitInvocationFailure
+	ExitInternalError
 )
 
 func DefaultConfig() Config {
 	return Config{
-		BaseURL:    "http://localhost:8080",
-		Team:       "nobody",
-		Ref:        "master",
-		Owner:      "navikt",
-		Repository: "deployment",
-		Resource:   []string{},
-		Cluster:    "local",
+		DeployServerURL: defaultDeployServer,
+		Ref:             defaultRef,
+		Owner:           defaultOwner,
+		Resource:        []string{},
 	}
 }
 
 func init() {
-	flag.ErrHelp = fmt.Errorf("\nmkdeploy creates Github deployment request payloads, signs them, and submits them to a hookd server.\n")
+	flag.ErrHelp = fmt.Errorf(help)
 
 	flag.StringVar(&cfg.APIKey, "apikey", cfg.APIKey, "NAIS Deploy API key.")
-	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "Base URL of API server.")
-	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Cluster to deploy to.")
-	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Don't actually make a HTTP request.")
-	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of git repository.")
-	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Commit hash, tag or branch.")
-	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "Files with Kubernetes resources.")
-	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of Github repository.")
-	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment.")
+	flag.StringVar(&cfg.DeployServerURL, "deploy-server", cfg.DeployServerURL, "URL to API server.")
+	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "NAIS cluster to deploy into.")
+	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Run templating, but don't actually make any requests.")
+	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of GitHub repository.")
+	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Git commit hash, tag, or branch of the code being deployed.")
+	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "File with Kubernetes resource. Can be specified multiple times.")
+	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of GitHub repository.")
+	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment. Auto-detected if possible.")
 	flag.StringVar(&cfg.Variables, "vars", cfg.Variables, "File containing template variables.")
 	flag.BoolVar(&cfg.Wait, "wait", cfg.Wait, "Block until deployment reaches final state (success, failure, error).")
 }
@@ -148,22 +164,26 @@ func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
 	return data, nil
 }
 
-func run() error {
+func run() (ExitCode, error) {
 	var err error
 	var templateVariables TemplateVariables
 
 	flag.Parse()
 
-	targetURL, err := url.Parse(cfg.BaseURL)
+	if len(cfg.Resource) == 0 {
+		return ExitInvocationFailure, fmt.Errorf("at least one Kubernetes resource is required to make sense of the deployment")
+	}
+
+	targetURL, err := url.Parse(cfg.DeployServerURL)
 	if err != nil {
-		return fmt.Errorf("wrong format of base URL: %s", err)
+		return ExitInvocationFailure, fmt.Errorf("wrong format of base URL: %s", err)
 	}
 	targetURL.Path = deployAPIPath
 
 	if len(cfg.Variables) > 0 {
 		templateVariables, err = templateVariablesFromFile(cfg.Variables)
 		if err != nil {
-			return fmt.Errorf("load template variables: %s", err)
+			return ExitInvocationFailure, fmt.Errorf("load template variables: %s", err)
 		}
 	}
 
@@ -172,7 +192,7 @@ func run() error {
 	for i, path := range cfg.Resource {
 		resources[i], err = fileAsJSON(path, templateVariables)
 		if err != nil {
-			return err
+			return ExitInvocationFailure, err
 		}
 	}
 
@@ -181,24 +201,24 @@ func run() error {
 
 	allResources, err := wrapResources(resources)
 	if err != nil {
-		return err
+		return ExitInvocationFailure, err
 	}
 
 	err = mkpayload(buf, allResources)
 	if err != nil {
-		return err
+		return ExitInvocationFailure, err
 	}
 	bufstr := buf.String()
 
 	decoded, err := hex.DecodeString(cfg.APIKey)
 	if err != nil {
-		return fmt.Errorf("HMAC key must be a hex encoded string: %s", err)
+		return ExitInvocationFailure, fmt.Errorf("HMAC key must be a hex encoded string: %s", err)
 	}
 	sig := sign(buf.Bytes(), decoded)
 
 	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
 	if err != nil {
-		return fmt.Errorf("internal error creating http request: %v", err)
+		return ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
 	}
 
 	req.Header.Add("content-type", "application/json")
@@ -208,13 +228,13 @@ func run() error {
 	log.Debugf("signature....: %s", sig)
 
 	if cfg.DryRun {
-		return nil
+		return ExitSuccess, nil
 	}
 
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return ExitUnavailable, err
 	}
 
 	log.Infof("status....: %s", resp.Status)
@@ -223,7 +243,7 @@ func run() error {
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(response)
 	if err != nil {
-		return fmt.Errorf("received invalid response from server: %s", err)
+		return ExitUnavailable, fmt.Errorf("received invalid response from server: %s", err)
 	}
 
 	log.Infof("message...: %s", response.Message)
@@ -233,31 +253,29 @@ func run() error {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("deployment failed")
+		return ExitNoDeployment, fmt.Errorf("deployment failed")
 	}
 
 	if !cfg.Wait {
-		return nil
+		return ExitSuccess, nil
 	}
 
 	for {
-		cont, err := check(response.GithubDeployment.GetID(), decoded, *targetURL)
+		cont, status, err := check(response.GithubDeployment.GetID(), decoded, *targetURL)
 		if !cont {
-			return err
+			return status, err
 		}
 		if err != nil {
 			log.Error(err)
 		}
 		time.Sleep(pollInterval)
 	}
-
-	return nil
 }
 
 // Check if a deployment has reached a terminal state.
 // The first return value is true if the state might change, false otherwise.
 // Additionally, returns an error if any error occurred.
-func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
+func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, error) {
 	statusReq := &server.StatusRequest{
 		DeploymentID: deploymentID,
 		Team:         cfg.Team,
@@ -268,14 +286,14 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
 
 	payload, err := json.Marshal(statusReq)
 	if err != nil {
-		return false, fmt.Errorf("unable to marshal status request: %s", err)
+		return false, ExitInternalError, fmt.Errorf("unable to marshal status request: %s", err)
 	}
 
 	targetURL.Path = statusAPIPath
 	buf := bytes.NewBuffer(payload)
 	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
 	if err != nil {
-		return false, fmt.Errorf("internal error creating http request: %v", err)
+		return false, ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
 	}
 
 	signature := sign(payload, key)
@@ -284,10 +302,10 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil && resp.StatusCode >= 400 && resp.StatusCode < 500 {
-		return false, fmt.Errorf("bad request: %s", err)
+		return false, ExitInternalError, fmt.Errorf("bad request: %s", err)
 	}
 	if err != nil {
-		return true, fmt.Errorf("error making request: %s", err)
+		return true, ExitInternalError, fmt.Errorf("error making request: %s", err)
 	}
 
 	if resp.StatusCode == http.StatusNoContent {
@@ -300,7 +318,7 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(response)
 	if err != nil {
-		return true, fmt.Errorf("received invalid response from server: %s", err)
+		return true, ExitInternalError, fmt.Errorf("received invalid response from server: %s", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -308,23 +326,31 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, error) {
 	}
 
 	if response.Status == nil {
-		return true, nil
+		return true, ExitSuccess, nil
 	}
 
 	log.Infof("deployment: %s", *response.Status)
 
 	status := types.GithubDeploymentState(types.GithubDeploymentState_value[*response.Status])
 	switch status {
-	case types.GithubDeploymentState_success, types.GithubDeploymentState_error, types.GithubDeploymentState_failure:
-		return false, nil
+	case types.GithubDeploymentState_success:
+		return false, ExitSuccess, nil
+	case types.GithubDeploymentState_error:
+		return false, ExitDeploymentError, nil
+	case types.GithubDeploymentState_failure:
+		return false, ExitDeploymentFailure, nil
 	}
 
-	return true, nil
+	return true, ExitSuccess, nil
 }
 
 func main() {
-	if err := run(); err != nil {
+	code, err := run()
+	if err != nil {
 		log.Errorf("fatal: %s", err)
-		os.Exit(1)
+		if code == ExitInvocationFailure {
+			flag.Usage()
+		}
 	}
+	os.Exit(int(code))
 }
