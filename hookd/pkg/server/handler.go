@@ -103,10 +103,13 @@ func (r *DeploymentRequest) validate() error {
 }
 
 func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
+	requiredContexts := make([]string, 0)
 	return gh.DeploymentRequest{
-		Environment: gh.String(r.Cluster),
-		Ref:         gh.String(r.Ref),
-		Task:        gh.String(DirectDeployGithubTask),
+		Environment:      gh.String(r.Cluster),
+		Ref:              gh.String(r.Ref),
+		Task:             gh.String(DirectDeployGithubTask),
+		AutoMerge:        gh.Bool(false),
+		RequiredContexts: &requiredContexts,
 	}
 }
 
