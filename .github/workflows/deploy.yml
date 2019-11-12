@@ -1,7 +1,8 @@
-name: Deploy thyself
-
-on: [push]
-
+name: Deploy no-op ConfigMap through NAIS deploy
+on:
+  push:
+    branches:
+      - master
 jobs:
   build:
     runs-on: ubuntu-latest
