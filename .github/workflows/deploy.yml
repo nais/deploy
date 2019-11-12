@@ -1,0 +1,25 @@
+name: Deploy thyself
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Create ConfigMap resource
+      run: |
+        cat > $GITHUB_WORKSPACE/nais.yaml <<EOF
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: nais-deploy
+          namespace: default
+          labels:
+            team: aura
+        EOF
+    - uses: navikt/deployment/actions/deploy@master
+      env:
+        APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
+        CLUSTER: dev-fss
+        RESOURCE: /github/workspace/nais.yaml
