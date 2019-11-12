@@ -1,0 +1,18 @@
+{
+  "request": {
+    "body": {
+      "resources": [],
+      "team": "nobody",
+      "cluster": "local",
+      "owner": "foo",
+      "repository": "bar",
+      "ref": "master"
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "invalid deployment request: resources must contain at least one Kubernetes resource"
+    }
+  }
+}

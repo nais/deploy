@@ -13,12 +13,42 @@ import (
 var (
 	// Deployment request's time to live before it is considered too old.
 	ttl = time.Minute * 1
+
+	// Payload API version
+	payloadVersion = []int32{1, 0, 0}
 )
 
-// DeploymentRequest creates a deployment request from a Github Deployment Event.
+// DeploymentRequestMessage creates a deployment request from user input provided to the deployment API.
+func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, deliveryID string) (*types.DeploymentRequest, error) {
+	kube, err := types.KubernetesFromJSONResources(r.Resources)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Unix(r.Timestamp, 0)
+	return &types.DeploymentRequest{
+		Deployment: &types.DeploymentSpec{
+			Repository: &types.GithubRepository{
+				Name:  r.Repository,
+				Owner: r.Owner,
+			},
+			DeploymentID: deployment.GetID(),
+		},
+		PayloadSpec: &types.Payload{
+			Team:       r.Team,
+			Version:    payloadVersion,
+			Kubernetes: kube,
+		},
+		DeliveryID: deliveryID,
+		Cluster:    r.Cluster,
+		Timestamp:  now.Unix(),
+		Deadline:   now.Add(ttl).Unix(),
+	}, nil
+}
+
+// DeploymentRequestFromEvent creates a deployment request from a Github Deployment Event.
 // The event is validated, and if any fields are missing, an error is returned.
 // Any error from this function should be considered user error.
-func DeploymentRequest(ev *gh.DeploymentEvent, deliveryID string) (*types.DeploymentRequest, error) {
+func DeploymentRequestFromEvent(ev *gh.DeploymentEvent, deliveryID string) (*types.DeploymentRequest, error) {
 	repo := ev.GetRepo()
 	if repo == nil {
 		return nil, fmt.Errorf("no repository specified")

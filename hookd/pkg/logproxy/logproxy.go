@@ -71,6 +71,10 @@ func formatKibana(deliveryID string, ts time.Time) string {
 	return fmt.Sprintf(kibanaFormat, string(b), string(c))
 }
 
+func MakeURL(baseURL, deliveryID string, timestamp time.Time) string {
+	return fmt.Sprintf("%s/logs?delivery_id=%s&ts=%d", baseURL, deliveryID, timestamp.Unix())
+}
+
 func HandleFunc(w http.ResponseWriter, r *http.Request) {
 	badrequest := func(err error) {
 		w.WriteHeader(http.StatusBadRequest)

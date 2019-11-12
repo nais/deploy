@@ -1,0 +1,15 @@
+{
+  "request": {
+    "body": {
+      "deploymentID": 123,
+      "team": "nobody",
+      "owner": "foo"
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "invalid status request: no repository specified"
+    }
+  }
+}

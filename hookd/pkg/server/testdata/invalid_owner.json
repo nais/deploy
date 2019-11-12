@@ -1,0 +1,17 @@
+{
+  "request": {
+    "body": {
+      "resources": [{}],
+      "team": "nobody",
+      "cluster": "local",
+      "repository": "bar",
+      "ref": "master"
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "invalid deployment request: no repository owner specified"
+    }
+  }
+}

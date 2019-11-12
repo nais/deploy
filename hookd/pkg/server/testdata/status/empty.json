@@ -1,0 +1,10 @@
+{
+  "request": {
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "unable to unmarshal request body: unexpected end of JSON input"
+    }
+  }
+}

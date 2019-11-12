@@ -13,10 +13,10 @@ developer -> github: git push
 github --> developer
 github -> ci: Webhook
 ci --> github
-ci -> registry: Push image
-registry --> ci
 
 ==Deploy phase==
+ci -> registry: Push image
+registry --> ci
 ci -> github: Start deployment
 github -> hookd: Webhook
 hookd -> deployd: Commission deployment

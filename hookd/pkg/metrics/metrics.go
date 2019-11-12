@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	qSize int // queueSize
+	deployQueue = make(map[string]interface{})
 )
 
 func gauge(name, help string) prometheus.Gauge {
@@ -72,16 +72,14 @@ func UpdateQueue(status deployment.DeploymentStatus) {
 	case deployment.GithubDeploymentState_error:
 		fallthrough
 	case deployment.GithubDeploymentState_failure:
-		if qSize > 0 {
-			qSize--
-		}
+		delete(deployQueue, status.GetDeliveryID())
 
-	// The first step in a deployment's lifecycle is to be put on the queue.
-	case deployment.GithubDeploymentState_queued:
-		qSize++
+	// Other states mean the deployment is still being processed.
+	default:
+		deployQueue[status.GetDeliveryID()] = new(interface{})
 	}
 
-	queueSize.Set(float64(qSize))
+	queueSize.Set(float64(len(deployQueue)))
 }
 
 var (
@@ -140,6 +138,17 @@ var (
 		Subsystem: subsystem,
 	})
 
+	VaultTokenRefresh = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "vault_token_refresh",
+		Help:      "number of token refresh calls made to Vault",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			LabelStatusCode,
+		},
+	)
+
 	KafkaQueueSize             = gauge("kafka_queue_size", "number of messages received from Kafka and waiting to be processed")
 	DeploymentRequestQueueSize = gauge("deployment_request_queue_size", "number of github status updates waiting to be posted")
 	GithubStatusQueueSize      = gauge("github_status_queue_size", "number of github status updates waiting to be posted")
@@ -151,6 +160,7 @@ func init() {
 	prometheus.MustRegister(queueSize)
 	prometheus.MustRegister(leadTime)
 	prometheus.MustRegister(Dispatched)
+	prometheus.MustRegister(VaultTokenRefresh)
 	prometheus.MustRegister(KafkaQueueSize)
 	prometheus.MustRegister(DeploymentRequestQueueSize)
 	prometheus.MustRegister(GithubStatusQueueSize)

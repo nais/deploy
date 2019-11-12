@@ -27,6 +27,8 @@ func init() {
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
 	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
 	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
+	flag.BoolVar(&cfg.TeamNamespaces, "team-namespaces", cfg.TeamNamespaces, "Set to true if team service accounts live in team's own namespace.")
+	flag.BoolVar(&cfg.AutoCreateServiceAccount, "auto-create-service-account", cfg.AutoCreateServiceAccount, "Set to true to automatically create service accounts.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -90,7 +92,7 @@ func run() error {
 			logger := kafka.ConsumerMessageLogger(&m)
 
 			// Check the validity and authenticity of the message.
-			deployd.Run(&logger, m.Value, client.SignatureKey, cfg.Cluster, kube, statusChan)
+			deployd.Run(&logger, m.Value, client.SignatureKey, *cfg, kube, statusChan)
 
 		case status := <-statusChan:
 			logger := log.WithFields(status.LogFields())

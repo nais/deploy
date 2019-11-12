@@ -22,6 +22,76 @@ Intermediary statuses might be posted, indicating the current state of the deplo
 
 The usage documentation has been moved to [NAIS platform documentation](https://github.com/nais/doc/tree/master/content/deploy).
 
+### Deploy API
+
+Post to `/api/v1/deploy` to deploy one or more resources into one of our Kubernetes clusters.
+
+Successful requests result in creation of a _deployment_ object on GitHub. Use this object
+to track the status of your deployment.
+
+#### Request specification
+
+```json
+{
+  "resources": [
+    {
+      "kind": "Application",
+      "apiVersion": "nais.io/v1alpha1",
+      "metadata": { ... },
+      "spec": { ... },
+    }
+  ],
+  "team": "nobody",
+  "cluster": "local",
+  "owner": "navikt",
+  "repository": "deployment",
+  "ref": "master",
+  "timestamp": 1572942789,
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| resources | list[object] | Array of Kubernetes resources |
+| team | string | Team tag |
+| cluster | string | Kubernetes cluster, see [NAIS clusters](https://doc.nais.io/clusters) |
+| owner | string | GitHub repository owner |
+| repository | string | GitHub repository name |
+| ref | string | GitHub commit hash or tag |
+| timestamp | int64 | Current Unix timestamp |
+
+Additionally, the header `X-NAIS-Signature` must contain a keyed-hash message authentication code (HMAC).
+The code can be derived by hashing the request body using the SHA256 algorithm together with your team's NAIS Deploy API key.
+
+#### Response specification
+
+```json
+{
+  "logURL": "http://localhost:8080/logs?delivery_id=9a0d1702-e7c5-448f-8a90-1e5ee29a043b&ts=1572437924",
+  "correlationID": "9a0d1702-e7c5-448f-8a90-1e5ee29a043b",
+  "message": "successful deployment",
+  "githubDeployment": { ... }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| logURL | string | Direct link to human readable frontend where logs for this specific deployment can be read |
+| correlationID | string | UUID used for correlation tracking across systems, especially in logs |
+| message | string | Human readable indication of API result |
+| githubDeployment | object | [Data returned from GitHub Deployments API](https://developer.github.com/v3/repos/deployments/#get-a-single-deployment) |
+
+#### Response status codes
+
+| Code | Retriable | Description |
+|-------|------|-------------|
+| 201 | N/A | The request was valid and will be deployed. Track the status of your deployment using the GitHub Deployments API. |
+| 400 | NO | The request contains errors and cannot be processed. Check the `message` field for details.
+| 403 | MAYBE | Authentication failed. Check that you're supplying the correct `team`; that the team is present on GitHub and has admin access to your repository; that you're using the correct API key; and properly HMAC signing the request. |
+| 404 | NO | Wrong URL. |
+| 5xx | YES | NAIS deploy is having problems and is currently being fixed. Retry later. |
+
+
 ## Application components
 
 ### hookd
@@ -130,10 +200,19 @@ Used as a configuration backend. Information about repository team access is sto
 Check out the repository and run `make`. Dependencies will download automatically, and you should have three binary files at `hookd/hookd`, `deployd/deployd` and `token-generator`.
 
 ### External dependencies
-Start the external dependencies by running `docker-compose up`. This will start local Kafka and S3 servers.
+Start the external dependencies by running `docker-compose up`. This will start local Kafka, S3, and Vault servers.
 
 The S3 access and secret keys are `accesskey` and `secretkey` respectively. Conveniently, these are
 the default options for _hookd_ as well, so you don't have to configure anything.
+
+### Vault
+The `/api/v1/deploy` endpoint uses Hashicorp Vault to store teams' API keys. To make this work, set up a Vault KV store version 1
+on the server specified by `--vault-address` and on the path specified by `--vault-path`.
+
+For instance, with the default values of `--vault-address=http://localhost:8080 --vault-path=/v1/apikey/nais-deploy --vault-key=key`:
+
+* Set up `/apikey` as a KV v1 store.
+* Create secrets under `/apikey/nais-deploy/<team>` with key `key` and the pre-shared secret as the value.
 
 ### token-generator
 * Set up a google cloud storage bucket

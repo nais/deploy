@@ -4,9 +4,7 @@
 *.dll
 *.so
 *.dylib
-/cmd/hookd/hookd
-/cmd/deployd/deployd
-/token-generator
+/bin/*
 
 # Test binary, build with `go test -c`
 *.test

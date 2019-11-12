@@ -2,155 +2,178 @@ package server_test
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"crypto/sha1"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"io"
+	"io/ioutil"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	gh "github.com/google/go-github/v27/github"
-	"github.com/google/uuid"
-	"github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/hookd/pkg/github"
+
+	types "github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	queueSize = 32
+	deploymentID = 123789
 )
 
-var (
-	secretToken      = "abc"
-	wrongSecretToken = "wrong"
-)
+var secretKey = []byte("foobar")
 
-type mockRepository struct {
-	Contents map[string][]string
+var validClusters = []string{
+	"local",
 }
 
-func (s *mockRepository) Read(repository string) ([]string, error) {
-	return []string{}, nil
+type request struct {
+	Headers map[string]string
+	Body    json.RawMessage
 }
 
-func (s *mockRepository) Write(repository string, teams []string) error {
-	return nil
+type response struct {
+	StatusCode int                       `json:"statusCode"`
+	Body       server.DeploymentResponse `json:"body"`
 }
 
-func (s *mockRepository) IsErrNotFound(err error) bool {
-	return false
+type testCase struct {
+	Request  request  `json:"request"`
+	Response response `json:"response"`
 }
 
-type handlerTest struct {
-	Handler  *server.DeploymentHandler
-	Body     *bytes.Buffer
-	Request  *http.Request
-	Recorder *httptest.ResponseRecorder
-}
+type githubClient struct{}
 
-func (h *handlerTest) Run() {
-	h.Handler.ServeHTTP(h.Recorder, h.Request)
-}
-
-func (h *handlerTest) Sign(key string) {
-	hasher := hmac.New(sha1.New, []byte(key))
-	hasher.Write(h.Body.Bytes())
-	sum := hasher.Sum(nil)
-	h.Request.Header.Set("X-Hub-Signature", fmt.Sprintf("sha1=%s", hex.EncodeToString(sum)))
-}
-
-func newHandler() *server.DeploymentHandler {
-	requestChan := make(chan deployment.DeploymentRequest, queueSize)
-	statusChan := make(chan deployment.DeploymentStatus, queueSize)
-
-	store := &mockRepository{
-		Contents: make(map[string][]string, 0),
-	}
-
-	return &server.DeploymentHandler{
-		DeploymentRequest:     requestChan,
-		DeploymentStatus:      statusChan,
-		TeamRepositoryStorage: store,
-		SecretToken:           secretToken,
+func (g *githubClient) TeamAllowed(ctx context.Context, owner, repository, teamName string) error {
+	switch teamName {
+	case "team_not_repo_owner":
+		return github.ErrTeamNoAccess
+	case "team_not_on_github":
+		return github.ErrTeamNotExist
+	default:
+		return nil
 	}
 }
 
-func newDeploymentEvent(repoName, environment, payload string) *gh.DeploymentEvent {
-	return &gh.DeploymentEvent{
-		Repo: &gh.Repository{
-			FullName: gh.String(repoName),
-		},
-		Deployment: &gh.Deployment{
-			Environment: gh.String(environment),
-			Payload:     []byte(payload),
-		},
+func (g *githubClient) CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error) {
+	switch repository {
+	case "unavailable":
+		return nil, fmt.Errorf("GitHub is down!")
+	default:
+		return &gh.Deployment{
+			ID: gh.Int64(deploymentID),
+		}, nil
 	}
 }
 
-func setup() handlerTest {
-	buf := make([]byte, 0)
-	ht := handlerTest{
-		Handler:  newHandler(),
-		Body:     bytes.NewBuffer(buf),
-		Recorder: httptest.NewRecorder(),
-	}
-	ht.Request = httptest.NewRequest("POST", "/events", ht.Body)
-	ht.Request.Header.Set("X-GitHub-Delivery", uuid.New().String())
-	ht.Request.Header.Set("X-GitHub-Event", "deployment")
-	ht.Request.Header.Set("content-type", "application/json")
-	return ht
+func (g *githubClient) DeploymentStatus(ctx context.Context, owner, repository string, deploymentID int64) (*gh.DeploymentStatus, error) {
+	return &gh.DeploymentStatus{
+		ID:    gh.Int64(deploymentID),
+		State: gh.String("success"),
+	}, nil
 }
 
-func TestDeploymentHandler_ServeHTTP(t *testing.T) {
+type apiKeyStorage struct{}
 
-	t.Run("unsupported event types are silently ignored", func(t *testing.T) {
-		ht := setup()
-		ht.Request.Header.Set("X-GitHub-Event", "ping")
-		ht.Sign(secretToken)
-		ht.Run()
+func (a *apiKeyStorage) Read(team string) ([]byte, error) {
+	switch team {
+	case "notfound":
+		return nil, persistence.ErrNotFound
+	case "unavailable":
+		return nil, fmt.Errorf("service unavailable")
+	default:
+		return secretKey, nil
+	}
+}
 
-		assert.Equal(t, http.StatusNoContent, ht.Recorder.Code)
-	})
+func (a *apiKeyStorage) IsErrNotFound(err error) bool {
+	return err == persistence.ErrNotFound
+}
 
-	t.Run("deployment events without signature are rejected", func(t *testing.T) {
-		ht := setup()
-		ht.Body.WriteString("{}")
-		ht.Run()
+func fileReader(file string) io.Reader {
+	f, err := os.Open(file)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
 
-		assert.Equal(t, http.StatusForbidden, ht.Recorder.Code)
-		assert.Equal(t, "missing signature", ht.Recorder.Body.String())
-	})
+func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
+	decodedBody := server.DeploymentResponse{}
+	err := json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
+	assert.NoError(t, err)
+	assert.Equal(t, response.StatusCode, recorder.Code)
+	assert.Equal(t, response.Body.Message, decodedBody.Message)
+	assert.NotEmpty(t, decodedBody.CorrelationID)
 
-	t.Run("deployment events with wrong signature are rejected", func(t *testing.T) {
-		ht := setup()
-		ht.Body.WriteString("{}")
-		ht.Sign(wrongSecretToken)
-		ht.Run()
+	assert.Equal(t, response.Body.GithubDeployment.GetID(), decodedBody.GithubDeployment.GetID())
+}
 
-		assert.Equal(t, http.StatusForbidden, ht.Recorder.Code)
-		assert.Equal(t, "payload signature check failed", ht.Recorder.Body.String())
-	})
+func subTest(t *testing.T, name string) {
+	inFile := fmt.Sprintf("testdata/%s", name)
 
-	t.Run("malformed deployment events are rejected", func(t *testing.T) {
-		ht := setup()
-		ht.Body.WriteString("foo and bar")
-		ht.Sign(secretToken)
-		ht.Run()
+	fixture := fileReader(inFile)
+	data, err := ioutil.ReadAll(fixture)
+	if err != nil {
+		t.Error(data)
+		t.Fail()
+	}
 
-		assert.Equal(t, http.StatusBadRequest, ht.Recorder.Code)
-	})
+	test := testCase{}
+	err = json.Unmarshal(data, &test)
+	if err != nil {
+		t.Error(data)
+		t.Fail()
+	}
 
-	t.Run("deployment requests without team in payload are rejected", func(t *testing.T) {
-		ht := setup()
-		dr := newDeploymentEvent("foo/bar", "env", "{}")
-		b, _ := json.Marshal(dr)
-		ht.Body.Write(b)
-		ht.Sign(secretToken)
-		ht.Run()
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest("GET", "/", bytes.NewReader(test.Request.Body))
 
-		assert.Equal(t, http.StatusBadRequest, ht.Recorder.Code)
-		assert.Equal(t, "no team was specified in deployment payload", ht.Recorder.Body.String())
-	})
+	for key, val := range test.Request.Headers {
+		request.Header.Set(key, val)
+	}
+
+	// Generate HMAC header for cases where the header should be valid
+	if len(request.Header.Get(server.SignatureHeader)) == 0 {
+		mac := server.GenMAC(test.Request.Body, secretKey)
+		request.Header.Set(server.SignatureHeader, hex.EncodeToString(mac))
+	}
+
+	requests := make(chan types.DeploymentRequest, 1024)
+	statuses := make(chan types.DeploymentStatus, 1024)
+	ghClient := githubClient{}
+	apiKeyStore := apiKeyStorage{}
+
+	handler := server.DeploymentHandler{
+		DeploymentRequest: requests,
+		DeploymentStatus:  statuses,
+		APIKeyStorage:     &apiKeyStore,
+		GithubClient:      &ghClient,
+		Clusters:          validClusters,
+	}
+
+	handler.ServeHTTP(recorder, request)
+
+	testResponse(t, recorder, test.Response)
+}
+
+func TestDeploymentHandler(t *testing.T) {
+	files, err := ioutil.ReadDir("testdata")
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		name := file.Name()
+		t.Run(name, func(t *testing.T) {
+			subTest(t, name)
+		})
+	}
 }

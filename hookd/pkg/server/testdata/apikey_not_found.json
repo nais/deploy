@@ -1,0 +1,20 @@
+{
+  "request": {
+    "body": {
+      "resources": [
+        {}
+      ],
+      "team": "notfound",
+      "cluster": "local",
+      "owner": "foo",
+      "repository": "bar",
+      "ref": "master"
+    }
+  },
+  "response": {
+    "statusCode": 403,
+    "body": {
+      "message": "failed authentication"
+    }
+  }
+}

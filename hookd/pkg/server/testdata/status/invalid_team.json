@@ -1,0 +1,15 @@
+{
+  "request": {
+    "body": {
+      "deploymentID": 123,
+      "owner": "foo",
+      "repository": "bar"
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "invalid status request: no team specified"
+    }
+  }
+}

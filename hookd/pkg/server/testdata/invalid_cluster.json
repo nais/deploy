@@ -1,0 +1,20 @@
+{
+  "request": {
+    "body": {
+      "resources": [
+        {}
+      ],
+      "team": "nobody",
+      "cluster": "not_allowed",
+      "owner": "foo",
+      "repository": "bar",
+      "ref": "master"
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "invalid deployment request: cluster 'not_allowed' is not a valid choice"
+    }
+  }
+}

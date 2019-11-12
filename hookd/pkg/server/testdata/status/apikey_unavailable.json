@@ -1,0 +1,16 @@
+{
+  "request": {
+    "body": {
+      "deploymentID": 123,
+      "team": "unavailable",
+      "owner": "foo",
+      "repository": "bar"
+    }
+  },
+  "response": {
+    "statusCode": 502,
+    "body": {
+      "message": "something wrong happened when communicating with api key service"
+    }
+  }
+}

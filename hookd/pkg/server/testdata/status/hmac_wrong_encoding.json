@@ -1,0 +1,19 @@
+{
+  "request": {
+    "headers": {
+      "x-nais-signature": "foobar"
+    },
+    "body": {
+      "deploymentID": 123,
+      "team": "nobody",
+      "owner": "foo",
+      "repository": "bar"
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "HMAC digest must be hex encoded"
+    }
+  }
+}

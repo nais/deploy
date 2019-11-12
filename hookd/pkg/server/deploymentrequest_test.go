@@ -16,7 +16,7 @@ const (
 	payload     = `{"team":"my team","kubernetes":{"resources":[{"apiVersion":"v1","kind":"ConfigMap","metadata":{"labels":{"team":"my team"},"name":"foobar","namespace":"default"}}]}}`
 )
 
-func TestDeploymentRequest(t *testing.T) {
+func TestDeploymentRequestFromEvent(t *testing.T) {
 	t.Run("well-formed deployment event returns a deployment request", func(t *testing.T) {
 		ev := &gh.DeploymentEvent{
 			Repo: &gh.Repository{
@@ -27,7 +27,7 @@ func TestDeploymentRequest(t *testing.T) {
 				Payload:     []byte(payload),
 			},
 		}
-		req, err := server.DeploymentRequest(ev, deliveryID)
+		req, err := server.DeploymentRequestFromEvent(ev, deliveryID)
 		assert.NoError(t, err)
 		assert.NotNil(t, req)
 		assert.Equal(t, deliveryID, req.GetDeliveryID())
@@ -35,4 +35,22 @@ func TestDeploymentRequest(t *testing.T) {
 		assert.Equal(t, repoName, req.GetDeployment().GetRepository().FullName())
 		assert.Equal(t, team, req.GetPayloadSpec().GetTeam())
 	})
+}
+
+func TestDeploymentRequest(t *testing.T) {
+	deploymentRequest := &server.DeploymentRequest{}
+	deploymentRequest.Resources = []byte(`[{"foo": "bar"}]`)
+	githubDeployment := &gh.Deployment{}
+	correlationID := "bar"
+
+	deployMsg, err := server.DeploymentRequestMessage(deploymentRequest, githubDeployment, correlationID)
+
+	assert.NoError(t, err)
+
+	resources := deployMsg.GetPayloadSpec().GetKubernetes().GetResources()
+	val := resources[0].Fields["foo"]
+
+	assert.Len(t, resources, 1)
+	assert.NotNil(t, val)
+	assert.Equal(t, "bar", val.GetStringValue())
 }

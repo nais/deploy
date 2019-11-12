@@ -1,0 +1,20 @@
+{
+  "request": {
+    "body": {
+      "resources": [
+        {}
+      ],
+      "team": "team_not_on_github",
+      "cluster": "local",
+      "owner": "foo",
+      "repository": "bar",
+      "ref": "master"
+    }
+  },
+  "response": {
+    "statusCode": 403,
+    "body": {
+      "message": "team does not exist on GitHub"
+    }
+  }
+}
