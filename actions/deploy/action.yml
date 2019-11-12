@@ -1,0 +1,8 @@
+name: 'NAIS Deploy [BETA]'
+description: 'Deploy to a NAIS cluster'
+author: '@pig_deployment'
+color: purple
+icon: zap
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
