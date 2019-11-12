@@ -13,6 +13,7 @@ jobs:
       run: |
         version=$(./version.sh)
         image=docker.pkg.github.com/navikt/deployment/deployment
-        docker build --tag ${image}:${version} --tag ${image}:latest .
+        docker build --tag ${image}:${version} --tag ${image}:latest -f Dockerfile.snafu .
+        docker login docker.pkg.github.com -u ${GITHUB_REPOSITORY} -p ${{ secrets.GITHUB_TOKEN }}
         docker push ${image}:${version}
         docker push ${image}:latest
