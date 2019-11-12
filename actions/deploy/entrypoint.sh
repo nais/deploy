@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 echo "::add-mask::$APIKEY"
 
@@ -10,7 +10,19 @@ if [ -z "$REPOSITORY" ]; then
     export REPOSITORY=`echo $GITHUB_REPOSITORY | cut -f2 -d/`
 fi
 
-/app/deploy
+if [ -z "$QUIET" ]; then
+    export QUIET=false
+fi
+
+if [ -z "$DRY_RUN" ]; then
+    export DRY_RUN=false
+fi
+
+if [ -z "$PRINT_PAYLOAD" ]; then
+    export PRINT_PAYLOAD=false
+fi
+
+/app/deploy \
 	--apikey="$APIKEY" \
 	--cluster="$CLUSTER" \
 	--dry-run="$DRY_RUN" \
