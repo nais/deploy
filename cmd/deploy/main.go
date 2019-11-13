@@ -61,6 +61,7 @@ const (
 	ExitSuccess ExitCode = iota
 	ExitDeploymentFailure
 	ExitDeploymentError
+	ExitDeploymentInactive
 	ExitNoDeployment
 	ExitUnavailable
 	ExitInvocationFailure
@@ -386,6 +387,8 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, e
 		return false, ExitDeploymentError, nil
 	case types.GithubDeploymentState_failure:
 		return false, ExitDeploymentFailure, nil
+	case types.GithubDeploymentState_inactive:
+		return false, ExitDeploymentInactive, nil
 	}
 
 	return true, ExitSuccess, nil
