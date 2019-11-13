@@ -22,6 +22,13 @@ if [ -z "$PRINT_PAYLOAD" ]; then
     export PRINT_PAYLOAD=false
 fi
 
+if [ -z "$IMAGE" ]; then
+    if [ -z "$VARS" ]; then
+        export VARS=`mktemp`
+    fi
+    echo "image: $IMAGE" >> $VARS
+fi
+
 /app/deploy \
 	--apikey="$APIKEY" \
 	--cluster="$CLUSTER" \
