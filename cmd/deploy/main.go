@@ -23,6 +23,7 @@ import (
 )
 
 type Config struct {
+	Actions         bool
 	APIKey          string
 	DeployServerURL string
 	Cluster         string
@@ -39,6 +40,25 @@ type Config struct {
 }
 
 type TemplateVariables map[string]interface{}
+
+type ActionsFormatter struct{}
+
+func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	switch e.Level {
+	case log.ErrorLevel:
+		buf.WriteString("::error::")
+	case log.WarnLevel:
+		buf.WriteString("::warn::")
+	default:
+		buf.WriteString("[")
+		buf.WriteString(e.Time.Format(time.RFC3339Nano))
+		buf.WriteString("] ")
+	}
+	buf.WriteString(e.Message)
+	buf.WriteRune('\n')
+	return buf.Bytes(), nil
+}
 
 var cfg = DefaultConfig()
 
@@ -80,6 +100,7 @@ func DefaultConfig() Config {
 func init() {
 	flag.ErrHelp = fmt.Errorf(help)
 
+	flag.BoolVar(&cfg.Actions, "actions", cfg.Actions, "Use GitHub Actions compatible error and warning messages.")
 	flag.StringVar(&cfg.APIKey, "apikey", cfg.APIKey, "NAIS Deploy API key.")
 	flag.StringVar(&cfg.DeployServerURL, "deploy-server", cfg.DeployServerURL, "URL to API server.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "NAIS cluster to deploy into.")
@@ -97,11 +118,16 @@ func init() {
 	flag.Parse()
 
 	log.SetOutput(os.Stderr)
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp:          true,
-		TimestampFormat:        time.RFC3339Nano,
-		DisableLevelTruncation: true,
-	})
+
+	if cfg.Actions {
+		log.SetFormatter(&ActionsFormatter{})
+	} else {
+		log.SetFormatter(&log.TextFormatter{
+			FullTimestamp:          true,
+			TimestampFormat:        time.RFC3339Nano,
+			DisableLevelTruncation: true,
+		})
+	}
 
 	if cfg.Quiet {
 		log.SetLevel(log.ErrorLevel)
@@ -298,7 +324,7 @@ func run() (ExitCode, error) {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return ExitNoDeployment, fmt.Errorf("deployment failed")
+		return ExitNoDeployment, fmt.Errorf("deployment failed: %s", response.Message)
 	}
 
 	if !cfg.Wait {
