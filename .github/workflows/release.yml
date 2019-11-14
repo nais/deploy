@@ -1,0 +1,59 @@
+name: NAIS deploy release pipeline
+
+on: [push]
+
+env:
+  image: docker.pkg.github.com/${{ github.repository }}/deploy
+
+jobs:
+
+  build:
+    name: Build Docker container
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Generate version tag
+      run: echo ::set-env name=version::$(./version.sh)
+    - name: Build Docker image
+      run: |
+        docker build --tag ${image}:${version} --tag ${image}:latest .
+    - name: Push Docker image
+      if: github.ref == 'refs/heads/master'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        docker login docker.pkg.github.com -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
+        docker push ${image}:${version}
+
+  deploy:
+    name: Deploy to Kubernetes
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Generate image environment variable
+      run: |
+        version=$(./version.sh)
+        echo ::set-env name=version::${version}
+        echo ::set-env name=IMAGE::${image}:${version}
+        echo ::set-env name=NAIS_YAML::${GITHUB_WORKSPACE}/nais-yaml
+        pwd
+    - name: Checkout nais-yaml
+      env:
+        DEPLOY_KEY: ${{ secrets.NAIS_YAML_DEPLOY_KEY }}
+        GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=no"
+      run: |
+        eval "$(ssh-agent -s)"
+        ssh-add - <<< "${DEPLOY_KEY}"
+        mkdir -p $NAIS_YAML
+        git clone git@github.com:navikt/nais-yaml.git $NAIS_YAML
+    - name: Bump version and commit
+      run: |
+        cd $NAIS_YAML
+        git config user.email "aura@nav.no"
+        git config user.name "NAIS deploy pipeline"
+        sed -E -i "s#image: .+#image: ${IMAGE}#" vars/deployment.yaml
+        git add .
+        git --no-pager diff --cached
+        git commit -a -m "Bump deployment orchestrator to version ${version}"
+        git push
