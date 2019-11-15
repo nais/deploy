@@ -219,7 +219,12 @@ func run() error {
 		)
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
 		r.Post("/status", statusHandler.ServeHTTP)
-		r.Post("/provision", provisionHandler.ServeHTTP)
+		if len(provisionKey) == 0 {
+			log.Error("Refusing to set up team API provisioning endpoint without pre-shared secret; try using --provision-key")
+			log.Error("Note: /api/v1/provision will be unavailable")
+		} else {
+			r.Post("/provision", provisionHandler.ServeHTTP)
+		}
 	})
 
 	// Mount /events for "legacy" GitHub deployment handling
