@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"net/http"
-	"time"
 
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -25,11 +23,11 @@ type StatusHandler struct {
 }
 
 type StatusRequest struct {
-	DeploymentID int64  `json:"deploymentID"`
-	Owner        string `json:"owner"`
-	Repository   string `json:"repository"`
-	Team         string `json:"team"`
-	Timestamp    int64  `json:"timestamp"`
+	DeploymentID int64            `json:"deploymentID"`
+	Owner        string           `json:"owner"`
+	Repository   string           `json:"repository"`
+	Team         string           `json:"team"`
+	Timestamp    api_v1.Timestamp `json:"timestamp"`
 }
 
 type StatusResponse struct {
@@ -59,8 +57,8 @@ func (r *StatusRequest) validate() error {
 		return fmt.Errorf("no team specified")
 	}
 
-	if math.Abs(float64(r.Timestamp-time.Now().Unix())) > api_v1.MaxTimeSkew {
-		return fmt.Errorf("request is not within allowed timeframe")
+	if err := r.Timestamp.Validate(); err != nil {
+		return err
 	}
 
 	return nil

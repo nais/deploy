@@ -356,7 +356,7 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, e
 		Team:         cfg.Team,
 		Owner:        cfg.Owner,
 		Repository:   cfg.Repository,
-		Timestamp:    time.Now().Unix(),
+		Timestamp:    api_v1.Timestamp(time.Now().Unix()),
 	}
 
 	payload, err := json.Marshal(statusReq)

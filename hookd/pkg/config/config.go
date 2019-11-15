@@ -47,6 +47,7 @@ type Config struct {
 	Vault         Vault
 	MetricsPath   string
 	Clusters      []string
+	ProvisionKey  string
 }
 
 func getEnv(key, fallback string) string {
@@ -100,5 +101,6 @@ func DefaultConfig() *Config {
 			Token:           getEnv("VAULT_TOKEN", "123456789"),
 		},
 		MetricsPath: getEnv("METRICS_PATH", "/metrics"),
+		ProvisionKey: getEnv("PROVISION_KEY", ""),
 	}
 }

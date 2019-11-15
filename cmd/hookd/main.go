@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/config"
@@ -51,6 +53,7 @@ func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringSliceVar(&cfg.Clusters, "clusters", cfg.Clusters, "Comma-separated list of valid clusters that can be deployed to.")
+	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
 
 	flag.StringVar(&cfg.S3.Endpoint, "s3-endpoint", cfg.S3.Endpoint, "S3 endpoint for state storage.")
 	flag.StringVar(&cfg.S3.AccessKey, "s3-access-key", cfg.S3.AccessKey, "S3 access key.")
@@ -93,6 +96,11 @@ func run() error {
 
 	if cfg.Github.Enabled && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
 		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")
+	}
+
+	provisionKey, err := hex.DecodeString(cfg.ProvisionKey)
+	if err != nil {
+		return fmt.Errorf("provisioning pre-shared key must be a hex encoded string")
 	}
 
 	teamRepositoryStorage, err := persistence.NewS3StorageBackend(cfg.S3)
@@ -162,6 +170,11 @@ func run() error {
 		APIKeyStorage: apiKeys,
 	}
 
+	provisionHandler := &api_v1_provision.Handler{
+		APIKeyStorage: apiKeys,
+		SecretKey:     provisionKey,
+	}
+
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
 		DeploymentRequest:     requestChan,
 		DeploymentStatus:      statusChan,
@@ -206,6 +219,7 @@ func run() error {
 		)
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
 		r.Post("/status", statusHandler.ServeHTTP)
+		r.Post("/provision", provisionHandler.ServeHTTP)
 	})
 
 	// Mount /events for "legacy" GitHub deployment handling

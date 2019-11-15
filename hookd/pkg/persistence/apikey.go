@@ -28,6 +28,7 @@ const (
 
 type ApiKeyStorage interface {
 	Read(team string) ([]byte, error)
+	Write(team string, key []byte) error
 	IsErrNotFound(err error) bool
 }
 
@@ -57,6 +58,10 @@ type VaultAuthResponse struct {
 		ClientToken   string `json:"client_token"`
 		LeaseDuration int    `json:"lease_duration"`
 	} `json:"auth"`
+}
+
+type VaultWriteRequest struct {
+	Key string `json:"key"`
 }
 
 func (s *VaultApiKeyStorage) refreshToken() error {
@@ -152,6 +157,44 @@ func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
 		return nil, fmt.Errorf("Vault returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
 }
+
+func (s *VaultApiKeyStorage) Write(team string, key []byte) error {
+	u, err := url.Parse(s.Address)
+
+	if err != nil {
+		return fmt.Errorf("unable to construct URL to Vault: %s", err)
+	}
+
+	u.Path = path.Join(s.Path, team)
+
+	writeRequest := &VaultWriteRequest{
+		Key: hex.EncodeToString(key),
+	}
+	payload, err := json.Marshal(writeRequest)
+	if err != nil {
+		return fmt.Errorf("create api key payload: %s", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewReader(payload))
+
+	if err != nil {
+		return fmt.Errorf("unable to create HTTP request: %s", err)
+	}
+
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", s.Token))
+	req.Header.Set("content-type", "application/json")
+
+	resp, err := s.HttpClient.Do(req)
+
+	if err != nil {
+		return fmt.Errorf("write team API key to Vault: %s", err)
+	}
+
+	log.Infof("Wrote Vault team API key for team '%s', response was %s", team, resp.Status)
+
+	return nil
+}
+
 func (s *VaultApiKeyStorage) IsErrNotFound(err error) bool {
 	return err == ErrNotFound
 }
