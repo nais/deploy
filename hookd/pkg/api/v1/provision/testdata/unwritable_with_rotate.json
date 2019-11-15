@@ -1,0 +1,14 @@
+{
+  "request": {
+    "body": {
+      "team": "unwritable_with_rotate",
+      "rotate": true
+    }
+  },
+  "response": {
+    "statusCode": 502,
+    "body": {
+      "message": "unable to persist API key"
+    }
+  }
+}

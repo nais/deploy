@@ -1,0 +1,16 @@
+{
+  "request": {
+    "headers": {
+      "x-nais-signature": "foobar"
+    },
+    "body": {
+      "team": "nobody"
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "HMAC digest must be hex encoded"
+    }
+  }
+}

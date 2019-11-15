@@ -1,0 +1,13 @@
+{
+  "request": {
+    "body": {
+      "team": "new"
+    }
+  },
+  "response": {
+    "statusCode": 201,
+    "body": {
+      "message": "API key provisioned successfully"
+    }
+  }
+}

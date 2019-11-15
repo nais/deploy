@@ -91,6 +91,10 @@ func (a *apiKeyStorage) Read(team string) ([]byte, error) {
 	}
 }
 
+func (a *apiKeyStorage) Write(team string, key []byte) error {
+	return nil
+}
+
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
 	return err == persistence.ErrNotFound
 }

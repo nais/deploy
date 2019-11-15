@@ -1,0 +1,14 @@
+{
+  "request": {
+    "body": {
+      "team": "nobody",
+      "timestamp": 123
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "invalid provision request: request is not within allowed timeframe"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "request": {
+    "body": {
+      "rotate": true
+    }
+  },
+  "response": {
+    "statusCode": 400,
+    "body": {
+      "message": "invalid provision request: no team specified"
+    }
+  }
+}

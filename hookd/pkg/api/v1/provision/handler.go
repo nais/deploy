@@ -61,7 +61,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
-	logger.Tracef("Incoming status request")
+	logger.Tracef("Incoming provision request")
 
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -101,7 +101,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		response.Message = fmt.Sprintf("invalid status request: %s", err)
+		response.Message = fmt.Sprintf("invalid provision request: %s", err)
 		response.render(w)
 		logger.Error(response.Message)
 		return

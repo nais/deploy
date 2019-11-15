@@ -1,0 +1,10 @@
+{
+  "request": {
+    "body": {
+      "team": "nobody"
+    }
+  },
+  "response": {
+    "statusCode": 204
+  }
+}

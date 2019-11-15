@@ -1,0 +1,13 @@
+{
+  "request": {
+    "body": {
+      "team": "unwritable"
+    }
+  },
+  "response": {
+    "statusCode": 502,
+    "body": {
+      "message": "unable to persist API key"
+    }
+  }
+}

@@ -1,83 +1,49 @@
-package api_v1_status_test
+package api_v1_provision_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
-	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
-	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/stretchr/testify/assert"
 )
 
-var secretKey = []byte("foobar")
-
-const (
-	deploymentID = 123789
+var (
+	secretKey    = []byte("foobar")
+	provisionKey = []byte("cryptographically secure")
 )
 
-type statusRequest struct {
+type request struct {
 	Headers map[string]string
 	Body    json.RawMessage
 }
 
-type statusResponse struct {
-	StatusCode int                          `json:"statusCode"`
-	Body       api_v1_status.StatusResponse `json:"body"`
+type response struct {
+	StatusCode int                       `json:"statusCode"`
+	Body       api_v1_provision.Response `json:"body"`
 }
 
-type statusTestCase struct {
-	Request  statusRequest  `json:"request"`
-	Response statusResponse `json:"response"`
-}
-
-type githubClient struct{}
-
-func (g *githubClient) TeamAllowed(ctx context.Context, owner, repository, teamName string) error {
-	switch teamName {
-	case "team_not_repo_owner":
-		return github.ErrTeamNoAccess
-	case "team_not_on_github":
-		return github.ErrTeamNotExist
-	default:
-		return nil
-	}
-}
-
-func (g *githubClient) CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error) {
-	switch repository {
-	case "unavailable":
-		return nil, fmt.Errorf("GitHub is down!")
-	default:
-		return &gh.Deployment{
-			ID: gh.Int64(deploymentID),
-		}, nil
-	}
-}
-
-func (g *githubClient) DeploymentStatus(ctx context.Context, owner, repository string, deploymentID int64) (*gh.DeploymentStatus, error) {
-	return &gh.DeploymentStatus{
-		ID:    gh.Int64(deploymentID),
-		State: gh.String("success"),
-	}, nil
+type testCase struct {
+	Request  request  `json:"request"`
+	Response response `json:"response"`
 }
 
 type apiKeyStorage struct{}
 
 func (a *apiKeyStorage) Read(team string) ([]byte, error) {
 	switch team {
-	case "notfound":
+	case "new", "unwritable":
 		return nil, persistence.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
@@ -87,20 +53,28 @@ func (a *apiKeyStorage) Read(team string) ([]byte, error) {
 }
 
 func (a *apiKeyStorage) Write(team string, key []byte) error {
-	return nil
+	switch team {
+	case "unwritable", "unwritable_with_rotate":
+		return fmt.Errorf("service unavailable")
+	default:
+		return nil
+	}
 }
 
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
 	return err == persistence.ErrNotFound
 }
 
-func testStatusResponse(t *testing.T, recorder *httptest.ResponseRecorder, response statusResponse) {
-	decodedBody := api_v1_status.StatusResponse{}
+func testStatusResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
+	assert.Equal(t, response.StatusCode, recorder.Code)
+	if response.StatusCode == http.StatusNoContent {
+		return
+	}
+
+	decodedBody := api_v1_provision.Response{}
 	err := json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
 	assert.NoError(t, err)
-	assert.Equal(t, response.StatusCode, recorder.Code)
 	assert.Equal(t, response.Body.Message, decodedBody.Message)
-	assert.Equal(t, response.Body.Status, decodedBody.Status)
 }
 
 // Inject timestamp in request payload
@@ -140,7 +114,7 @@ func statusSubTest(t *testing.T, name string) {
 		t.Fail()
 	}
 
-	test := statusTestCase{}
+	test := testCase{}
 	err = json.Unmarshal(data, &test)
 	if err != nil {
 		t.Error(string(data))
@@ -149,7 +123,7 @@ func statusSubTest(t *testing.T, name string) {
 
 	body := addTimestampToBody(test.Request.Body, 0)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest("GET", "/api/v1/status", bytes.NewReader(body))
+	request := httptest.NewRequest("GET", "/api/v1/provision", bytes.NewReader(body))
 
 	for key, val := range test.Request.Headers {
 		request.Header.Set(key, val)
@@ -157,16 +131,15 @@ func statusSubTest(t *testing.T, name string) {
 
 	// Generate HMAC header for cases where the header should be valid
 	if len(request.Header.Get(api_v1.SignatureHeader)) == 0 {
-		mac := api_v1.GenMAC(body, secretKey)
+		mac := api_v1.GenMAC(body, provisionKey)
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
-	ghClient := githubClient{}
 	apiKeyStore := apiKeyStorage{}
 
-	handler := api_v1_status.StatusHandler{
+	handler := api_v1_provision.Handler{
 		APIKeyStorage: &apiKeyStore,
-		GithubClient:  &ghClient,
+		SecretKey:     provisionKey,
 	}
 
 	handler.ServeHTTP(recorder, request)
@@ -174,7 +147,7 @@ func statusSubTest(t *testing.T, name string) {
 	testStatusResponse(t, recorder, test.Response)
 }
 
-func TestStatusHandler(t *testing.T) {
+func TestProvisionHandler(t *testing.T) {
 	files, err := ioutil.ReadDir("testdata")
 	if err != nil {
 		t.Error(err)
