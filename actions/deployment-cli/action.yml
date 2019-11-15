@@ -1,0 +1,22 @@
+name: 'naisdeploy'
+description: 'NAIS deployment'
+author: '@pig_deployment'
+inputs: 
+  cluster:
+    description: 'cluster to deploy to'
+    required: true
+  repository:
+    description: 'respository to create deployment'
+    required: true
+  resource:
+    description: 'path to Kubernetes resource to apply' 
+    required: true
+    default: './nais.yaml'
+  vars:
+    description: 'path to JSON file containing variables used when executing template'
+  team:
+    description: 'which team this deploy is for'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
