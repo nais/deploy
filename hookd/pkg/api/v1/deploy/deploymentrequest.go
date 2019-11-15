@@ -1,4 +1,4 @@
-package server
+package api_v1_deploy
 
 import (
 	"encoding/json"

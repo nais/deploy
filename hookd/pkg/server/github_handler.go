@@ -8,6 +8,8 @@ import (
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
@@ -23,7 +25,7 @@ type GithubDeploymentHandler struct {
 	TeamRepositoryStorage persistence.TeamRepositoryStorage
 	DeploymentStatus      chan types.DeploymentStatus
 	DeploymentRequest     chan types.DeploymentRequest
-	Clusters              ClusterList
+	Clusters              api_v1.ClusterList
 }
 
 func (h *GithubDeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -109,11 +111,11 @@ func (h *GithubDeploymentHandler) handler(r *http.Request) (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	if deploymentEvent.GetDeployment().GetTask() == DirectDeployGithubTask {
+	if deploymentEvent.GetDeployment().GetTask() == api_v1.DirectDeployGithubTask {
 		return http.StatusNoContent, fmt.Errorf("ignoring webhook originating from direct deployment through hookd")
 	}
 
-	deploymentRequest, err := DeploymentRequestFromEvent(deploymentEvent, deliveryID)
+	deploymentRequest, err := api_v1_deploy.DeploymentRequestFromEvent(deploymentEvent, deliveryID)
 
 	if err == nil {
 		err = h.Clusters.Contains(deploymentRequest.GetCluster())

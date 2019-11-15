@@ -1,8 +1,6 @@
-package server
+package api_v1_deploy
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
@@ -22,21 +21,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	SignatureHeader         = "X-NAIS-Signature"
-	FailedAuthenticationMsg = "failed authentication"
-	DirectDeployGithubTask  = "NAIS_DIRECT_DEPLOY"
-)
-
-type ClusterList []string
-
 type DeploymentHandler struct {
 	APIKeyStorage     persistence.ApiKeyStorage
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
 	BaseURL           string
-	Clusters          ClusterList
+	Clusters          api_v1.ClusterList
 }
 
 type DeploymentRequest struct {
@@ -54,15 +45,6 @@ type DeploymentResponse struct {
 	CorrelationID    string         `json:"correlationID,omitempty"`
 	LogURL           string         `json:"logURL,omitempty"`
 	GithubDeployment *gh.Deployment `json:"githubDeployment,omitempty"`
-}
-
-func (c ClusterList) Contains(cluster string) error {
-	for _, cl := range c {
-		if cl == cluster {
-			return nil
-		}
-	}
-	return fmt.Errorf("cluster '%s' is not a valid choice", cluster)
 }
 
 func (r *DeploymentResponse) render(w io.Writer) {
@@ -107,7 +89,7 @@ func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
 	return gh.DeploymentRequest{
 		Environment:      gh.String(r.Cluster),
 		Ref:              gh.String(r.Ref),
-		Task:             gh.String(DirectDeployGithubTask),
+		Task:             gh.String(api_v1.DirectDeployGithubTask),
 		AutoMerge:        gh.Bool(false),
 		RequiredContexts: &requiredContexts,
 	}
@@ -145,7 +127,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodedSignature := r.Header.Get(SignatureHeader)
+	encodedSignature := r.Header.Get(api_v1.SignatureHeader)
 	signature, err := hex.DecodeString(encodedSignature)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -194,9 +176,9 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
 			w.WriteHeader(http.StatusForbidden)
-			deploymentResponse.Message = FailedAuthenticationMsg
+			deploymentResponse.Message = api_v1.FailedAuthenticationMsg
 			deploymentResponse.render(w)
-			logger.Errorf("%s: %s", FailedAuthenticationMsg, err)
+			logger.Errorf("%s: %s", api_v1.FailedAuthenticationMsg, err)
 			return
 		}
 
@@ -209,11 +191,11 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Team API key retrieved from storage")
 
-	if !validateMAC(data, []byte(signature), token) {
+	if !api_v1.ValidateMAC(data, []byte(signature), token) {
 		w.WriteHeader(http.StatusForbidden)
-		deploymentResponse.Message = FailedAuthenticationMsg
+		deploymentResponse.Message = api_v1.FailedAuthenticationMsg
 		deploymentResponse.render(w)
-		logger.Errorf("%s: HMAC signature error", FailedAuthenticationMsg)
+		logger.Errorf("%s: HMAC signature error", api_v1.FailedAuthenticationMsg)
 		return
 	}
 
@@ -268,17 +250,4 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deploymentResponse.render(w)
 
 	logger.Info("Deployment request processed successfully")
-}
-
-// validateMAC reports whether messageMAC is a valid HMAC tag for message.
-func validateMAC(message, messageMAC, key []byte) bool {
-	expectedMAC := GenMAC(message, key)
-	return hmac.Equal(messageMAC, expectedMAC)
-}
-
-// GenMAC generates the HMAC signature for a message provided the secret key using SHA256
-func GenMAC(message, key []byte) []byte {
-	mac := hmac.New(sha256.New, key)
-	mac.Write(message)
-	return mac.Sum(nil)
 }

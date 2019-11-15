@@ -15,6 +15,8 @@ import (
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -146,7 +148,7 @@ func run() error {
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
-	deploymentHandler := &server.DeploymentHandler{
+	deploymentHandler := &api_v1_deploy.DeploymentHandler{
 		BaseURL:           cfg.BaseURL,
 		DeploymentRequest: requestChan,
 		DeploymentStatus:  statusChan,
@@ -155,9 +157,9 @@ func run() error {
 		Clusters:          cfg.Clusters,
 	}
 
-	statusHandler := &server.StatusHandler{
-		GithubClient:      githubClient,
-		APIKeyStorage:     apiKeys,
+	statusHandler := &api_v1_status.StatusHandler{
+		GithubClient:  githubClient,
+		APIKeyStorage: apiKeys,
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{

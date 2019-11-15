@@ -17,7 +17,9 @@ import (
 	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/server"
+	"github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
@@ -135,7 +137,7 @@ func init() {
 }
 
 func mkpayload(w io.Writer, resources json.RawMessage) error {
-	req := server.DeploymentRequest{
+	req := api_v1_deploy.DeploymentRequest{
 		Resources:  resources,
 		Team:       cfg.Team,
 		Cluster:    cfg.Cluster,
@@ -299,7 +301,7 @@ func run() (ExitCode, error) {
 	}
 
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add(server.SignatureHeader, fmt.Sprintf("%s", sig))
+	req.Header.Add(api_v1.SignatureHeader, fmt.Sprintf("%s", sig))
 
 	log.Infof("Submitting deployment request to %s...", targetURL.String())
 	client := http.Client{}
@@ -310,7 +312,7 @@ func run() (ExitCode, error) {
 
 	log.Infof("status....: %s", resp.Status)
 
-	response := &server.DeploymentResponse{}
+	response := &api_v1_deploy.DeploymentResponse{}
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(response)
 	if err != nil {
@@ -349,7 +351,7 @@ func run() (ExitCode, error) {
 // The first return value is true if the state might change, false otherwise.
 // Additionally, returns an error if any error occurred.
 func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, error) {
-	statusReq := &server.StatusRequest{
+	statusReq := &api_v1_status.StatusRequest{
 		DeploymentID: deploymentID,
 		Team:         cfg.Team,
 		Owner:        cfg.Owner,
@@ -371,7 +373,7 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, e
 
 	signature := sign(payload, key)
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add(server.SignatureHeader, signature)
+	req.Header.Add(api_v1.SignatureHeader, signature)
 
 	resp, err := http.DefaultClient.Do(req)
 	if resp != nil && resp.StatusCode >= 400 && resp.StatusCode < 500 {
@@ -388,7 +390,7 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, e
 		log.Infof("status....: %s", resp.Status)
 	}
 
-	response := &server.StatusResponse{}
+	response := &api_v1_status.StatusResponse{}
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(response)
 	if err != nil {

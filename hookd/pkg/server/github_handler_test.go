@@ -25,6 +25,9 @@ const (
 var (
 	secretToken      = "abc"
 	wrongSecretToken = "wrong"
+	validClusters    = []string{
+		"local",
+	}
 )
 
 type mockRepository struct {

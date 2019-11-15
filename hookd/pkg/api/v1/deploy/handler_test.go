@@ -1,4 +1,4 @@
-package server_test
+package api_v1_deploy_test
 
 import (
 	"bytes"
@@ -13,11 +13,12 @@ import (
 	"testing"
 
 	gh "github.com/google/go-github/v27/github"
+	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/github"
 
 	types "github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
-	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,8 +38,8 @@ type request struct {
 }
 
 type response struct {
-	StatusCode int                       `json:"statusCode"`
-	Body       server.DeploymentResponse `json:"body"`
+	StatusCode int                              `json:"statusCode"`
+	Body       api_v1_deploy.DeploymentResponse `json:"body"`
 }
 
 type testCase struct {
@@ -103,7 +104,7 @@ func fileReader(file string) io.Reader {
 }
 
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
-	decodedBody := server.DeploymentResponse{}
+	decodedBody := api_v1_deploy.DeploymentResponse{}
 	err := json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
 	assert.NoError(t, err)
 	assert.Equal(t, response.StatusCode, recorder.Code)
@@ -138,9 +139,9 @@ func subTest(t *testing.T, name string) {
 	}
 
 	// Generate HMAC header for cases where the header should be valid
-	if len(request.Header.Get(server.SignatureHeader)) == 0 {
-		mac := server.GenMAC(test.Request.Body, secretKey)
-		request.Header.Set(server.SignatureHeader, hex.EncodeToString(mac))
+	if len(request.Header.Get(api_v1.SignatureHeader)) == 0 {
+		mac := api_v1.GenMAC(test.Request.Body, secretKey)
+		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
 	requests := make(chan types.DeploymentRequest, 1024)
@@ -148,7 +149,7 @@ func subTest(t *testing.T, name string) {
 	ghClient := githubClient{}
 	apiKeyStore := apiKeyStorage{}
 
-	handler := server.DeploymentHandler{
+	handler := api_v1_deploy.DeploymentHandler{
 		DeploymentRequest: requests,
 		DeploymentStatus:  statuses,
 		APIKeyStorage:     &apiKeyStore,

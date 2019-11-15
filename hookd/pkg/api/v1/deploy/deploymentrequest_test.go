@@ -1,10 +1,10 @@
-package server_test
+package api_v1_deploy_test
 
 import (
 	"testing"
 
 	gh "github.com/google/go-github/v27/github"
-	"github.com/navikt/deployment/hookd/pkg/server"
+	server "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	"github.com/stretchr/testify/assert"
 )
 
