@@ -12,11 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: Generate version tag
+    - name: Generate version tags
       run: echo ::set-env name=version::$(./version.sh)
+      run: echo ::set-env name=deploy_action_api_version::$(cat actions/deploy/version)
     - name: Build Docker image
       run: |
-        docker build --tag ${image}:${version} --tag ${image}:latest .
+        docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
     - name: Push Docker image
       if: github.ref == 'refs/heads/master'
       env:
@@ -24,6 +25,8 @@ jobs:
       run: |
         docker login docker.pkg.github.com -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
         docker push ${image}:${version}
+        docker push ${image}:${deploy_action_api_version}
+        docker push ${image}:latest
 
   deploy:
     name: Deploy to Kubernetes
