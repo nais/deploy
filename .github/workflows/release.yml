@@ -13,8 +13,9 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Generate version tags
-      run: echo ::set-env name=version::$(./version.sh)
-      run: echo ::set-env name=deploy_action_api_version::$(cat actions/deploy/version)
+      run: |
+        echo ::set-env name=version::$(./version.sh)
+        echo ::set-env name=deploy_action_api_version::$(cat actions/deploy/version)
     - name: Build Docker image
       run: |
         docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
