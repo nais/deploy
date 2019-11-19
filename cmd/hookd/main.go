@@ -153,6 +153,8 @@ func run() error {
 		go apiKeys.RefreshLoop()
 	}
 
+	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
+
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
@@ -183,21 +185,19 @@ func run() error {
 		Clusters:              cfg.Clusters,
 	}
 
-	router := chi.NewRouter()
-
-	// Pre-populate deployment request metrics
-	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
-	for _, code := range []int{
-		http.StatusCreated,
-		http.StatusBadRequest,
-		http.StatusForbidden,
-		http.StatusBadGateway,
-		http.StatusInternalServerError,
-	} {
+	// Pre-populate request metrics
+	for _, code := range api_v1_deploy.StatusCodes {
 		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
+	}
+	for _, code := range api_v1_status.StatusCodes {
+		prometheusMiddleware.Initialize("/api/v1/status", http.MethodPost, code)
+	}
+	for _, code := range api_v1_provision.StatusCodes {
+		prometheusMiddleware.Initialize("/api/v1/provision", http.MethodPost, code)
 	}
 
 	// Base settings for all requests
+	router := chi.NewRouter()
 	router.Use(
 		middleware.RequestLogger(),
 		prometheusMiddleware.Handler(),
