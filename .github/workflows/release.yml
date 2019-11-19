@@ -29,6 +29,21 @@ jobs:
         docker push ${image}:${deploy_action_api_version}
         docker push ${image}:latest
 
+  release:
+    name: Release versioned GitHub Action
+    if: github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Generate image environment variable
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git remote set-url origin "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+        git tag -f $(cat actions/deploy/version)
+        git push --tags
+
   deploy:
     name: Deploy to Kubernetes
     if: github.ref == 'refs/heads/master'
