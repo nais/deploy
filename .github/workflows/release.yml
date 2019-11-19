@@ -36,9 +36,8 @@ jobs:
         DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
       run: |
         docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
-        docker push ${dockerhub_image}:${version}
+        docker tag ${image}:latest ${dockerhub_image}:${deploy_action_api_version}
         docker push ${dockerhub_image}:${deploy_action_api_version}
-        docker push ${dockerhub_image}:latest
 
   release:
     name: Release versioned GitHub Action
