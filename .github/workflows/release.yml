@@ -4,6 +4,7 @@ on: [push]
 
 env:
   image: docker.pkg.github.com/${{ github.repository }}/deploy
+  dockerhub_image: navikt/deployment
 
 jobs:
 
@@ -19,7 +20,7 @@ jobs:
     - name: Build Docker image
       run: |
         docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
-    - name: Push Docker image
+    - name: Push Docker image to GitHub
       if: github.ref == 'refs/heads/master'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -28,6 +29,16 @@ jobs:
         docker push ${image}:${version}
         docker push ${image}:${deploy_action_api_version}
         docker push ${image}:latest
+    - name: Push Docker image to Dockerhub
+      if: github.ref == 'refs/heads/master'
+      env:
+        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      run: |
+        docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
+        docker push ${dockerhub_image}:${version}
+        docker push ${dockerhub_image}:${deploy_action_api_version}
+        docker push ${dockerhub_image}:latest
 
   release:
     name: Release versioned GitHub Action
