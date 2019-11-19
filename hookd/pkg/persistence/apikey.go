@@ -188,6 +188,9 @@ func (s *VaultApiKeyStorage) Write(team string, key []byte) error {
 
 	if err != nil {
 		return fmt.Errorf("write team API key to Vault: %s", err)
+	} else if resp != nil && resp.StatusCode >= 400 {
+		errmsg, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("write team API key to Vault: %s; %s", resp.Status, errmsg)
 	}
 
 	log.Infof("Wrote Vault team API key for team '%s', response was %s", team, resp.Status)
