@@ -42,7 +42,7 @@ jobs:
       run: |
         git remote set-url origin "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
         git tag -f $(cat actions/deploy/version)
-        git push --tags
+        git push -f --tags
 
   deploy:
     name: Deploy to Kubernetes
