@@ -1,4 +1,4 @@
-name: 'NAIS Deploy [BETA]'
+name: 'NAIS deploy'
 description: 'Deploy to a NAIS cluster'
 author: '@pig_deployment'
 color: purple

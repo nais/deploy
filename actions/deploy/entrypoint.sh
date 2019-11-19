@@ -23,11 +23,17 @@ if [ -z "$PRINT_PAYLOAD" ]; then
     export PRINT_PAYLOAD=false
 fi
 
+# Inject "image" as a template variable to a new copy of the vars file.
+# If the file doesn't exist, it is created. The original file is left untouched.
 if [ ! -z "$IMAGE" ]; then
-    if [ -z "$VARS" ]; then
-        export VARS=`mktemp`
+    export VARS_ORIGINAL="$VARS"
+    export VARS=`mktemp`
+    if [ -z "$VARS_ORIGINAL" ]; then
+        echo "---" > $VARS
+    else
+        cat $VARS_ORIGINAL > $VARS
     fi
-    echo "image: $IMAGE" >> $VARS
+    yq w --inplace $VARS image "$IMAGE"
 fi
 
 /app/deploy \
