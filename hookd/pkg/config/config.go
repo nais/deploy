@@ -48,6 +48,7 @@ type Config struct {
 	MetricsPath   string
 	Clusters      []string
 	ProvisionKey  string
+	EncryptionKey string
 }
 
 func getEnv(key, fallback string) string {
@@ -100,7 +101,8 @@ func DefaultConfig() *Config {
 			AuthRole:        getEnv("VAULT_AUTH_ROLE", ""),
 			Token:           getEnv("VAULT_TOKEN", "123456789"),
 		},
-		MetricsPath: getEnv("METRICS_PATH", "/metrics"),
-		ProvisionKey: getEnv("PROVISION_KEY", ""),
+		MetricsPath:   getEnv("METRICS_PATH", "/metrics"),
+		ProvisionKey:  getEnv("PROVISION_KEY", ""),
+		EncryptionKey: getEnv("ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 	}
 }

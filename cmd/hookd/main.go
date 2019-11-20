@@ -12,6 +12,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
+	"github.com/golang/protobuf/proto"
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
@@ -27,6 +28,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/hookd/pkg/server"
+	"github.com/navikt/deployment/pkg/crypto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -54,6 +56,7 @@ func init() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringSliceVar(&cfg.Clusters, "clusters", cfg.Clusters, "Comma-separated list of valid clusters that can be deployed to.")
 	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
+	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "Pre-shared key used for message encryption over Kafka.")
 
 	flag.StringVar(&cfg.S3.Endpoint, "s3-endpoint", cfg.S3.Endpoint, "S3 endpoint for state storage.")
 	flag.StringVar(&cfg.S3.AccessKey, "s3-access-key", cfg.S3.AccessKey, "S3 access key.")
@@ -101,6 +104,14 @@ func run() error {
 	provisionKey, err := hex.DecodeString(cfg.ProvisionKey)
 	if err != nil {
 		return fmt.Errorf("provisioning pre-shared key must be a hex encoded string")
+	}
+
+	encryptionKey, err := hex.DecodeString(cfg.EncryptionKey)
+	if err != nil {
+		return fmt.Errorf("encryption pre-shared key must be a hex encoded string")
+	}
+	if len(encryptionKey) != 32 {
+		return fmt.Errorf("encryption pre-shared key must be 256 bits; got %d", len(encryptionKey)*8)
 	}
 
 	teamRepositoryStorage, err := persistence.NewS3StorageBackend(cfg.S3)
@@ -319,15 +330,21 @@ func run() error {
 
 			logger := log.WithFields(req.LogFields())
 
-			payload, err := deployment.WrapMessage(&req, kafkaClient.SignatureKey)
+			payload, err := proto.Marshal(&req)
 			if err != nil {
 				logger.Errorf("Marshal JSON for Kafka message: %s", err)
 				continue
 			}
 
+			ciphertext, err := crypto.Encrypt(payload, encryptionKey)
+			if err != nil {
+				logger.Errorf("Unable to encrypt Kafka message: %s", err)
+				continue
+			}
+
 			msg := sarama.ProducerMessage{
 				Topic:     kafkaClient.ProducerTopic,
-				Value:     sarama.StringEncoder(payload),
+				Value:     sarama.StringEncoder(ciphertext),
 				Timestamp: time.Unix(req.GetTimestamp(), 0),
 			}
 
