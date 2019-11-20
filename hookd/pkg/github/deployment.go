@@ -43,8 +43,12 @@ func (c *client) TeamAllowed(ctx context.Context, owner, repository, teamName st
 
 	repo, _, err := c.client.Teams.IsTeamRepo(ctx, team.GetID(), owner, repository)
 	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return ErrTeamNoAccess
+		}
 		return err
 	}
+
 	if repo == nil {
 		return ErrTeamNoAccess
 	}
