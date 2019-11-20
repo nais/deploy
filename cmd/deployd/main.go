@@ -131,7 +131,7 @@ func run() error {
 				logger.Infof(status.GetDescription())
 			}
 
-			err = SendDeploymentStatus(status, client)
+			err = SendDeploymentStatus(status, client, encryptionKey)
 			if err != nil {
 				logger.Errorf("While reporting deployment status: %s", err)
 			}
@@ -144,16 +144,21 @@ func run() error {
 	}
 }
 
-func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.DualClient) error {
-	payload, err := deployment.WrapMessage(status, client.SignatureKey)
+func SendDeploymentStatus(status *deployment.DeploymentStatus, client *kafka.DualClient, key []byte) error {
+	payload, err := proto.Marshal(status)
 	if err != nil {
 		return fmt.Errorf("while marshalling response Protobuf message: %s", err)
+	}
+
+	ciphertext, err := crypto.Encrypt(payload, key)
+	if err != nil {
+		return fmt.Errorf("encrypt response message: %s", err)
 	}
 
 	reply := &sarama.ProducerMessage{
 		Topic:     client.ProducerTopic,
 		Timestamp: time.Now(),
-		Value:     sarama.StringEncoder(payload),
+		Value:     sarama.StringEncoder(ciphertext),
 	}
 
 	_, offset, err := client.Producer.SendMessage(reply)

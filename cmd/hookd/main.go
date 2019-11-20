@@ -311,9 +311,15 @@ func run() error {
 			status := deployment.DeploymentStatus{}
 			logger := kafka.ConsumerMessageLogger(&m)
 
-			err := deployment.UnwrapMessage(m.Value, kafkaClient.SignatureKey, &status)
+			payload, err := crypto.Decrypt(m.Value, encryptionKey)
 			if err != nil {
-				logger = *logger.WithField("delivery_id", status.GetDeliveryID())
+				logger.Errorf("Unable to decrypt Kafka message: %s", err)
+				kafkaClient.Consumer.MarkOffset(&m, "")
+				continue
+			}
+
+			err = proto.Unmarshal(payload, &status)
+			if err != nil {
 				logger.Errorf("Discarding incoming message: %s", err)
 				kafkaClient.Consumer.MarkOffset(&m, "")
 				continue
