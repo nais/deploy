@@ -35,7 +35,7 @@ alpine:
 	go build -a -installsuffix cgo -o bin/provision cmd/provision/*.go
 
 test:
-	go test ./...
+	go test ./... -count=1
 
 docker:
 	docker build -t navikt/deployment:latest .
