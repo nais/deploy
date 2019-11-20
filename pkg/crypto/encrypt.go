@@ -6,6 +6,8 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"time"
 )
 
@@ -67,4 +69,16 @@ func Decrypt(ciphertext, key []byte) ([]byte, error) {
 	aesgcm, err := cipher.NewGCM(block)
 
 	return aesgcm.Open(nil, ciphertext[:12], ciphertext[12:], nil)
+}
+
+func KeyFromHexString(hexstr string) ([]byte, error) {
+	encryptionKey, err := hex.DecodeString(hexstr)
+	if err != nil {
+		return nil, fmt.Errorf("encryption key must be a hex encoded string")
+	}
+	if len(encryptionKey) != 32 {
+		return nil, fmt.Errorf("encryption key must be 256 bits; got %d", len(encryptionKey)*8)
+	}
+
+	return encryptionKey, nil
 }

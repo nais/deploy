@@ -106,12 +106,9 @@ func run() error {
 		return fmt.Errorf("provisioning pre-shared key must be a hex encoded string")
 	}
 
-	encryptionKey, err := hex.DecodeString(cfg.EncryptionKey)
+	encryptionKey, err := crypto.KeyFromHexString(cfg.EncryptionKey)
 	if err != nil {
-		return fmt.Errorf("encryption pre-shared key must be a hex encoded string")
-	}
-	if len(encryptionKey) != 32 {
-		return fmt.Errorf("encryption pre-shared key must be 256 bits; got %d", len(encryptionKey)*8)
+		return err
 	}
 
 	teamRepositoryStorage, err := persistence.NewS3StorageBackend(cfg.S3)

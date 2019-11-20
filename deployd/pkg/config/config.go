@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+
 	"github.com/navikt/deployment/common/pkg/kafka"
 )
 
@@ -12,7 +14,15 @@ type Config struct {
 	MetricsPath              string
 	TeamNamespaces           bool
 	AutoCreateServiceAccount bool
+	EncryptionKey            string
 	Kafka                    kafka.Config
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
 
 func DefaultConfig() *Config {
@@ -25,5 +35,6 @@ func DefaultConfig() *Config {
 		TeamNamespaces:           false,
 		AutoCreateServiceAccount: true,
 		Kafka:                    kafka.DefaultConfig(),
+		EncryptionKey:            getEnv("ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 	}
 }

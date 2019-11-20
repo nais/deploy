@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/golang/protobuf/proto"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
@@ -15,6 +16,7 @@ import (
 	"github.com/navikt/deployment/deployd/pkg/deployd"
 	"github.com/navikt/deployment/deployd/pkg/kubeclient"
 	"github.com/navikt/deployment/deployd/pkg/metrics"
+	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
@@ -29,6 +31,7 @@ func init() {
 	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
 	flag.BoolVar(&cfg.TeamNamespaces, "team-namespaces", cfg.TeamNamespaces, "Set to true if team service accounts live in team's own namespace.")
 	flag.BoolVar(&cfg.AutoCreateServiceAccount, "auto-create-service-account", cfg.AutoCreateServiceAccount, "Set to true to automatically create service accounts.")
+	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "Pre-shared key used for message encryption over Kafka.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -61,6 +64,11 @@ func run() error {
 	log.Infof("kafka consumer group....: %s", cfg.Kafka.GroupID)
 	log.Infof("kafka brokers...........: %+v", cfg.Kafka.Brokers)
 
+	encryptionKey, err := crypto.KeyFromHexString(cfg.EncryptionKey)
+	if err != nil {
+		return err
+	}
+
 	client, err := kafka.NewDualClient(
 		cfg.Kafka,
 		cfg.Kafka.RequestTopic,
@@ -91,8 +99,21 @@ func run() error {
 		case m = <-client.RecvQ:
 			logger := kafka.ConsumerMessageLogger(&m)
 
+			payload, err := crypto.Decrypt(m.Value, encryptionKey)
+			if err != nil {
+				logger.Errorf("Decrypt incoming message: %s", err)
+				break
+			}
+
+			req := deployment.DeploymentRequest{}
+			err = proto.Unmarshal(payload, &req)
+			if err != nil {
+				logger.Errorf("Unmarshal Protobuf message: %s", err)
+				break
+			}
+
 			// Check the validity and authenticity of the message.
-			deployd.Run(&logger, m.Value, client.SignatureKey, *cfg, kube, statusChan)
+			deployd.Run(&logger, &req, *cfg, kube, statusChan)
 
 		case status := <-statusChan:
 			logger := log.WithFields(status.LogFields())

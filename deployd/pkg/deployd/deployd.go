@@ -66,35 +66,27 @@ func jsonToResources(json []json.RawMessage) ([]unstructured.Unstructured, error
 // and decides whether or not to allow a deployment.
 //
 // If everything is okay, returns a deployment request. Otherwise, an error.
-func Prepare(msg []byte, key, cluster string) (*deployment.DeploymentRequest, error) {
-	req := &deployment.DeploymentRequest{}
-
-	if err := deployment.UnwrapMessage(msg, key, req); err != nil {
-		return nil, err
-	}
-
+func Prepare(req *deployment.DeploymentRequest, cluster string) error {
 	// Check if we are the authoritative handler for this message
 	if err := matchesCluster(*req, cluster); err != nil {
-		return req, err
+		return err
 	}
 
 	// Messages that are too old are discarded
 	if err := meetsDeadline(*req); err != nil {
-		return req, err
+		return err
 	}
 
-	return req, nil
+	return nil
 }
 
-func Run(logger *log.Entry, msg []byte, key string, cfg config.Config, kube kubeclient.TeamClientProvider, deployStatus chan *deployment.DeploymentStatus) {
+func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config, kube kubeclient.TeamClientProvider, deployStatus chan *deployment.DeploymentStatus) {
 	var namespace string
 
-	// Check the validity and authenticity of the message.
-	req, err := Prepare(msg, key, cfg.Cluster)
-	if req != nil {
-		nl := logger.WithFields(req.LogFields())
-		logger.Data = nl.Data // propagate changes down to caller
-	}
+	// Check the validity of the message.
+	err := Prepare(req, cfg.Cluster)
+	nl := logger.WithFields(req.LogFields())
+	logger.Data = nl.Data // propagate changes down to caller
 
 	if err != nil {
 		logger.Tracef("Discarding incoming message: %s", err)
