@@ -24,23 +24,6 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-type Config struct {
-	Actions         bool
-	APIKey          string
-	DeployServerURL string
-	Cluster         string
-	PrintPayload    bool
-	DryRun          bool
-	Owner           string
-	Quiet           bool
-	Ref             string
-	Repository      string
-	Resource        []string
-	Team            string
-	Variables       string
-	Wait            bool
-}
-
 type TemplateVariables map[string]interface{}
 
 type ActionsFormatter struct{}
@@ -62,11 +45,7 @@ func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-var cfg = DefaultConfig()
-
-var help = `
-deploy prepares and submits Kubernetes resources to a NAIS cluster.
-`
+var cfg *Config
 
 const (
 	deployAPIPath       = "/api/v1/deploy"
@@ -90,50 +69,7 @@ const (
 	ExitInternalError
 )
 
-func DefaultConfig() Config {
-	return Config{
-		DeployServerURL: defaultDeployServer,
-		Ref:             defaultRef,
-		Owner:           defaultOwner,
-		Resource:        []string{},
-	}
-}
-
 func init() {
-	flag.ErrHelp = fmt.Errorf(help)
-
-	flag.BoolVar(&cfg.Actions, "actions", cfg.Actions, "Use GitHub Actions compatible error and warning messages.")
-	flag.StringVar(&cfg.APIKey, "apikey", cfg.APIKey, "NAIS Deploy API key.")
-	flag.StringVar(&cfg.DeployServerURL, "deploy-server", cfg.DeployServerURL, "URL to API server.")
-	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "NAIS cluster to deploy into.")
-	flag.BoolVar(&cfg.DryRun, "dry-run", cfg.DryRun, "Run templating, but don't actually make any requests.")
-	flag.StringVar(&cfg.Owner, "owner", cfg.Owner, "Owner of GitHub repository.")
-	flag.BoolVar(&cfg.PrintPayload, "print-payload", cfg.PrintPayload, "Print templated resources to standard output.")
-	flag.BoolVar(&cfg.Quiet, "quiet", cfg.Quiet, "Suppress printing of informational messages except errors.")
-	flag.StringVar(&cfg.Ref, "ref", cfg.Ref, "Git commit hash, tag, or branch of the code being deployed.")
-	flag.StringSliceVar(&cfg.Resource, "resource", cfg.Resource, "File with Kubernetes resource. Can be specified multiple times.")
-	flag.StringVar(&cfg.Repository, "repository", cfg.Repository, "Name of GitHub repository.")
-	flag.StringVar(&cfg.Team, "team", cfg.Team, "Team making the deployment. Auto-detected if possible.")
-	flag.StringVar(&cfg.Variables, "vars", cfg.Variables, "File containing template variables.")
-	flag.BoolVar(&cfg.Wait, "wait", cfg.Wait, "Block until deployment reaches final state (success, failure, error).")
-
-	flag.Parse()
-
-	log.SetOutput(os.Stderr)
-
-	if cfg.Actions {
-		log.SetFormatter(&ActionsFormatter{})
-	} else {
-		log.SetFormatter(&log.TextFormatter{
-			FullTimestamp:          true,
-			TimestampFormat:        time.RFC3339Nano,
-			DisableLevelTruncation: true,
-		})
-	}
-
-	if cfg.Quiet {
-		log.SetLevel(log.ErrorLevel)
-	}
 }
 
 func mkpayload(w io.Writer, resources json.RawMessage) error {
@@ -230,6 +166,26 @@ func run() (ExitCode, error) {
 	var err error
 	var templateVariables TemplateVariables
 
+	cfg, err = configuration()
+	if err != nil {
+		return ExitInvocationFailure, err
+	}
+
+	log.SetOutput(os.Stderr)
+
+	if cfg.Actions {
+		log.SetFormatter(&ActionsFormatter{})
+	} else {
+		log.SetFormatter(&log.TextFormatter{
+			FullTimestamp:          true,
+			TimestampFormat:        time.RFC3339Nano,
+			DisableLevelTruncation: true,
+		})
+	}
+
+	if cfg.Quiet {
+		log.SetLevel(log.ErrorLevel)
+	}
 	if len(cfg.Resource) == 0 {
 		return ExitInvocationFailure, fmt.Errorf("at least one Kubernetes resource is required to make sense of the deployment")
 	}
