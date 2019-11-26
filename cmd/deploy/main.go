@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aymerick/raymond"
@@ -142,6 +143,22 @@ func templateVariablesFromFile(path string) (TemplateVariables, error) {
 	return vars, err
 }
 
+func templateVariablesFromSlice(vars []string) TemplateVariables {
+	tv := TemplateVariables{}
+	for _, keyval := range vars {
+		tokens := strings.SplitN(keyval, "=", 2)
+		switch len(tokens) {
+		case 2: // KEY=VAL
+			tv[tokens[0]] = tokens[1]
+		case 1: // KEY
+			tv[tokens[0]] = true
+		default:
+			continue
+		}
+	}
+	return tv
+}
+
 func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -196,10 +213,21 @@ func run() (ExitCode, error) {
 	}
 	targetURL.Path = deployAPIPath
 
-	if len(cfg.Variables) > 0 {
-		templateVariables, err = templateVariablesFromFile(cfg.Variables)
+	if len(cfg.VariablesFile) > 0 {
+		templateVariables, err = templateVariablesFromFile(cfg.VariablesFile)
 		if err != nil {
 			return ExitInvocationFailure, fmt.Errorf("load template variables: %s", err)
+		}
+	}
+
+	if len(cfg.Variables) > 0 {
+		templateOverrides := templateVariablesFromSlice(cfg.Variables)
+		for key, val := range templateOverrides {
+			if oldval, ok := templateVariables[key]; ok {
+				log.Warnf("Overwriting template variable '%s'; previous value was '%v'", key, oldval)
+			}
+			log.Infof("Setting template variable '%s' to '%v'", key, val)
+			templateVariables[key] = val
 		}
 	}
 

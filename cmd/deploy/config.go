@@ -23,7 +23,8 @@ type Config struct {
 	Repository      string   `json:"repository"`
 	Resource        []string `json:"resource"`
 	Team            string   `json:"team"`
-	Variables       string   `json:"vars"`
+	Variables       []string `json:"var"`
+	VariablesFile   string   `json:"vars"`
 	Wait            bool     `json:"wait"`
 }
 
@@ -52,6 +53,7 @@ func init() {
 	flag.StringSlice("resource", []string{}, "File with Kubernetes resource. Can be specified multiple times.")
 	flag.String("repository", "", "Name of GitHub repository.")
 	flag.String("team", "", "Team making the deployment. Auto-detected if possible.")
+	flag.StringSlice("var", []string{}, "Template variable in the form KEY=VALUE. Can be specified multiple times.")
 	flag.String("vars", "", "File containing template variables.")
 	flag.Bool("wait", false, "Block until deployment reaches final state (success, failure, error).")
 }
