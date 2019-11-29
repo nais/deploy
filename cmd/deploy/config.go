@@ -48,7 +48,6 @@ func config() (cfg Config) {
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT"), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
 
 	flag.Parse()
-
 	return
 }
 

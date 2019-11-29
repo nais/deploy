@@ -52,6 +52,7 @@ func main() {
 	cfg := config()
 
 	if err := validate(cfg); err != nil {
+		log.Errorf("failed validation: %s", err)
 		flag.Usage()
 		os.Exit(int(ExitInvocationFailure))
 	}
@@ -73,7 +74,7 @@ func run(cfg Config) (ExitCode, error) {
 	setupLogging(cfg.Actions, cfg.Quiet)
 
 	var err error
-	var templateVariables TemplateVariables
+	var templateVariables = make(TemplateVariables)
 
 	targetURL, _ := url.Parse(cfg.DeployServerURL)
 	targetURL.Path = deployAPIPath
