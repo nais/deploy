@@ -29,38 +29,16 @@ type TemplateVariables map[string]interface{}
 
 type ActionsFormatter struct{}
 
-func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	switch e.Level {
-	case log.ErrorLevel:
-		buf.WriteString("::error::")
-	case log.WarnLevel:
-		buf.WriteString("::warn::")
-	default:
-		buf.WriteString("[")
-		buf.WriteString(e.Time.Format(time.RFC3339Nano))
-		buf.WriteString("] ")
-	}
-	buf.WriteString(e.Message)
-	buf.WriteRune('\n')
-	return buf.Bytes(), nil
-}
-
-var cfg *Config
-
-const (
-	deployAPIPath       = "/api/v1/deploy"
-	statusAPIPath       = "/api/v1/status"
-	pollInterval        = time.Second * 5
-	defaultRef          = "master"
-	defaultOwner        = "navikt"
-	defaultDeployServer = "https://deployment.prod-sbs.nais.io"
-)
-
 type ExitCode int
 
 const (
-	ExitSuccess ExitCode = iota
+	deployAPIPath                = "/api/v1/deploy"
+	statusAPIPath                = "/api/v1/status"
+	pollInterval                 = time.Second * 5
+	defaultRef                   = "master"
+	defaultOwner                 = "navikt"
+	defaultDeployServer          = "https://deployment.prod-sbs.nais.io"
+	ExitSuccess         ExitCode = iota
 	ExitDeploymentFailure
 	ExitDeploymentError
 	ExitDeploymentInactive
@@ -70,114 +48,7 @@ const (
 	ExitInternalError
 )
 
-func init() {
-}
-
-func mkpayload(w io.Writer, resources json.RawMessage) error {
-	req := api_v1_deploy.DeploymentRequest{
-		Resources:  resources,
-		Team:       cfg.Team,
-		Cluster:    cfg.Cluster,
-		Ref:        cfg.Ref,
-		Owner:      cfg.Owner,
-		Repository: cfg.Repository,
-		Timestamp:  time.Now().Unix(),
-	}
-
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-
-	return enc.Encode(req)
-}
-
-func sign(data, key []byte) string {
-	hasher := hmac.New(sha256.New, key)
-	hasher.Write(data)
-	sum := hasher.Sum(nil)
-	return hex.EncodeToString(sum)
-}
-
-func detectTeam(resource json.RawMessage) string {
-	type teamMeta struct {
-		Metadata struct {
-			Labels struct {
-				Team string `json:"team"`
-			} `json:"labels"`
-		} `json:"metadata"`
-	}
-	buf := &teamMeta{}
-	err := json.Unmarshal(resource, buf)
-	if err != nil {
-		return ""
-	}
-	return buf.Metadata.Labels.Team
-}
-
-// Wrap JSON resources in a JSON array.
-func wrapResources(resources []json.RawMessage) (json.RawMessage, error) {
-	return json.Marshal(resources)
-}
-
-func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
-	template, err := raymond.Parse(string(data))
-	if err != nil {
-		return nil, fmt.Errorf("parse template file: %s", err)
-	}
-
-	output, err := template.Exec(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("execute template: %s", err)
-	}
-
-	return []byte(output), nil
-}
-
-func templateVariablesFromFile(path string) (TemplateVariables, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("%s: open file: %s", path, err)
-	}
-
-	vars := TemplateVariables{}
-	err = yaml.Unmarshal(file, &vars)
-	return vars, err
-}
-
-func templateVariablesFromSlice(vars []string) TemplateVariables {
-	tv := TemplateVariables{}
-	for _, keyval := range vars {
-		tokens := strings.SplitN(keyval, "=", 2)
-		switch len(tokens) {
-		case 2: // KEY=VAL
-			tv[tokens[0]] = tokens[1]
-		case 1: // KEY
-			tv[tokens[0]] = true
-		default:
-			continue
-		}
-	}
-	return tv
-}
-
-func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("%s: open file: %s", path, err)
-	}
-
-	templated, err := templatedFile(file, ctx)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s", path, err)
-	}
-
-	// Since JSON is a subset of YAML, passing JSON through this method is a no-op.
-	data, err := yaml.YAMLToJSON(templated)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s", path, err)
-	}
-
-	return data, nil
-}
+var cfg *Config
 
 func run() (ExitCode, error) {
 	var err error
@@ -404,6 +275,129 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, e
 	}
 
 	return true, ExitSuccess, nil
+}
+
+func mkpayload(w io.Writer, resources json.RawMessage) error {
+	req := api_v1_deploy.DeploymentRequest{
+		Resources:  resources,
+		Team:       cfg.Team,
+		Cluster:    cfg.Cluster,
+		Ref:        cfg.Ref,
+		Owner:      cfg.Owner,
+		Repository: cfg.Repository,
+		Timestamp:  time.Now().Unix(),
+	}
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+
+	return enc.Encode(req)
+}
+
+func sign(data, key []byte) string {
+	hasher := hmac.New(sha256.New, key)
+	hasher.Write(data)
+	sum := hasher.Sum(nil)
+	return hex.EncodeToString(sum)
+}
+
+func detectTeam(resource json.RawMessage) string {
+	type teamMeta struct {
+		Metadata struct {
+			Labels struct {
+				Team string `json:"team"`
+			} `json:"labels"`
+		} `json:"metadata"`
+	}
+	buf := &teamMeta{}
+	err := json.Unmarshal(resource, buf)
+	if err != nil {
+		return ""
+	}
+	return buf.Metadata.Labels.Team
+}
+
+// Wrap JSON resources in a JSON array.
+func wrapResources(resources []json.RawMessage) (json.RawMessage, error) {
+	return json.Marshal(resources)
+}
+
+func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
+	template, err := raymond.Parse(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("parse template file: %s", err)
+	}
+
+	output, err := template.Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("execute template: %s", err)
+	}
+
+	return []byte(output), nil
+}
+
+func templateVariablesFromFile(path string) (TemplateVariables, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: open file: %s", path, err)
+	}
+
+	vars := TemplateVariables{}
+	err = yaml.Unmarshal(file, &vars)
+	return vars, err
+}
+
+func templateVariablesFromSlice(vars []string) TemplateVariables {
+	tv := TemplateVariables{}
+	for _, keyval := range vars {
+		tokens := strings.SplitN(keyval, "=", 2)
+		switch len(tokens) {
+		case 2: // KEY=VAL
+			tv[tokens[0]] = tokens[1]
+		case 1: // KEY
+			tv[tokens[0]] = true
+		default:
+			continue
+		}
+	}
+	return tv
+}
+
+func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: open file: %s", path, err)
+	}
+
+	templated, err := templatedFile(file, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", path, err)
+	}
+
+	// Since JSON is a subset of YAML, passing JSON through this method is a no-op.
+	data, err := yaml.YAMLToJSON(templated)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", path, err)
+	}
+
+	return data, nil
+}
+
+func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	switch e.Level {
+	case log.ErrorLevel:
+		buf.WriteString("::error::")
+	case log.WarnLevel:
+		buf.WriteString("::warn::")
+	default:
+		buf.WriteString("[")
+		buf.WriteString(e.Time.Format(time.RFC3339Nano))
+		buf.WriteString("] ")
+	}
+	buf.WriteString(e.Message)
+	buf.WriteRune('\n')
+	return buf.Bytes(), nil
 }
 
 func main() {
