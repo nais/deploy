@@ -29,38 +29,16 @@ type TemplateVariables map[string]interface{}
 
 type ActionsFormatter struct{}
 
-func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	switch e.Level {
-	case log.ErrorLevel:
-		buf.WriteString("::error::")
-	case log.WarnLevel:
-		buf.WriteString("::warn::")
-	default:
-		buf.WriteString("[")
-		buf.WriteString(e.Time.Format(time.RFC3339Nano))
-		buf.WriteString("] ")
-	}
-	buf.WriteString(e.Message)
-	buf.WriteRune('\n')
-	return buf.Bytes(), nil
-}
-
-var cfg *Config
-
-const (
-	deployAPIPath       = "/api/v1/deploy"
-	statusAPIPath       = "/api/v1/status"
-	pollInterval        = time.Second * 5
-	defaultRef          = "master"
-	defaultOwner        = "navikt"
-	defaultDeployServer = "https://deployment.prod-sbs.nais.io"
-)
-
 type ExitCode int
 
 const (
-	ExitSuccess ExitCode = iota
+	deployAPIPath                = "/api/v1/deploy"
+	statusAPIPath                = "/api/v1/status"
+	pollInterval                 = time.Second * 5
+	defaultRef                   = "master"
+	defaultOwner                 = "navikt"
+	defaultDeployServer          = "https://deployment.prod-sbs.nais.io"
+	ExitSuccess         ExitCode = iota
 	ExitDeploymentFailure
 	ExitDeploymentError
 	ExitDeploymentInactive
@@ -70,147 +48,34 @@ const (
 	ExitInternalError
 )
 
-func init() {
-}
+func main() {
+	cfg := config()
 
-func mkpayload(w io.Writer, resources json.RawMessage) error {
-	req := api_v1_deploy.DeploymentRequest{
-		Resources:  resources,
-		Team:       cfg.Team,
-		Cluster:    cfg.Cluster,
-		Ref:        cfg.Ref,
-		Owner:      cfg.Owner,
-		Repository: cfg.Repository,
-		Timestamp:  time.Now().Unix(),
+	if err := validate(cfg); err != nil {
+		flag.Usage()
+		os.Exit(int(ExitInvocationFailure))
 	}
 
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
+	code, err := run(cfg)
 
-	return enc.Encode(req)
-}
-
-func sign(data, key []byte) string {
-	hasher := hmac.New(sha256.New, key)
-	hasher.Write(data)
-	sum := hasher.Sum(nil)
-	return hex.EncodeToString(sum)
-}
-
-func detectTeam(resource json.RawMessage) string {
-	type teamMeta struct {
-		Metadata struct {
-			Labels struct {
-				Team string `json:"team"`
-			} `json:"labels"`
-		} `json:"metadata"`
-	}
-	buf := &teamMeta{}
-	err := json.Unmarshal(resource, buf)
 	if err != nil {
-		return ""
-	}
-	return buf.Metadata.Labels.Team
-}
-
-// Wrap JSON resources in a JSON array.
-func wrapResources(resources []json.RawMessage) (json.RawMessage, error) {
-	return json.Marshal(resources)
-}
-
-func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
-	template, err := raymond.Parse(string(data))
-	if err != nil {
-		return nil, fmt.Errorf("parse template file: %s", err)
-	}
-
-	output, err := template.Exec(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("execute template: %s", err)
-	}
-
-	return []byte(output), nil
-}
-
-func templateVariablesFromFile(path string) (TemplateVariables, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("%s: open file: %s", path, err)
-	}
-
-	vars := TemplateVariables{}
-	err = yaml.Unmarshal(file, &vars)
-	return vars, err
-}
-
-func templateVariablesFromSlice(vars []string) TemplateVariables {
-	tv := TemplateVariables{}
-	for _, keyval := range vars {
-		tokens := strings.SplitN(keyval, "=", 2)
-		switch len(tokens) {
-		case 2: // KEY=VAL
-			tv[tokens[0]] = tokens[1]
-		case 1: // KEY
-			tv[tokens[0]] = true
-		default:
-			continue
+		if code == ExitInvocationFailure {
+			flag.Usage()
 		}
+
+		log.Errorf("fatal: %s", err)
 	}
-	return tv
+
+	os.Exit(int(code))
 }
 
-func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("%s: open file: %s", path, err)
-	}
+func run(cfg Config) (ExitCode, error) {
+	setupLogging(cfg.Actions, cfg.Quiet)
 
-	templated, err := templatedFile(file, ctx)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s", path, err)
-	}
-
-	// Since JSON is a subset of YAML, passing JSON through this method is a no-op.
-	data, err := yaml.YAMLToJSON(templated)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %s", path, err)
-	}
-
-	return data, nil
-}
-
-func run() (ExitCode, error) {
 	var err error
 	var templateVariables TemplateVariables
 
-	cfg, err = configuration()
-	if err != nil {
-		return ExitInvocationFailure, err
-	}
-
-	log.SetOutput(os.Stderr)
-
-	if cfg.Actions {
-		log.SetFormatter(&ActionsFormatter{})
-	} else {
-		log.SetFormatter(&log.TextFormatter{
-			FullTimestamp:          true,
-			TimestampFormat:        time.RFC3339Nano,
-			DisableLevelTruncation: true,
-		})
-	}
-
-	if cfg.Quiet {
-		log.SetLevel(log.ErrorLevel)
-	}
-	if len(cfg.Resource) == 0 {
-		return ExitInvocationFailure, fmt.Errorf("at least one Kubernetes resource is required to make sense of the deployment")
-	}
-
-	targetURL, err := url.Parse(cfg.DeployServerURL)
-	if err != nil {
-		return ExitInvocationFailure, fmt.Errorf("wrong format of base URL: %s", err)
-	}
+	targetURL, _ := url.Parse(cfg.DeployServerURL)
 	targetURL.Path = deployAPIPath
 
 	if len(cfg.VariablesFile) > 0 {
@@ -245,22 +110,27 @@ func run() (ExitCode, error) {
 		for i, path := range cfg.Resource {
 			team := detectTeam(resources[i])
 			if len(team) > 0 {
-				log.Infof("Detected team '%s' in %s", team, path)
+				log.Infof("Detected team '%s' in path %s", team, path)
 				cfg.Team = team
 				break
 			}
+		}
+
+		if len(cfg.Team) == 0 {
+			return ExitInvocationFailure, fmt.Errorf("no team specified, and unable to auto-detect from nais.yaml")
 		}
 	}
 
 	data := make([]byte, 0)
 	buf := bytes.NewBuffer(data)
-
 	allResources, err := wrapResources(resources)
+
 	if err != nil {
 		return ExitInvocationFailure, err
 	}
 
-	err = mkpayload(buf, allResources)
+	err = mkpayload(buf, allResources, cfg)
+
 	if err != nil {
 		return ExitInvocationFailure, err
 	}
@@ -274,37 +144,41 @@ func run() (ExitCode, error) {
 	}
 
 	decoded, err := hex.DecodeString(cfg.APIKey)
+
 	if err != nil {
 		return ExitInvocationFailure, fmt.Errorf("API key must be a hex encoded string: %s", err)
 	}
+
 	sig := sign(buf.Bytes(), decoded)
 
 	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
+
 	if err != nil {
 		return ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
 	}
 
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add(api_v1.SignatureHeader, fmt.Sprintf("%s", sig))
-
 	log.Infof("Submitting deployment request to %s...", targetURL.String())
 	client := http.Client{}
 	resp, err := client.Do(req)
+
 	if err != nil {
 		return ExitUnavailable, err
 	}
 
 	log.Infof("status....: %s", resp.Status)
-
 	response := &api_v1_deploy.DeploymentResponse{}
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(response)
+
 	if err != nil {
 		return ExitUnavailable, fmt.Errorf("received invalid response from server: %s", err)
 	}
 
 	log.Infof("message...: %s", response.Message)
 	log.Infof("logs......: %s", response.LogURL)
+
 	if response.GithubDeployment != nil {
 		log.Infof("github....: %s", response.GithubDeployment.GetURL())
 	}
@@ -320,7 +194,7 @@ func run() (ExitCode, error) {
 	log.Infof("Polling deployment status until it has reached its final state...")
 
 	for {
-		cont, status, err := check(response.GithubDeployment.GetID(), decoded, *targetURL)
+		cont, status, err := check(response.GithubDeployment.GetID(), decoded, *targetURL, cfg)
 		if !cont {
 			return status, err
 		}
@@ -331,10 +205,28 @@ func run() (ExitCode, error) {
 	}
 }
 
+func setupLogging(actions, quiet bool) {
+	log.SetOutput(os.Stderr)
+
+	if actions {
+		log.SetFormatter(&ActionsFormatter{})
+	} else {
+		log.SetFormatter(&log.TextFormatter{
+			FullTimestamp:          true,
+			TimestampFormat:        time.RFC3339Nano,
+			DisableLevelTruncation: true,
+		})
+	}
+
+	if quiet {
+		log.SetLevel(log.ErrorLevel)
+	}
+}
+
 // Check if a deployment has reached a terminal state.
 // The first return value is true if the state might change, false otherwise.
 // Additionally, returns an error if any error occurred.
-func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, error) {
+func check(deploymentID int64, key []byte, targetURL url.URL, cfg Config) (bool, ExitCode, error) {
 	statusReq := &api_v1_status.StatusRequest{
 		DeploymentID: deploymentID,
 		Team:         cfg.Team,
@@ -406,13 +298,155 @@ func check(deploymentID int64, key []byte, targetURL url.URL) (bool, ExitCode, e
 	return true, ExitSuccess, nil
 }
 
-func main() {
-	code, err := run()
+func mkpayload(w io.Writer, resources json.RawMessage, cfg Config) error {
+	req := api_v1_deploy.DeploymentRequest{
+		Resources:  resources,
+		Team:       cfg.Team,
+		Cluster:    cfg.Cluster,
+		Ref:        cfg.Ref,
+		Owner:      cfg.Owner,
+		Repository: cfg.Repository,
+		Timestamp:  time.Now().Unix(),
+	}
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+
+	return enc.Encode(req)
+}
+
+func sign(data, key []byte) string {
+	hasher := hmac.New(sha256.New, key)
+	hasher.Write(data)
+	sum := hasher.Sum(nil)
+
+	return hex.EncodeToString(sum)
+}
+
+func detectTeam(resource json.RawMessage) string {
+	type teamMeta struct {
+		Metadata struct {
+			Labels struct {
+				Team string `json:"team"`
+			} `json:"labels"`
+		} `json:"metadata"`
+	}
+	buf := &teamMeta{}
+	err := json.Unmarshal(resource, buf)
+
 	if err != nil {
-		log.Errorf("fatal: %s", err)
-		if code == ExitInvocationFailure {
-			flag.Usage()
+		return ""
+	}
+
+	return buf.Metadata.Labels.Team
+}
+
+// Wrap JSON resources in a JSON array.
+func wrapResources(resources []json.RawMessage) (json.RawMessage, error) {
+	return json.Marshal(resources)
+}
+
+func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
+	template, err := raymond.Parse(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("parse template file: %s", err)
+	}
+
+	output, err := template.Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("execute template: %s", err)
+	}
+
+	return []byte(output), nil
+}
+
+func templateVariablesFromFile(path string) (TemplateVariables, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: open file: %s", path, err)
+	}
+
+	vars := TemplateVariables{}
+	err = yaml.Unmarshal(file, &vars)
+
+	return vars, err
+}
+
+func templateVariablesFromSlice(vars []string) TemplateVariables {
+	tv := TemplateVariables{}
+	for _, keyval := range vars {
+		tokens := strings.SplitN(keyval, "=", 2)
+		switch len(tokens) {
+		case 2: // KEY=VAL
+			tv[tokens[0]] = tokens[1]
+		case 1: // KEY
+			tv[tokens[0]] = true
+		default:
+			continue
 		}
 	}
-	os.Exit(int(code))
+
+	return tv
+}
+
+func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("%s: open file: %s", path, err)
+	}
+
+	templated, err := templatedFile(file, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", path, err)
+	}
+
+	// Since JSON is a subset of YAML, passing JSON through this method is a no-op.
+	data, err := yaml.YAMLToJSON(templated)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %s", path, err)
+	}
+
+	return data, nil
+}
+
+func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	switch e.Level {
+	case log.ErrorLevel:
+		buf.WriteString("::error::")
+	case log.WarnLevel:
+		buf.WriteString("::warn::")
+	default:
+		buf.WriteString("[")
+		buf.WriteString(e.Time.Format(time.RFC3339Nano))
+		buf.WriteString("] ")
+	}
+	buf.WriteString(e.Message)
+	buf.WriteRune('\n')
+	return buf.Bytes(), nil
+}
+
+func validate(cfg Config) error {
+	if len(cfg.Resource) == 0 {
+		return fmt.Errorf("at least one Kubernetes resource is required to make sense of the deployment")
+	}
+
+	_, err := url.Parse(cfg.DeployServerURL)
+	if err != nil {
+		return fmt.Errorf("wrong format of base URL: %s", err)
+	}
+
+	if len(cfg.Cluster) == 0 {
+		return fmt.Errorf("cluster is required")
+	}
+
+	if len(cfg.APIKey) == 0 {
+		return fmt.Errorf("apikey is required")
+	}
+
+	if len(cfg.Repository) == 0 {
+		return fmt.Errorf("repository is required")
+	}
+
+	return nil
 }

@@ -29,7 +29,7 @@ func SplitFullname(fullName string) (string, string, error) {
 }
 
 func InstallationClient(appId, installId int, keyFile string) (*gh.Client, error) {
-	itr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appId, installId, keyFile)
+	itr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, int64(appId), int64(installId), keyFile)
 	if err != nil {
 		return nil, err
 	}
