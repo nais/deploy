@@ -46,13 +46,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: Tag master branch with api version
+    - name: Create deploy binaries
+      run: make deploy-release-cli
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        git remote set-url origin "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-        git tag -f $(cat actions/deploy/version)
-        git push -f --tags
+      with:
+        tag_name: $(cat actions/deploy/version)
+    - name: Upload Linux Asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./deploy-linux.zip
+        asset_name: deploy-linux.zip
+        asset_content_type: application/zip
+    - name: Upload Darwin Asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./deploy-darwin.zip
+        asset_name: deploy-darwin.zip
+        asset_content_type: application/zip
+    - name: Upload Windows Asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./deploy-windows.zip
+        asset_name: deploy-windows.zip
+        asset_content_type: application/zip
 
   deploy:
     name: Deploy to Kubernetes
