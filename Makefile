@@ -24,6 +24,22 @@ token-generator:
 deploy:
 	go build -o bin/deploy cmd/deploy/*.go
 
+deploy-release-cli:
+	GOOS=linux \
+	GOARCH=amd64 \
+	go build -o deploy-linux -ldflags="-s -w" cmd/deploy/*.go
+	tar --transform='s/deploy-linux/deploy/' -czf deploy-linux.tar.gz deploy-linux
+
+	GOOS=darwin \
+	GOARCH=amd64 \
+	go build -o deploy-darwin -ldflags="-s -w" cmd/deploy/*.go
+	tar --transform='s/deploy-darwin/deploy/' -czf deploy-darwin.tar.gz deploy-darwin
+
+	GOOS=windows \
+	GOARCH=amd64 \
+	go build -o deploy-windows -ldflags="-s -w" cmd/deploy/*.go
+	tar --transform='s/deploy-windows/deploy/' -czf deploy-windows.tar.gz deploy-windows
+
 provision:
 	go build -o bin/provision cmd/provision/*.go
 
