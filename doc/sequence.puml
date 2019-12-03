@@ -2,30 +2,35 @@
 
 actor developer as "Developer"
 participant github as "GitHub"
-participant ci as "Automated build tool"
+participant ci as "Continuous Integration"
 database registry as "Docker Hub"
 participant hookd
 collections deployd
 participant kubernetes as "NAIS"
 
-==Build phase==
+==Build and release==
 developer -> github: git push
-github --> developer
-github -> ci: Webhook
-ci --> github
+github -> ci: Start build
+ci -> registry: Push image
+
+==NAIS deploy v1==
+ci -> github: Start deployment
+note right: Authenticate with GitHub token
+github -> hookd: Send webhook to NAIS deploy
+
+==NAIS deploy v2==
+ci -> hookd: Start deployment
+note right: Authenticate with team API key
+hookd -> github: Create deployment
 
 ==Deploy phase==
-ci -> registry: Push image
-registry --> ci
-ci -> github: Start deployment
-github -> hookd: Webhook
 hookd -> deployd: Commission deployment
-hookd --> github: Update deployment status
+hookd -> github: Update deployment status
 note left: queued
 deployd -> kubernetes: Deploy
 kubernetes --> deployd
-deployd --> hookd: Report status
-hookd --> github: Update deployment status
+deployd -> hookd: Report status
+hookd -> github: Update deployment status
 note left: in_progress
 
 loop until timeout or success
@@ -33,8 +38,16 @@ loop until timeout or success
 	kubernetes --> deployd
 end
 
-deployd --> hookd: Report status
-hookd --> github: Update deployment status
+deployd -> hookd: Report status
+hookd -> github: Update deployment status
 note left: success
+
+==Errors==
+hookd -> github: Application failed to start
+note left: failure
+hookd -> github: Error in deployment request
+note left: error
+hookd -> github: Internal error in NAIS deploy
+note left: error
 
 @enduml
