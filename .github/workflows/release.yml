@@ -47,7 +47,10 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Create deploy binaries
-      run: make deploy-release-cli
+      run: |
+        make deploy-release-linux
+        make deploy-release-darwin
+        make deploy-release-windows
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -61,27 +64,27 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./deploy-linux.zip
-        asset_name: deploy-linux.zip
-        asset_content_type: application/zip
+        asset_path: ./deploy-linux
+        asset_name: deploy-linux
+        asset_content_type: application/x-binary
     - name: Upload Darwin Asset
       uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./deploy-darwin.zip
-        asset_name: deploy-darwin.zip
-        asset_content_type: application/zip
+        asset_path: ./deploy-darwin
+        asset_name: deploy-darwin
+        asset_content_type: application/x-binary
     - name: Upload Windows Asset
       uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./deploy-windows.zip
-        asset_name: deploy-windows.zip
-        asset_content_type: application/zip
+        asset_path: ./deploy-windows
+        asset_name: deploy-windows
+        asset_content_type: application/x-binary
 
   deploy:
     name: Deploy to Kubernetes
