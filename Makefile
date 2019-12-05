@@ -27,17 +27,17 @@ deploy:
 deploy-release-linux:
 	GOOS=linux \
 	GOARCH=amd64 \
-	go build -o deploy-linux -ldflags="-s -w" cmd/deploy/*.go
+	go build -o deploy-linux -ldflags="-s -w" cmd/deploy/main.go
 
 deploy-release-darwin:
 	GOOS=darwin \
 	GOARCH=amd64 \
-	go build -o deploy-darwin -ldflags="-s -w" cmd/deploy/*.go
+	go build -o deploy-darwin -ldflags="-s -w" cmd/deploy/main.go
 
 deploy-release-windows:
 	GOOS=windows \
 	GOARCH=amd64 \
-	go build -o deploy-windows -ldflags="-s -w" cmd/deploy/*.go
+	go build -o deploy-windows -ldflags="-s -w" cmd/deploy/main.go
 
 provision:
 	go build -o bin/provision cmd/provision/*.go
@@ -45,7 +45,7 @@ provision:
 alpine:
 	go build -a -installsuffix cgo -ldflags "-s $(HOOKD_ALPINE_LDFLAGS)" -o bin/hookd cmd/hookd/main.go
 	go build -a -installsuffix cgo -o bin/deployd cmd/deployd/main.go
-	go build -a -installsuffix cgo -o bin/deploy cmd/deploy/*.go
+	go build -a -installsuffix cgo -o bin/deploy cmd/deploy/main.go
 	go build -a -installsuffix cgo -o bin/provision cmd/provision/*.go
 
 test:
