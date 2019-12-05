@@ -62,6 +62,10 @@ func TestValidationFailures(t *testing.T) {
 	}
 }
 
+func TestExitCodeZero(t *testing.T) {
+	assert.Equal(t, deployer.ExitCode(0), deployer.ExitSuccess)
+}
+
 func validConfig() deployer.Config {
 	cfg := deployer.NewConfig()
 	cfg.Resource = []string{"testdata/nais.yaml"}
