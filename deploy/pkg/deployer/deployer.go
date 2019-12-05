@@ -33,7 +33,7 @@ type ExitCode int
 const (
 	DeployAPIPath       = "/api/v1/deploy"
 	StatusAPIPath       = "/api/v1/status"
-	PollInterval        = time.Second * 5
+	DefaultPollInterval = time.Second * 5
 	DefaultRef          = "master"
 	DefaultOwner        = "navikt"
 	DefaultDeployServer = "https://deployment.prod-sbs.nais.io"
@@ -202,7 +202,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		if err != nil {
 			log.Error(err)
 		}
-		time.Sleep(PollInterval)
+		time.Sleep(cfg.PollInterval)
 	}
 }
 
