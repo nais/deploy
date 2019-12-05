@@ -5,9 +5,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/deploy/pkg/deployer"
-	apiv1deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,7 +19,7 @@ func TestHappyPath(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 
-		deployRequest := apiv1deploy.DeploymentRequest{}
+		deployRequest := api_v1_deploy.DeploymentRequest{}
 
 		if err := json.NewDecoder(r.Body).Decode(&deployRequest); err != nil {
 			t.Error(err)
@@ -25,7 +28,7 @@ func TestHappyPath(t *testing.T) {
 		assert.Equal(t, deployRequest.Team, "aura", "auto-detection of team works")
 		assert.Equal(t, deployRequest.Owner, deployer.DefaultOwner, "defaulting works")
 
-		b, err := json.Marshal(&apiv1deploy.DeploymentResponse{})
+		b, err := json.Marshal(&api_v1_deploy.DeploymentResponse{})
 
 		if err != nil {
 			t.Error(err)
@@ -39,6 +42,80 @@ func TestHappyPath(t *testing.T) {
 	exitCode, err := d.Run(cfg)
 	assert.NoError(t, err)
 	assert.Equal(t, exitCode, deployer.ExitSuccess)
+}
+
+func TestWaitForComplete(t *testing.T) {
+	requests := 0
+	cfg := validConfig()
+	cfg.Wait = true
+	cfg.PollInterval = time.Millisecond * 1
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		marshaler := json.NewEncoder(w)
+		switch r.RequestURI {
+		case "/api/v1/deploy":
+			w.WriteHeader(http.StatusCreated)
+			marshaler.Encode(&api_v1_deploy.DeploymentResponse{})
+		case "/api/v1/status":
+			var status string
+			w.WriteHeader(http.StatusOK)
+			switch requests {
+			case 0:
+				status = deployment.GithubDeploymentState_pending.String()
+			case 1:
+				status = deployment.GithubDeploymentState_in_progress.String()
+			case 2:
+				status = deployment.GithubDeploymentState_success.String()
+			}
+			requests++
+			marshaler.Encode(&api_v1_status.StatusResponse{
+				Status: &status,
+			})
+		}
+	}))
+
+	d := deployer.Deployer{Client: server.Client(), DeployServer: server.URL}
+
+	exitCode, err := d.Run(cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, exitCode, deployer.ExitSuccess)
+}
+
+func TestWaitForTheInevitableEventualFailure(t *testing.T) {
+	requests := 0
+	cfg := validConfig()
+	cfg.Wait = true
+	cfg.PollInterval = time.Millisecond * 1
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		marshaler := json.NewEncoder(w)
+		switch r.RequestURI {
+		case "/api/v1/deploy":
+			w.WriteHeader(http.StatusCreated)
+			marshaler.Encode(&api_v1_deploy.DeploymentResponse{})
+		case "/api/v1/status":
+			var status string
+			w.WriteHeader(http.StatusOK)
+			switch requests {
+			case 0:
+				status = deployment.GithubDeploymentState_pending.String()
+			case 1:
+				status = deployment.GithubDeploymentState_in_progress.String()
+			case 2:
+				status = deployment.GithubDeploymentState_failure.String()
+			}
+			requests++
+			marshaler.Encode(&api_v1_status.StatusResponse{
+				Status: &status,
+			})
+		}
+	}))
+
+	d := deployer.Deployer{Client: server.Client(), DeployServer: server.URL}
+
+	exitCode, err := d.Run(cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, exitCode, deployer.ExitDeploymentFailure)
 }
 
 func TestValidationFailures(t *testing.T) {
@@ -60,6 +137,10 @@ func TestValidationFailures(t *testing.T) {
 		assert.Equal(t, exitCode, deployer.ExitInvocationFailure)
 		assert.Contains(t, err.Error(), testCase.errorMsg)
 	}
+}
+
+func TestExitCodeZero(t *testing.T) {
+	assert.Equal(t, deployer.ExitCode(0), deployer.ExitSuccess)
 }
 
 func validConfig() deployer.Config {

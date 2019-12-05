@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	flag "github.com/spf13/pflag"
 )
@@ -16,6 +17,7 @@ type Config struct {
 	PrintPayload    bool
 	DryRun          bool
 	Owner           string
+	PollInterval    time.Duration
 	Quiet           bool
 	Ref             string
 	Repository      string
@@ -46,6 +48,9 @@ func init() {
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT"), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
+
+	// Purposely do not expose the PollInterval variable
+	cfg.PollInterval = DefaultPollInterval
 
 	flag.Parse()
 }

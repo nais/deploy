@@ -67,7 +67,7 @@ jobs:
         if grep -q "$tag" actions/deploy/version; then
           release_id=$(echo $latest | jq .id)
           curl -X DELETE https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases/$(release_id)
-        end
+        fi
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
