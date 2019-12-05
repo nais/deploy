@@ -1,0 +1,17 @@
+apiVersion: "nais.io/v1alpha1"
+kind: "Application"
+metadata:
+  name: testapp
+  namespace: nais
+  labels:
+    team: aura
+spec:
+  image: docker.pkg.github.com/nais/testapp/testapp:latest
+  port: 8080
+  liveness:
+    path: /ping
+  readiness:
+    path: /ping
+  replicas:
+    min: 2
+    max: 4
