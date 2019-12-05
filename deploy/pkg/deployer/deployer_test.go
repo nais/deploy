@@ -66,7 +66,7 @@ func validConfig() deployer.Config {
 	cfg := deployer.NewConfig()
 	cfg.Resource = []string{"testdata/nais.yaml"}
 	cfg.Cluster = "dev-fss"
-	cfg.Repository = "org/asdf"
+	cfg.Repository = "myrepo"
 	cfg.APIKey = "1234567812345678"
 	return cfg
 }
