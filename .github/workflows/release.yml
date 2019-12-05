@@ -70,12 +70,13 @@ jobs:
         fi
     - name: Create Release
       id: create_release
-      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: yolo
-        release_name: $(cat actions/deploy/version)
+      run: |
+        curl -X POST \
+        -d '{"tag_name": "${cat actions/deploy/version)"}' \
+        -H "Content-Type: application/json" \
+        https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases
     - name: Upload Linux Asset
       uses: actions/upload-release-asset@v1.0.1
       env:
