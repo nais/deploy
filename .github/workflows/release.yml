@@ -51,6 +51,23 @@ jobs:
         make deploy-release-linux
         make deploy-release-darwin
         make deploy-release-windows
+    - name: Force create tag
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git remote set-url origin "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+        git tag -f $(cat actions/deploy/version)
+        git push -f --tags
+    - name: Delete release if exists
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        latest=curl https://api.github.com/repos/${GITHUB_REPOSITORY)/releases/latest
+        tag=$(echo $latest | jq .tag)
+        if grep -q $tag actions/deploy/version; then
+          release_id=$(echo $latest | jq .id)
+          curl -X DELETE https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases/$(release_id)
+        end
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
