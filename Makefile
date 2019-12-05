@@ -22,7 +22,7 @@ token-generator:
 	go build -o bin/token-generator cmd/token-generator/*.go
 
 deploy:
-	go build -o bin/deploy cmd/deploy/*.go
+	go build -o bin/deploy cmd/deploy/main.go
 
 deploy-release-linux:
 	GOOS=linux \
