@@ -62,7 +62,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        latest=curl https://api.github.com/repos/${GITHUB_REPOSITORY)/releases/latest
+        latest=curl https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest
         tag=$(echo $latest | jq .tag)
         if grep -q $tag actions/deploy/version; then
           release_id=$(echo $latest | jq .id)
