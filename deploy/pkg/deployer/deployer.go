@@ -39,10 +39,10 @@ const (
 	DefaultDeployServer = "https://deployment.prod-sbs.nais.io"
 
 	ResourceRequiredMsg   = "at least one Kubernetes resource is required to make sense of the deployment"
-	APIKeyRequiredMsg     = "apikey is required"
-	MalformedURLMsg       = "wrong format of base URL"
-	ClusterRequiredMsg    = "cluster is required"
-	RepositoryRequiredMsg = "repository is required"
+	APIKeyRequiredMsg     = "API key required"
+	MalformedURLMsg       = "wrong format of deployment server URL"
+	ClusterRequiredMsg    = "cluster required; see https://doc.nais.io/clusters"
+	RepositoryRequiredMsg = "repository required"
 	MalformedAPIKeyMsg    = "API key must be a hex encoded string"
 
 	ExitSuccess ExitCode = iota
@@ -159,7 +159,6 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add(api_v1.SignatureHeader, fmt.Sprintf("%s", sig))
 	log.Infof("Submitting deployment request to %s...", targetURL.String())
-	//client := http.Client{}
 	resp, err := d.Client.Do(req)
 
 	if err != nil {

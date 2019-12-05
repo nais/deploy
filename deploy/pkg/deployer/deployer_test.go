@@ -2,12 +2,13 @@ package deployer_test
 
 import (
 	"encoding/json"
-	"github.com/navikt/deployment/deploy/pkg/deployer"
-	apiv1deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/navikt/deployment/deploy/pkg/deployer"
+	apiv1deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHappyPath(t *testing.T) {

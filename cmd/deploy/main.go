@@ -1,11 +1,12 @@
 package main
 
 import (
+	"net/http"
+	"os"
+
 	"github.com/navikt/deployment/deploy/pkg/deployer"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"net/http"
-	"os"
 )
 
 const defaultDeployServer = "https://deployment.prod-sbs.nais.io"
