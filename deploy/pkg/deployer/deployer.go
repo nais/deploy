@@ -44,7 +44,10 @@ const (
 	ClusterRequiredMsg    = "cluster required; see https://doc.nais.io/clusters"
 	RepositoryRequiredMsg = "repository required"
 	MalformedAPIKeyMsg    = "API key must be a hex encoded string"
+)
 
+// Kept separate to avoid skewing exit codes
+const (
 	ExitSuccess ExitCode = iota
 	ExitDeploymentFailure
 	ExitDeploymentError
