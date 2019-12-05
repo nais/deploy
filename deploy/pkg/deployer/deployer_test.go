@@ -81,6 +81,43 @@ func TestWaitForComplete(t *testing.T) {
 	assert.Equal(t, exitCode, deployer.ExitSuccess)
 }
 
+func TestWaitForTheInevitableEventualFailure(t *testing.T) {
+	requests := 0
+	cfg := validConfig()
+	cfg.Wait = true
+	cfg.PollInterval = time.Millisecond * 1
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		marshaler := json.NewEncoder(w)
+		switch r.RequestURI {
+		case "/api/v1/deploy":
+			w.WriteHeader(http.StatusCreated)
+			marshaler.Encode(&api_v1_deploy.DeploymentResponse{})
+		case "/api/v1/status":
+			var status string
+			w.WriteHeader(http.StatusOK)
+			switch requests {
+			case 0:
+				status = deployment.GithubDeploymentState_pending.String()
+			case 1:
+				status = deployment.GithubDeploymentState_in_progress.String()
+			case 2:
+				status = deployment.GithubDeploymentState_failure.String()
+			}
+			requests++
+			marshaler.Encode(&api_v1_status.StatusResponse{
+				Status: &status,
+			})
+		}
+	}))
+
+	d := deployer.Deployer{Client: server.Client(), DeployServer: server.URL}
+
+	exitCode, err := d.Run(cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, exitCode, deployer.ExitDeploymentFailure)
+}
+
 func TestValidationFailures(t *testing.T) {
 	for _, testCase := range []struct {
 		errorMsg  string
