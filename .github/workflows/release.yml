@@ -73,10 +73,9 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        release=$(curl -X POST \
-        -d '{"tag_name": "$(cat actions/deploy/version)"}' \
-        -H "Content-Type: application/json" \
-        https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases)
+        release=$(curl -X POST -d '{"tag_name": "$(cat actions/deploy/version)"}' -H "Content-Type: application/json" https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases)
+        echo $release
+        echo $(echo $release | jq .upload_url)
         echo ::set-output name=upload_url::$(echo $release | jq .upload_url)
     - name: Upload Linux Asset
       uses: actions/upload-release-asset@v1.0.1
