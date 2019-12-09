@@ -22,6 +22,7 @@ var (
 
 const (
 	DefaultTeamclientNamespace = "default"
+	CorrelationIDAnnotation    = "nais.io/deploymentCorrelationID"
 )
 
 func matchesCluster(req deployment.DeploymentRequest, cluster string) error {
@@ -60,6 +61,16 @@ func jsonToResources(json []json.RawMessage) ([]unstructured.Unstructured, error
 		}
 	}
 	return resources, nil
+}
+
+// Annotate a resource with the deployment correlation ID.
+func addCorrelationID(resource *unstructured.Unstructured, correlationID string) {
+	anno := resource.GetAnnotations()
+	if anno == nil {
+		anno = make(map[string]string)
+	}
+	anno[CorrelationIDAnnotation] = correlationID
+	resource.SetAnnotations(anno)
 }
 
 // Prepare decodes a string of bytes into a deployment request,
@@ -133,6 +144,8 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 	monitorable := 0
 
 	for index, resource := range resources {
+		addCorrelationID(&resource, req.GetDeliveryID())
+
 		if monitorableResource(&resource) {
 
 			monitorable += 1
