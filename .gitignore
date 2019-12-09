@@ -15,3 +15,6 @@
 # Go and IntelliJ
 .idea
 go.sum
+
+# Local test data
+/testdata
