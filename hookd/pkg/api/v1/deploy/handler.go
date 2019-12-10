@@ -205,6 +205,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch err {
 	case nil:
 		logger.Tracef("Team access to repository on GitHub validated successfully")
+	case github.ErrGitHubNotEnabled:
+		logger.Tracef("Skipping team access validation because GitHub integration is not enabled")
 	case github.ErrTeamNotExist, github.ErrTeamNoAccess:
 		deploymentResponse.Message = err.Error()
 		w.WriteHeader(http.StatusForbidden)
@@ -223,16 +225,20 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	githubDeployment, err = h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
 	deploymentResponse.GithubDeployment = githubDeployment
 
-	if err != nil {
+	switch err {
+	case nil:
+		logger = logger.WithField(types.LogFieldDeploymentID, githubDeployment.GetID())
+		logger.Info("GitHub deployment created successfully")
+	case github.ErrGitHubNotEnabled:
+		logger.Tracef("Skipping GitHub deployment API creation because GitHub integration is not enabled")
+		githubDeployment = &gh.Deployment{}
+	default:
 		w.WriteHeader(http.StatusBadGateway)
 		deploymentResponse.Message = "unable to create GitHub deployment"
 		deploymentResponse.render(w)
 		logger.Errorf("unable to create GitHub deployment: %s", err)
 		return
 	}
-
-	logger = logger.WithField(types.LogFieldDeploymentID, githubDeployment.GetID())
-	logger.Info("GitHub deployment created successfully")
 
 	deployMsg, err := DeploymentRequestMessage(deploymentRequest, githubDeployment, deploymentResponse.CorrelationID)
 	if err != nil {
