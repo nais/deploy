@@ -77,34 +77,37 @@ jobs:
           -d '{"tag_name": "'"$(cat actions/deploy/version)"'"}' \
           -H "Content-Type: application/json" \
           https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases)
-        echo ::set-output name=upload_url::$(echo $release | jq .upload_url)
+        echo ::set-output name=release_id::$(echo $release | jq .id)
     - name: Upload Linux Asset
-      uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./deploy-linux
-        asset_name: deploy-linux
-        asset_content_type: application/x-binary
+        BINARY: deploy-linux
+      run: |
+        curl -X POST \
+        -H 'Authorization: token ${GITHUB_TOKEN}' \
+        -H 'Content-Type: application/x-executable' \
+        --data-binary @${BINARY} \
+        https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${steps.create_release.outputs.release_id}/assets?name=${BINARY}
     - name: Upload Darwin Asset
-      uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./deploy-darwin
-        asset_name: deploy-darwin
-        asset_content_type: application/x-binary
+        BINARY: deploy-darwin
+      run: |
+        curl -X POST \
+        -H 'Authorization: token ${GITHUB_TOKEN}' \
+        -H 'Content-Type: application/x-executable' \
+        --data-binary @${BINARY} \
+        https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${steps.create_release.outputs.release_id}/assets?name=${BINARY}
     - name: Upload Windows Asset
-      uses: actions/upload-release-asset@v1.0.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./deploy-windows
-        asset_name: deploy-windows
-        asset_content_type: application/x-binary
+        BINARY: deploy-windows
+      run: |
+        curl -X POST \
+        -H 'Authorization: token ${GITHUB_TOKEN}' \
+        -H 'Content-Type: application/x-executable' \
+        --data-binary @${BINARY} \
+        https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${steps.create_release.outputs.release_id}/assets?name=${BINARY}
 
   deploy:
     name: Deploy to Kubernetes
