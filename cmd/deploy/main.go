@@ -9,11 +9,10 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-const defaultDeployServer = "https://deployment.prod-sbs.nais.io"
-
 func main() {
-	d := deployer.Deployer{Client: http.DefaultClient, DeployServer: defaultDeployServer}
-	code, err := d.Run(deployer.NewConfig())
+	cfg := deployer.NewConfig()
+	d := deployer.Deployer{Client: http.DefaultClient, DeployServer: cfg.DeployServerURL}
+	code, err := d.Run(cfg)
 
 	if err != nil {
 		if code == deployer.ExitInvocationFailure {
