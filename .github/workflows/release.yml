@@ -84,30 +84,27 @@ jobs:
         BINARY: deploy-linux
       run: |
         curl -X POST \
-        -H 'Authorization: token ${GITHUB_TOKEN}' \
         -H 'Content-Type: application/x-executable' \
         --data-binary @${BINARY} \
-        https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
+        https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
     - name: Upload Darwin Asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         BINARY: deploy-darwin
       run: |
         curl -X POST \
-        -H 'Authorization: token ${GITHUB_TOKEN}' \
         -H 'Content-Type: application/x-executable' \
         --data-binary @${BINARY} \
-        https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
+        https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
     - name: Upload Windows Asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         BINARY: deploy-windows
       run: |
         curl -X POST \
-        -H 'Authorization: token ${GITHUB_TOKEN}' \
         -H 'Content-Type: application/x-executable' \
         --data-binary @${BINARY} \
-        https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
+        https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
 
   deploy:
     name: Deploy to Kubernetes
