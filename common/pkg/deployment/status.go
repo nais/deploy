@@ -7,7 +7,7 @@ import (
 func NewErrorStatus(req DeploymentRequest, err error) *DeploymentStatus {
 	return &DeploymentStatus{
 		Deployment:  req.Deployment,
-		Description: fmt.Sprintf("Error in deployment request: %s", err),
+		Description: fmt.Sprintf("Error: %s", err),
 		State:       GithubDeploymentState_error,
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),

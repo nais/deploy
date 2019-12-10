@@ -22,7 +22,6 @@ var (
 
 const (
 	DefaultTeamclientNamespace = "default"
-	CorrelationIDAnnotation    = "nais.io/deploymentCorrelationID"
 )
 
 func matchesCluster(req deployment.DeploymentRequest, cluster string) error {
@@ -69,7 +68,7 @@ func addCorrelationID(resource *unstructured.Unstructured, correlationID string)
 	if anno == nil {
 		anno = make(map[string]string)
 	}
-	anno[CorrelationIDAnnotation] = correlationID
+	anno[kubeclient.CorrelationIDAnnotation] = correlationID
 	resource.SetAnnotations(anno)
 }
 
@@ -154,7 +153,7 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 			logger.Infof("Monitoring rollout status of deployment '%s' in namespace '%s' for %s", n, ns, deploymentTimeout.String())
 
 			go func() {
-				err := teamClient.WaitForDeployment(logger, ns, n, time.Now().Add(deploymentTimeout))
+				err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
 				if err == nil {
 					deployStatus <- deployment.NewSuccessStatus(*req)
 				} else {
