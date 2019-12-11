@@ -20,7 +20,7 @@ Intermediary statuses might be posted, indicating the current state of the deplo
 
 ## Usage
 
-The usage documentation has been moved to [NAIS platform documentation](https://github.com/nais/doc/tree/master/content/deploy).
+The usage documentation has been moved to [NAIS platform documentation](https://doc.nais.io/deployment).
 
 ### Deploy API
 
