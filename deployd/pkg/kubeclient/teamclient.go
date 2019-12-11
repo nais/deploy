@@ -195,6 +195,11 @@ func (c *teamClient) WaitForDeployment(logger *log.Entry, resource unstructured.
 	var resourceVersion int
 	var updated bool
 
+	logger = logger.WithFields(log.Fields{
+		"application": resource.GetName(),
+		"namespace":   resource.GetNamespace(),
+	})
+
 	cli := c.structuredClient.AppsV1().Deployments(resource.GetNamespace())
 
 	// For Naiserator applications, rely on Naiserator set a terminal rollout status.

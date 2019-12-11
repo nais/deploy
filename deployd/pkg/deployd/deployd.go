@@ -99,9 +99,11 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 	logger.Data = nl.Data // propagate changes down to caller
 
 	if err != nil {
-		logger.Tracef("Discarding incoming message: %s", err)
 		if err != ErrNotMyCluster {
+			logger.Tracef("Drop message: %s", err)
 			deployStatus <- deployment.NewFailureStatus(*req, err)
+		} else {
+			logger.Tracef("Drop message: running in %s, but deployment is addressed to %s", cfg.Cluster, req.GetCluster())
 		}
 		return
 	}
