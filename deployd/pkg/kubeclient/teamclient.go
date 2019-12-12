@@ -158,7 +158,7 @@ func (c *teamClient) waitForApplication(logger *log.Entry, resource unstructured
 		}
 
 		status = parseAppStatus(*updated)
-		if status.CorrelationID != correlationID {
+		if status == nil || status.CorrelationID != correlationID {
 			logger.Tracef("Application correlation ID mismatch; not picked up by Naiserator yet.")
 			goto NEXT
 		}
