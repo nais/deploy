@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	flag "github.com/spf13/pflag"
@@ -71,7 +72,7 @@ func getEnv(key, fallback string) string {
 
 func getEnvStringSlice(key string) []string {
 	if value, ok := os.LookupEnv(key); ok {
-		return []string{value}
+		return strings.Split(value, ",")
 	}
 
 	return []string{}
