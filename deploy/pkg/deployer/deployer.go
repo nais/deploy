@@ -56,6 +56,7 @@ const (
 	ExitUnavailable
 	ExitInvocationFailure
 	ExitInternalError
+	ExitTemplateError
 )
 
 type Deployer struct {
@@ -103,7 +104,17 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	for i, path := range cfg.Resource {
 		resources[i], err = fileAsJSON(path, templateVariables)
 		if err != nil {
-			return ExitInvocationFailure, err
+			if cfg.PrintPayload {
+				errStr := err.Error()[len(path)+2:]
+				line, er := detectErrorLine(errStr)
+				if er == nil {
+					ctx := errorContext(string(resources[i]), line, 7)
+					for _, l := range ctx {
+						fmt.Println(l)
+					}
+				}
+			}
+			return ExitTemplateError, err
 		}
 	}
 
@@ -390,6 +401,26 @@ func templateVariablesFromSlice(vars []string) TemplateVariables {
 	return tv
 }
 
+func detectErrorLine(e string) (int, error) {
+	var line int
+	_, err := fmt.Sscanf(e, "yaml: line %d:", &line)
+	return line, err
+}
+
+func errorContext(content string, line int, around int) []string {
+	context := make([]string, 0)
+	lines := strings.Split(content, "\n")
+	format := "%03d: %s"
+	for l := range lines {
+		context = append(context, fmt.Sprintf(format, l+1, lines[l]))
+		if l+1 == line {
+			helper := "     " + strings.Repeat("^", len(lines[l])) + " <--- error near this line"
+			context = append(context, helper)
+		}
+	}
+	return context
+}
+
 func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -398,13 +429,14 @@ func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
 
 	templated, err := templatedFile(file, ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", path, err)
+		errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
+		return nil, fmt.Errorf("%s: %s", path, errMsg)
 	}
 
 	// Since JSON is a subset of YAML, passing JSON through this method is a no-op.
 	data, err := yaml.YAMLToJSON(templated)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %s", path, err)
+		return templated, fmt.Errorf("%s: %s", path, err)
 	}
 
 	return data, nil
