@@ -387,7 +387,7 @@ func run() error {
 				logger = logger.WithFields(log.Fields{
 					deployment.LogFieldDeploymentStatusID: ghs.GetID(),
 				})
-				logger.Infof("Published deployment status to GitHub: %s", ghs.GetDescription())
+				logger.Infof("Published deployment status to GitHub: %s", status.GetDescription())
 				continue
 			}
 
