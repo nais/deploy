@@ -31,13 +31,14 @@ type DeploymentHandler struct {
 }
 
 type DeploymentRequest struct {
-	Resources  json.RawMessage `json:"resources,omitempty"`
-	Team       string          `json:"team,omitempty"`
-	Cluster    string          `json:"cluster,omitempty"`
-	Owner      string          `json:"owner,omitempty"`
-	Repository string          `json:"repository,omitempty"`
-	Ref        string          `json:"ref,omitempty"`
-	Timestamp  int64           `json:"timestamp"`
+	Resources   json.RawMessage `json:"resources,omitempty"`
+	Team        string          `json:"team,omitempty"`
+	Cluster     string          `json:"cluster,omitempty"`
+	Environment string          `json:"environment,omitempty"`
+	Owner       string          `json:"owner,omitempty"`
+	Repository  string          `json:"repository,omitempty"`
+	Ref         string          `json:"ref,omitempty"`
+	Timestamp   int64           `json:"timestamp"`
 }
 
 type DeploymentResponse struct {
@@ -65,6 +66,10 @@ func (r *DeploymentRequest) validate() error {
 		return fmt.Errorf("no cluster specified")
 	}
 
+	if len(r.Environment) == 0 {
+		return fmt.Errorf("no environment specified")
+	}
+
 	if len(r.Team) == 0 {
 		return fmt.Errorf("no team specified")
 	}
@@ -87,7 +92,7 @@ func (r *DeploymentRequest) validate() error {
 func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
 	requiredContexts := make([]string, 0)
 	return gh.DeploymentRequest{
-		Environment:      gh.String(r.Cluster),
+		Environment:      gh.String(r.Environment),
 		Ref:              gh.String(r.Ref),
 		Task:             gh.String(api_v1.DirectDeployGithubTask),
 		AutoMerge:        gh.Bool(false),

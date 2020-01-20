@@ -27,6 +27,7 @@ func TestHappyPath(t *testing.T) {
 
 		assert.Equal(t, deployRequest.Team, "aura", "auto-detection of team works")
 		assert.Equal(t, deployRequest.Owner, deployer.DefaultOwner, "defaulting works")
+		assert.Equal(t, deployRequest.Environment, "dev-fss:nais", "auto-detection of environment works")
 
 		b, err := json.Marshal(&api_v1_deploy.DeploymentResponse{})
 
