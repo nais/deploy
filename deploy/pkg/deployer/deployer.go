@@ -134,6 +134,26 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		}
 	}
 
+	if len(cfg.Environment) == 0 {
+		log.Infof("Environment not explicitly specified; attempting auto-detection...")
+
+		namespaces := make(map[string]interface{})
+		cfg.Environment = cfg.Cluster
+
+		for i, _ := range cfg.Resource {
+			namespace := detectNamespace(resources[i])
+			namespaces[namespace] = new(interface{})
+		}
+
+		if len(namespaces) == 1 {
+			for namespace, _ := range namespaces {
+				if len(namespace) != 0 {
+					cfg.Environment = fmt.Sprintf("%s:%s", cfg.Cluster, namespace)
+				}
+			}
+		}
+	}
+
 	data := make([]byte, 0)
 	buf := bytes.NewBuffer(data)
 	allResources, err := wrapResources(resources)
@@ -312,13 +332,14 @@ func check(deploymentID int64, key []byte, targetURL url.URL, cfg Config) (bool,
 
 func mkpayload(w io.Writer, resources json.RawMessage, cfg Config) error {
 	req := api_v1_deploy.DeploymentRequest{
-		Resources:  resources,
-		Team:       cfg.Team,
-		Cluster:    cfg.Cluster,
-		Ref:        cfg.Ref,
-		Owner:      cfg.Owner,
-		Repository: cfg.Repository,
-		Timestamp:  time.Now().Unix(),
+		Resources:   resources,
+		Team:        cfg.Team,
+		Cluster:     cfg.Cluster,
+		Environment: cfg.Environment,
+		Ref:         cfg.Ref,
+		Owner:       cfg.Owner,
+		Repository:  cfg.Repository,
+		Timestamp:   time.Now().Unix(),
 	}
 
 	enc := json.NewEncoder(w)
@@ -351,6 +372,22 @@ func detectTeam(resource json.RawMessage) string {
 	}
 
 	return buf.Metadata.Labels.Team
+}
+
+func detectNamespace(resource json.RawMessage) string {
+	type namespaceMeta struct {
+		Metadata struct {
+			Namespace string `json:"namespace"`
+		} `json:"metadata"`
+	}
+	buf := &namespaceMeta{}
+	err := json.Unmarshal(resource, buf)
+
+	if err != nil {
+		return ""
+	}
+
+	return buf.Metadata.Namespace
 }
 
 // Wrap JSON resources in a JSON array.

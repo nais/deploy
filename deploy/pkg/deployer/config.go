@@ -15,6 +15,7 @@ type Config struct {
 	APIKey          string
 	DeployServerURL string
 	Cluster         string
+	Environment     string
 	PrintPayload    bool
 	DryRun          bool
 	Owner           string
@@ -38,6 +39,7 @@ func init() {
 	flag.StringVar(&cfg.APIKey, "apikey", os.Getenv("APIKEY"), "NAIS Deploy API key. (env APIKEY)")
 	flag.StringVar(&cfg.DeployServerURL, "deploy-server", getEnv("DEPLOY_SERVER", DefaultDeployServer), "URL to API server. (env DEPLOY_SERVER)")
 	flag.StringVar(&cfg.Cluster, "cluster", os.Getenv("CLUSTER"), "NAIS cluster to deploy into. (env CLUSTER)")
+	flag.StringVar(&cfg.Environment, "environment", os.Getenv("ENVIRONMENT"), "Environment for GitHub deployment. Autodetected from nais.yaml if not specified. (env ENVIRONMENT)")
 	flag.BoolVar(&cfg.DryRun, "dry-run", getEnvBool("DRY_RUN"), "Run templating, but don't actually make any requests. (env DRY_RUN)")
 	flag.StringVar(&cfg.Owner, "owner", getEnv("OWNER", DefaultOwner), "Owner of GitHub repository. (env OWNER)")
 	flag.BoolVar(&cfg.PrintPayload, "print-payload", getEnvBool("PRINT_PAYLOAD"), "Print templated resources to standard output. (env PRINT_PAYLOAD)")
