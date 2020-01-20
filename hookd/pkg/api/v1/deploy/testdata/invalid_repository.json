@@ -5,7 +5,8 @@
       "team": "nobody",
       "cluster": "local",
       "owner": "foo",
-      "ref": "master"
+      "ref": "master",
+      "environment": "baz"
     }
   },
   "response": {

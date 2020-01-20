@@ -5,7 +5,8 @@
       "team": "nobody",
       "cluster": "local",
       "repository": "bar",
-      "ref": "master"
+      "ref": "master",
+      "environment": "baz"
     }
   },
   "response": {

@@ -5,7 +5,8 @@
       "team": "nobody",
       "cluster": "local",
       "owner": "foo",
-      "repository": "bar"
+      "repository": "bar",
+      "environment": "baz"
     }
   },
   "response": {

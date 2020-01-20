@@ -8,7 +8,8 @@
       "cluster": "local",
       "owner": "foo",
       "repository": "bar",
-      "ref": "master"
+      "ref": "master",
+      "environment": "baz"
     }
   },
   "response": {

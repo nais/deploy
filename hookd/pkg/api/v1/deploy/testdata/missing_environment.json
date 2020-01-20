@@ -2,17 +2,17 @@
   "request": {
     "body": {
       "resources": [{}],
-      "cluster": "local",
+      "team": "nobody",
       "owner": "foo",
       "repository": "bar",
       "ref": "master",
-      "environment": "baz"
+      "cluster": "local"
     }
   },
   "response": {
     "statusCode": 400,
     "body": {
-      "message": "invalid deployment request: no team specified"
+      "message": "invalid deployment request: no environment specified"
     }
   }
 }
