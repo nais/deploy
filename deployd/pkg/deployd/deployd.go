@@ -17,7 +17,7 @@ var (
 	ErrNotMyCluster     = fmt.Errorf("your message belongs in another cluster")
 	ErrDeadlineExceeded = fmt.Errorf("deadline exceeded")
 
-	deploymentTimeout = time.Second * 300
+	deploymentTimeout = time.Minute * 30
 )
 
 const (
