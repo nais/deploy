@@ -2,9 +2,8 @@ package kubeclient
 
 import (
 	"fmt"
-	"github.com/navikt/deployment/deploy/pkg/deployer/strategy"
+	"github.com/navikt/deployment/deployd/pkg/strategy"
 	"time"
-
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
