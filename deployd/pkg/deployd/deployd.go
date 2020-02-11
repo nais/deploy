@@ -40,7 +40,6 @@ func meetsDeadline(req deployment.DeploymentRequest) error {
 	return nil
 }
 
-
 func jsonToResources(json []json.RawMessage) ([]unstructured.Unstructured, error) {
 	resources := make([]unstructured.Unstructured, len(json))
 	for i := range resources {

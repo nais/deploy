@@ -11,21 +11,20 @@ import (
 )
 
 var (
-	requestInterval                = time.Second * 5
-	ErrDeploymentTimeout           = fmt.Errorf("timeout while waiting for deployment to succeed")
-	ErrWatchStrategyNotImplemented = fmt.Errorf("watch for this resource is not implemented@")
+	requestInterval      = time.Second * 5
+	ErrDeploymentTimeout = fmt.Errorf("timeout while waiting for deployment to succeed")
 )
 
 type WatchStrategy interface {
 	Watch(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error
 }
 
-type notImplemented struct {
+type NoOp struct {
 }
 
-func (c notImplemented) Watch(logger *log.Entry, resource unstructured.Unstructured, _ time.Time) error {
-	logger.Errorf("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
-	return ErrWatchStrategyNotImplemented
+func (c NoOp) Watch(logger *log.Entry, resource unstructured.Unstructured, _ time.Time) error {
+	logger.Info("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
+	return nil
 }
 func NewWatchStrategy(gvk schema.GroupVersionKind, structuredClient kubernetes.Interface, unstructuredClient dynamic.Interface) WatchStrategy {
 	if gvk.Group == "nais.io" && gvk.Kind == "Application" {
@@ -40,7 +39,5 @@ func NewWatchStrategy(gvk schema.GroupVersionKind, structuredClient kubernetes.I
 		return job{client: structuredClient}
 	}
 
-	return notImplemented{}
-
+	return NoOp{}
 }
-
