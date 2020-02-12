@@ -19,5 +19,6 @@ jobs:
         APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
         CLUSTER: dev-fss
         RESOURCE: canary.yml
+        VARS: vars.yml
         OWNER: navikt
         REPOSITORY: nais-deploy
