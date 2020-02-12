@@ -10,11 +10,11 @@ jobs:
     - name: generate variables
       run: |
         cat > vars.yml << EOF
-  ---
-  image: docker.pkg.github.com/nais/testapp/testapp:latest
-  now: $(date +%s%N)
-  fqdn: nais-deploy-canary.dev-fss.nais.io
-  EOF
+---
+image: docker.pkg.github.com/nais/testapp/testapp:latest
+now: $(date +%s%N)
+fqdn: nais-deploy-canary.dev-fss.nais.io
+EOF
     - uses: nais/deploy/actions/deploy@v1
       env:
         APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
