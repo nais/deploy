@@ -22,3 +22,4 @@ jobs:
         VARS: vars.yml
         OWNER: navikt
         REPOSITORY: nais-deploy
+        PRINT_PAYLOAD: true
