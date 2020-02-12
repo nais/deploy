@@ -1,0 +1,29 @@
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  labels:
+    team: aura
+  name: nais-deploy-canary
+  namespace: nais
+spec:
+  env:
+  - name: DEPLOY_START
+    value: "{{ now }}"
+  image: "{{ image }}"
+  ingresses:
+  - "https://{{ fqdn }}"
+  liveness:
+    path: /ping
+  port: 8080
+  readiness:
+    path: /ping
+  replicas:
+    max: 1
+    min: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
