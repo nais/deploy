@@ -71,7 +71,7 @@ func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*un
 	ns := resource.GetNamespace()
 
 	if len(ns) == 0 {
-		return nil, fmt.Errorf("namespace required")
+		return c.createOrUpdate(clusterResource, resource)
 	}
 
 	namespacedResource := clusterResource.Namespace(ns)
