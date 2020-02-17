@@ -2,6 +2,7 @@ package deployer_test
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,6 +29,49 @@ func TestHappyPath(t *testing.T) {
 		assert.Equal(t, deployRequest.Team, "aura", "auto-detection of team works")
 		assert.Equal(t, deployRequest.Owner, deployer.DefaultOwner, "defaulting works")
 		assert.Equal(t, deployRequest.Environment, "dev-fss:nais", "auto-detection of environment works")
+
+		b, err := json.Marshal(&api_v1_deploy.DeploymentResponse{})
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		w.Write(b)
+	}))
+
+	d := deployer.Deployer{Client: server.Client(), DeployServer: server.URL}
+
+	exitCode, err := d.Run(cfg)
+	assert.NoError(t, err)
+	assert.Equal(t, exitCode, deployer.ExitSuccess)
+}
+
+func TestHappyPathForAlert(t *testing.T) {
+	cfg := validConfig()
+	cfg.Resource = []string{"testdata/alert.json"}
+	expectedOutput, err := ioutil.ReadFile(cfg.Resource[0])
+	if err != nil {
+		assert.NoError(t, err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+
+		deployRequest := api_v1_deploy.DeploymentRequest{}
+
+		if err := json.NewDecoder(r.Body).Decode(&deployRequest); err != nil {
+			t.Error(err)
+		}
+
+		assert.Equal(t, deployRequest.Team, "aura", "auto-detection of team works")
+		assert.Equal(t, deployRequest.Owner, deployer.DefaultOwner, "defaulting works")
+		assert.Equal(t, deployRequest.Environment, "dev-fss", "auto-detection of environment works")
+
+		resources := make([]json.RawMessage, len(cfg.Resource))
+		resources[0] = expectedOutput
+		expectedBytes, err := json.MarshalIndent(resources, "  ", "  ")
+
+		assert.NoError(t, err)
+		assert.Equal(t, string(expectedBytes), string(deployRequest.Resources))
 
 		b, err := json.Marshal(&api_v1_deploy.DeploymentResponse{})
 
