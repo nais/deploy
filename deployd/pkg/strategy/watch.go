@@ -24,7 +24,7 @@ type NoOp struct {
 }
 
 func (c NoOp) Watch(logger *log.Entry, resource unstructured.Unstructured, _ time.Time) error {
-	logger.Info("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
+	logger.Infof("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
 	return nil
 }
 func NewWatchStrategy(gvk schema.GroupVersionKind, structuredClient kubernetes.Interface, unstructuredClient dynamic.Interface) WatchStrategy {
