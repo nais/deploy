@@ -2,6 +2,8 @@ package kubeclient
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/navikt/deployment/deployd/pkg/strategy"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -9,7 +11,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
-	"time"
 )
 
 const (

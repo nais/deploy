@@ -2,6 +2,9 @@ package strategy
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -9,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"strings"
-	"time"
 )
 
 const (
@@ -89,7 +90,6 @@ func (a application) getApplicationEvent(resource unstructured.Unstructured, rea
 
 	return event, nil
 }
-
 
 func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error {
 	var updated *unstructured.Unstructured
