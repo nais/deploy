@@ -3,6 +3,7 @@ package deployd
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
@@ -38,17 +39,6 @@ func meetsDeadline(req deployment.DeploymentRequest) error {
 		return ErrDeadlineExceeded
 	}
 	return nil
-}
-
-func monitorableResource(resource *unstructured.Unstructured) bool {
-	gvk := resource.GroupVersionKind()
-	if gvk.Kind == "Application" && gvk.Group == "nais.io" {
-		return true
-	}
-	if gvk.Kind == "Deployment" && (gvk.Group == "apps" || gvk.Group == "extensions") {
-		return true
-	}
-	return false
 }
 
 func jsonToResources(json []json.RawMessage) ([]unstructured.Unstructured, error) {
@@ -142,32 +132,37 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 
 	logger.Infof("Accepting incoming deployment request")
 
-	monitorable := 0
+	wait := sync.WaitGroup{}
+	errors := make(chan error, len(resources))
 
 	for index, resource := range resources {
 		addCorrelationID(&resource, req.GetDeliveryID())
 
-		if monitorableResource(&resource) {
+		gvk := resource.GroupVersionKind().String()
+		ns := resource.GetNamespace()
+		n := resource.GetName()
+		logger = logger.WithFields(log.Fields{
+			"name":      n,
+			"namespace": ns,
+			"gvk":       gvk,
+		})
 
-			monitorable += 1
-			ns := resource.GetNamespace()
-			n := resource.GetName()
-			logger.Infof("Monitoring rollout status of deployment '%s' in namespace '%s' for %s", n, ns, deploymentTimeout.String())
-
-			go func() {
-				err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
-				if err == nil {
-					deployStatus <- deployment.NewSuccessStatus(*req)
-				} else {
-					deployStatus <- deployment.NewFailureStatus(*req, err)
-				}
-			}()
-		}
+		go func() {
+			wait.Add(1)
+			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", gvk, n, ns, deploymentTimeout.String())
+			err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
+			if err != nil {
+				errors <- err
+			}
+			wait.Done()
+		}()
 
 		deployed, err := teamClient.DeployUnstructured(resource)
 		if err != nil {
-			deployStatus <- deployment.NewFailureStatus(*req, fmt.Errorf("resource %d: %s", index+1, err))
-			return
+			err = fmt.Errorf("resource %d: %s", index+1, err)
+			logger.Error(err)
+			errors <- err
+			break
 		}
 
 		metrics.KubernetesResources.Inc()
@@ -175,9 +170,18 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 		logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
 	}
 
-	if monitorable > 0 {
-		deployStatus <- deployment.NewInProgressStatus(*req)
-	} else {
-		deployStatus <- deployment.NewSuccessStatus(*req)
-	}
+	deployStatus <- deployment.NewInProgressStatus(*req)
+
+	go func() {
+		wait.Wait()
+		logger.Infof("Finished monitoring all resources")
+
+		errCount := len(errors)
+		if errCount == 0 {
+			deployStatus <- deployment.NewSuccessStatus(*req)
+		} else {
+			err := <-errors
+			deployStatus <- deployment.NewFailureStatus(*req, fmt.Errorf("%s (total of %d errors)", err, errCount))
+		}
+	}()
 }
