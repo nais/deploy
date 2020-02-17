@@ -3,6 +3,7 @@ package deployd
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
@@ -131,26 +132,37 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 
 	logger.Infof("Accepting incoming deployment request")
 
+	wait := sync.WaitGroup{}
+	errors := make(chan error, len(resources))
+
 	for index, resource := range resources {
 		addCorrelationID(&resource, req.GetDeliveryID())
 
+		gvk := resource.GroupVersionKind().String()
+		ns := resource.GetNamespace()
+		n := resource.GetName()
+		logger = logger.WithFields(log.Fields{
+			"name":      n,
+			"namespace": ns,
+			"gvk":       gvk,
+		})
+
 		go func() {
-			gvk := resource.GroupVersionKind().String()
-			ns := resource.GetNamespace()
-			n := resource.GetName()
+			wait.Add(1)
 			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", gvk, n, ns, deploymentTimeout.String())
 			err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
-			if err == nil {
-				deployStatus <- deployment.NewSuccessStatus(*req)
-			} else {
-				deployStatus <- deployment.NewFailureStatus(*req, err)
+			if err != nil {
+				errors <- err
 			}
+			wait.Done()
 		}()
 
 		deployed, err := teamClient.DeployUnstructured(resource)
 		if err != nil {
-			deployStatus <- deployment.NewFailureStatus(*req, fmt.Errorf("resource %d: %s", index+1, err))
-			return
+			err = fmt.Errorf("resource %d: %s", index+1, err)
+			logger.Error(err)
+			errors <- err
+			break
 		}
 
 		metrics.KubernetesResources.Inc()
@@ -159,4 +171,17 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 	}
 
 	deployStatus <- deployment.NewInProgressStatus(*req)
+
+	go func() {
+		wait.Wait()
+		logger.Infof("Finished monitoring all resources")
+
+		errCount := len(errors)
+		if errCount == 0 {
+			deployStatus <- deployment.NewSuccessStatus(*req)
+		} else {
+			err := <-errors
+			deployStatus <- deployment.NewFailureStatus(*req, fmt.Errorf("%s (total of %d errors)", err, errCount))
+		}
+	}()
 }

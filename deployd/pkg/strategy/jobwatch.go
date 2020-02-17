@@ -19,11 +19,6 @@ func (j job) Watch(logger *log.Entry, resource unstructured.Unstructured, deadli
 	var job *v1.Job
 	var err error
 
-	logger = logger.WithFields(log.Fields{
-		"job":       resource.GetName(),
-		"namespace": resource.GetNamespace(),
-	})
-
 	client := j.client.BatchV1().Jobs(resource.GetNamespace())
 
 	// Wait until the new job object is present in the cluster.

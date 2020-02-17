@@ -27,6 +27,7 @@ func (c NoOp) Watch(logger *log.Entry, resource unstructured.Unstructured, _ tim
 	logger.Infof("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
 	return nil
 }
+
 func NewWatchStrategy(gvk schema.GroupVersionKind, structuredClient kubernetes.Interface, unstructuredClient dynamic.Interface) WatchStrategy {
 	if gvk.Group == "nais.io" && gvk.Kind == "Application" {
 		return application{unstructuredClient: unstructuredClient, structuredClient: structuredClient}

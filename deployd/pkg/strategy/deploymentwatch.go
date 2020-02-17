@@ -24,11 +24,6 @@ func (d deployment) Watch(logger *log.Entry, resource unstructured.Unstructured,
 	var resourceVersion int
 	var updated bool
 
-	logger = logger.WithFields(log.Fields{
-		"deployment": resource.GetName(),
-		"namespace":  resource.GetNamespace(),
-	})
-
 	client := d.client.AppsV1().Deployments(resource.GetNamespace())
 
 	// For native Kubernetes deployment objects, get the current deployment object.
