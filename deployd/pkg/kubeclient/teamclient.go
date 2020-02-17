@@ -3,15 +3,14 @@ package kubeclient
 import (
 	"fmt"
 	"github.com/navikt/deployment/deployd/pkg/strategy"
-	"time"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"time"
 )
-
 
 const (
 	CorrelationIDAnnotation = "nais.io/deploymentCorrelationID"
@@ -50,18 +49,15 @@ func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*un
 	ns := resource.GetNamespace()
 
 	if len(ns) == 0 {
-		return c.createOrUpdate(clusterResource, resource)
+		return strategy.NewDeployStrategy(gvk, clusterResource).Deploy(resource)
+	} else {
+		return strategy.NewDeployStrategy(gvk, clusterResource.Namespace(ns)).Deploy(resource)
 	}
-
-	namespacedResource := clusterResource.Namespace(ns)
-
-	return strategy.NewDeployStrategy(gvk, namespacedResource).Deploy(resource)
 }
 
 // Returns nil after the next generation of the deployment is successfully rolled out,
 // or error if it has not succeeded within the specified deadline.
 func (c *teamClient) WaitForDeployment(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error {
 	gvk := resource.GroupVersionKind()
-	return strategy.NewWatchStrategy(gvk,c.structuredClient,c.unstructuredClient).Watch(logger,resource,deadline)
+	return strategy.NewWatchStrategy(gvk, c.structuredClient, c.unstructuredClient).Watch(logger, resource, deadline)
 }
-
