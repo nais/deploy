@@ -396,6 +396,9 @@ func wrapResources(resources []json.RawMessage) (json.RawMessage, error) {
 }
 
 func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
+	if len(ctx) == 0 {
+		return data, nil
+	}
 	template, err := raymond.Parse(string(data))
 	if err != nil {
 		return nil, fmt.Errorf("parse template file: %s", err)

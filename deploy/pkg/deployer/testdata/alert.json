@@ -1,0 +1,26 @@
+{
+  "apiVersion": "nais.io/v1alpha1",
+  "kind": "Alert",
+  "metadata": {
+    "labels": {
+      "team": "aura"
+    },
+    "name": "aura-alerts"
+  },
+  "spec": {
+    "alerts": [
+      {
+        "action": "Bruk describe og logs på {{ $labels.kubernetes_pod_name }}",
+        "alert": "applikasjon nede",
+        "description": "{{ $labels.app }} er nede i {{ $labels.kubernetes_namespace }}",
+        "expr": "up{app=\"testapp\", job=\"kubernetes-pods\"} == 0",
+        "for": "2m"
+      }
+    ],
+    "receivers": {
+      "slack": {
+        "channel": "#aura-alerts"
+      }
+    }
+  }
+}
