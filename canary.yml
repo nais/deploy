@@ -6,7 +6,7 @@ metadata:
   labels:
     team: aura
   name: nais-deploy-canary
-  namespace: nais
+  namespace: aura
 spec:
   env:
   - name: DEPLOY_START
