@@ -152,6 +152,8 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 				}
 			}
 		}
+
+		log.Infof("Detected environment '%s'", cfg.Environment)
 	}
 
 	data := make([]byte, 0)
