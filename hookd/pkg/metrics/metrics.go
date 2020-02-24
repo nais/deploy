@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -80,6 +82,10 @@ func UpdateQueue(status deployment.DeploymentStatus) {
 	}
 
 	queueSize.Set(float64(len(deployQueue)))
+}
+
+func WriteQueue(w io.Writer) error {
+	return json.NewEncoder(w).Encode(deployQueue)
 }
 
 var (

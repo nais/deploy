@@ -19,6 +19,7 @@ import (
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
+	api_v1_queue "github.com/navikt/deployment/hookd/pkg/api/v1/queue"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/config"
@@ -193,6 +194,8 @@ func run() error {
 		Clusters:              cfg.Clusters,
 	}
 
+	queueHandler := &api_v1_queue.Handler{}
+
 	// Pre-populate request metrics
 	for _, code := range api_v1_deploy.StatusCodes {
 		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
@@ -227,6 +230,7 @@ func run() error {
 		)
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
 		r.Post("/status", statusHandler.ServeHTTP)
+		r.Get("/queue", queueHandler.ServeHTTP)
 		if len(provisionKey) == 0 {
 			log.Error("Refusing to set up team API provisioning endpoint without pre-shared secret; try using --provision-key")
 			log.Error("Note: /api/v1/provision will be unavailable")
