@@ -6,6 +6,7 @@ import (
 
 const (
 	LogFieldDeliveryID           = "delivery_id"
+	LogFieldCorrelationID        = "correlation_id"
 	LogFieldRepository           = "repository"
 	LogFieldDeploymentID         = "deployment_id"
 	LogFieldCluster              = "deployment_cluster"
@@ -17,7 +18,8 @@ const (
 
 func (m *DeploymentStatus) LogFields() log.Fields {
 	return log.Fields{
-		LogFieldDeliveryID:           m.GetDeliveryID(),
+		LogFieldDeliveryID:           m.GetDeliveryID(), // deprecated
+		LogFieldCorrelationID:        m.GetDeliveryID(),
 		LogFieldRepository:           m.GetDeployment().GetRepository().FullName(),
 		LogFieldDeploymentID:         m.GetDeployment().GetDeploymentID(),
 		LogFieldDeploymentStatusType: m.GetState().String(),
@@ -28,10 +30,11 @@ func (m *DeploymentStatus) LogFields() log.Fields {
 
 func (m *DeploymentRequest) LogFields() log.Fields {
 	return log.Fields{
-		LogFieldDeliveryID:   m.GetDeliveryID(),
-		LogFieldDeploymentID: m.GetDeployment().GetDeploymentID(),
-		LogFieldTeam:         m.GetPayloadSpec().GetTeam(),
-		LogFieldCluster:      m.GetCluster(),
-		LogFieldRepository:   m.GetDeployment().GetRepository().FullName(),
+		LogFieldDeliveryID:    m.GetDeliveryID(), // deprecated
+		LogFieldCorrelationID: m.GetDeliveryID(),
+		LogFieldDeploymentID:  m.GetDeployment().GetDeploymentID(),
+		LogFieldTeam:          m.GetPayloadSpec().GetTeam(),
+		LogFieldCluster:       m.GetCluster(),
+		LogFieldRepository:    m.GetDeployment().GetRepository().FullName(),
 	}
 }

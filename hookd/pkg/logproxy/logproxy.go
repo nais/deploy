@@ -13,7 +13,8 @@ import (
 )
 
 const kibanaFormat = "https://logs.adeo.no/app/kibana#/discover?_a=%s&_g=%s"
-const searchQuery = "+x_delivery_id:\"%s\" -level:\"Trace\""
+const searchQueryV0 = "+x_delivery_id:\"%s\" -level:\"Trace\""
+const searchQueryV1 = "+x_correlation_id:\"%s\""
 
 type query struct {
 	Language string `json:"language"`
@@ -52,12 +53,21 @@ func oneDay(ts time.Time) timeRange {
 	}
 }
 
-func formatKibana(deliveryID string, ts time.Time) string {
+func formatKibana(deliveryID string, ts time.Time, version int) string {
+	var q string
+
+	switch version {
+	default:
+		q = searchQueryV0
+	case 1:
+		q = searchQueryV1
+	}
+
 	as := appState{
 		Index: "logstash-apps-*",
 		Query: query{
 			Language: "lucene",
-			Query:    fmt.Sprintf(searchQuery, deliveryID),
+			Query:    fmt.Sprintf(q, deliveryID),
 		},
 	}
 
@@ -72,7 +82,7 @@ func formatKibana(deliveryID string, ts time.Time) string {
 }
 
 func MakeURL(baseURL, deliveryID string, timestamp time.Time) string {
-	return fmt.Sprintf("%s/logs?delivery_id=%s&ts=%d", baseURL, deliveryID, timestamp.Unix())
+	return fmt.Sprintf("%s/logs?delivery_id=%s&ts=%d&v=1", baseURL, deliveryID, timestamp.Unix())
 }
 
 func HandleFunc(w http.ResponseWriter, r *http.Request) {
@@ -86,9 +96,19 @@ func HandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 	deliveryID := r.URL.Query().Get("delivery_id")
 	timestamp := r.URL.Query().Get("ts")
+	sversion := r.URL.Query().Get("v")
+	version, _ := strconv.Atoi(sversion)
 
 	if !uuidRegex.MatchString(deliveryID) {
 		badrequest(fmt.Errorf("delivery_id '%s' is not a well-formed UUID", deliveryID))
+		return
+	}
+
+	switch version {
+	case 0:
+	case 1:
+	default:
+		badrequest(fmt.Errorf("version '%s' is not supported", deliveryID))
 		return
 	}
 
@@ -99,7 +119,7 @@ func HandleFunc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utctime := time.Unix(int64(unixtime), 0).UTC()
-	url := formatKibana(deliveryID, utctime)
+	url := formatKibana(deliveryID, utctime, version)
 
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
