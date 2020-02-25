@@ -147,16 +147,6 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 			"gvk":       gvk,
 		})
 
-		go func() {
-			wait.Add(1)
-			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", gvk, n, ns, deploymentTimeout.String())
-			err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
-			if err != nil {
-				errors <- err
-			}
-			wait.Done()
-		}()
-
 		deployed, err := teamClient.DeployUnstructured(resource)
 		if err != nil {
 			err = fmt.Errorf("resource %d: %s", index+1, err)
@@ -168,6 +158,16 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 		metrics.KubernetesResources.Inc()
 
 		logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
+
+		go func() {
+			wait.Add(1)
+			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", gvk, n, ns, deploymentTimeout.String())
+			err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
+			if err != nil {
+				errors <- err
+			}
+			wait.Done()
+		}()
 	}
 
 	deployStatus <- deployment.NewInProgressStatus(*req)
