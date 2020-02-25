@@ -95,6 +95,7 @@ func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured
 	var updated *unstructured.Unstructured
 	var err error
 	var status *appStatus
+	var pickedup bool
 
 	correlationID, _ := resource.GetAnnotations()[CorrelationIDAnnotation]
 
@@ -115,10 +116,14 @@ func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured
 
 		status = parseAppStatus(*updated)
 		if status == nil || status.CorrelationID != correlationID {
+			if pickedup {
+				return fmt.Errorf("Application resource has been overwritten, aborting monitoring.")
+			}
 			logger.Tracef("Application correlation ID mismatch; not picked up by Naiserator yet.")
 			goto NEXT
 		}
 
+		pickedup = true
 		logger.Tracef("Application synchronization state: '%s'", status.SynchronizationState)
 
 		switch status.SynchronizationState {
