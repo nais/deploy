@@ -164,8 +164,10 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", gvk, n, ns, deploymentTimeout.String())
 			err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
 			if err != nil {
+				logger.Error(err)
 				errors <- err
 			}
+			logger.Infof("Finished monitoring rollout status of '%s/%s' in namespace '%s'", gvk, n, ns)
 			wait.Done()
 		}()
 	}
@@ -173,6 +175,7 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 	deployStatus <- deployment.NewInProgressStatus(*req)
 
 	go func() {
+		logger.Infof("Waiting for resources to be successfully rollet out")
 		wait.Wait()
 		logger.Infof("Finished monitoring all resources")
 
