@@ -1,11 +1,11 @@
 # NAIS deployment
 
 ## Overview
-NAIS deployment facilitates application deployment into NAV's Kubernetes clusters using the Github Deployments API.
+NAIS deploy facilitates application deployment into NAV's Kubernetes clusters.
 
 Developers push or merge code into the master branch of a Git repository, triggering an automated build using CircleCI, Travis CI, or Jenkins.
 A successful build produces a Docker image artifact, which is uploaded onto Docker Hub.
-The final step in the build pipeline triggers the Github Deployments API, where NAIS deployment hooks in, deploying the application on Kubernetes.
+The final step in the build pipeline sends an API request to NAIS deploy to deploy the Docker image onto one of our Kubernetes clusters.
 
 ![Sequence diagram of deployment components](doc/sequence.png)
 
