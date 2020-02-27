@@ -1,0 +1,2 @@
+FROM docker.pkg.github.com/nais/deploy/deploy:latest
+CMD ["/app/hookd"]
