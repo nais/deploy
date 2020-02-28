@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strconv"
+	"strings"
 
 	flag "github.com/spf13/pflag"
 )
@@ -43,17 +45,17 @@ func DefaultConfig() Config {
 	defaultGroup := DefaultGroupName()
 	return Config{
 		Verbosity:    "trace",
-		Brokers:      []string{"localhost:9092"},
-		RequestTopic: "deploymentRequest",
-		StatusTopic:  "deploymentStatus",
-		SignatureKey: os.Getenv("KAFKA_HMAC_KEY"),
-		ClientID:     defaultGroup,
-		GroupID:      defaultGroup,
+		Brokers:      getEnvSlice("KAFKA_BROKERS", []string{"localhost:9092"}),
+		RequestTopic: getEnv("KAFKA_REQUEST_TOPIC", "deploymentRequest"),
+		StatusTopic:  getEnv("KAFKA_STATUS_TOPIC", "deploymentStatus"),
+		SignatureKey: getEnv("KAFKA_HMAC_KEY", ""),
+		ClientID:     getEnv("KAFKA_CLIENT_ID", defaultGroup),
+		GroupID:      getEnv("KAFKA_GROUP_ID", defaultGroup),
 		SASL: SASL{
-			Enabled:   false,
-			Handshake: false,
-			Username:  os.Getenv("KAFKA_SASL_USERNAME"),
-			Password:  os.Getenv("KAFKA_SASL_PASSWORD"),
+			Enabled:   getEnvBool("KAFKA_SASL_ENABLED", false),
+			Handshake: getEnvBool("KAFKA_SASL_HANDSHAKE", false),
+			Username:  getEnv("KAFKA_SASL_USERNAME", ""),
+			Password:  getEnv("KAFKA_SASL_PASSWORD", ""),
 		},
 	}
 }
@@ -71,4 +73,26 @@ func SetupFlags(cfg *Config) {
 	flag.StringVar(&cfg.SASL.Password, "kafka-sasl-password", cfg.SASL.Password, "Password for Kafka authentication.")
 	flag.BoolVar(&cfg.TLS.Enabled, "kafka-tls-enabled", cfg.TLS.Enabled, "Use TLS for connecting to Kafka.")
 	flag.BoolVar(&cfg.TLS.Insecure, "kafka-tls-insecure", cfg.TLS.Insecure, "Allow insecure Kafka TLS connections.")
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func getEnvSlice(key string, fallback []string) []string {
+	if value, ok := os.LookupEnv(key); ok {
+		return strings.Split(value, ",")
+	}
+	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	b, err := strconv.ParseBool(os.Getenv(key))
+	if err != nil {
+		return fallback
+	}
+	return b
 }
