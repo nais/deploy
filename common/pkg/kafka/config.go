@@ -46,8 +46,8 @@ func DefaultConfig() Config {
 	return Config{
 		Verbosity:    "trace",
 		Brokers:      getEnvSlice("KAFKA_BROKERS", []string{"localhost:9092"}),
-		RequestTopic: getEnv("KAFKA_REQUEST_TOPIC", "deploymentRequest"),
-		StatusTopic:  getEnv("KAFKA_STATUS_TOPIC", "deploymentStatus"),
+		RequestTopic: getEnv("KAFKA_TOPIC_REQUEST", "deploymentRequest"),
+		StatusTopic:  getEnv("KAFKA_TOPIC_STATUS", "deploymentStatus"),
 		SignatureKey: getEnv("KAFKA_HMAC_KEY", ""),
 		ClientID:     getEnv("KAFKA_CLIENT_ID", defaultGroup),
 		GroupID:      getEnv("KAFKA_GROUP_ID", defaultGroup),
@@ -56,6 +56,10 @@ func DefaultConfig() Config {
 			Handshake: getEnvBool("KAFKA_SASL_HANDSHAKE", false),
 			Username:  getEnv("KAFKA_SASL_USERNAME", ""),
 			Password:  getEnv("KAFKA_SASL_PASSWORD", ""),
+		},
+		TLS: TLS{
+			Enabled:  getEnvBool("KAFKA_TLS_ENABLED", false),
+			Insecure: getEnvBool("KAFKA_TLS_INSECURE", false),
 		},
 	}
 }
