@@ -15,6 +15,10 @@ if [ -z "$REF" ]; then
     export REF="$GITHUB_REF"
 fi
 
+if [ -z "$WAIT" ]; then
+    export WAIT="true"
+fi
+
 # Inject "image" as a template variable to a new copy of the vars file.
 # If the file doesn't exist, it is created. The original file is left untouched.
 if [ ! -z "$IMAGE" ]; then
@@ -29,6 +33,5 @@ if [ ! -z "$IMAGE" ]; then
 fi
 
 export ACTIONS="true"
-export WAIT="true"
 
 /app/deploy
