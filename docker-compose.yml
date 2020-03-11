@@ -15,14 +15,6 @@ services:
     environment:
       MINIO_ACCESS_KEY: accesskey
       MINIO_SECRET_KEY: secretkey
-  vault:
-    image: vault:1.2.3
-    ports:
-    - "8200:8200"
-    environment:
-    - "VAULT_DEV_ROOT_TOKEN_ID=123456789"
-    - "VAULT_ADDR=http://localhost:8200"
-    - "VAULT_TOKEN=123456789"
   postgres:
     image: postgres:11-alpine
     ports:
