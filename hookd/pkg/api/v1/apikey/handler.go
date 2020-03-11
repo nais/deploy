@@ -49,9 +49,12 @@ func router(certificates map[string]discovery.CertificateList) http.Handler {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			token := jwtauth.TokenFromHeader(r)
 			_, err := jwt.Parse(token, JWTValidator(certificates))
-			fmt.Printf("error is: %e", err)
+			if err != nil {
+				fmt.Fprintf(w, "Unauthorized access: %s", err.Error())
+			} else {
+				w.Write([]byte("welcome anonymous"))
+			}
 
-			w.Write([]byte("welcome anonymous"))
 		})
 	})
 
