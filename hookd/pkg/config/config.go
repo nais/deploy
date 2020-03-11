@@ -44,7 +44,7 @@ type Config struct {
 	Kafka         kafka.Config
 	S3            S3
 	Github        Github
-	Vault         Vault
+	Postgres      string
 	MetricsPath   string
 	Clusters      []string
 	ProvisionKey  string
@@ -92,15 +92,7 @@ func DefaultConfig() *Config {
 			BucketLocation: getEnv("S3_BUCKET_LOCATION", ""),
 			UseTLS:         parseBool(getEnv("S3_SECURE", "false")),
 		},
-		Vault: Vault{
-			CredentialsFile: getEnv("VAULT_CREDENTIALS_FILE", ""),
-			Address:         getEnv("VAULT_ADDRESS", "http://localhost:8200"),
-			KeyName:         getEnv("VAULT_KEY_NAME", "key"),
-			Path:            getEnv("VAULT_PATH", "/v1/apikey/nais-deploy"),
-			AuthPath:        getEnv("VAULT_AUTH_PATH", "/v1/auth/kubernetes/login"),
-			AuthRole:        getEnv("VAULT_AUTH_ROLE", ""),
-			Token:           getEnv("VAULT_TOKEN", "123456789"),
-		},
+		Postgres:      getEnv("POSTGRES_CONNECTION_STRING", "postgresql://postgres:root@127.0.0.1:5432/hookd"),
 		MetricsPath:   getEnv("METRICS_PATH", "/metrics"),
 		ProvisionKey:  getEnv("PROVISION_KEY", ""),
 		EncryptionKey: getEnv("ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),

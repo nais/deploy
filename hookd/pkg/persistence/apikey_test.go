@@ -47,7 +47,7 @@ func TestVaultApiKeyStorage(t *testing.T) {
 
 	defer server.Close()
 
-	vault := persistence.VaultApiKeyStorage{
+	vault := persistence.PostgresApiKeyStorage{
 		HttpClient: server.Client(),
 		Address:    server.URL,
 		Path:       defaults.Path,

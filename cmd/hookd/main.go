@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -66,13 +65,7 @@ func init() {
 	flag.StringVar(&cfg.S3.BucketLocation, "s3-bucket-location", cfg.S3.BucketLocation, "S3 bucket location.")
 	flag.BoolVar(&cfg.S3.UseTLS, "s3-secure", cfg.S3.UseTLS, "Use TLS for S3 connections.")
 
-	flag.StringVar(&cfg.Vault.Path, "vault-path", cfg.Vault.Path, "Base path to Vault KV API key store.")
-	flag.StringVar(&cfg.Vault.AuthPath, "vault-auth-path", cfg.Vault.AuthPath, "Path to Vault authentication endpoint.")
-	flag.StringVar(&cfg.Vault.AuthRole, "vault-auth-role", cfg.Vault.AuthRole, "Role used for Vault authentication.")
-	flag.StringVar(&cfg.Vault.Address, "vault-address", cfg.Vault.Address, "Address to Vault server.")
-	flag.StringVar(&cfg.Vault.KeyName, "vault-key-name", cfg.Vault.KeyName, "API keys are stored in this key.")
-	flag.StringVar(&cfg.Vault.CredentialsFile, "vault-credentials-file", cfg.Vault.CredentialsFile, "Credentials for authenticating against Vault retrieved from this file (overrides --vault-token).")
-	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault static token.")
+	flag.StringVar(&cfg.Postgres, "postgres-connection-string", cfg.Postgres, "PostgreSQL connection string.")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -141,25 +134,8 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	apiKeys := &persistence.VaultApiKeyStorage{
-		Address:    cfg.Vault.Address,
-		Path:       cfg.Vault.Path,
-		AuthPath:   cfg.Vault.AuthPath,
-		AuthRole:   cfg.Vault.AuthRole,
-		KeyName:    cfg.Vault.KeyName,
-		Token:      cfg.Vault.Token,
-		HttpClient: http.DefaultClient,
-	}
-
-	if len(cfg.Vault.CredentialsFile) > 0 {
-		credentials, err := ioutil.ReadFile(cfg.Vault.CredentialsFile)
-		if err != nil {
-			return fmt.Errorf("read Vault token file: %s", err)
-		}
-		apiKeys.Credentials = string(credentials)
-		apiKeys.Token = ""
-
-		go apiKeys.RefreshLoop()
+	apiKeys := &persistence.PostgresApiKeyStorage{
+		ConnectionString: cfg.Postgres,
 	}
 
 	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
