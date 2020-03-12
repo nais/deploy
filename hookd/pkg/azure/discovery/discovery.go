@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/navikt/deployment/hookd/pkg/azure/conf"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -19,30 +20,7 @@ var (
 
 type CertificateList []*x509.Certificate
 
-type Azure struct {
-	ClientID     string `json:"clientid"`
-	ClientSecret string `json:"clientsecret"`
-	Tenant       string `json:"tenant"`
-	RedirectURL  string `json:"redirecturl"`
-	DiscoveryURL string `json:"discoveryurl"`
-}
-
-func (a *Azure) HasConfig() bool {
-	return a.ClientID != "" &&
-		a.ClientSecret != "" &&
-		a.Tenant != "" &&
-		a.RedirectURL != "" &&
-		a.DiscoveryURL != ""
-}
-
-func FetchCertificates() (map[string]CertificateList, error) {
-	azure := Azure{
-		ClientID:     "ecd35adf-754e-4c75-8098-8e6e1d33cdf9",
-		ClientSecret: "x.u5vW3@o]8u5f]jihNsvvgomyCCtw03",
-		Tenant:       "62366534-1ec3-4962-8869-9b5535279d0b",
-		RedirectURL:  "nothing",
-		DiscoveryURL: "https://login.microsoftonline.com/62366534-1ec3-4962-8869-9b5535279d0b/discovery/v2.0/keys",
-	}
+func FetchCertificates(azure conf.Azure) (map[string]CertificateList, error) {
 	if azure.HasConfig() {
 		log.Infof("Discover Microsoft signing certificates from %s", azure.DiscoveryURL)
 		azureKeyDiscovery, err := DiscoverURL(azure.DiscoveryURL)
@@ -94,7 +72,6 @@ func DiscoverURL(url string) (*KeyDiscovery, error) {
 	return Discover(response.Body)
 }
 
-
 // Decode a base64 encoded certificate into a X509 structure.
 func (c EncodedCertificate) Decode() (*x509.Certificate, error) {
 	stream := strings.NewReader(string(c))
@@ -118,6 +95,7 @@ func Discover(reader io.Reader) (*KeyDiscovery, error) {
 
 	return keyDiscovery, err
 }
+
 type EncodedCertificate string
 
 type Key struct {
