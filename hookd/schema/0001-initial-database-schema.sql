@@ -5,13 +5,15 @@ START TRANSACTION ISOLATION LEVEL SERIALIZABLE READ WRITE;
 -- A team can have many API keys, with each key having its own expiry time.
 CREATE TABLE apikey
 (
-    "key"     varchar primary key      not null,
-    "team"    varchar                  not null,
-    "created" timestamp with time zone not null,
-    "expires" timestamp with time zone null
+    "key"           varchar primary key      not null,
+    "team"          varchar                  not null,
+    "team_azure_id" varchar                  not null,
+    "created"       timestamp with time zone not null,
+    "expires"       timestamp with time zone null
 );
 
 CREATE INDEX apikey_team_index ON apikey (team);
+CREATE INDEX apikey_team_azure_id_index ON apikey (team_azure_id);
 
 -- Each row in the deployment table represents a single deployment request.
 CREATE TABLE deployment
