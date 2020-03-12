@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/jwtauth"
 	"github.com/navikt/deployment/hookd/pkg/azure/conf"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
+	"github.com/navikt/deployment/hookd/pkg/azure/validate"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -18,54 +19,23 @@ var (
 	azureConf         *conf.Azure
 )
 
-func JWTValidator(certificates map[string]discovery.CertificateList) jwt.Keyfunc {
-	return func(token *jwt.Token) (interface{}, error) {
-		var certificateList discovery.CertificateList
-		var kid string
-		var ok bool
-
-		if claims, ok := token.Claims.(jwt.MapClaims); !ok {
-			return nil, fmt.Errorf("Unable to retrieve claims from token")
-		} else {
-			if valid := claims.VerifyAudience("f29d724c-fdbf-4e43-b65a-3f123442bd88", true); !valid {
-				return nil, fmt.Errorf("The token is not valid for this application")
-			}
-		}
-
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-
-		if kid, ok = token.Header["kid"].(string); !ok {
-			return nil, fmt.Errorf("field 'kid' is of invalid type %T, should be string", token.Header["kid"])
-		}
-
-		if certificateList, ok = certificates[kid]; !ok {
-			return nil, fmt.Errorf("kid '%s' not found in certificate list", kid)
-		}
-
-		for _, certificate := range certificateList {
-			return certificate.PublicKey, nil
-		}
-
-		return nil, fmt.Errorf("no certificate candidates for kid '%s'", kid)
-	}
-}
-
 func router(certificates map[string]discovery.CertificateList, azureConf conf.Azure) http.Handler {
 	r := chi.NewRouter()
 	r.Group(func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("welcome anonymous"))
 			token := jwtauth.TokenFromHeader(r)
 
-			_, err := jwt.Parse(token, JWTValidator(certificates))
+			_, err := jwt.Parse(token, validate.JWTValidator(certificates))
+			fmt.Printf("Groups: %#v", validate.Groups)
+
 			if err != nil {
 				fmt.Printf("error: %s", err.Error())
 				fmt.Fprintf(w, "Unauthorized access: %s", err.Error())
 			} else {
+				fmt.Printf("groups: %s", validate.Groups)
 				w.Write([]byte("welcome anonymous"))
 			}
-
 		})
 	})
 
