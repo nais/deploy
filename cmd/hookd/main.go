@@ -22,6 +22,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/config"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
@@ -108,6 +109,16 @@ func run() error {
 	teamRepositoryStorage, err := persistence.NewS3StorageBackend(cfg.S3)
 	if err != nil {
 		return fmt.Errorf("while setting up S3 backend: %s", err)
+	}
+
+	db, err := database.New(cfg.Postgres)
+	if err != nil {
+		return fmt.Errorf("setup postgres connection: %s", err)
+	}
+
+	err = db.Migrate()
+	if err != nil {
+		return fmt.Errorf("migrating database: %s", err)
 	}
 
 	kafkaClient, err := kafka.NewDualClient(
