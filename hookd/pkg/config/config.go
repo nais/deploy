@@ -16,16 +16,6 @@ type S3 struct {
 	UseTLS         bool   `json:"secure"`
 }
 
-type Vault struct {
-	CredentialsFile string
-	Token           string
-	Address         string
-	Path            string
-	AuthPath        string
-	AuthRole        string
-	KeyName         string
-}
-
 type Github struct {
 	Enabled       bool
 	ClientID      string
