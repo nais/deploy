@@ -9,30 +9,23 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/navikt/deployment/hookd/pkg/azure/conf"
+	"github.com/navikt/deployment/hookd/pkg/config"
 	log "github.com/sirupsen/logrus"
-)
-
-var (
-	// tokenAuth
-	azureCertificates map[string]CertificateList
 )
 
 type CertificateList []*x509.Certificate
 
-func FetchCertificates(azure conf.Azure) (map[string]CertificateList, error) {
-	if azure.HasConfig() {
-		log.Infof("Discover Microsoft signing certificates from %s", azure.DiscoveryURL)
-		azureKeyDiscovery, err := DiscoverURL(azure.DiscoveryURL)
-		if err != nil {
-			return nil, err
-		}
+func FetchCertificates(azure config.Azure) (map[string]CertificateList, error) {
+	log.Infof("Discover Microsoft signing certificates from %s", azure.DiscoveryURL)
+	azureKeyDiscovery, err := DiscoverURL(azure.DiscoveryURL)
+	if err != nil {
+		return nil, err
+	}
 
-		log.Infof("Decoding certificates for %d keys", len(azureKeyDiscovery.Keys))
-		azureCertificates, err = azureKeyDiscovery.Map()
-		if err != nil {
-			return nil, err
-		}
+	log.Infof("Decoding certificates for %d keys", len(azureKeyDiscovery.Keys))
+	azureCertificates, err := azureKeyDiscovery.Map()
+	if err != nil {
+		return nil, err
 	}
 	return azureCertificates, nil
 }

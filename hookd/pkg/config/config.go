@@ -16,14 +16,11 @@ type S3 struct {
 	UseTLS         bool   `json:"secure"`
 }
 
-type Vault struct {
-	CredentialsFile string
-	Token           string
-	Address         string
-	Path            string
-	AuthPath        string
-	AuthRole        string
-	KeyName         string
+type Azure struct {
+	ClientID     string `json:"clientid"`
+	ClientSecret string `json:"clientsecret"`
+	Tenant       string `json:"tenant"`
+	DiscoveryURL string `json:"discoveryurl"`
 }
 
 type Github struct {
@@ -42,6 +39,7 @@ type Config struct {
 	LogLevel      string
 	BaseURL       string
 	Kafka         kafka.Config
+	Azure         Azure
 	S3            S3
 	Github        Github
 	Postgres      string
@@ -49,6 +47,13 @@ type Config struct {
 	Clusters      []string
 	ProvisionKey  string
 	EncryptionKey string
+}
+
+func (a *Azure) HasConfig() bool {
+	return a.ClientID != "" &&
+		a.ClientSecret != "" &&
+		a.Tenant != "" &&
+		a.DiscoveryURL != ""
 }
 
 func getEnv(key, fallback string) string {
@@ -75,6 +80,12 @@ func DefaultConfig() *Config {
 		LogFormat:     getEnv("LOG_FORMAT", "text"),
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),
 		Kafka:         kafka.DefaultConfig(),
+		Azure: Azure{
+			ClientID:     getEnv("AZURE_CLIENT_ID", ""),
+			ClientSecret: getEnv("AZURE_CLIENT_SECRET", ""),
+			Tenant:       getEnv("AZURE_TENANT", ""),
+			DiscoveryURL: getEnv("AZURE_DISCOVERY_URL", ""),
+		},
 		Github: Github{
 			ApplicationID: parseInt(getEnv("GITHUB_APP_ID", "0")),
 			ClientID:      getEnv("GITHUB_CLIENT_ID", ""),

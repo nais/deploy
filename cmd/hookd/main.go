@@ -20,7 +20,9 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
 	api_v1_queue "github.com/navikt/deployment/hookd/pkg/api/v1/queue"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/teams"
 	"github.com/navikt/deployment/hookd/pkg/auth"
+	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
@@ -67,11 +69,17 @@ func init() {
 
 	flag.StringVar(&cfg.Postgres, "postgres-connection-string", cfg.Postgres, "PostgreSQL connection string.")
 
+	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
+	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
+	flag.StringVar(&cfg.Azure.DiscoveryURL, "azure.discoveryurl", cfg.Azure.DiscoveryURL, "Azure DiscoveryURL")
+	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
+
 	kafka.SetupFlags(&cfg.Kafka)
 }
 
 func run() error {
 	flag.Parse()
+	certificates, err := discovery.FetchCertificates(cfg.Azure)
 
 	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
 		return err
@@ -152,6 +160,8 @@ func run() error {
 		Clusters:          cfg.Clusters,
 	}
 
+	teamsHandler := &api_v1_teams.TeamsHandler{}
+
 	statusHandler := &api_v1_status.StatusHandler{
 		GithubClient:  githubClient,
 		APIKeyStorage: apiKeys,
@@ -204,6 +214,15 @@ func run() error {
 			chi_middleware.AllowContentType("application/json"),
 			chi_middleware.Timeout(requestTimeout),
 		)
+		r.Route("/teams", func(r chi.Router) {
+			r.Use(
+				middleware.TokenValidatorMiddleware(certificates),
+			)
+			r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
+			//		r.Get("/apikey/", ) -> apikey til alle teams brukeren er autorisert for å se
+			//		r.Get("/apikey/{team}", ) -> apikey til dette spesifikke teamet
+			//      r.Post("/apikey/{team}") -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
+		})
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
 		r.Post("/status", statusHandler.ServeHTTP)
 		r.Get("/queue", queueHandler.ServeHTTP)
@@ -214,7 +233,6 @@ func run() error {
 			r.Post("/provision", provisionHandler.ServeHTTP)
 		}
 	})
-
 	// Mount /events for "legacy" GitHub deployment handling
 	router.Post("/events", githubDeploymentHandler.ServeHTTP)
 
