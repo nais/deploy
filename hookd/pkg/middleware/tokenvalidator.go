@@ -24,7 +24,15 @@ func TokenValidatorMiddleware(certificates map[string]discovery.CertificateList)
 				fmt.Fprintf(w, "Unauthorized access: %s", err.Error())
 				return
 			}
+
+			var groups []string
+			groupInterface := claims["groups"].([]interface{})
+			groups = make([]string, len(groupInterface))
+			for i, v := range groupInterface {
+				groups[i] = v.(string)
+			}
 			r = r.WithContext(context.WithValue(r.Context(), "claims", claims))
+			r = r.WithContext(context.WithValue(r.Context(), "groups", groups))
 			next.ServeHTTP(w, r)
 		}
 		return http.HandlerFunc(fn)
