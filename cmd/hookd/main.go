@@ -16,6 +16,7 @@ import (
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
+	"github.com/navikt/deployment/hookd/pkg/api/v1/apikey"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
 	api_v1_queue "github.com/navikt/deployment/hookd/pkg/api/v1/queue"
@@ -161,6 +162,7 @@ func run() error {
 	}
 
 	teamsHandler := &api_v1_teams.TeamsHandler{}
+	apikeyHandler := &api_v1_apikey.ApiKeyHandler{}
 
 	statusHandler := &api_v1_status.StatusHandler{
 		GithubClient:  githubClient,
@@ -214,14 +216,16 @@ func run() error {
 			chi_middleware.AllowContentType("application/json"),
 			chi_middleware.Timeout(requestTimeout),
 		)
-		r.Route("/teams", func(r chi.Router) {
+		r.Route("/apikey", func(r chi.Router) {
 			r.Use(
 				middleware.TokenValidatorMiddleware(certificates),
 			)
-			r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
-			//		r.Get("/apikey/", ) -> apikey til alle teams brukeren er autorisert for å se
-			//		r.Get("/apikey/{team}", ) -> apikey til dette spesifikke teamet
+			r.Get("/", apikeyHandler.GetApiKeys)          // -> apikey til alle teams brukeren er autorisert for å se
+			r.Get("/{team}", apikeyHandler.GetTeamApiKey) // -> apikey til dette spesifikke teamet
 			//      r.Post("/apikey/{team}") -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
+		})
+		r.Route("/teams", func(r chi.Router) {
+			r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
 		})
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
 		r.Post("/status", statusHandler.ServeHTTP)
