@@ -75,14 +75,14 @@ func (g *githubClient) DeploymentStatus(ctx context.Context, owner, repository s
 
 type apiKeyStorage struct{}
 
-func (a *apiKeyStorage) Read(team string) ([]byte, error) {
+func (a *apiKeyStorage) Read(team string) ([][]byte, error) {
 	switch team {
 	case "notfound":
 		return nil, persistence.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
 	default:
-		return secretKey, nil
+		return [][]byte{secretKey}, nil
 	}
 }
 

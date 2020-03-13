@@ -127,7 +127,7 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Request body validated successfully")
 
-	token, err := h.APIKeyStorage.Read(statusRequest.Team)
+	tokens, err := h.APIKeyStorage.Read(statusRequest.Team)
 
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
@@ -145,13 +145,14 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Tracef("Team API key retrieved from storage")
+	logger.Tracef("Team API keys retrieved from storage")
 
-	if !api_v1.ValidateMAC(data, []byte(signature), token) {
+	err = api_v1.ValidateAnyMAC(data, signature, tokens)
+	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		statusResponse.Message = api_v1.FailedAuthenticationMsg
 		statusResponse.render(w)
-		logger.Errorf("%s: HMAC signature error", api_v1.FailedAuthenticationMsg)
+		logger.Error(err)
 		return
 	}
 

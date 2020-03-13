@@ -1,19 +1,11 @@
 package persistence
 
 import (
-	"bytes"
+	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"path"
-	"strconv"
-	"time"
 
-	"github.com/navikt/deployment/hookd/pkg/metrics"
-	log "github.com/sirupsen/logrus"
+	"github.com/jackc/pgx/v4"
 )
 
 var (
@@ -21,195 +13,91 @@ var (
 )
 
 const (
-	NotFoundMessage          = "The specified key does not exist."
-	RefreshIntervalFactor    = 0.8
-	InitialTokenWaitDuration = 1 * time.Millisecond
+	NotFoundMessage = "The specified key does not exist."
 )
 
 type ApiKeyStorage interface {
-	Read(team string) ([]byte, error)
+	Read(team string) ([][]byte, error)
 	Write(team string, key []byte) error
 	IsErrNotFound(err error) bool
 }
 
-type VaultApiKeyStorage struct {
-	Address       string
-	Path          string
-	AuthPath      string
-	AuthRole      string
-	KeyName       string
-	Credentials   string
-	Token         string
-	LeaseDuration int
-	HttpClient    *http.Client
+type PostgresApiKeyStorage struct {
+	ConnectionString string
 }
 
-type VaultResponse struct {
-	Data map[string]string `json:"data"`
-}
+var _ ApiKeyStorage = &PostgresApiKeyStorage{}
 
-type VaultAuthRequest struct {
-	JWT  string `json:"jwt"`
-	Role string `json:"role"`
-}
+func (s *PostgresApiKeyStorage) Read(team string) ([][]byte, error) {
+	var key string
+	keys := make([][]byte, 0)
+	ctx := context.Background()
 
-type VaultAuthResponse struct {
-	Auth struct {
-		ClientToken   string `json:"client_token"`
-		LeaseDuration int    `json:"lease_duration"`
-	} `json:"auth"`
-}
-
-type VaultWriteRequest struct {
-	Key string `json:"key"`
-}
-
-func (s *VaultApiKeyStorage) refreshToken() error {
-	u, err := url.Parse(s.Address)
-
+	conn, err := pgx.Connect(ctx, s.ConnectionString)
 	if err != nil {
-		return fmt.Errorf("unable to construct auth URL: %s", err)
+		return nil, fmt.Errorf("unable to connect to database: %s", err)
 	}
+	defer conn.Close(ctx)
 
-	u.Path = s.AuthPath
-	b, err := json.Marshal(VaultAuthRequest{JWT: s.Credentials, Role: s.AuthRole})
-
+	query := `SELECT key FROM apikey WHERE team = $1 AND expires > NOW();`
+	rows, err := conn.Query(ctx, query, team)
 	if err != nil {
-		return fmt.Errorf("unable to marshal auth request: %s", err)
+		return nil, err
 	}
 
-	resp, err := http.Post(u.String(), "application/json", bytes.NewReader(b))
-	if resp != nil {
-		metrics.VaultTokenRefresh.WithLabelValues(strconv.Itoa(resp.StatusCode)).Inc()
-	}
-
-	if err != nil {
-		return fmt.Errorf("unable to perform auth request: %s", err)
-	}
-
-	var vaultAuthResponse VaultAuthResponse
-
-	if err := json.NewDecoder(resp.Body).Decode(&vaultAuthResponse); err != nil {
-		return fmt.Errorf("unable to decode auth response: %s", err)
-	}
-
-	s.Token = vaultAuthResponse.Auth.ClientToken
-
-	s.LeaseDuration = vaultAuthResponse.Auth.LeaseDuration
-	log.Debugf("Vault: token expires in %d seconds", s.LeaseDuration)
-
-	return nil
-}
-
-func (s *VaultApiKeyStorage) RefreshLoop() {
-	timer := time.NewTimer(InitialTokenWaitDuration)
-
-	for range timer.C {
-		if err := s.refreshToken(); err != nil {
-			log.Errorf("Unable to refresh Vault token: %s", err)
-			timer.Reset(1 * time.Minute)
-			continue
+	for rows.Next() {
+		err = rows.Scan(&key)
+		if err != nil {
+			return nil, err
 		}
-		refreshInterval := int(float64(s.LeaseDuration) * RefreshIntervalFactor)
-		duration := time.Duration(refreshInterval) * time.Second
-		timer.Reset(duration)
-		log.Debugf("Successfully refreshed Vault token, next refresh in %s", duration.String())
-	}
-}
-
-func (s *VaultApiKeyStorage) Read(team string) ([]byte, error) {
-	u, err := url.Parse(s.Address)
-
-	if err != nil {
-		return nil, fmt.Errorf("unable to construct URL to Vault: %s", err)
-	}
-
-	u.Path = path.Join(s.Path, team)
-
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-
-	if err != nil {
-		return nil, fmt.Errorf("unable to create HTTP request: %s", err)
-	}
-
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", s.Token))
-
-	resp, err := s.HttpClient.Do(req)
-
-	if err != nil {
-		return nil, fmt.Errorf("unable to get key from Vault: %s", err)
-	}
-
-	switch resp.StatusCode {
-	case http.StatusOK:
-		var vaultResp VaultResponse
-		decoder := json.NewDecoder(resp.Body)
-		defer resp.Body.Close()
-		if err := decoder.Decode(&vaultResp); err != nil {
-			return nil, fmt.Errorf("unable to unmarshal response from Vault: %s", err)
+		decoded, err := hex.DecodeString(key)
+		if err != nil {
+			return nil, err
 		}
+		keys = append(keys, decoded)
+	}
 
-		return hex.DecodeString(vaultResp.Data[s.KeyName])
-	case http.StatusNotFound:
+	if len(keys) == 0 {
 		return nil, ErrNotFound
-	default:
-		body, _ := ioutil.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Vault returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
+
+	return keys, nil
 }
 
-func (s *VaultApiKeyStorage) Write(team string, key []byte) error {
-	u, err := url.Parse(s.Address)
+func (s *PostgresApiKeyStorage) Write(team string, key []byte) error {
+	var query string
 
+	ctx := context.Background()
+
+	conn, err := pgx.Connect(ctx, s.ConnectionString)
 	if err != nil {
-		return fmt.Errorf("unable to construct URL to Vault: %s", err)
+		return fmt.Errorf("unable to connect to database: %s", err)
 	}
+	defer conn.Close(ctx)
 
-	u.Path = path.Join(s.Path, team)
-
-	writeRequest := &VaultWriteRequest{
-		Key: hex.EncodeToString(key),
-	}
-	payload, err := json.Marshal(writeRequest)
+	tx, err := conn.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("create api key payload: %s", err)
+		return fmt.Errorf("unable to start transaction: %s", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, u.String(), bytes.NewReader(payload))
-
+	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1;`
+	_, err = tx.Exec(ctx, query, team)
 	if err != nil {
-		return fmt.Errorf("unable to create HTTP request: %s", err)
+		return err
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", s.Token))
-	req.Header.Set("content-type", "application/json")
-
-	resp, err := s.HttpClient.Do(req)
-
+	query = `
+INSERT INTO apikey (key, team, created, expires)
+VALUES ($2, $1, NOW(), NOW()+MAKE_INTERVAL(years := 5));
+`
+	_, err = tx.Exec(ctx, query, team, hex.EncodeToString(key))
 	if err != nil {
-		return fmt.Errorf("write team API key to Vault: %s", err)
-	} else if resp != nil && resp.StatusCode >= 400 {
-		errmsg, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("write team API key to Vault: %s; %s", resp.Status, errmsg)
+		return err
 	}
 
-	log.Infof("Wrote Vault team API key for team '%s', response was %s", team, resp.Status)
-
-	return nil
+	return tx.Commit(ctx)
 }
 
-func (s *VaultApiKeyStorage) IsErrNotFound(err error) bool {
+func (s *PostgresApiKeyStorage) IsErrNotFound(err error) bool {
 	return err == ErrNotFound
-}
-
-type StaticKeyApiKeyStorage struct {
-	Key []byte
-}
-
-func (s *StaticKeyApiKeyStorage) Read(team string) ([]byte, error) {
-	return s.Key, nil
-}
-
-func (s *StaticKeyApiKeyStorage) IsErrNotFound(err error) bool {
-	return true
 }
