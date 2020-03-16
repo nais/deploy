@@ -2,14 +2,26 @@ package database
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/jackc/pgx/v4"
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	ErrNotFound = fmt.Errorf("api key not found")
+)
+
+const (
+	NotFoundMessage = "The specified key does not exist."
+)
+
 type Database interface {
 	Migrate() error
+	Read(team string) ([][]byte, error)
+	Write(team string, key []byte) error
+	IsErrNotFound(err error) bool
 }
 
 type database struct {
@@ -42,7 +54,7 @@ func (db *database) Migrate() error {
 	if err != nil {
 		// error might be due to no schema.
 		// no way to detect this, so log error and continue with migrations.
-		log.Errorf("unable to get current migration version: %s", err)
+		log.Warn("unable to get current migration version: %s", err)
 	}
 
 	for version < len(migrations) {
@@ -57,4 +69,66 @@ func (db *database) Migrate() error {
 	}
 
 	return nil
+}
+
+func (db *database) Read(team string) ([][]byte, error) {
+	var key string
+	keys := make([][]byte, 0)
+	ctx := context.Background()
+
+	query := `SELECT key FROM apikey WHERE team = $1 AND expires > NOW();`
+	rows, err := db.conn.Query(ctx, query, team)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&key)
+		if err != nil {
+			return nil, err
+		}
+		decoded, err := hex.DecodeString(key)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, decoded)
+	}
+
+	if len(keys) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return keys, nil
+}
+
+func (db *database) Write(team string, key []byte) error {
+	var query string
+
+	ctx := context.Background()
+
+	tx, err := db.conn.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to start transaction: %s", err)
+	}
+
+	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1;`
+	_, err = tx.Exec(ctx, query, team)
+	if err != nil {
+		return err
+	}
+
+	query = `
+INSERT INTO apikey (key, team, created, expires)
+VALUES ($2, $1, NOW(), NOW()+MAKE_INTERVAL(years := 5));
+`
+	_, err = tx.Exec(ctx, query, team, hex.EncodeToString(key))
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (db *database) IsErrNotFound(err error) bool {
+	return err == ErrNotFound
 }

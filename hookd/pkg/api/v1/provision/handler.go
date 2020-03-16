@@ -9,15 +9,15 @@ import (
 	"net/http"
 
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
 
 type Handler struct {
-	APIKeyStorage persistence.ApiKeyStorage
+	APIKeyStorage database.Database
 	SecretKey     []byte
 }
 

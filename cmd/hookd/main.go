@@ -145,8 +145,9 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	apiKeys := &persistence.PostgresApiKeyStorage{
-		ConnectionString: cfg.Postgres,
+	apiKeys, err := database.New(cfg.Postgres)
+	if err != nil {
+		return fmt.Errorf("postgresql setup: %s", err)
 	}
 
 	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")

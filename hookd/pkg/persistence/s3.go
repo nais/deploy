@@ -11,6 +11,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	ErrNotFound = fmt.Errorf("api key not found")
+)
+
+const (
+	NotFoundMessage = "The specified key does not exist."
+)
+
 type TeamRepositoryStorage interface {
 	Read(repository string) ([]string, error)
 	Write(repository string, teams []string) error
