@@ -1,3 +1,5 @@
+// Database migration generator, see README.md in this directory for instructions.
+
 package main
 
 import (
