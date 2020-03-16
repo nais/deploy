@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v4"
 	log "github.com/sirupsen/logrus"
@@ -19,13 +20,21 @@ const (
 
 type Database interface {
 	Migrate() error
-	Read(team string) ([][]byte, error)
+	Read(team string) ([]ApiKey, error)
 	Write(team string, key []byte) error
 	IsErrNotFound(err error) bool
 }
 
 type database struct {
 	conn *pgx.Conn
+}
+
+type ApiKey struct {
+	Team    string `json:"team"`
+	GroupId string `json:"groupId"`
+	Key     string `json:"key"`
+	Expires time.Time `json:"expires"`
+	Created time.Time `json:"created"`
 }
 
 var _ Database = &database{}
@@ -71,34 +80,29 @@ func (db *database) Migrate() error {
 	return nil
 }
 
-func (db *database) Read(team string) ([][]byte, error) {
-	var key string
-	keys := make([][]byte, 0)
+func (db *database) Read(team string) ([]ApiKey, error) {
 	ctx := context.Background()
+	apiKeys := []ApiKey{}
 
-	query := `SELECT key FROM apikey WHERE team = $1 AND expires > NOW();`
-	rows, err := db.conn.Query(ctx, query, team)
+	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 AND expires > NOW();`
+	rows, err:= db.conn.Query(ctx, query, team)
+
 	if err != nil {
 		return nil, err
 	}
 
 	for rows.Next() {
-		err = rows.Scan(&key)
+		apiKey := ApiKey{}
+		err := rows.Scan(&apiKey.Key, &apiKey.Team, &apiKey.GroupId, &apiKey.Created, &apiKey.Expires)
 		if err != nil {
 			return nil, err
 		}
-		decoded, err := hex.DecodeString(key)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, decoded)
+		apiKeys = append(apiKeys, apiKey)
 	}
-
-	if len(keys) == 0 {
+	if len(apiKeys) == 0 {
 		return nil, ErrNotFound
 	}
-
-	return keys, nil
+	return apiKeys, nil
 }
 
 func (db *database) Write(team string, key []byte) error {

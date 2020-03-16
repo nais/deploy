@@ -1,7 +1,6 @@
 package api_v1_status
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -91,8 +90,9 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	encodedSignature := r.Header.Get(api_v1.SignatureHeader)
-	signature, err := hex.DecodeString(encodedSignature)
+	// TODO: @jensen
+	//encodedSignature := r.Header.Get(api_v1.SignatureHeader)
+	//signature, err := hex.DecodeString(encodedSignature)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		statusResponse.Message = "HMAC digest must be hex encoded"
@@ -127,7 +127,8 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Request body validated successfully")
 
-	tokens, err := h.APIKeyStorage.Read(statusRequest.Team)
+	teamKey := database.TeamKey{}
+	err = h.APIKeyStorage.Read(statusRequest.Team, &teamKey)
 
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
@@ -147,14 +148,15 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Team API keys retrieved from storage")
 
-	err = api_v1.ValidateAnyMAC(data, signature, tokens)
+	// TODO: @jensen
+	/*err = api_v1.ValidateAnyMAC(data, signature, tokens)
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		statusResponse.Message = api_v1.FailedAuthenticationMsg
 		statusResponse.render(w)
 		logger.Error(err)
 		return
-	}
+	}*/
 
 	logger.Tracef("HMAC signature validated successfully")
 

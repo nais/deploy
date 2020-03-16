@@ -119,7 +119,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("HMAC signature validated successfully")
 
-	_, err = h.APIKeyStorage.Read(request.Team)
+	teamKey := database.TeamKey{}
+	err = h.APIKeyStorage.Read(request.Team, &teamKey)
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
 			request.Rotate = true
