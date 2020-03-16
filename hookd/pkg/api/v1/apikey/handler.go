@@ -7,9 +7,13 @@ import (
 
 	"github.com/go-chi/chi"
 	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/middleware"
+	"github.com/navikt/deployment/hookd/pkg/persistence"
+	log "github.com/sirupsen/logrus"
 )
 
 type ApiKeyHandler struct {
+	APIKeyStorage     persistence.ApiKeyStorage
 }
 type teamKey struct {
 	Team    string `json:"team"`
@@ -32,10 +36,36 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 		},
 		{
 			Team:    "team3",
-			GroupId: "2222222-3442-4a38-9a8d-c62fcf259158",
+			GroupId: "6283f2bd-8bb5-4d13-ae38-974e1bcc1aad",
 			Key:     "33333yyyxxxyyy",
 		},
 	}
+
+	fields := middleware.RequestLogFields(r)
+	logger := log.WithFields(fields)
+	tokens, err := h.APIKeyStorage.Read("team1")
+
+	if err != nil {
+		logger.Errorln(err)
+		if h.APIKeyStorage.IsErrNotFound(err) {
+			w.WriteHeader(http.StatusForbidden)
+			//deploymentResponse.Message = api_v1.FailedAuthenticationMsg
+			//deploymentResponse.render(w)
+			logger.Errorf("%s: %s", api_v1.FailedAuthenticationMsg, err)
+			return
+		}
+
+		w.WriteHeader(http.StatusBadGateway)
+		//deploymentResponse.Message = "something wrong happened when communicating with api key service"
+		//deploymentResponse.render(w)
+		logger.Errorf("unable to fetch team apikey from storage: %s", err)
+		return
+	}
+
+	for _, value := range tokens {
+		fmt.Printf("TOKEN: %s\n", string(value))
+	}
+
 	groups := r.Context().Value("groups").([]string)
 	teams := []teamKey{}
 	for _, group := range groups {
