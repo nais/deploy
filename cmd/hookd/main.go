@@ -220,9 +220,9 @@ func run() error {
 			r.Use(
 				middleware.TokenValidatorMiddleware(certificates),
 			)
-			r.Get("/", apikeyHandler.GetApiKeys)          // -> apikey til alle teams brukeren er autorisert for å se
-			r.Get("/{team}", apikeyHandler.GetTeamApiKey) // -> apikey til dette spesifikke teamet
-			//      r.Post("/apikey/{team}") -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
+			r.Get("/", apikeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
+			r.Get("/{team}", apikeyHandler.GetTeamApiKey)     // -> apikey til dette spesifikke teamet
+			r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
 		})
 		r.Route("/teams", func(r chi.Router) {
 			r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)

@@ -2,9 +2,11 @@ package api_v1_apikey
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi"
+	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 )
 
 type ApiKeyHandler struct {
@@ -76,11 +78,18 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 }
 func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request) {
 	// This method rotates the deploy key for a specific team
+	key, err := api_v1.Keygen(32)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Unable to generate new random key"))
+	}
+	fmt.Printf("generated key: %s", key)
 	groups := r.Context().Value("groups").([]string)
 	groupString := "Group claims are: \n"
 	for _, v := range groups {
 		groupString += v + "\n"
 	}
 	response := []byte(groupString)
+	w.WriteHeader(http.StatusNoContent)
 	w.Write(response)
 }
