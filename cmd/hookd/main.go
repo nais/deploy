@@ -162,7 +162,10 @@ func run() error {
 	}
 
 	teamsHandler := &api_v1_teams.TeamsHandler{}
-	apikeyHandler := &api_v1_apikey.ApiKeyHandler{}
+	apikeyHandler := &api_v1_apikey.ApiKeyHandler{
+		APIKeyStorage: apiKeys,
+	}
+
 
 	statusHandler := &api_v1_status.StatusHandler{
 		GithubClient:  githubClient,
