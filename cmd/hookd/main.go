@@ -25,6 +25,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/config"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
@@ -119,6 +120,16 @@ func run() error {
 		return fmt.Errorf("while setting up S3 backend: %s", err)
 	}
 
+	db, err := database.New(cfg.Postgres)
+	if err != nil {
+		return fmt.Errorf("setup postgres connection: %s", err)
+	}
+
+	err = db.Migrate()
+	if err != nil {
+		return fmt.Errorf("migrating database: %s", err)
+	}
+
 	kafkaClient, err := kafka.NewDualClient(
 		cfg.Kafka,
 		cfg.Kafka.StatusTopic,
@@ -143,8 +154,9 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	apiKeys := &persistence.PostgresApiKeyStorage{
-		ConnectionString: cfg.Postgres,
+	apiKeys, err := database.New(cfg.Postgres)
+	if err != nil {
+		return fmt.Errorf("postgresql setup: %s", err)
 	}
 
 	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")

@@ -11,18 +11,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
 
 type DeploymentHandler struct {
-	APIKeyStorage     persistence.ApiKeyStorage
+	APIKeyStorage     database.Database
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest

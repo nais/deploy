@@ -1,4 +1,4 @@
-package persistence
+package database
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v4"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -16,31 +17,67 @@ const (
 	NotFoundMessage = "The specified key does not exist."
 )
 
-type ApiKeyStorage interface {
+type Database interface {
+	Migrate() error
 	Read(team string) ([][]byte, error)
 	Write(team string, key []byte) error
 	IsErrNotFound(err error) bool
 }
 
-type PostgresApiKeyStorage struct {
-	ConnectionString string
+type database struct {
+	conn *pgx.Conn
 }
 
-var _ ApiKeyStorage = &PostgresApiKeyStorage{}
+var _ Database = &database{}
 
-func (s *PostgresApiKeyStorage) Read(team string) ([][]byte, error) {
+func New(dsn string) (Database, error) {
+	ctx := context.Background()
+
+	conn, err := pgx.Connect(ctx, dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	return &database{
+		conn: conn,
+	}, nil
+}
+
+func (db *database) Migrate() error {
+	ctx := context.Background()
+	var version int
+
+	query := `SELECT MAX(version) FROM migrations`
+	row := db.conn.QueryRow(ctx, query)
+	err := row.Scan(&version)
+
+	if err != nil {
+		// error might be due to no schema.
+		// no way to detect this, so log error and continue with migrations.
+		log.Warn("unable to get current migration version: %s", err)
+	}
+
+	for version < len(migrations) {
+		log.Infof("migrating database schema to version %d", version+1)
+
+		_, err = db.conn.Exec(ctx, migrations[version])
+		if err != nil {
+			return fmt.Errorf("migrating to version %d: %s", version+1, err)
+		}
+
+		version++
+	}
+
+	return nil
+}
+
+func (db *database) Read(team string) ([][]byte, error) {
 	var key string
 	keys := make([][]byte, 0)
 	ctx := context.Background()
 
-	conn, err := pgx.Connect(ctx, s.ConnectionString)
-	if err != nil {
-		return nil, fmt.Errorf("unable to connect to database: %s", err)
-	}
-	defer conn.Close(ctx)
-
 	query := `SELECT key FROM apikey WHERE team = $1 AND expires > NOW();`
-	rows, err := conn.Query(ctx, query, team)
+	rows, err := db.conn.Query(ctx, query, team)
 	if err != nil {
 		return nil, err
 	}
@@ -64,18 +101,12 @@ func (s *PostgresApiKeyStorage) Read(team string) ([][]byte, error) {
 	return keys, nil
 }
 
-func (s *PostgresApiKeyStorage) Write(team string, key []byte) error {
+func (db *database) Write(team string, key []byte) error {
 	var query string
 
 	ctx := context.Background()
 
-	conn, err := pgx.Connect(ctx, s.ConnectionString)
-	if err != nil {
-		return fmt.Errorf("unable to connect to database: %s", err)
-	}
-	defer conn.Close(ctx)
-
-	tx, err := conn.Begin(ctx)
+	tx, err := db.conn.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to start transaction: %s", err)
 	}
@@ -98,6 +129,6 @@ VALUES ($2, $1, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 	return tx.Commit(ctx)
 }
 
-func (s *PostgresApiKeyStorage) IsErrNotFound(err error) bool {
+func (db *database) IsErrNotFound(err error) bool {
 	return err == ErrNotFound
 }
