@@ -146,8 +146,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Error(fmt.Sprintf("%s: %s", response.Message, err))
 		return
 	}
-
-	err = h.APIKeyStorage.Write(request.Team, key)
+	// TODO @jensen må ha med team_azure_id inn i write
+	err = h.APIKeyStorage.Write(request.Team, "DETTE ER EN GROUP ID", key)
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		response.Message = "unable to persist API key"

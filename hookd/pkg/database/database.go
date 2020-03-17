@@ -22,7 +22,7 @@ type Database interface {
 	Migrate() error
 	Read(team string) ([]ApiKey, error)
 	ReadByGroupClaim(group string) ([]ApiKey, error)
-	Write(team string, key []byte) error
+	Write(team, groupId string, key []byte) error
 	IsErrNotFound(err error) bool
 }
 
@@ -128,7 +128,7 @@ func (db *database) Read(team string) ([]ApiKey, error) {
 	return apiKeys, nil
 }
 
-func (db *database) Write(team string, key []byte) error {
+func (db *database) Write(team, groupId string, key []byte) error {
 	var query string
 
 	ctx := context.Background()
@@ -138,17 +138,17 @@ func (db *database) Write(team string, key []byte) error {
 		return fmt.Errorf("unable to start transaction: %s", err)
 	}
 
-	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1;`
-	_, err = tx.Exec(ctx, query, team)
+	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1 AND team_azure_id=$2;`
+	_, err = tx.Exec(ctx, query, team, groupId)
 	if err != nil {
 		return err
 	}
 
 	query = `
-INSERT INTO apikey (key, team, created, expires)
-VALUES ($2, $1, NOW(), NOW()+MAKE_INTERVAL(years := 5));
+INSERT INTO apikey (key, team, team_azure_id, created, expires)
+VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 `
-	_, err = tx.Exec(ctx, query, team, hex.EncodeToString(key))
+	_, err = tx.Exec(ctx, query, hex.EncodeToString(key), team, groupId)
 	if err != nil {
 		return err
 	}
