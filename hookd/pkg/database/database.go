@@ -64,7 +64,7 @@ func (db *database) Migrate() error {
 	if err != nil {
 		// error might be due to no schema.
 		// no way to detect this, so log error and continue with migrations.
-		log.Warn("unable to get current migration version: %s", err)
+		log.Warnf("unable to get current migration version: %s", err)
 	}
 
 	for version < len(migrations) {
