@@ -5,6 +5,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
+	"github.com/navikt/deployment/hookd/pkg/config"
 )
 
 func JWTValidator(certificates map[string]discovery.CertificateList) jwt.Keyfunc {
@@ -16,8 +17,7 @@ func JWTValidator(certificates map[string]discovery.CertificateList) jwt.Keyfunc
 		if claims, ok := token.Claims.(*jwt.MapClaims); !ok {
 			return nil, fmt.Errorf("Unable to retrieve claims from token")
 		} else {
-			// Todo: use azure.ClientID instead of hard  coded value
-			if valid := claims.VerifyAudience("f29d724c-fdbf-4e43-b65a-3f123442bd88", true); !valid {
+			if valid := claims.VerifyAudience(config.DefaultConfig().Azure.ClientID, true); !valid {
 				return nil, fmt.Errorf("The token is not valid for this application")
 			}
 		}
