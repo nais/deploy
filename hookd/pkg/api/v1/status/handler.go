@@ -127,8 +127,7 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Request body validated successfully")
 
-	teamKey := database.TeamKey{}
-	err = h.APIKeyStorage.Read(statusRequest.Team, &teamKey)
+	_, err = h.APIKeyStorage.Read(statusRequest.Team)
 
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
