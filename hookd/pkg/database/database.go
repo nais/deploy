@@ -21,6 +21,7 @@ const (
 type Database interface {
 	Migrate() error
 	Read(team string) ([]ApiKey, error)
+	ReadByGroupClaim(group string) ([]ApiKey, error)
 	Write(team string, key []byte) error
 	IsErrNotFound(err error) bool
 }
@@ -30,9 +31,9 @@ type database struct {
 }
 
 type ApiKey struct {
-	Team    string `json:"team"`
-	GroupId string `json:"groupId"`
-	Key     string `json:"key"`
+	Team    string    `json:"team"`
+	GroupId string    `json:"groupId"`
+	Key     string    `json:"key"`
 	Expires time.Time `json:"expires"`
 	Created time.Time `json:"created"`
 }
@@ -80,12 +81,34 @@ func (db *database) Migrate() error {
 	return nil
 }
 
+func (db *database) ReadByGroupClaim(group string) ([]ApiKey, error) {
+	ctx := context.Background()
+	apiKeys := []ApiKey{}
+
+	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team_azure_id = $1 AND expires > NOW();`
+	rows, err := db.conn.Query(ctx, query, group)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		apiKey := ApiKey{}
+		err := rows.Scan(&apiKey.Key, &apiKey.Team, &apiKey.GroupId, &apiKey.Created, &apiKey.Expires)
+		if err != nil {
+			return nil, err
+		}
+		apiKeys = append(apiKeys, apiKey)
+	}
+	return apiKeys, nil
+}
+
 func (db *database) Read(team string) ([]ApiKey, error) {
 	ctx := context.Background()
 	apiKeys := []ApiKey{}
 
 	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 AND expires > NOW();`
-	rows, err:= db.conn.Query(ctx, query, team)
+	rows, err := db.conn.Query(ctx, query, team)
 
 	if err != nil {
 		return nil, err

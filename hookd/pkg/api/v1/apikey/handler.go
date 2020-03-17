@@ -19,44 +19,30 @@ type ApiKeyHandler struct {
 func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 	// This method returns all the keys the user is authorized to see
 
+	groups := r.Context().Value("groups").([]string)
+
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
-	//teamKey := database.TeamKey{}
-	teamKeys, err := h.APIKeyStorage.Read("team1")
-
-	if err != nil {
-		logger.Errorln(err)
-		if h.APIKeyStorage.IsErrNotFound(err) {
-			w.WriteHeader(http.StatusForbidden)
-			logger.Errorf("%s: %s", api_v1.FailedAuthenticationMsg, err)
-			return
+	keys := []database.ApiKey{}
+	for _, group := range groups {
+		groupKeys, err := h.APIKeyStorage.ReadByGroupClaim(group)
+		if err != nil {
+			logger.Error(err)
 		}
-		w.WriteHeader(http.StatusBadGateway)
-		logger.Errorf("unable to fetch team apikey from storage: %s", err)
+		if len(groupKeys) > 0 {
+			for _, groupKey := range groupKeys {
+				keys = append(keys, groupKey)
+			}
+		}
+	}
+	response, err := json.Marshal(keys)
+	if err != nil {
+		w.Write([]byte("Unable to marshall the team keys"))
 		return
 	}
+	w.Write(response)
+	return
 
-	fmt.Printf("%#v", teamKeys)
-
-	/*	groups := r.Context().Value("groups").([]string)
-		teams := []teamKey{}
-		for _, group := range groups {
-			for _, teamkey := range teamKeys {
-				if group == teamkey.GroupId {
-					teams = append(teams, teamkey)
-				}
-			}
-		}
-		if len(teams) > 0 {
-			response, err := json.Marshal(teams)
-			if err != nil {
-				w.Write([]byte("Unable to fetch any team keys"))
-				return
-			}
-			w.Write(response)
-			return
-		}*/
-	w.Write([]byte("Not authorized to fetch key for team"))
 }
 
 func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
