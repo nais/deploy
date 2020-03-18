@@ -32,6 +32,7 @@ require (
 	github.com/jjeffery/stringset v1.0.2
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/klauspost/compress v1.9.3 // indirect
+	github.com/magiconair/properties v1.8.1
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.1.2

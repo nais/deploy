@@ -1,0 +1,12 @@
+{
+  "request": {
+    "groups": [
+      "invalid-claim"
+    ],
+    "body": {}
+  },
+  "response": {
+    "statusCode": 200,
+    "body": []
+  }
+}

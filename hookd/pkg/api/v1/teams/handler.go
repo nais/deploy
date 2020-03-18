@@ -13,13 +13,17 @@ type TeamsHandler struct {
 	APIKeyStorage database.Database
 }
 
-type team struct {
+type Team struct {
 	Team    string `json:"team"`
 	GroupId string `json:"groupId"`
 }
 
 func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	groups := r.Context().Value("groups").([]string)
+	groups, ok := r.Context().Value("groups").([]string)
+	if !ok {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
@@ -35,18 +39,19 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	var teams []team
+	teams := []Team{}
 	for _, v := range keys {
-		t := team{
+		t := Team{
 			GroupId: v.GroupId,
 			Team:    v.Team,
 		}
 		teams = append(teams, t)
 	}
+
 	teamsJson, err := json.Marshal(teams)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Unable to marshall the team keys"))
+		w.Write([]byte("Unable to marshall the Team keys"))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
