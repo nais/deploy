@@ -36,9 +36,11 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	response, err := json.Marshal(keys)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Unable to marshall the team keys"))
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 	w.Write(response)
 	return
 
@@ -75,6 +77,7 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 	if len(keys) > 0 {
 		response, err := json.Marshal(keys)
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Unable to marshall the team keys"))
 			return
 		}
@@ -120,6 +123,7 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("Unable to generate new random apiKey"))
+			return
 		}
 		logger.Infof("generated new apiKey for %s (%s)\n", keyToRotate.Team, keyToRotate.GroupId)
 		err = h.APIKeyStorage.Write(keyToRotate.Team, keyToRotate.GroupId, newKey)
@@ -136,6 +140,7 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 		if len(keys) > 0 {
 			response, err := json.Marshal(keys)
 			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
 				w.Write([]byte("Unable to marshall the team keys"))
 				return
 			}

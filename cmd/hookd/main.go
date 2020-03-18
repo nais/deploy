@@ -173,11 +173,12 @@ func run() error {
 		Clusters:          cfg.Clusters,
 	}
 
-	teamsHandler := &api_v1_teams.TeamsHandler{}
+	teamsHandler := &api_v1_teams.TeamsHandler{
+		APIKeyStorage: apiKeys,
+	}
 	apikeyHandler := &api_v1_apikey.ApiKeyHandler{
 		APIKeyStorage: apiKeys,
 	}
-
 
 	statusHandler := &api_v1_status.StatusHandler{
 		GithubClient:  githubClient,
@@ -240,6 +241,9 @@ func run() error {
 			r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
 		})
 		r.Route("/teams", func(r chi.Router) {
+			r.Use(
+				middleware.TokenValidatorMiddleware(certificates),
+			)
 			r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
 		})
 		r.Post("/deploy", deploymentHandler.ServeHTTP)

@@ -138,7 +138,7 @@ func (db *database) Write(team, groupId string, key []byte) error {
 		return fmt.Errorf("unable to start transaction: %s", err)
 	}
 
-	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1 AND team_azure_id=$2;`
+	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1 AND team_azure_id = $2;`
 	_, err = tx.Exec(ctx, query, team, groupId)
 	if err != nil {
 		return err
