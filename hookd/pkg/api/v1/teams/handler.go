@@ -2,6 +2,7 @@ package api_v1_teams
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/navikt/deployment/hookd/pkg/database"
@@ -12,12 +13,17 @@ import (
 type TeamsHandler struct {
 	APIKeyStorage database.Database
 }
-
+type Response struct {
+	Team []Team `json:"[],omitempty"`
+}
 type Team struct {
 	Team    string `json:"team"`
 	GroupId string `json:"groupId"`
 }
 
+func (r *Response) render(w io.Writer) {
+	json.NewEncoder(w).Encode(r)
+}
 func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	groups, ok := r.Context().Value("groups").([]string)
 	if !ok {
@@ -48,12 +54,9 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		teams = append(teams, t)
 	}
 
-	teamsJson, err := json.Marshal(teams)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Unable to marshall the Team keys"))
-		return
-	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(teamsJson)
+	var response Response
+	response.Team = teams
+	response.render(w)
 }

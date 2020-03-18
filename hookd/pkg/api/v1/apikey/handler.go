@@ -40,6 +40,7 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Unable to marshall the team keys"))
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(response)
 	return
@@ -81,6 +82,8 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Unable to marshall the team keys"))
 			return
 		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
 		w.Write(response)
 		return
 	}
@@ -144,6 +147,7 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 				w.Write([]byte("Unable to marshall the team keys"))
 				return
 			}
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			w.Write(response)
 			return

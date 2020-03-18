@@ -32,7 +32,7 @@ type apiKeyStorage struct {
 }
 type testCase struct {
 	Request  request  `json:"request"`
-	Response response `json:"response"`
+	Response response `json:"Response"`
 }
 type request struct {
 	Headers map[string]string
@@ -94,7 +94,7 @@ func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response re
 	assert.Equal(t, response.Body, body)
 	assert.Equal(t, response.StatusCode, recorder.Code)
 
-	//	assert.Equal(t, response.Body.Team, body)
+	//	assert.Equal(t, Response.Body.Team, body)
 	if response.StatusCode == http.StatusOK {
 		return
 	}
@@ -102,7 +102,7 @@ func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response re
 	//	decodedBody := api_v1_provision.Response{}
 	//	err := json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
 	//	assert.NoError(t, err)
-	//	assert.Equal(t, response.Body.Message, decodedBody.Message)
+	//	assert.Equal(t, Response.Body.Message, decodedBody.Message)
 }
 func fileReader(file string) io.Reader {
 	f, err := os.Open(file)
