@@ -56,7 +56,6 @@ func tokenValidatorMiddleware(next http.Handler) http.Handler {
 
 func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 	teams := []database.ApiKey{}
-	fmt.Println(team)
 	switch team {
 	case "team1":
 		teams = append(teams, database.ApiKey{
@@ -161,7 +160,6 @@ func statusSubTest(t *testing.T, folder, file string) {
 	case "GetTeamApiKey":
 		request := httptest.NewRequest("GET", "/api/v1/apikey/team1", bytes.NewReader(test.Request.Body))
 		request = request.WithContext(context.WithValue(request.Context(), "groups", test.Request.Groups))
-		request = request.WithContext(context.WithValue(request.Context(), ctxKey{"RouteContext"}, "team1"))
 		for key, val := range test.Request.Headers {
 			request.Header.Set(key, val)
 		}

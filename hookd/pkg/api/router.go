@@ -122,9 +122,7 @@ func New(cfg Config) chi.Router {
 			chi_middleware.Timeout(requestTimeout),
 		)
 		r.Route("/apikey", func(r chi.Router) {
-			r.Use(
-				middleware.TokenValidatorMiddleware(cfg.Certificates),
-			)
+			r.Use(cfg.OAuthKeyValidatorMiddleware)
 			r.Get("/", apikeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
 			r.Get("/{team}", apikeyHandler.GetTeamApiKey)     // -> apikey til dette spesifikke teamet
 			r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
