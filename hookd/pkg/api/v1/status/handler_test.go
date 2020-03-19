@@ -178,7 +178,7 @@ func statusSubTest(t *testing.T, name string) {
 	testStatusResponse(t, recorder, test.Response)
 }
 
-func TestStatusHandler(t *testing.T) {
+func TestHandler(t *testing.T) {
 	files, err := ioutil.ReadDir("testdata")
 	if err != nil {
 		t.Error(err)

@@ -21,6 +21,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
+	"github.com/navikt/deployment/hookd/pkg/middleware"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
@@ -151,18 +152,19 @@ func run() error {
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
 	router := api.New(api.Config{
-		BaseURL:               cfg.BaseURL,
-		Certificates:          certificates,
-		Clusters:              cfg.Clusters,
-		Database:              apiKeys,
-		GithubClient:          githubClient,
-		GithubConfig:          config.Github{},
-		InstallationClient:    installationClient,
-		MetricsPath:           cfg.MetricsPath,
-		ProvisionKey:          provisionKey,
-		RequestChan:           requestChan,
-		StatusChan:            statusChan,
-		TeamRepositoryStorage: teamRepositoryStorage,
+		BaseURL:                     cfg.BaseURL,
+		Certificates:                certificates,
+		Clusters:                    cfg.Clusters,
+		Database:                    apiKeys,
+		GithubClient:                githubClient,
+		GithubConfig:                config.Github{},
+		InstallationClient:          installationClient,
+		MetricsPath:                 cfg.MetricsPath,
+		OAuthKeyValidatorMiddleware: middleware.TokenValidatorMiddleware(certificates),
+		ProvisionKey:                provisionKey,
+		RequestChan:                 requestChan,
+		StatusChan:                  statusChan,
+		TeamRepositoryStorage:       teamRepositoryStorage,
 	})
 
 	go func() {

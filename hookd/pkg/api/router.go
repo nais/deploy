@@ -31,19 +31,22 @@ var (
 	requestTimeout = time.Second * 10
 )
 
+type Middleware func(http.Handler) http.Handler
+
 type Config struct {
-	BaseURL               string
-	Certificates          map[string]discovery.CertificateList
-	Clusters              []string
-	Database              database.Database
-	GithubClient          github.Client
-	GithubConfig          config.Github
-	InstallationClient    *gh.Client
-	MetricsPath           string
-	ProvisionKey          []byte
-	RequestChan           chan deployment.DeploymentRequest
-	StatusChan            chan deployment.DeploymentStatus
-	TeamRepositoryStorage persistence.TeamRepositoryStorage
+	BaseURL                     string
+	Certificates                map[string]discovery.CertificateList
+	Clusters                    []string
+	Database                    database.Database
+	GithubClient                github.Client
+	GithubConfig                config.Github
+	InstallationClient          *gh.Client
+	MetricsPath                 string
+	OAuthKeyValidatorMiddleware Middleware
+	ProvisionKey                []byte
+	RequestChan                 chan deployment.DeploymentRequest
+	StatusChan                  chan deployment.DeploymentStatus
+	TeamRepositoryStorage       persistence.TeamRepositoryStorage
 }
 
 func New(cfg Config) chi.Router {
@@ -127,9 +130,7 @@ func New(cfg Config) chi.Router {
 			r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
 		})
 		r.Route("/teams", func(r chi.Router) {
-			r.Use(
-				middleware.TokenValidatorMiddleware(cfg.Certificates),
-			)
+			r.Use(cfg.OAuthKeyValidatorMiddleware)
 			r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
 		})
 		r.Post("/deploy", deploymentHandler.ServeHTTP)

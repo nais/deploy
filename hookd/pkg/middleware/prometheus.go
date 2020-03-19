@@ -54,8 +54,8 @@ func PrometheusMiddleware(name string, buckets ...float64) *Middleware {
 		[]string{"code", "method", "path"},
 	)
 
-	prometheus.MustRegister(m.reqs)
-	prometheus.MustRegister(m.latency)
+	prometheus.Register(m.reqs)
+	prometheus.Register(m.latency)
 
 	return &m
 }

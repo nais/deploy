@@ -19,26 +19,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type ApiKey struct {
-	Team    string    `json:"Team"`
-	GroupId string    `json:"groupId"`
-	Key     string    `json:"key"`
-	Expires time.Time `json:"expires"`
-	Created time.Time `json:"created"`
-}
-
 type apiKeyStorage struct {
 	database.Database
 }
+
 type testCase struct {
 	Request  request  `json:"request"`
 	Response response `json:"Response"`
 }
+
 type request struct {
 	Headers map[string]string
 	Body    json.RawMessage
 	Groups  []string
 }
+
 type response struct {
 	StatusCode int                 `json:"statusCode"`
 	Body       []api_v1_teams.Team `json:"body"`
@@ -47,14 +42,18 @@ type response struct {
 func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 	return nil, fmt.Errorf("err")
 }
+
 func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 	return fmt.Errorf("err")
 }
+
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
 	return err == persistence.ErrNotFound
 }
+
 func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error) {
 	groups := []database.ApiKey{}
+
 	switch group {
 	case "group1-claim":
 		groups = append(groups, database.ApiKey{
@@ -65,6 +64,7 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error
 			Created: time.Time{},
 		})
 		return groups, nil
+
 	case "group2-claim":
 		groups = append(groups, database.ApiKey{
 			Team:    "team2",
@@ -74,6 +74,7 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error
 			Created: time.Time{},
 		})
 		return groups, nil
+
 	case "group4-claim":
 		groups = append(groups, database.ApiKey{
 			Team:    "team4",
@@ -83,10 +84,12 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error
 			Created: time.Time{},
 		})
 		return groups, nil
+
 	default:
 		return groups, nil
 	}
 }
+
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
 
 	body := []api_v1_teams.Team{}
@@ -104,6 +107,7 @@ func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response re
 	//	assert.NoError(t, err)
 	//	assert.Equal(t, Response.Body.Message, decodedBody.Message)
 }
+
 func fileReader(file string) io.Reader {
 	f, err := os.Open(file)
 	if err != nil {
@@ -111,6 +115,7 @@ func fileReader(file string) io.Reader {
 	}
 	return f
 }
+
 func statusSubTest(t *testing.T, name string) {
 	inFile := fmt.Sprintf("testdata/%s", name)
 
@@ -142,7 +147,8 @@ func statusSubTest(t *testing.T, name string) {
 	handler.ServeHTTP(recorder, request)
 	testResponse(t, recorder, test.Response)
 }
-func TestProvisionHandler(t *testing.T) {
+
+func TestHandler(t *testing.T) {
 	files, err := ioutil.ReadDir("testdata")
 	if err != nil {
 		t.Error(err)

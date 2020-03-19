@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/navikt/deployment/hookd/pkg/api"
 	api_v1_apikey "github.com/navikt/deployment/hookd/pkg/api/v1/apikey"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
@@ -26,21 +28,15 @@ func (k ctxKey) String() string {
 	return "context value " + k.name
 }
 
-type ApiKey struct {
-	Team    string    `json:"Team"`
-	GroupId string    `json:"groupId"`
-	Key     string    `json:"key"`
-	Expires time.Time `json:"expires"`
-	Created time.Time `json:"created"`
-}
-
 type apiKeyStorage struct {
 	database.Database
 }
+
 type testCase struct {
 	Request  request  `json:"request"`
 	Response response `json:"Response"`
 }
+
 type request struct {
 	Headers      map[string]string
 	Body         json.RawMessage
@@ -48,9 +44,14 @@ type request struct {
 	Team         string
 	RouteContext map[string]string
 }
+
 type response struct {
 	StatusCode int               `json:"statusCode"`
 	Body       []database.ApiKey `json:"body"`
+}
+
+func tokenValidatorMiddleware(next http.Handler) http.Handler {
+	return next
 }
 
 func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
@@ -70,12 +71,15 @@ func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 		return nil, fmt.Errorf("err")
 	}
 }
+
 func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 	return fmt.Errorf("err")
 }
+
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
 	return err == persistence.ErrNotFound
 }
+
 func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error) {
 	groups := []database.ApiKey{}
 	switch group {
@@ -161,10 +165,12 @@ func statusSubTest(t *testing.T, folder, file string) {
 		for key, val := range test.Request.Headers {
 			request.Header.Set(key, val)
 		}
-		handler := api_v1_apikey.ApiKeyHandler{
-			APIKeyStorage: &apiKeyStore,
-		}
-		handler.GetTeamApiKey(recorder, request)
+		handler := api.New(api.Config{
+			MetricsPath:                 "/metrics",
+			OAuthKeyValidatorMiddleware: tokenValidatorMiddleware,
+			Database:                    &apiKeyStore,
+		})
+		handler.ServeHTTP(recorder, request)
 		testResponse(t, recorder, test.Response)
 	}
 }

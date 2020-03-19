@@ -1,5 +1,8 @@
 {
   "request": {
+    "headers": {
+      "content-type": "application/json"
+    },
     "groups": [
       "invalid-claim"
     ],

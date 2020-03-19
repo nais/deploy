@@ -1,5 +1,8 @@
 {
   "request": {
+    "headers": {
+      "content-type": "application/json"
+    },
     "groups": [
       "group1-claim",
       "group2-claim"

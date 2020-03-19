@@ -170,7 +170,7 @@ func subTest(t *testing.T, name string) {
 	testResponse(t, recorder, test.Response)
 }
 
-func TestDeploymentHandler(t *testing.T) {
+func TestHandler(t *testing.T) {
 	files, err := ioutil.ReadDir("testdata")
 	if err != nil {
 		t.Error(err)
