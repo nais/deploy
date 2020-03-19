@@ -72,6 +72,10 @@ func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 }
 
 func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
+	switch team {
+	case "team1":
+		return nil
+	}
 	return fmt.Errorf("err")
 }
 
@@ -159,6 +163,19 @@ func statusSubTest(t *testing.T, folder, file string) {
 		testResponse(t, recorder, test.Response)
 	case "GetTeamApiKey":
 		request := httptest.NewRequest("GET", "/api/v1/apikey/team1", bytes.NewReader(test.Request.Body))
+		request = request.WithContext(context.WithValue(request.Context(), "groups", test.Request.Groups))
+		for key, val := range test.Request.Headers {
+			request.Header.Set(key, val)
+		}
+		handler := api.New(api.Config{
+			MetricsPath:                 "/metrics",
+			OAuthKeyValidatorMiddleware: tokenValidatorMiddleware,
+			Database:                    &apiKeyStore,
+		})
+		handler.ServeHTTP(recorder, request)
+		testResponse(t, recorder, test.Response)
+	case "RotateTeamApiKey":
+		request := httptest.NewRequest("POST", "/api/v1/apikey/team1", bytes.NewReader(test.Request.Body))
 		request = request.WithContext(context.WithValue(request.Context(), "groups", test.Request.Groups))
 		for key, val := range test.Request.Headers {
 			request.Header.Set(key, val)

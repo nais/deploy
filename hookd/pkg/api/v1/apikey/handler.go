@@ -132,6 +132,11 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 		}
 		logger.Infof("generated new apiKey for %s (%s)\n", keyToRotate.Team, keyToRotate.GroupId)
 		err = h.APIKeyStorage.Write(keyToRotate.Team, keyToRotate.GroupId, newKey)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Unable to write new key"))
+			return
+		}
 
 		apiKeys, err := h.APIKeyStorage.Read(team)
 		keys := []database.ApiKey{}

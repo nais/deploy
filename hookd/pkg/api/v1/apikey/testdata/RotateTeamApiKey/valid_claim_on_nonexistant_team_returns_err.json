@@ -4,7 +4,7 @@
       "content-type": "application/json"
     },
     "groups": [
-      "invalid-claim"
+      "group2-claim"
     ],
     "body": {}
   },
