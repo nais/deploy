@@ -9,40 +9,28 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/go-chi/chi"
-	chi_middleware "github.com/go-chi/chi/middleware"
 	"github.com/golang/protobuf/proto"
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/apikey"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
-	api_v1_queue "github.com/navikt/deployment/hookd/pkg/api/v1/queue"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/teams"
+	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
-	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
-	"github.com/navikt/deployment/hookd/pkg/middleware"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
-	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/navikt/deployment/pkg/crypto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
 
 var (
-	cfg            = config.DefaultConfig()
-	retryInterval  = time.Second * 5
-	queueSize      = 32
-	requestTimeout = time.Second * 10
+	cfg           = config.DefaultConfig()
+	retryInterval = time.Second * 5
+	queueSize     = 32
 )
 
 func init() {
@@ -159,147 +147,23 @@ func run() error {
 		return fmt.Errorf("postgresql setup: %s", err)
 	}
 
-	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
-
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
-	deploymentHandler := &api_v1_deploy.DeploymentHandler{
-		BaseURL:           cfg.BaseURL,
-		DeploymentRequest: requestChan,
-		DeploymentStatus:  statusChan,
-		GithubClient:      githubClient,
-		APIKeyStorage:     apiKeys,
-		Clusters:          cfg.Clusters,
-	}
-
-	teamsHandler := &api_v1_teams.TeamsHandler{
-		APIKeyStorage: apiKeys,
-	}
-	apikeyHandler := &api_v1_apikey.ApiKeyHandler{
-		APIKeyStorage: apiKeys,
-	}
-
-	statusHandler := &api_v1_status.StatusHandler{
-		GithubClient:  githubClient,
-		APIKeyStorage: apiKeys,
-	}
-
-	provisionHandler := &api_v1_provision.Handler{
-		APIKeyStorage: apiKeys,
-		SecretKey:     provisionKey,
-	}
-
-	githubDeploymentHandler := &server.GithubDeploymentHandler{
-		DeploymentRequest:     requestChan,
-		DeploymentStatus:      statusChan,
-		SecretToken:           cfg.Github.WebhookSecret,
-		TeamRepositoryStorage: teamRepositoryStorage,
+	router := api.New(api.Config{
+		BaseURL:               cfg.BaseURL,
+		Certificates:          certificates,
 		Clusters:              cfg.Clusters,
-	}
-
-	queueHandler := &api_v1_queue.Handler{}
-
-	// Pre-populate request metrics
-	for _, code := range api_v1_deploy.StatusCodes {
-		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
-	}
-	for _, code := range api_v1_status.StatusCodes {
-		prometheusMiddleware.Initialize("/api/v1/status", http.MethodPost, code)
-	}
-	for _, code := range api_v1_provision.StatusCodes {
-		prometheusMiddleware.Initialize("/api/v1/provision", http.MethodPost, code)
-	}
-
-	// Base settings for all requests
-	router := chi.NewRouter()
-	router.Use(
-		middleware.RequestLogger(),
-		prometheusMiddleware.Handler(),
-		chi_middleware.StripSlashes,
-	)
-
-	// Mount /metrics endpoint with no authentication
-	router.Get(cfg.MetricsPath, promhttp.Handler().ServeHTTP)
-
-	// Deployment logs accessible via shorthand URL
-	router.HandleFunc("/logs", logproxy.HandleFunc)
-
-	// Mount /api/v1 for API requests
-	// Only application/json content type allowed
-	router.Route("/api/v1", func(r chi.Router) {
-		r.Use(
-			chi_middleware.AllowContentType("application/json"),
-			chi_middleware.Timeout(requestTimeout),
-		)
-		r.Route("/apikey", func(r chi.Router) {
-			r.Use(
-				middleware.TokenValidatorMiddleware(certificates),
-			)
-			r.Get("/", apikeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
-			r.Get("/{team}", apikeyHandler.GetTeamApiKey)     // -> apikey til dette spesifikke teamet
-			r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
-		})
-		r.Route("/teams", func(r chi.Router) {
-			r.Use(
-				middleware.TokenValidatorMiddleware(certificates),
-			)
-			r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
-		})
-		r.Post("/deploy", deploymentHandler.ServeHTTP)
-		r.Post("/status", statusHandler.ServeHTTP)
-		r.Get("/queue", queueHandler.ServeHTTP)
-		if len(provisionKey) == 0 {
-			log.Error("Refusing to set up team API provisioning endpoint without pre-shared secret; try using --provision-key")
-			log.Error("Note: /api/v1/provision will be unavailable")
-		} else {
-			r.Post("/provision", provisionHandler.ServeHTTP)
-		}
+		Database:              apiKeys,
+		GithubClient:          githubClient,
+		GithubConfig:          config.Github{},
+		InstallationClient:    installationClient,
+		MetricsPath:           cfg.MetricsPath,
+		ProvisionKey:          provisionKey,
+		RequestChan:           requestChan,
+		StatusChan:            statusChan,
+		TeamRepositoryStorage: teamRepositoryStorage,
 	})
-	// Mount /events for "legacy" GitHub deployment handling
-	router.Post("/events", githubDeploymentHandler.ServeHTTP)
-
-	// "Legacy" user authentication and repository/team connections
-	router.Route("/auth", func(r chi.Router) {
-		loginHandler := &auth.LoginHandler{
-			ClientID: cfg.Github.ClientID,
-		}
-		logoutHandler := &auth.LogoutHandler{}
-		callbackHandler := &auth.CallbackHandler{
-			ClientID:     cfg.Github.ClientID,
-			ClientSecret: cfg.Github.ClientSecret,
-		}
-		formHandler := &auth.FormHandler{}
-		submittedFormHandler := &auth.SubmittedFormHandler{
-			TeamRepositoryStorage: teamRepositoryStorage,
-			ApplicationClient:     installationClient,
-		}
-
-		r.Get("/login", loginHandler.ServeHTTP)
-		r.Get("/logout", logoutHandler.ServeHTTP)
-		r.Get("/callback", callbackHandler.ServeHTTP)
-		r.Get("/form", formHandler.ServeHTTP)
-		r.Post("/submit", submittedFormHandler.ServeHTTP)
-
-	})
-
-	// "Legacy" proxy/caching layer between user, application, and GitHub.
-	router.Route("/proxy", func(r chi.Router) {
-		teamProxyHandler := &auth.TeamsProxyHandler{
-			ApplicationClient: installationClient,
-		}
-		repositoryProxyHandler := &auth.RepositoriesProxyHandler{}
-
-		r.Get("/teams", teamProxyHandler.ServeHTTP)
-		r.Get("/repositories", repositoryProxyHandler.ServeHTTP)
-	})
-
-	// "Legacy" static assets (css, js, images)
-	staticHandler := http.StripPrefix(
-		"/assets",
-		http.FileServer(http.Dir(auth.StaticAssetsLocation)),
-	)
-	router.Handle("/assets/*", staticHandler)
 
 	go func() {
 		err := http.ListenAndServe(cfg.ListenAddress, router)
