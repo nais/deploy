@@ -32,11 +32,11 @@ require (
 	github.com/jjeffery/stringset v1.0.2
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/klauspost/compress v1.9.3 // indirect
-	github.com/magiconair/properties v1.8.1
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/onsi/ginkgo v1.10.2 // indirect
+	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
 	github.com/prometheus/client_golang v1.2.1
@@ -66,13 +66,15 @@ require (
 	google.golang.org/genproto v0.0.0-20191002211648-c459b9ce5143 // indirect
 	google.golang.org/grpc v1.24.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.48.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.3.0 // indirect
 	gopkg.in/sakura-internet/go-rison.v3 v3.1.0
 	k8s.io/api v0.0.0-20191004102349-159aefb8556b // release-1.14
-	k8s.io/apimachinery v0.17.4 // release-1.14
+	k8s.io/apimachinery v0.0.0-20191004074956-c5d2f014d689 // release-1.14
 	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/utils v0.0.0-20190923111123-69764acb6e8e // indirect
+	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
 go 1.13
