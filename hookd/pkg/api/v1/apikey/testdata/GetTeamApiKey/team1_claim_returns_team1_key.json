@@ -1,0 +1,19 @@
+{
+  "request": {
+    "groups": [
+      "group1-claim"
+    ],
+    "routeContext": {"team": "team1"},
+    "body": {}
+  },
+  "response": {
+    "statusCode": 200,
+    "body": [
+      {
+        "team": "team1",
+        "groupId": "group1-claim",
+        "key": "key1"
+      }
+    ]
+  }
+}

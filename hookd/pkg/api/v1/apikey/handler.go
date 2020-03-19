@@ -2,6 +2,7 @@ package api_v1_apikey
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi"
@@ -49,6 +50,7 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 
 func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 	team := chi.URLParam(r, "team")
+	fmt.Printf("team: %s\n", team)
 	// This method returns the deploy key for a specific team
 	groups := r.Context().Value("groups").([]string)
 
