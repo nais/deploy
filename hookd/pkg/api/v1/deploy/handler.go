@@ -1,6 +1,7 @@
 package api_v1_deploy
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -131,16 +132,15 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: @jensen
-	// encodedSignature := r.Header.Get(api_v1.SignatureHeader)
-	// signature, err := hex.DecodeString(encodedSignature)
-	// if err != nil {
-	// 	w.WriteHeader(http.StatusBadRequest)
-	// 	deploymentResponse.Message = "HMAC digest must be hex encoded"
-	// 	deploymentResponse.render(w)
-	// 	logger.Errorf("unable to validate team: %s: %s", deploymentResponse.Message, err)
-	// 	return
-	// }
+	encodedSignature := r.Header.Get(api_v1.SignatureHeader)
+	signature, err := hex.DecodeString(encodedSignature)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = "HMAC digest must be hex encoded"
+		deploymentResponse.render(w)
+		logger.Errorf("unable to validate team: %s: %s", deploymentResponse.Message, err)
+		return
+	}
 
 	logger.Tracef("Request has hex encoded data in signature header")
 
@@ -175,7 +175,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Request body validated successfully")
-	_, err = h.APIKeyStorage.Read(deploymentRequest.Team)
+	apiKeys, err := h.APIKeyStorage.Read(deploymentRequest.Team)
 
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
@@ -194,15 +194,14 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Team API key retrieved from storage")
-	// TODO: @jensen
-	/*err = api_v1.ValidateAnyMAC(data, signature, tokens)
+	err = api_v1.ValidateAnyMAC(data, signature, apiKeys)
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		deploymentResponse.Message = api_v1.FailedAuthenticationMsg
 		deploymentResponse.render(w)
 		logger.Error(err)
 		return
-	}*/
+	}
 
 	logger.Tracef("HMAC signature validated successfully")
 
