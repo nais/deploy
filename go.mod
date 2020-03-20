@@ -2,8 +2,6 @@ module github.com/navikt/deployment
 
 require (
 	cloud.google.com/go/storage v1.1.0
-	github.com/Azure/go-autorest/autorest v0.9.1 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
 	github.com/Shopify/sarama v1.24.1
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/aymerick/raymond v2.0.2+incompatible
@@ -70,9 +68,9 @@ require (
 	gopkg.in/ini.v1 v1.48.0 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.3.0 // indirect
 	gopkg.in/sakura-internet/go-rison.v3 v3.1.0
-	k8s.io/api v0.0.0-20191004102349-159aefb8556b // release-1.14
-	k8s.io/apimachinery v0.0.0-20191004074956-c5d2f014d689 // release-1.14
-	k8s.io/client-go v11.0.0+incompatible
+	k8s.io/api v0.0.0-20200131232428-e3a917c59b04 // kubernetes-1.15.0
+	k8s.io/apimachinery v0.0.0-20200131232151-0cd702f8b7f4 // kubernetes-1.15.0
+	k8s.io/client-go v0.0.0-20200228043304-076fbc5c36a7 // release-12.0
 	k8s.io/utils v0.0.0-20190923111123-69764acb6e8e // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
