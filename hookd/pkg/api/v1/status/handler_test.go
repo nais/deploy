@@ -16,12 +16,13 @@ import (
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/stretchr/testify/assert"
 )
 
-var secretKey = []byte("foobar")
+var secretKey = "foobar"
 
 const (
 	deploymentID = 123789
@@ -73,20 +74,22 @@ func (g *githubClient) DeploymentStatus(ctx context.Context, owner, repository s
 	}, nil
 }
 
-type apiKeyStorage struct{}
+type apiKeyStorage struct {
+	database.Database
+}
 
-func (a *apiKeyStorage) Read(team string) ([][]byte, error) {
+func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 	switch team {
 	case "notfound":
 		return nil, persistence.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
 	default:
-		return [][]byte{secretKey}, nil
+		return []database.ApiKey{{Key: secretKey}}, nil
 	}
 }
 
-func (a *apiKeyStorage) Write(team string, key []byte) error {
+func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 	return nil
 }
 
@@ -161,7 +164,7 @@ func statusSubTest(t *testing.T, name string) {
 
 	// Generate HMAC header for cases where the header should be valid
 	if len(request.Header.Get(api_v1.SignatureHeader)) == 0 {
-		mac := api_v1.GenMAC(body, secretKey)
+		mac := api_v1.GenMAC(body, []byte(secretKey))
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 

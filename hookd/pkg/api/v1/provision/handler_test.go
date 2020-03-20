@@ -15,12 +15,13 @@ import (
 
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	secretKey    = []byte("foobar")
+	secretKey    = "foobar"
 	provisionKey = []byte("cryptographically secure")
 )
 
@@ -39,20 +40,22 @@ type testCase struct {
 	Response response `json:"response"`
 }
 
-type apiKeyStorage struct{}
+type apiKeyStorage struct {
+	database.Database
+}
 
-func (a *apiKeyStorage) Read(team string) ([][]byte, error) {
+func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 	switch team {
 	case "new", "unwritable":
 		return nil, persistence.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
 	default:
-		return [][]byte{secretKey}, nil
+		return []database.ApiKey{{Key: secretKey}}, nil
 	}
 }
 
-func (a *apiKeyStorage) Write(team string, key []byte) error {
+func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 	switch team {
 	case "unwritable", "unwritable_with_rotate":
 		return fmt.Errorf("service unavailable")
