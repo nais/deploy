@@ -24,20 +24,25 @@ jobs:
         docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
         docker build --tag ${hookd_image}:${version} --tag ${hookd_image}:latest -f Dockerfile.hookd .
         docker build --tag ${deployd_image}:${version} --tag ${deployd_image}:latest -f Dockerfile.deployd .
-    - name: Push Docker image to GitHub
+    - name: Push versioned Docker image to GitHub
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        docker login docker.pkg.github.com -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
+        docker push ${image}:${version}
+        docker push ${hookd_image}:${version}
+        docker push ${deployd_image}:${version}
+    - name: Push production Docker image to GitHub
       if: github.ref == 'refs/heads/master'
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         docker login docker.pkg.github.com -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
         docker push ${image}:${deploy_action_api_version}
-        docker push ${image}:${version}
         docker push ${image}:latest
-        docker push ${hookd_image}:${version}
         docker push ${hookd_image}:latest
-        docker push ${deployd_image}:${version}
         docker push ${deployd_image}:latest
-    - name: Push Docker image to Dockerhub
+    - name: Push production Docker image to Dockerhub
       if: github.ref == 'refs/heads/master'
       env:
         DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}

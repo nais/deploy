@@ -58,7 +58,7 @@ func init() {
 	flag.StringVar(&cfg.S3.BucketLocation, "s3-bucket-location", cfg.S3.BucketLocation, "S3 bucket location.")
 	flag.BoolVar(&cfg.S3.UseTLS, "s3-secure", cfg.S3.UseTLS, "Use TLS for S3 connections.")
 
-	flag.StringVar(&cfg.Postgres, "postgres-connection-string", cfg.Postgres, "PostgreSQL connection string.")
+	flag.StringVar(&cfg.DatabaseURL, "database.url", cfg.DatabaseURL, "PostgreSQL connection information.")
 
 	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
 	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
@@ -109,7 +109,7 @@ func run() error {
 		return fmt.Errorf("while setting up S3 backend: %s", err)
 	}
 
-	db, err := database.New(cfg.Postgres)
+	db, err := database.New(cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("setup postgres connection: %s", err)
 	}
@@ -143,7 +143,7 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	apiKeys, err := database.New(cfg.Postgres)
+	apiKeys, err := database.New(cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("postgresql setup: %s", err)
 	}
