@@ -128,12 +128,12 @@ func (db *database) Read(team string) ([]ApiKey, error) {
 	return apiKeys, nil
 }
 
-func (db *database) ReadExpired(team string) ([]ApiKey, error) {
+func (db *database) ReadMultiple(team string, limit int) ([]ApiKey, error) {
 	ctx := context.Background()
 	apiKeys := []ApiKey{}
 
-	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT 10`
-	rows, err := db.conn.Query(ctx, query, team)
+	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT $2`
+	rows, err := db.conn.Query(ctx, query, team, limit)
 
 	if err != nil {
 		return nil, err
@@ -145,6 +145,7 @@ func (db *database) ReadExpired(team string) ([]ApiKey, error) {
 		if err != nil {
 			return nil, err
 		}
+		apiKeys = append(apiKeys, apiKey)
 	}
 	if len(apiKeys) == 0 {
 		return nil, ErrNotFound
