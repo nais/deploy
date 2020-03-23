@@ -70,6 +70,22 @@ func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 		return nil, fmt.Errorf("err")
 	}
 }
+func (a *apiKeyStorage) ReadAll(team, limit string) ([]database.ApiKey, error) {
+	teams := []database.ApiKey{}
+	switch team {
+	case "team1":
+		teams = append(teams, database.ApiKey{
+			Team:    "team1",
+			GroupId: "group1-claim",
+			Key:     "key1",
+			Expires: time.Time{},
+			Created: time.Time{},
+		})
+		return teams, nil
+	default:
+		return nil, fmt.Errorf("err")
+	}
+}
 
 func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 	switch team {

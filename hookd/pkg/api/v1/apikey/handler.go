@@ -56,7 +56,7 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
-	apiKeys, err := h.APIKeyStorage.Read(team)
+	apiKeys, err := h.APIKeyStorage.ReadAll(team, r.URL.Query().Get("limit"))
 
 	if err != nil {
 		logger.Errorln(err)

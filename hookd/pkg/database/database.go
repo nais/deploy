@@ -21,6 +21,7 @@ const (
 type Database interface {
 	Migrate() error
 	Read(team string) ([]ApiKey, error)
+	ReadAll(team, limit string) ([]ApiKey, error)
 	ReadByGroupClaim(group string) ([]ApiKey, error)
 	Write(team, groupId string, key []byte) error
 	IsErrNotFound(err error) bool
@@ -128,12 +129,24 @@ func (db *database) Read(team string) ([]ApiKey, error) {
 	return apiKeys, nil
 }
 
-func (db *database) ReadMultiple(team string, limit int) ([]ApiKey, error) {
+func (db *database) ReadAll(team, limit string) ([]ApiKey, error) {
 	ctx := context.Background()
 	apiKeys := []ApiKey{}
+	var query string
+	var rows pgx.Rows
+	var err error
 
-	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT $2`
-	rows, err := db.conn.Query(ctx, query, team, limit)
+	if limit == "" {
+		query = `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC`
+		if rows, err = db.conn.Query(ctx, query, team); err != nil {
+			return nil, err
+		}
+	} else {
+		query = `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT $2`
+		if rows, err = db.conn.Query(ctx, query, team, limit); err != nil {
+			return nil, err
+		}
+	}
 
 	if err != nil {
 		return nil, err
