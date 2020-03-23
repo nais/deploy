@@ -128,6 +128,31 @@ func (db *database) Read(team string) ([]ApiKey, error) {
 	return apiKeys, nil
 }
 
+func (db *database) ReadExpired(team string) ([]ApiKey, error) {
+	ctx := context.Background()
+	apiKeys := []ApiKey{}
+
+	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT 10`
+	rows, err := db.conn.Query(ctx, query, team)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		apiKey := ApiKey{}
+		err := rows.Scan(&apiKey.Key, &apiKey.Team, &apiKey.GroupId, &apiKey.Created, &apiKey.Expires)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(apiKeys) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return apiKeys, nil
+}
+
 func (db *database) Write(team, groupId string, key []byte) error {
 	var query string
 
