@@ -42,7 +42,7 @@ type Config struct {
 	Azure         Azure
 	S3            S3
 	Github        Github
-	Postgres      string
+	DatabaseURL   string
 	MetricsPath   string
 	Clusters      []string
 	ProvisionKey  string
@@ -103,7 +103,7 @@ func DefaultConfig() *Config {
 			BucketLocation: getEnv("S3_BUCKET_LOCATION", ""),
 			UseTLS:         parseBool(getEnv("S3_SECURE", "false")),
 		},
-		Postgres:      getEnv("POSTGRES_CONNECTION_STRING", "postgresql://postgres:root@127.0.0.1:5432/hookd"),
+		DatabaseURL:   getEnv("DATABASE_URL", "postgresql://postgres:root@127.0.0.1:5432/hookd"),
 		MetricsPath:   getEnv("METRICS_PATH", "/metrics"),
 		ProvisionKey:  getEnv("PROVISION_KEY", ""),
 		EncryptionKey: getEnv("ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
