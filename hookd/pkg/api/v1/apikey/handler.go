@@ -1,11 +1,10 @@
 package api_v1_apikey
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/render"
 	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
@@ -16,14 +15,15 @@ type ApiKeyHandler struct {
 	APIKeyStorage database.Database
 }
 
+// This method returns all the keys the user is authorized to see
 func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
-	// This method returns all the keys the user is authorized to see
 
 	groups := r.Context().Value("groups").([]string)
 
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
-	keys := []database.ApiKey{}
+	keys := make([]database.ApiKey, 0)
+
 	for _, group := range groups {
 		groupKeys, err := h.APIKeyStorage.ReadByGroupClaim(group)
 		if err != nil {
@@ -35,23 +35,14 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	response, err := json.Marshal(keys)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Unable to marshall the team keys"))
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(response)
-	return
 
+	w.WriteHeader(http.StatusOK)
+	render.JSON(w, r, keys)
 }
 
+// This method returns the deploy key for a specific team
 func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 	team := chi.URLParam(r, "team")
-	fmt.Printf("team: %s\n", team)
-	// This method returns the deploy key for a specific team
 	groups := r.Context().Value("groups").([]string)
 
 	fields := middleware.RequestLogFields(r)
@@ -69,7 +60,8 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 		logger.Errorf("unable to fetch team apikey from storage: %s", err)
 		return
 	}
-	keys := []database.ApiKey{}
+
+	keys := make([]database.ApiKey, 0)
 	for _, apiKey := range apiKeys {
 		for _, group := range groups {
 			if group == apiKey.GroupId {
@@ -77,25 +69,20 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if len(keys) > 0 {
-		response, err := json.Marshal(keys)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Unable to marshall the team keys"))
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(response)
+
+	if len(keys) == 0 {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("not authorized to view this team's keys"))
 		return
 	}
-	w.WriteHeader(http.StatusForbidden)
-	w.Write([]byte("not authorized to view this team's keys"))
-	return
+
+	w.WriteHeader(http.StatusOK)
+	render.JSON(w, r, keys)
 }
+
+// This method returns the deploy apiKey for a specific team
 func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request) {
 	team := chi.URLParam(r, "team")
-	// This method returns the deploy apiKey for a specific team
 	groups := r.Context().Value("groups").([]string)
 
 	fields := middleware.RequestLogFields(r)
@@ -148,15 +135,8 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 			}
 		}
 		if len(keys) > 0 {
-			response, err := json.Marshal(keys)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Unable to marshall the team keys"))
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			w.Write(response)
+			render.JSON(w, r, keys)
 			return
 		}
 	}

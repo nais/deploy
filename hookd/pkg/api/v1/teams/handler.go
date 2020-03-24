@@ -1,9 +1,9 @@
 package api_v1_teams
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/go-chi/render"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 	log "github.com/sirupsen/logrus"
@@ -26,7 +26,7 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
-	keys := []database.ApiKey{}
+	keys := make([]database.ApiKey, 0)
 	for _, group := range groups {
 		apiKeys, err := h.APIKeyStorage.ReadByGroupClaim(group)
 		if err != nil {
@@ -38,7 +38,7 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	teams := []Team{}
+	teams := make([]Team, 0)
 	for _, v := range keys {
 		t := Team{
 			GroupId: v.GroupId,
@@ -47,12 +47,6 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		teams = append(teams, t)
 	}
 
-	response, err := json.Marshal(teams)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Unable to return any teams"))
-	}
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(response)
+	render.JSON(w, r, teams)
 }
