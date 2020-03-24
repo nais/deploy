@@ -17,11 +17,16 @@ type ApiKeyHandler struct {
 
 // This method returns all the keys the user is authorized to see
 func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
-
-	groups := r.Context().Value("groups").([]string)
-
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
+
+	groups, err := api_v1.GroupClaims(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Error(err)
+		return
+	}
+
 	keys := make([]database.ApiKey, 0)
 
 	for _, group := range groups {
@@ -42,11 +47,17 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 
 // This method returns the deploy key for a specific team
 func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
-	team := chi.URLParam(r, "team")
-	groups := r.Context().Value("groups").([]string)
-
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
+
+	groups, err := api_v1.GroupClaims(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Error(err)
+		return
+	}
+
+	team := chi.URLParam(r, "team")
 	apiKeys, err := h.APIKeyStorage.ReadAll(team, r.URL.Query().Get("limit"))
 
 	if err != nil {
@@ -82,11 +93,17 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 
 // This method returns the deploy apiKey for a specific team
 func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request) {
-	team := chi.URLParam(r, "team")
-	groups := r.Context().Value("groups").([]string)
-
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
+
+	groups, err := api_v1.GroupClaims(r.Context())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Error(err)
+		return
+	}
+
+	team := chi.URLParam(r, "team")
 	apiKeys, err := h.APIKeyStorage.Read(team)
 
 	if err != nil {
