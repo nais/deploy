@@ -86,7 +86,7 @@ func (db *database) ReadByGroupClaim(group string) ([]ApiKey, error) {
 	ctx := context.Background()
 	apiKeys := []ApiKey{}
 
-	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team_azure_id = $1 AND expires > NOW();`
+	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team_azure_id = $1 ORDER BY expires DESC;`
 	rows, err := db.conn.Query(ctx, query, group)
 
 	if err != nil {
