@@ -110,7 +110,7 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 		logger.Errorln(err)
 		if h.APIKeyStorage.IsErrNotFound(err) {
 			w.WriteHeader(http.StatusNotFound)
-			logger.Errorf("%s: %s", "team does not exist", err)
+			logger.Errorf("team does not exist: %s", err)
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
@@ -127,36 +127,40 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if keyToRotate.GroupId != "" {
-		newKey, err := api_v1.Keygen(32)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Unable to generate new random apiKey"))
-			return
-		}
-		logger.Infof("generated new apiKey for %s (%s)\n", keyToRotate.Team, keyToRotate.GroupId)
-		err = h.APIKeyStorage.Write(keyToRotate.Team, keyToRotate.GroupId, newKey)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Unable to write new key"))
-			return
-		}
+	if len(keyToRotate.GroupId) == 0 {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
 
-		apiKeys, err := h.APIKeyStorage.Read(team)
-		keys := []database.ApiKey{}
-		for _, apiKey := range apiKeys {
-			for _, group := range groups {
-				if group == apiKey.GroupId {
-					keys = append(keys, apiKey)
-				}
+	newKey, err := api_v1.Keygen(32)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Errorf("unable to generate new random api key: %s", err)
+		return
+	}
+	logger.Infof("generated new api key for %s (%s)", keyToRotate.Team, keyToRotate.GroupId)
+	err = h.APIKeyStorage.Write(keyToRotate.Team, keyToRotate.GroupId, newKey)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Errorf("unable to persist api key: %s", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+
+	apiKeys, err = h.APIKeyStorage.Read(team)
+	if err != nil {
+		return // api keys were created, but we cannot return the full list
+	}
+
+	keys := make([]database.ApiKey, 0)
+	for _, apiKey := range apiKeys {
+		for _, group := range groups {
+			if group == apiKey.GroupId {
+				keys = append(keys, apiKey)
 			}
 		}
-		if len(keys) > 0 {
-			w.WriteHeader(http.StatusCreated)
-			render.JSON(w, r, keys)
-			return
-		}
 	}
-	w.WriteHeader(http.StatusForbidden)
-	w.Write([]byte("not allowed to rotate key"))
+
+	render.JSON(w, r, keys)
 }
