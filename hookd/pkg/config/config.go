@@ -7,15 +7,6 @@ import (
 	"github.com/navikt/deployment/common/pkg/kafka"
 )
 
-type S3 struct {
-	Endpoint       string `json:"endpoint"`
-	AccessKey      string `json:"accesskey"`
-	SecretKey      string `json:"secretkey"`
-	BucketName     string `json:"bucketname"`
-	BucketLocation string `json:"bucketlocation"`
-	UseTLS         bool   `json:"secure"`
-}
-
 type Azure struct {
 	ClientID     string `json:"clientid"`
 	ClientSecret string `json:"clientsecret"`
@@ -40,7 +31,6 @@ type Config struct {
 	BaseURL       string
 	Kafka         kafka.Config
 	Azure         Azure
-	S3            S3
 	Github        Github
 	DatabaseURL   string
 	MetricsPath   string
@@ -94,14 +84,6 @@ func DefaultConfig() *Config {
 			InstallID:     parseInt(getEnv("GITHUB_INSTALL_ID", "0")),
 			KeyFile:       getEnv("GITHUB_KEY_FILE", "private-key.pem"),
 			WebhookSecret: getEnv("GITHUB_WEBHOOK_SECRET", ""),
-		},
-		S3: S3{
-			Endpoint:       getEnv("S3_ENDPOINT", "localhost:9000"),
-			AccessKey:      getEnv("S3_ACCESS_KEY", "accesskey"),
-			SecretKey:      getEnv("S3_SECRET_KEY", "secretkey"),
-			BucketName:     getEnv("S3_BUCKET_NAME", "deployments.nais.io"),
-			BucketLocation: getEnv("S3_BUCKET_LOCATION", ""),
-			UseTLS:         parseBool(getEnv("S3_SECURE", "false")),
 		},
 		DatabaseURL:   getEnv("DATABASE_URL", "postgresql://postgres:root@127.0.0.1:5432/hookd"),
 		MetricsPath:   getEnv("METRICS_PATH", "/metrics"),

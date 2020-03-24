@@ -16,17 +16,8 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/api"
 	api_v1_apikey "github.com/navikt/deployment/hookd/pkg/api/v1/apikey"
 	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/stretchr/testify/assert"
 )
-
-type ctxKey struct {
-	name string
-}
-
-func (k ctxKey) String() string {
-	return "context value " + k.name
-}
 
 type apiKeyStorage struct {
 	database.Database
@@ -96,7 +87,7 @@ func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 }
 
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == persistence.ErrNotFound
+	return err == database.ErrNotFound
 }
 
 func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error) {

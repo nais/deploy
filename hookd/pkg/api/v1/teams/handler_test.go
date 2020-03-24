@@ -15,7 +15,6 @@ import (
 
 	api_v1_teams "github.com/navikt/deployment/hookd/pkg/api/v1/teams"
 	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,7 +47,7 @@ func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 }
 
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == persistence.ErrNotFound
+	return err == database.ErrNotFound
 }
 
 func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error) {

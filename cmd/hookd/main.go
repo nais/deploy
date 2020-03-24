@@ -51,13 +51,6 @@ func init() {
 	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
 	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "Pre-shared key used for message encryption over Kafka.")
 
-	flag.StringVar(&cfg.S3.Endpoint, "s3-endpoint", cfg.S3.Endpoint, "S3 endpoint for state storage.")
-	flag.StringVar(&cfg.S3.AccessKey, "s3-access-key", cfg.S3.AccessKey, "S3 access key.")
-	flag.StringVar(&cfg.S3.SecretKey, "s3-secret-key", cfg.S3.SecretKey, "S3 secret key.")
-	flag.StringVar(&cfg.S3.BucketName, "s3-bucket-name", cfg.S3.BucketName, "S3 bucket name.")
-	flag.StringVar(&cfg.S3.BucketLocation, "s3-bucket-location", cfg.S3.BucketLocation, "S3 bucket location.")
-	flag.BoolVar(&cfg.S3.UseTLS, "s3-secure", cfg.S3.UseTLS, "Use TLS for S3 connections.")
-
 	flag.StringVar(&cfg.DatabaseURL, "database.url", cfg.DatabaseURL, "PostgreSQL connection information.")
 
 	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
@@ -104,11 +97,6 @@ func run() error {
 		return err
 	}
 
-	teamRepositoryStorage, err := persistence.NewS3StorageBackend(cfg.S3)
-	if err != nil {
-		return fmt.Errorf("while setting up S3 backend: %s", err)
-	}
-
 	db, err := database.New(cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("setup postgres connection: %s", err)
@@ -118,6 +106,8 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("migrating database: %s", err)
 	}
+
+	teamRepositoryStorage := persistence.NewTeamRepositoryStorage(db)
 
 	kafkaClient, err := kafka.NewDualClient(
 		cfg.Kafka,

@@ -14,10 +14,6 @@ var (
 	ErrNotFound = fmt.Errorf("api key not found")
 )
 
-const (
-	NotFoundMessage = "The specified key does not exist."
-)
-
 type Database interface {
 	Migrate() error
 	Read(team string) ([]ApiKey, error)
@@ -25,6 +21,10 @@ type Database interface {
 	ReadByGroupClaim(group string) ([]ApiKey, error)
 	Write(team, groupId string, key []byte) error
 	IsErrNotFound(err error) bool
+
+	// legacy layer
+	ReadRepositoryTeams(repository string) ([]string, error)
+	WriteRepositoryTeams(repository string, teams []string) error
 }
 
 type database struct {
@@ -197,4 +197,60 @@ VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 
 func (db *database) IsErrNotFound(err error) bool {
 	return err == ErrNotFound
+}
+
+func (db *database) ReadRepositoryTeams(repository string) ([]string, error) {
+	ctx := context.Background()
+
+	query := `SELECT team FROM team_repositories WHERE repository = $1;`
+	rows, err := db.conn.Query(ctx, query, repository)
+
+	if err != nil {
+		return nil, err
+	}
+
+	teams := make([]string, 0)
+	for rows.Next() {
+		var team string
+		err := rows.Scan(&team)
+		if err != nil {
+			return nil, err
+		}
+		teams = append(teams, team)
+	}
+
+	if len(teams) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return teams, nil
+}
+
+func (db *database) WriteRepositoryTeams(repository string, teams []string) error {
+	var query string
+
+	ctx := context.Background()
+
+	tx, err := db.conn.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to start transaction: %s", err)
+	}
+
+	query = `DELETE FROM team_repositories WHERE repository = $1;`
+	_, err = tx.Exec(ctx, query, repository)
+	if err != nil {
+		tx.Rollback(ctx)
+		return err
+	}
+
+	for _, team := range teams {
+		query = `INSERT INTO team_repositories (team, repository) VALUES ($1, $2);`
+		_, err = tx.Exec(ctx, query, team, repository)
+		if err != nil {
+			tx.Rollback(ctx)
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }

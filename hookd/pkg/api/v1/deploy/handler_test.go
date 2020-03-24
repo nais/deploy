@@ -19,7 +19,6 @@ import (
 
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -86,7 +85,7 @@ type apiKeyStorage struct {
 func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 	switch team {
 	case "notfound":
-		return nil, persistence.ErrNotFound
+		return nil, database.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
 	default:
@@ -103,7 +102,7 @@ func (a *apiKeyStorage) Migrate() error {
 }
 
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == persistence.ErrNotFound
+	return err == database.ErrNotFound
 }
 
 func fileReader(file string) io.Reader {
