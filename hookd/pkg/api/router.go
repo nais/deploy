@@ -78,6 +78,7 @@ func New(cfg Config) chi.Router {
 
 	provisionHandler := &api_v1_provision.Handler{
 		APIKeyStorage: cfg.Database,
+		TeamClient:    cfg.TeamClient,
 		SecretKey:     cfg.ProvisionKey,
 	}
 

@@ -6,6 +6,7 @@ package graphapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -35,6 +36,8 @@ type group struct {
 type groupList struct {
 	Value []group
 }
+
+var ErrNotFound = errors.New("group not found in Azure")
 
 // Retrieve a list of Azure Groups that are given access to a specific Azure Application.
 func (g *request) Group(appID string, groupName string) (*group, error) {
@@ -87,7 +90,7 @@ func (g *request) servicePrincipalsContains(appID, groupID string) error {
 		nextURL = servicePrincipalList.NextLink
 	}
 
-	return fmt.Errorf("group with ID '%s' does not exist in the list of teams", groupID)
+	return ErrNotFound
 }
 
 func (g *request) lookupGroup(groupName string) (*group, error) {
@@ -109,7 +112,7 @@ func (g *request) lookupGroup(groupName string) (*group, error) {
 	}
 
 	if len(groups.Value) == 0 {
-		return nil, fmt.Errorf("no group found matching '%s'", groupName)
+		return nil, ErrNotFound
 	}
 
 	return &groups.Value[0], nil

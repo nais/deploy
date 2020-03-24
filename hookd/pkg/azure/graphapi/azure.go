@@ -22,6 +22,7 @@ func (team Team) Valid() bool {
 
 type Client interface {
 	Team(ctx context.Context, name string) (*Team, error)
+	IsErrNotFound(err error) bool
 }
 
 type client struct {
@@ -58,6 +59,10 @@ func (c *client) Team(ctx context.Context, name string) (*Team, error) {
 		ID:        group.MailNickname,
 		Title:     group.DisplayName,
 	}, nil
+}
+
+func (c *client) IsErrNotFound(err error) bool {
+	return err == ErrNotFound
 }
 
 func NewClient(cfg config.Azure) *client {

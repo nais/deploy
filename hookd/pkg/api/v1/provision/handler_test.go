@@ -2,6 +2,7 @@ package api_v1_provision_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
+	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/stretchr/testify/assert"
 )
@@ -43,6 +45,9 @@ type apiKeyStorage struct {
 	database.Database
 }
 
+type teamClient struct {
+}
+
 func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 	switch team {
 	case "new", "unwritable":
@@ -69,6 +74,17 @@ func (a *apiKeyStorage) Migrate() error {
 
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
 	return err == database.ErrNotFound
+}
+
+func (t *teamClient) Team(ctx context.Context, name string) (*graphapi.Team, error) {
+	switch name {
+	default:
+		return &graphapi.Team{}, nil
+	}
+}
+
+func (t *teamClient) IsErrNotFound(err error) bool {
+	return err == graphapi.ErrNotFound
 }
 
 func testStatusResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
@@ -141,11 +157,13 @@ func statusSubTest(t *testing.T, name string) {
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
-	apiKeyStore := apiKeyStorage{}
+	apiKeyStore := &apiKeyStorage{}
+	teamClient := &teamClient{}
 
 	handler := api_v1_provision.Handler{
-		APIKeyStorage: &apiKeyStore,
+		APIKeyStorage: apiKeyStore,
 		SecretKey:     provisionKey,
+		TeamClient:    teamClient,
 	}
 
 	handler.ServeHTTP(recorder, request)
