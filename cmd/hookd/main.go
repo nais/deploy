@@ -154,7 +154,7 @@ func run() error {
 		GithubConfig:                config.Github{},
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,
-		OAuthKeyValidatorMiddleware: middleware.TokenValidatorMiddleware(certificates),
+		OAuthKeyValidatorMiddleware: middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID),
 		ProvisionKey:                provisionKey,
 		RequestChan:                 requestChan,
 		StatusChan:                  statusChan,

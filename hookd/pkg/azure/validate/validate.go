@@ -5,10 +5,9 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
-	"github.com/navikt/deployment/hookd/pkg/config"
 )
 
-func JWTValidator(certificates map[string]discovery.CertificateList) jwt.Keyfunc {
+func JWTValidator(certificates map[string]discovery.CertificateList, audience string) jwt.Keyfunc {
 	return func(token *jwt.Token) (interface{}, error) {
 		var certificateList discovery.CertificateList
 		var kid string
@@ -17,7 +16,7 @@ func JWTValidator(certificates map[string]discovery.CertificateList) jwt.Keyfunc
 		if claims, ok := token.Claims.(*jwt.MapClaims); !ok {
 			return nil, fmt.Errorf("Unable to retrieve claims from token")
 		} else {
-			if valid := claims.VerifyAudience(config.DefaultConfig().Azure.ClientID, true); !valid {
+			if valid := claims.VerifyAudience(audience, true); !valid {
 				return nil, fmt.Errorf("The token is not valid for this application")
 			}
 		}

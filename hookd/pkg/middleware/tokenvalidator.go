@@ -11,14 +11,14 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/azure/validate"
 )
 
-func TokenValidatorMiddleware(certificates map[string]discovery.CertificateList) func(next http.Handler) http.Handler {
+func TokenValidatorMiddleware(certificates map[string]discovery.CertificateList, audience string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			var claims jwt.MapClaims
 
 			token := jwtauth.TokenFromHeader(r)
 
-			_, err := jwt.ParseWithClaims(token, &claims, validate.JWTValidator(certificates))
+			_, err := jwt.ParseWithClaims(token, &claims, validate.JWTValidator(certificates, audience))
 			if err != nil {
 				w.WriteHeader(http.StatusForbidden)
 				fmt.Fprintf(w, "Unauthorized access: %s", err.Error())
