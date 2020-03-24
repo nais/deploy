@@ -76,7 +76,7 @@ func DefaultConfig() *Config {
 			ClientID:            getEnv("AZURE_CLIENT_ID", ""),
 			ClientSecret:        getEnv("AZURE_CLIENT_SECRET", ""),
 			Tenant:              getEnv("AZURE_TENANT", ""),
-			DiscoveryURL:        getEnv("AZURE_DISCOVERY_URL", ""),
+			DiscoveryURL:        getEnv("AZURE_DISCOVERY_URL", "https://login.microsoftonline.com/common/discovery/v2.0/keys"),
 			TeamMembershipAppID: getEnv("AZURE_TEAM_MEMBERSHIP_APP_ID", ""),
 		},
 		Github: Github{
