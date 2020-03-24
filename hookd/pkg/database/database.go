@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -28,7 +29,7 @@ type Database interface {
 }
 
 type database struct {
-	conn *pgx.Conn
+	conn *pgxpool.Pool
 }
 
 type ApiKey struct {
@@ -44,7 +45,7 @@ var _ Database = &database{}
 func New(dsn string) (Database, error) {
 	ctx := context.Background()
 
-	conn, err := pgx.Connect(ctx, dsn)
+	conn, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
