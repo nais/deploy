@@ -63,7 +63,6 @@ func init() {
 
 func run() error {
 	flag.Parse()
-	certificates, err := discovery.FetchCertificates(cfg.Azure)
 
 	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
 		return err
@@ -136,6 +135,11 @@ func run() error {
 	apiKeys, err := database.New(cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("postgresql setup: %s", err)
+	}
+
+	certificates, err := discovery.FetchCertificates(cfg.Azure)
+	if err != nil {
+		return fmt.Errorf("unable to fetch Azure certificates: %s", err)
 	}
 
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
