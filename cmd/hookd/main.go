@@ -17,6 +17,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
+	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -57,6 +58,7 @@ func init() {
 	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
 	flag.StringVar(&cfg.Azure.DiscoveryURL, "azure.discoveryurl", cfg.Azure.DiscoveryURL, "Azure DiscoveryURL")
 	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
+	flag.StringVar(&cfg.Azure.TeamMembershipAppID, "azure.teamMembershipAppID", cfg.Azure.TeamMembershipAppID, "Application ID of canonical team list")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -142,6 +144,8 @@ func run() error {
 		return fmt.Errorf("unable to fetch Azure certificates: %s", err)
 	}
 
+	graphAPIClient := graphapi.NewClient(cfg.Azure)
+
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
@@ -158,6 +162,7 @@ func run() error {
 		ProvisionKey:                provisionKey,
 		RequestChan:                 requestChan,
 		StatusChan:                  statusChan,
+		TeamClient:                  graphAPIClient,
 		TeamRepositoryStorage:       teamRepositoryStorage,
 	})
 

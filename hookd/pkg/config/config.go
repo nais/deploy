@@ -8,10 +8,11 @@ import (
 )
 
 type Azure struct {
-	ClientID     string `json:"clientid"`
-	ClientSecret string `json:"clientsecret"`
-	Tenant       string `json:"tenant"`
-	DiscoveryURL string `json:"discoveryurl"`
+	ClientID            string `json:"clientid"`
+	ClientSecret        string `json:"clientsecret"`
+	Tenant              string `json:"tenant"`
+	DiscoveryURL        string `json:"discoveryurl"`
+	TeamMembershipAppID string `json:"teamMembershipAppID"`
 }
 
 type Github struct {
@@ -43,6 +44,7 @@ func (a *Azure) HasConfig() bool {
 	return a.ClientID != "" &&
 		a.ClientSecret != "" &&
 		a.Tenant != "" &&
+		a.TeamMembershipAppID != "" &&
 		a.DiscoveryURL != ""
 }
 
@@ -71,10 +73,11 @@ func DefaultConfig() *Config {
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),
 		Kafka:         kafka.DefaultConfig(),
 		Azure: Azure{
-			ClientID:     getEnv("AZURE_CLIENT_ID", ""),
-			ClientSecret: getEnv("AZURE_CLIENT_SECRET", ""),
-			Tenant:       getEnv("AZURE_TENANT", ""),
-			DiscoveryURL: getEnv("AZURE_DISCOVERY_URL", ""),
+			ClientID:            getEnv("AZURE_CLIENT_ID", ""),
+			ClientSecret:        getEnv("AZURE_CLIENT_SECRET", ""),
+			Tenant:              getEnv("AZURE_TENANT", ""),
+			DiscoveryURL:        getEnv("AZURE_DISCOVERY_URL", ""),
+			TeamMembershipAppID: getEnv("AZURE_TEAM_MEMBERSHIP_APP_ID", ""),
 		},
 		Github: Github{
 			ApplicationID: parseInt(getEnv("GITHUB_APP_ID", "0")),

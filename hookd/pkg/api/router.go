@@ -16,6 +16,7 @@ import (
 	api_v1_teams "github.com/navikt/deployment/hookd/pkg/api/v1/teams"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
+	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -46,6 +47,7 @@ type Config struct {
 	ProvisionKey                []byte
 	RequestChan                 chan deployment.DeploymentRequest
 	StatusChan                  chan deployment.DeploymentStatus
+	TeamClient                  graphapi.Client
 	TeamRepositoryStorage       persistence.TeamRepositoryStorage
 }
 
