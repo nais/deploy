@@ -132,21 +132,17 @@ func (db *database) Read(team string) ([]ApiKey, error) {
 
 func (db *database) ReadAll(team, limit string) ([]ApiKey, error) {
 	ctx := context.Background()
-	apiKeys := []ApiKey{}
+	apiKeys := make([]ApiKey, 0)
 	var query string
 	var rows pgx.Rows
 	var err error
 
 	if limit == "" {
 		query = `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC`
-		if rows, err = db.conn.Query(ctx, query, team); err != nil {
-			return nil, err
-		}
+		rows, err = db.conn.Query(ctx, query, team)
 	} else {
 		query = `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT $2`
-		if rows, err = db.conn.Query(ctx, query, team, limit); err != nil {
-			return nil, err
-		}
+		rows, err = db.conn.Query(ctx, query, team, limit)
 	}
 
 	if err != nil {
@@ -161,6 +157,7 @@ func (db *database) ReadAll(team, limit string) ([]ApiKey, error) {
 		}
 		apiKeys = append(apiKeys, apiKey)
 	}
+
 	if len(apiKeys) == 0 {
 		return nil, ErrNotFound
 	}
