@@ -159,20 +159,20 @@ func main() {
 
 	db, err := database.New(cfg.PostgresURL, encryptionKey)
 	if err != nil {
-		log.Fatal("database: %s", err)
+		log.Fatalf("database: %s", err)
 	}
 
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	file, err := os.Open(cfg.TeamsYamlFile)
 	if err != nil {
-		log.Fatal("open teams.yml: %s", err)
+		log.Fatalf("open teams.yml: %s", err)
 	}
 	teams := &TeamsYaml{}
 	decoder := yaml.NewDecoder(file)
 	err = decoder.Decode(teams)
 	if err != nil {
-		log.Fatal("decode teams.yml: %s", err)
+		log.Fatalf("decode teams.yml: %s", err)
 	}
 
 	for _, team := range teams.Teams {
@@ -180,17 +180,17 @@ func main() {
 
 		apiKey, err := apiKeys.Read(team.Name)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("read api key from vault: %s", err)
 		}
 
 		azureTeam, err := graphAPIClient.Team(context.Background(), team.Name)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("extract team uuid from azure: %s", err)
 		}
 
 		err = db.Write(team.Name, azureTeam.AzureUUID, apiKey)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("write api key to database: %s", err)
 		}
 	}
 }
