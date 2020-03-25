@@ -52,6 +52,7 @@ func init() {
 	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
 	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "Pre-shared key used for message encryption over Kafka.")
 
+	flag.StringVar(&cfg.DatabaseEncryptionKey, "database-encryption-key", cfg.DatabaseEncryptionKey, "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.StringVar(&cfg.DatabaseURL, "database.url", cfg.DatabaseURL, "PostgreSQL connection information.")
 
 	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
@@ -98,7 +99,12 @@ func run() error {
 		return err
 	}
 
-	db, err := database.New(cfg.DatabaseURL)
+	dbEncryptionKey, err := hex.DecodeString(cfg.DatabaseEncryptionKey)
+	if err != nil {
+		return err
+	}
+
+	db, err := database.New(cfg.DatabaseURL, dbEncryptionKey)
 	if err != nil {
 		return fmt.Errorf("setup postgres connection: %s", err)
 	}
@@ -134,11 +140,6 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	apiKeys, err := database.New(cfg.DatabaseURL)
-	if err != nil {
-		return fmt.Errorf("postgresql setup: %s", err)
-	}
-
 	certificates, err := discovery.FetchCertificates(cfg.Azure)
 	if err != nil {
 		return fmt.Errorf("unable to fetch Azure certificates: %s", err)
@@ -153,7 +154,7 @@ func run() error {
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
 		Clusters:                    cfg.Clusters,
-		Database:                    apiKeys,
+		Database:                    db,
 		GithubClient:                githubClient,
 		GithubConfig:                config.Github{},
 		InstallationClient:          installationClient,

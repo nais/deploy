@@ -153,7 +153,12 @@ func main() {
 		log.Infof("vault token ok")
 	}
 
-	db, err := database.New(cfg.PostgresURL)
+	encryptionKey, err := hex.DecodeString(cfg.EncryptionKey)
+	if err != nil {
+		log.Fatalf("encryption key: %s", err)
+	}
+
+	db, err := database.New(cfg.PostgresURL, encryptionKey)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -169,11 +174,6 @@ func main() {
 	err = decoder.Decode(teams)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	encryptionKey, err := hex.DecodeString(cfg.EncryptionKey)
-	if err != nil {
-		log.Fatalf("encryption key: %s", err)
 	}
 
 	for _, team := range teams.Teams {

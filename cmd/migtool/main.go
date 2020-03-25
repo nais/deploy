@@ -30,7 +30,7 @@ func main() {
 
 	flag.Parse()
 
-	db, err := database.New(*url)
+	db, err := database.New(*url, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

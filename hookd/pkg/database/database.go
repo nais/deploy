@@ -29,7 +29,8 @@ type Database interface {
 }
 
 type database struct {
-	conn *pgxpool.Pool
+	conn          *pgxpool.Pool
+	encryptionKey []byte
 }
 
 type ApiKey struct {
@@ -42,7 +43,7 @@ type ApiKey struct {
 
 var _ Database = &database{}
 
-func New(dsn string) (Database, error) {
+func New(dsn string, encryptionKey []byte) (Database, error) {
 	ctx := context.Background()
 
 	conn, err := pgxpool.Connect(ctx, dsn)
@@ -51,7 +52,8 @@ func New(dsn string) (Database, error) {
 	}
 
 	return &database{
-		conn: conn,
+		conn:          conn,
+		encryptionKey: encryptionKey,
 	}, nil
 }
 
