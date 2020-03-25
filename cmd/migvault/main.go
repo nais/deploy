@@ -33,7 +33,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/navikt/deployment/pkg/crypto"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/proxy"
 
@@ -160,20 +159,20 @@ func main() {
 
 	db, err := database.New(cfg.PostgresURL, encryptionKey)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("database: %s", err)
 	}
 
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	file, err := os.Open(cfg.TeamsYamlFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("open teams.yml: %s", err)
 	}
 	teams := &TeamsYaml{}
 	decoder := yaml.NewDecoder(file)
 	err = decoder.Decode(teams)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("decode teams.yml: %s", err)
 	}
 
 	for _, team := range teams.Teams {
@@ -189,12 +188,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		encryptedKey, err := crypto.Encrypt(apiKey, encryptionKey)
-		if err != nil {
-			log.Fatalf("encrypting key: %s", err)
-		}
-
-		err = db.Write(team.Name, azureTeam.AzureUUID, encryptedKey)
+		err = db.Write(team.Name, azureTeam.AzureUUID, apiKey)
 		if err != nil {
 			log.Fatal(err)
 		}
