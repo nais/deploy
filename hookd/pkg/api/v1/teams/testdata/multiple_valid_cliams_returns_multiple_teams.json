@@ -1,0 +1,26 @@
+{
+  "request": {
+    "groups": [
+      "group1-claim",
+      "group2-claim",
+      "group3-claim",
+      "group4-claim"
+    ],
+    "body": {}
+  },
+  "response": {
+    "statusCode": 200,
+    "body": [
+      {
+        "team": "team1",
+        "groupId": "group1-claim"
+      },{
+        "team": "team2",
+        "groupId": "group2-claim"
+      },{
+        "team": "team4",
+        "groupId": "group4-claim"
+      }
+    ]
+  }
+}

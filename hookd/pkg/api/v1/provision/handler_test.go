@@ -2,6 +2,7 @@ package api_v1_provision_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,12 +16,13 @@ import (
 
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
+	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	secretKey    = []byte("foobar")
+	secretKey    = "foobar"
 	provisionKey = []byte("cryptographically secure")
 )
 
@@ -39,20 +41,25 @@ type testCase struct {
 	Response response `json:"response"`
 }
 
-type apiKeyStorage struct{}
+type apiKeyStorage struct {
+	database.Database
+}
 
-func (a *apiKeyStorage) Read(team string) ([]byte, error) {
+type teamClient struct {
+}
+
+func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
 	switch team {
 	case "new", "unwritable":
-		return nil, persistence.ErrNotFound
+		return nil, database.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
 	default:
-		return secretKey, nil
+		return []database.ApiKey{{Key: secretKey}}, nil
 	}
 }
 
-func (a *apiKeyStorage) Write(team string, key []byte) error {
+func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 	switch team {
 	case "unwritable", "unwritable_with_rotate":
 		return fmt.Errorf("service unavailable")
@@ -61,8 +68,23 @@ func (a *apiKeyStorage) Write(team string, key []byte) error {
 	}
 }
 
+func (a *apiKeyStorage) Migrate() error {
+	return nil
+}
+
 func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == persistence.ErrNotFound
+	return err == database.ErrNotFound
+}
+
+func (t *teamClient) Team(ctx context.Context, name string) (*graphapi.Team, error) {
+	switch name {
+	default:
+		return &graphapi.Team{}, nil
+	}
+}
+
+func (t *teamClient) IsErrNotFound(err error) bool {
+	return err == graphapi.ErrNotFound
 }
 
 func testStatusResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
@@ -135,11 +157,13 @@ func statusSubTest(t *testing.T, name string) {
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
-	apiKeyStore := apiKeyStorage{}
+	apiKeyStore := &apiKeyStorage{}
+	teamClient := &teamClient{}
 
 	handler := api_v1_provision.Handler{
-		APIKeyStorage: &apiKeyStore,
+		APIKeyStorage: apiKeyStore,
 		SecretKey:     provisionKey,
+		TeamClient:    teamClient,
 	}
 
 	handler.ServeHTTP(recorder, request)
@@ -147,7 +171,7 @@ func statusSubTest(t *testing.T, name string) {
 	testStatusResponse(t, recorder, test.Response)
 }
 
-func TestProvisionHandler(t *testing.T) {
+func TestHandler(t *testing.T) {
 	files, err := ioutil.ReadDir("testdata")
 	if err != nil {
 		t.Error(err)

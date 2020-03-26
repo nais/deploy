@@ -1,0 +1,22 @@
+{
+  "request": {
+    "headers": {
+      "content-type": "application/json"
+    },
+    "groups": [
+      "group1-claim",
+      "group2-claim"
+    ],
+    "body": {}
+  },
+  "response": {
+    "statusCode": 200,
+    "body": [
+      {
+        "team": "team1",
+        "groupId": "group1-claim",
+        "key": "key1"
+      }
+    ]
+  }
+}

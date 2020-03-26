@@ -11,18 +11,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
 
 type DeploymentHandler struct {
-	APIKeyStorage     persistence.ApiKeyStorage
+	APIKeyStorage     database.Database
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
@@ -175,8 +175,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Request body validated successfully")
-
-	token, err := h.APIKeyStorage.Read(deploymentRequest.Team)
+	apiKeys, err := h.APIKeyStorage.Read(deploymentRequest.Team)
 
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
@@ -195,12 +194,12 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Team API key retrieved from storage")
-
-	if !api_v1.ValidateMAC(data, []byte(signature), token) {
+	err = api_v1.ValidateAnyMAC(data, signature, apiKeys)
+	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		deploymentResponse.Message = api_v1.FailedAuthenticationMsg
 		deploymentResponse.render(w)
-		logger.Errorf("%s: HMAC signature error", api_v1.FailedAuthenticationMsg)
+		logger.Error(err)
 		return
 	}
 

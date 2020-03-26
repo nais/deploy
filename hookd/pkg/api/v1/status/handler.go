@@ -9,16 +9,16 @@ import (
 	"net/http"
 
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
 
 type StatusHandler struct {
-	APIKeyStorage persistence.ApiKeyStorage
+	APIKeyStorage database.Database
 	GithubClient  github.Client
 }
 
@@ -126,8 +126,8 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Request body validated successfully")
-
-	token, err := h.APIKeyStorage.Read(statusRequest.Team)
+	var apiKeys []database.ApiKey
+	apiKeys, err = h.APIKeyStorage.Read(statusRequest.Team)
 
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
@@ -145,13 +145,14 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Tracef("Team API key retrieved from storage")
+	logger.Tracef("Team API keys retrieved from storage")
 
-	if !api_v1.ValidateMAC(data, []byte(signature), token) {
+	err = api_v1.ValidateAnyMAC(data, signature, apiKeys)
+	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		statusResponse.Message = api_v1.FailedAuthenticationMsg
 		statusResponse.render(w)
-		logger.Errorf("%s: HMAC signature error", api_v1.FailedAuthenticationMsg)
+		logger.Error(err)
 		return
 	}
 

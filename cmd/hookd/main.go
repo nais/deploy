@@ -3,43 +3,36 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/go-chi/chi"
-	chi_middleware "github.com/go-chi/chi/middleware"
 	"github.com/golang/protobuf/proto"
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
-	api_v1_queue "github.com/navikt/deployment/hookd/pkg/api/v1/queue"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/status"
+	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/auth"
+	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
+	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
 	"github.com/navikt/deployment/hookd/pkg/config"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
-	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 	"github.com/navikt/deployment/hookd/pkg/persistence"
-	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/navikt/deployment/pkg/crypto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
 
 var (
-	cfg            = config.DefaultConfig()
-	retryInterval  = time.Second * 5
-	queueSize      = 32
-	requestTimeout = time.Second * 10
+	cfg           = config.DefaultConfig()
+	retryInterval = time.Second * 5
+	queueSize     = 32
 )
 
 func init() {
@@ -59,20 +52,14 @@ func init() {
 	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
 	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "Pre-shared key used for message encryption over Kafka.")
 
-	flag.StringVar(&cfg.S3.Endpoint, "s3-endpoint", cfg.S3.Endpoint, "S3 endpoint for state storage.")
-	flag.StringVar(&cfg.S3.AccessKey, "s3-access-key", cfg.S3.AccessKey, "S3 access key.")
-	flag.StringVar(&cfg.S3.SecretKey, "s3-secret-key", cfg.S3.SecretKey, "S3 secret key.")
-	flag.StringVar(&cfg.S3.BucketName, "s3-bucket-name", cfg.S3.BucketName, "S3 bucket name.")
-	flag.StringVar(&cfg.S3.BucketLocation, "s3-bucket-location", cfg.S3.BucketLocation, "S3 bucket location.")
-	flag.BoolVar(&cfg.S3.UseTLS, "s3-secure", cfg.S3.UseTLS, "Use TLS for S3 connections.")
+	flag.StringVar(&cfg.DatabaseEncryptionKey, "database-encryption-key", cfg.DatabaseEncryptionKey, "Key used to encrypt api keys at rest in PostgreSQL database.")
+	flag.StringVar(&cfg.DatabaseURL, "database.url", cfg.DatabaseURL, "PostgreSQL connection information.")
 
-	flag.StringVar(&cfg.Vault.Path, "vault-path", cfg.Vault.Path, "Base path to Vault KV API key store.")
-	flag.StringVar(&cfg.Vault.AuthPath, "vault-auth-path", cfg.Vault.AuthPath, "Path to Vault authentication endpoint.")
-	flag.StringVar(&cfg.Vault.AuthRole, "vault-auth-role", cfg.Vault.AuthRole, "Role used for Vault authentication.")
-	flag.StringVar(&cfg.Vault.Address, "vault-address", cfg.Vault.Address, "Address to Vault server.")
-	flag.StringVar(&cfg.Vault.KeyName, "vault-key-name", cfg.Vault.KeyName, "API keys are stored in this key.")
-	flag.StringVar(&cfg.Vault.CredentialsFile, "vault-credentials-file", cfg.Vault.CredentialsFile, "Credentials for authenticating against Vault retrieved from this file (overrides --vault-token).")
-	flag.StringVar(&cfg.Vault.Token, "vault-token", cfg.Vault.Token, "Vault static token.")
+	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
+	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
+	flag.StringVar(&cfg.Azure.DiscoveryURL, "azure.discoveryurl", cfg.Azure.DiscoveryURL, "Azure DiscoveryURL")
+	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
+	flag.StringVar(&cfg.Azure.TeamMembershipAppID, "azure.teamMembershipAppID", cfg.Azure.TeamMembershipAppID, "Application ID of canonical team list")
 
 	kafka.SetupFlags(&cfg.Kafka)
 }
@@ -112,10 +99,22 @@ func run() error {
 		return err
 	}
 
-	teamRepositoryStorage, err := persistence.NewS3StorageBackend(cfg.S3)
+	dbEncryptionKey, err := hex.DecodeString(cfg.DatabaseEncryptionKey)
 	if err != nil {
-		return fmt.Errorf("while setting up S3 backend: %s", err)
+		return err
 	}
+
+	db, err := database.New(cfg.DatabaseURL, dbEncryptionKey)
+	if err != nil {
+		return fmt.Errorf("setup postgres connection: %s", err)
+	}
+
+	err = db.Migrate()
+	if err != nil {
+		return fmt.Errorf("migrating database: %s", err)
+	}
+
+	teamRepositoryStorage := persistence.NewTeamRepositoryStorage(db)
 
 	kafkaClient, err := kafka.NewDualClient(
 		cfg.Kafka,
@@ -141,148 +140,32 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	apiKeys := &persistence.VaultApiKeyStorage{
-		Address:    cfg.Vault.Address,
-		Path:       cfg.Vault.Path,
-		AuthPath:   cfg.Vault.AuthPath,
-		AuthRole:   cfg.Vault.AuthRole,
-		KeyName:    cfg.Vault.KeyName,
-		Token:      cfg.Vault.Token,
-		HttpClient: http.DefaultClient,
+	certificates, err := discovery.FetchCertificates(cfg.Azure)
+	if err != nil {
+		return fmt.Errorf("unable to fetch Azure certificates: %s", err)
 	}
 
-	if len(cfg.Vault.CredentialsFile) > 0 {
-		credentials, err := ioutil.ReadFile(cfg.Vault.CredentialsFile)
-		if err != nil {
-			return fmt.Errorf("read Vault token file: %s", err)
-		}
-		apiKeys.Credentials = string(credentials)
-		apiKeys.Token = ""
-
-		go apiKeys.RefreshLoop()
-	}
-
-	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
+	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	requestChan := make(chan deployment.DeploymentRequest, queueSize)
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
-	deploymentHandler := &api_v1_deploy.DeploymentHandler{
-		BaseURL:           cfg.BaseURL,
-		DeploymentRequest: requestChan,
-		DeploymentStatus:  statusChan,
-		GithubClient:      githubClient,
-		APIKeyStorage:     apiKeys,
-		Clusters:          cfg.Clusters,
-	}
-
-	statusHandler := &api_v1_status.StatusHandler{
-		GithubClient:  githubClient,
-		APIKeyStorage: apiKeys,
-	}
-
-	provisionHandler := &api_v1_provision.Handler{
-		APIKeyStorage: apiKeys,
-		SecretKey:     provisionKey,
-	}
-
-	githubDeploymentHandler := &server.GithubDeploymentHandler{
-		DeploymentRequest:     requestChan,
-		DeploymentStatus:      statusChan,
-		SecretToken:           cfg.Github.WebhookSecret,
-		TeamRepositoryStorage: teamRepositoryStorage,
-		Clusters:              cfg.Clusters,
-	}
-
-	queueHandler := &api_v1_queue.Handler{}
-
-	// Pre-populate request metrics
-	for _, code := range api_v1_deploy.StatusCodes {
-		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
-	}
-	for _, code := range api_v1_status.StatusCodes {
-		prometheusMiddleware.Initialize("/api/v1/status", http.MethodPost, code)
-	}
-	for _, code := range api_v1_provision.StatusCodes {
-		prometheusMiddleware.Initialize("/api/v1/provision", http.MethodPost, code)
-	}
-
-	// Base settings for all requests
-	router := chi.NewRouter()
-	router.Use(
-		middleware.RequestLogger(),
-		prometheusMiddleware.Handler(),
-		chi_middleware.StripSlashes,
-	)
-
-	// Mount /metrics endpoint with no authentication
-	router.Get(cfg.MetricsPath, promhttp.Handler().ServeHTTP)
-
-	// Deployment logs accessible via shorthand URL
-	router.HandleFunc("/logs", logproxy.HandleFunc)
-
-	// Mount /api/v1 for API requests
-	// Only application/json content type allowed
-	router.Route("/api/v1", func(r chi.Router) {
-		r.Use(
-			chi_middleware.AllowContentType("application/json"),
-			chi_middleware.Timeout(requestTimeout),
-		)
-		r.Post("/deploy", deploymentHandler.ServeHTTP)
-		r.Post("/status", statusHandler.ServeHTTP)
-		r.Get("/queue", queueHandler.ServeHTTP)
-		if len(provisionKey) == 0 {
-			log.Error("Refusing to set up team API provisioning endpoint without pre-shared secret; try using --provision-key")
-			log.Error("Note: /api/v1/provision will be unavailable")
-		} else {
-			r.Post("/provision", provisionHandler.ServeHTTP)
-		}
+	router := api.New(api.Config{
+		BaseURL:                     cfg.BaseURL,
+		Certificates:                certificates,
+		Clusters:                    cfg.Clusters,
+		Database:                    db,
+		GithubClient:                githubClient,
+		GithubConfig:                config.Github{},
+		InstallationClient:          installationClient,
+		MetricsPath:                 cfg.MetricsPath,
+		OAuthKeyValidatorMiddleware: middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID),
+		ProvisionKey:                provisionKey,
+		RequestChan:                 requestChan,
+		StatusChan:                  statusChan,
+		TeamClient:                  graphAPIClient,
+		TeamRepositoryStorage:       teamRepositoryStorage,
 	})
-
-	// Mount /events for "legacy" GitHub deployment handling
-	router.Post("/events", githubDeploymentHandler.ServeHTTP)
-
-	// "Legacy" user authentication and repository/team connections
-	router.Route("/auth", func(r chi.Router) {
-		loginHandler := &auth.LoginHandler{
-			ClientID: cfg.Github.ClientID,
-		}
-		logoutHandler := &auth.LogoutHandler{}
-		callbackHandler := &auth.CallbackHandler{
-			ClientID:     cfg.Github.ClientID,
-			ClientSecret: cfg.Github.ClientSecret,
-		}
-		formHandler := &auth.FormHandler{}
-		submittedFormHandler := &auth.SubmittedFormHandler{
-			TeamRepositoryStorage: teamRepositoryStorage,
-			ApplicationClient:     installationClient,
-		}
-
-		r.Get("/login", loginHandler.ServeHTTP)
-		r.Get("/logout", logoutHandler.ServeHTTP)
-		r.Get("/callback", callbackHandler.ServeHTTP)
-		r.Get("/form", formHandler.ServeHTTP)
-		r.Post("/submit", submittedFormHandler.ServeHTTP)
-
-	})
-
-	// "Legacy" proxy/caching layer between user, application, and GitHub.
-	router.Route("/proxy", func(r chi.Router) {
-		teamProxyHandler := &auth.TeamsProxyHandler{
-			ApplicationClient: installationClient,
-		}
-		repositoryProxyHandler := &auth.RepositoriesProxyHandler{}
-
-		r.Get("/teams", teamProxyHandler.ServeHTTP)
-		r.Get("/repositories", repositoryProxyHandler.ServeHTTP)
-	})
-
-	// "Legacy" static assets (css, js, images)
-	staticHandler := http.StripPrefix(
-		"/assets",
-		http.FileServer(http.Dir(auth.StaticAssetsLocation)),
-	)
-	router.Handle("/assets/*", staticHandler)
 
 	go func() {
 		err := http.ListenAndServe(cfg.ListenAddress, router)

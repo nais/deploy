@@ -9,15 +9,17 @@ import (
 	"net/http"
 
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
 
 type Handler struct {
-	APIKeyStorage persistence.ApiKeyStorage
+	APIKeyStorage database.Database
+	TeamClient    graphapi.Client
 	SecretKey     []byte
 }
 
@@ -127,7 +129,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadGateway)
 			response.Message = "unable to communicate with team API key backend"
 			response.render(w)
-			logger.Error(fmt.Sprintf("%s: %s", response.Message, err))
+			logger.Errorf("%s: %s", response.Message, err)
 			return
 		}
 	}
@@ -143,16 +145,32 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		response.Message = "unable to generate API key"
 		response.render(w)
-		logger.Error(fmt.Sprintf("%s: %s", response.Message, err))
+		logger.Errorf("%s: %s", response.Message, err)
 		return
 	}
 
-	err = h.APIKeyStorage.Write(request.Team, key)
+	azureTeam, err := h.TeamClient.Team(r.Context(), request.Team)
+	if err != nil {
+		if h.TeamClient.IsErrNotFound(err) {
+			w.WriteHeader(http.StatusForbidden)
+			response.Message = "team does not exist in Azure AD"
+			response.render(w)
+			logger.Error(response.Message)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		response.Message = "unable to communicate with Azure AD"
+		response.render(w)
+		logger.Errorf("%s: %s", response.Message, err)
+		return
+	}
+
+	err = h.APIKeyStorage.Write(request.Team, azureTeam.AzureUUID, key)
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		response.Message = "unable to persist API key"
 		response.render(w)
-		logger.Error(fmt.Sprintf("%s: %s", response.Message, err))
+		logger.Errorf("%s: %s", response.Message, err)
 		return
 	}
 

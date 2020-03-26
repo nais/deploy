@@ -1,0 +1,15 @@
+{
+  "request": {
+    "headers": {
+      "content-type": "application/json"
+    },
+    "groups": [
+      "group2-claim"
+    ],
+    "body": {}
+  },
+  "response": {
+    "statusCode": 403,
+    "body": []
+  }
+}

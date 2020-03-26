@@ -1,4 +1,4 @@
-package persistence
+package main
 
 import (
 	"bytes"
@@ -9,10 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"strconv"
 	"time"
 
-	"github.com/navikt/deployment/hookd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -40,6 +38,7 @@ type VaultApiKeyStorage struct {
 	KeyName       string
 	Credentials   string
 	Token         string
+	Refreshed     chan interface{}
 	LeaseDuration int
 	HttpClient    *http.Client
 }
@@ -78,9 +77,13 @@ func (s *VaultApiKeyStorage) refreshToken() error {
 		return fmt.Errorf("unable to marshal auth request: %s", err)
 	}
 
-	resp, err := http.Post(u.String(), "application/json", bytes.NewReader(b))
+	resp, err := s.HttpClient.Post(u.String(), "application/json", bytes.NewReader(b))
 	if resp != nil {
-		metrics.VaultTokenRefresh.WithLabelValues(strconv.Itoa(resp.StatusCode)).Inc()
+		log.Infof("vault returned token request with status %s", resp.Status)
+		if resp.StatusCode >= 400 {
+			body, _ := ioutil.ReadAll(resp.Body)
+			return fmt.Errorf("vault responded with %s: %s", resp.Status, body)
+		}
 	}
 
 	if err != nil {
@@ -96,7 +99,7 @@ func (s *VaultApiKeyStorage) refreshToken() error {
 	s.Token = vaultAuthResponse.Auth.ClientToken
 
 	s.LeaseDuration = vaultAuthResponse.Auth.LeaseDuration
-	log.Debugf("Vault: token expires in %d seconds", s.LeaseDuration)
+	log.Infof("Vault: token expires in %d seconds", s.LeaseDuration)
 
 	return nil
 }
@@ -113,7 +116,8 @@ func (s *VaultApiKeyStorage) RefreshLoop() {
 		refreshInterval := int(float64(s.LeaseDuration) * RefreshIntervalFactor)
 		duration := time.Duration(refreshInterval) * time.Second
 		timer.Reset(duration)
-		log.Debugf("Successfully refreshed Vault token, next refresh in %s", duration.String())
+		log.Infof("Successfully refreshed Vault token, next refresh in %s", duration.String())
+		s.Refreshed <- new(interface{})
 	}
 }
 

@@ -1,0 +1,15 @@
+{
+  "request": {
+    "headers": {
+      "content-type": "application/json"
+    },
+    "groups": [
+      "invalid-claim"
+    ],
+    "body": {}
+  },
+  "response": {
+    "statusCode": 200,
+    "body": []
+  }
+}
