@@ -156,7 +156,7 @@ func run() error {
 		Clusters:                    cfg.Clusters,
 		Database:                    db,
 		GithubClient:                githubClient,
-		GithubConfig:                config.Github{},
+		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,
 		OAuthKeyValidatorMiddleware: middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID),
