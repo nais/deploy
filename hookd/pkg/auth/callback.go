@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type CallbackHandler struct {
@@ -42,6 +44,7 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
+		log.Errorf("authorizing GitHub user: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -49,6 +52,7 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	responseBody, err := ioutil.ReadAll(response.Body)
 
 	if err != nil {
+		log.Errorf("read response from GitHub: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -56,13 +60,15 @@ func (h *CallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	parsedBody, err := url.ParseQuery(string(responseBody))
 
 	if err != nil {
+		log.Errorf("parse GitHub response: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	error := parsedBody.Get("error")
+	errMsg := parsedBody.Get("error")
 
-	if len(error) != 0 {
+	if len(errMsg) != 0 {
+		log.Errorf("GitHub returned error message: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
