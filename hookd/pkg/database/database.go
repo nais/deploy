@@ -42,6 +42,8 @@ type ApiKey struct {
 	Created time.Time `json:"created"`
 }
 
+const selectApiKeyFields = `key, team, team_azure_id, created, expires`
+
 var _ Database = &database{}
 
 func New(dsn string, encryptionKey []byte) (Database, error) {
@@ -77,6 +79,7 @@ func (db *database) scanApiKeyRows(rows pgx.Rows) ([]ApiKey, error) {
 		var apiKey ApiKey
 		var encrypted string
 
+		// see selectApiKeyFields
 		err := rows.Scan(&encrypted, &apiKey.Team, &apiKey.GroupId, &apiKey.Created, &apiKey.Expires)
 		if err != nil {
 			return nil, err
@@ -128,7 +131,7 @@ func (db *database) Migrate() error {
 func (db *database) ReadByGroupClaim(group string) ([]ApiKey, error) {
 	ctx := context.Background()
 
-	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team_azure_id = $1 ORDER BY expires DESC;`
+	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team_azure_id = $1 ORDER BY expires DESC;`
 	rows, err := db.conn.Query(ctx, query, group)
 
 	if err != nil {
@@ -141,7 +144,7 @@ func (db *database) ReadByGroupClaim(group string) ([]ApiKey, error) {
 func (db *database) Read(team string) ([]ApiKey, error) {
 	ctx := context.Background()
 
-	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 AND expires > NOW();`
+	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 AND expires > NOW();`
 	rows, err := db.conn.Query(ctx, query, team)
 
 	if err != nil {
@@ -159,10 +162,10 @@ func (db *database) ReadAll(team, limit string) ([]ApiKey, error) {
 	ctx := context.Background()
 
 	if limit == "" {
-		query = `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC`
+		query = `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 ORDER BY expires DESC`
 		rows, err = db.conn.Query(ctx, query, team)
 	} else {
-		query = `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT $2`
+		query = `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT $2`
 		rows, err = db.conn.Query(ctx, query, team, limit)
 	}
 
