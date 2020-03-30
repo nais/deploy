@@ -117,9 +117,12 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger = logger.WithField(types.LogFieldDeliveryID, requestID.String())
 	deploymentResponse.CorrelationID = requestID.String()
 	deploymentResponse.LogURL = logproxy.MakeURL(h.BaseURL, requestID.String(), time.Now())
+	logger = logger.WithFields(log.Fields{
+		types.LogFieldDeliveryID:    deploymentResponse.CorrelationID,
+		types.LogFieldCorrelationID: deploymentResponse.CorrelationID,
+	})
 
 	logger.Tracef("Incoming request")
 
