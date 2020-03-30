@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var secretKey = "foobar"
+var secretKey = []byte("foobar")
 
 const (
 	deploymentID = 123789

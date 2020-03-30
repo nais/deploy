@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -34,10 +35,33 @@ type database struct {
 	encryptionKey []byte
 }
 
+type Key []byte
+
+func (k Key) String() string {
+	return hex.EncodeToString(k)
+}
+
+func (k Key) MarshalJSON() ([]byte, error) {
+	return json.Marshal(k.String())
+}
+
+func (k *Key) UnmarshalJSON(b []byte) error {
+	var str string
+	err := json.Unmarshal(b, &str)
+	if err != nil {
+		return err
+	}
+	_, err = hex.DecodeString(str)
+	if err != nil {
+		return fmt.Errorf("expecting hex string: %s", err)
+	}
+	return nil
+}
+
 type ApiKey struct {
 	Team    string    `json:"team"`
 	GroupId string    `json:"groupId"`
-	Key     string    `json:"key"`
+	Key     Key       `json:"key"`
 	Expires time.Time `json:"expires"`
 	Created time.Time `json:"created"`
 }
@@ -60,16 +84,12 @@ func New(dsn string, encryptionKey []byte) (Database, error) {
 	}, nil
 }
 
-func (db *database) decrypt(encrypted string) (string, error) {
+func (db *database) decrypt(encrypted string) ([]byte, error) {
 	decoded, err := hex.DecodeString(encrypted)
 	if err != nil {
-		return "", fmt.Errorf("decode hex: %s", err)
+		return nil, fmt.Errorf("decode hex: %s", err)
 	}
-	decrypted, err := crypto.Decrypt(decoded, db.encryptionKey)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: %s", err)
-	}
-	return hex.EncodeToString(decrypted), nil
+	return crypto.Decrypt(decoded, db.encryptionKey)
 }
 
 func (db *database) scanApiKeyRows(rows pgx.Rows) ([]ApiKey, error) {

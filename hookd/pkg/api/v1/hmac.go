@@ -23,8 +23,7 @@ func GenMAC(message, key []byte) []byte {
 
 func ValidateAnyMAC(message, messageMAC []byte, apiKeys []database.ApiKey) error {
 	for _, apiKey := range apiKeys {
-		key := []byte(apiKey.Key)
-		if ValidateMAC(message, messageMAC, key) {
+		if ValidateMAC(message, messageMAC, apiKey.Key) {
 			return nil
 		}
 	}

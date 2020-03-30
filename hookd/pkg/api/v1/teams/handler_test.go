@@ -58,7 +58,6 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error
 		groups = append(groups, database.ApiKey{
 			Team:    "team1",
 			GroupId: "group1-claim",
-			Key:     "",
 			Expires: time.Time{},
 			Created: time.Time{},
 		})
@@ -68,7 +67,6 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error
 		groups = append(groups, database.ApiKey{
 			Team:    "team2",
 			GroupId: "group2-claim",
-			Key:     "",
 			Expires: time.Time{},
 			Created: time.Time{},
 		})
@@ -78,7 +76,6 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error
 		groups = append(groups, database.ApiKey{
 			Team:    "team4",
 			GroupId: "group4-claim",
-			Key:     "",
 			Expires: time.Time{},
 			Created: time.Time{},
 		})

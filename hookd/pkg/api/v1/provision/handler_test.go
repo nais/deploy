@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	secretKey    = "foobar"
+	secretKey    = []byte("foobar")
 	provisionKey = []byte("cryptographically secure")
 )
 

@@ -26,7 +26,7 @@ const (
 	deploymentID = 123789
 )
 
-var secretKey = "foobar"
+var secretKey = []byte("foobar")
 
 var validClusters = []string{
 	"local",
@@ -150,7 +150,7 @@ func subTest(t *testing.T, name string) {
 
 	// Generate HMAC header for cases where the header should be valid
 	if len(request.Header.Get(api_v1.SignatureHeader)) == 0 {
-		mac := api_v1.GenMAC(test.Request.Body, []byte(secretKey))
+		mac := api_v1.GenMAC(test.Request.Body, secretKey)
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
