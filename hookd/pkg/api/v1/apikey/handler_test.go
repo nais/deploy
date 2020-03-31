@@ -11,9 +11,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/navikt/deployment/hookd/pkg/api"
+	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/stretchr/testify/assert"
 )
@@ -41,32 +41,20 @@ type response struct {
 }
 
 var (
-	key1 = database.Key{0xab, 0xcd, 0xef} // abcdef
-	key2 = database.Key{0x12, 0x34, 0x56} // 123456
-	key4 = database.Key{0x00}             // not used
+	key1 = api_v1.Key{0xab, 0xcd, 0xef} // abcdef
+	key2 = api_v1.Key{0x12, 0x34, 0x56} // 123456
+	key4 = api_v1.Key{0x00}             // not used
 )
 
 func tokenValidatorMiddleware(next http.Handler) http.Handler {
 	return next
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
-	teams := []database.ApiKey{}
-	switch team {
-	case "team1":
-		teams = append(teams, database.ApiKey{
-			Team:    "team1",
-			GroupId: "group1-claim",
-			Key:     key1,
-			Expires: time.Time{},
-			Created: time.Time{},
-		})
-		return teams, nil
-	default:
-		return nil, fmt.Errorf("err")
-	}
+func (a *apiKeyStorage) Read(team string) (database.ApiKeys, error) {
+	return a.ReadAll(team, "")
 }
-func (a *apiKeyStorage) ReadAll(team, limit string) ([]database.ApiKey, error) {
+
+func (a *apiKeyStorage) ReadAll(team, limit string) (database.ApiKeys, error) {
 	switch team {
 	case "team1":
 		return []database.ApiKey{{
@@ -91,8 +79,7 @@ func (a *apiKeyStorage) IsErrNotFound(err error) bool {
 	return err == database.ErrNotFound
 }
 
-func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error) {
-	groups := []database.ApiKey{}
+func (a *apiKeyStorage) ReadByGroupClaim(group string) (database.ApiKeys, error) {
 	switch group {
 	case "group1-claim":
 		return []database.ApiKey{{
@@ -112,8 +99,9 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error
 			GroupId: "group4-claim",
 			Key:     key4,
 		}}, nil
+	default:
+		return database.ApiKeys{}, nil
 	}
-	return groups, nil
 }
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
 	body := make([]database.ApiKey, 0)

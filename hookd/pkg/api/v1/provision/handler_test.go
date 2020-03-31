@@ -48,7 +48,7 @@ type apiKeyStorage struct {
 type teamClient struct {
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
+func (a *apiKeyStorage) Read(team string) (database.ApiKeys, error) {
 	switch team {
 	case "new", "unwritable":
 		return nil, database.ErrNotFound

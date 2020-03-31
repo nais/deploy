@@ -126,8 +126,7 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Request body validated successfully")
-	var apiKeys []database.ApiKey
-	apiKeys, err = h.APIKeyStorage.Read(statusRequest.Team)
+	apiKeys, err := h.APIKeyStorage.Read(statusRequest.Team)
 
 	if err != nil {
 		if h.APIKeyStorage.IsErrNotFound(err) {
@@ -147,7 +146,7 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Team API keys retrieved from storage")
 
-	err = api_v1.ValidateAnyMAC(data, signature, apiKeys)
+	err = api_v1.ValidateAnyMAC(data, signature, apiKeys.Keys())
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		statusResponse.Message = api_v1.FailedAuthenticationMsg

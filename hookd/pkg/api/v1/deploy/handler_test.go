@@ -82,7 +82,7 @@ type apiKeyStorage struct {
 	database.Database
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
+func (a *apiKeyStorage) Read(team string) (database.ApiKeys, error) {
 	switch team {
 	case "notfound":
 		return nil, database.ErrNotFound

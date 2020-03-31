@@ -38,7 +38,7 @@ type response struct {
 	Body       []api_v1_teams.Team `json:"body"`
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
+func (a *apiKeyStorage) Read(team string) (database.ApiKeys, error) {
 	return nil, fmt.Errorf("err")
 }
 
@@ -50,8 +50,8 @@ func (a *apiKeyStorage) IsErrNotFound(err error) bool {
 	return err == database.ErrNotFound
 }
 
-func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error) {
-	groups := []database.ApiKey{}
+func (a *apiKeyStorage) ReadByGroupClaim(group string) (database.ApiKeys, error) {
+	groups := make(database.ApiKeys, 0)
 
 	switch group {
 	case "group1-claim":

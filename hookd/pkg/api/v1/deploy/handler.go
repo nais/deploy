@@ -197,7 +197,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Team API key retrieved from storage")
-	err = api_v1.ValidateAnyMAC(data, signature, apiKeys)
+	err = api_v1.ValidateAnyMAC(data, signature, apiKeys.Keys())
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		deploymentResponse.Message = api_v1.FailedAuthenticationMsg

@@ -77,7 +77,7 @@ type apiKeyStorage struct {
 	database.Database
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
+func (a *apiKeyStorage) Read(team string) (database.ApiKeys, error) {
 	switch team {
 	case "notfound":
 		return nil, database.ErrNotFound
@@ -163,7 +163,7 @@ func statusSubTest(t *testing.T, name string) {
 
 	// Generate HMAC header for cases where the header should be valid
 	if len(request.Header.Get(api_v1.SignatureHeader)) == 0 {
-		mac := api_v1.GenMAC(body, []byte(secretKey))
+		mac := api_v1.GenMAC(body, secretKey)
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 

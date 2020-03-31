@@ -3,12 +3,12 @@ package database
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 )
@@ -19,9 +19,9 @@ var (
 
 type Database interface {
 	Migrate() error
-	Read(team string) ([]ApiKey, error)
-	ReadAll(team, limit string) ([]ApiKey, error)
-	ReadByGroupClaim(group string) ([]ApiKey, error)
+	Read(team string) (ApiKeys, error)
+	ReadAll(team, limit string) (ApiKeys, error)
+	ReadByGroupClaim(group string) (ApiKeys, error)
 	Write(team, groupId string, key []byte) error
 	IsErrNotFound(err error) bool
 
@@ -35,42 +35,29 @@ type database struct {
 	encryptionKey []byte
 }
 
-type Key []byte
-
-func (k Key) String() string {
-	return hex.EncodeToString(k)
-}
-
-func (k Key) MarshalJSON() ([]byte, error) {
-	return json.Marshal(k.String())
-}
-
-func (k *Key) UnmarshalJSON(b []byte) error {
-	var str string
-	err := json.Unmarshal(b, &str)
-	if err != nil {
-		return err
-	}
-	_, err = hex.DecodeString(str)
-	if err != nil {
-		return fmt.Errorf("expecting hex string: %s", err)
-	}
-	return nil
-}
-
 type ApiKey struct {
-	Team    string    `json:"team"`
-	GroupId string    `json:"groupId"`
-	Key     Key       `json:"key"`
-	Expires time.Time `json:"expires"`
-	Created time.Time `json:"created"`
+	Team    string     `json:"team"`
+	GroupId string     `json:"groupId"`
+	Key     api_v1.Key `json:"key"`
+	Expires time.Time  `json:"expires"`
+	Created time.Time  `json:"created"`
+}
+
+type ApiKeys []ApiKey
+
+func (apikeys ApiKeys) Keys() []api_v1.Key {
+	keys := make([]api_v1.Key, len(apikeys))
+	for i := range apikeys {
+		keys[i] = apikeys[i].Key
+	}
+	return keys
 }
 
 const selectApiKeyFields = `key, team, team_azure_id, created, expires`
 
 var _ Database = &database{}
 
-func New(dsn string, encryptionKey []byte) (Database, error) {
+func New(dsn string, encryptionKey []byte) (*database, error) {
 	ctx := context.Background()
 
 	conn, err := pgxpool.Connect(ctx, dsn)
@@ -92,7 +79,7 @@ func (db *database) decrypt(encrypted string) ([]byte, error) {
 	return crypto.Decrypt(decoded, db.encryptionKey)
 }
 
-func (db *database) scanApiKeyRows(rows pgx.Rows) ([]ApiKey, error) {
+func (db *database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
 	apiKeys := make([]ApiKey, 0)
 
 	for rows.Next() {
@@ -148,7 +135,7 @@ func (db *database) Migrate() error {
 	return nil
 }
 
-func (db *database) ReadByGroupClaim(group string) ([]ApiKey, error) {
+func (db *database) ReadByGroupClaim(group string) (ApiKeys, error) {
 	ctx := context.Background()
 
 	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team_azure_id = $1 ORDER BY expires DESC;`
@@ -161,7 +148,7 @@ func (db *database) ReadByGroupClaim(group string) ([]ApiKey, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *database) Read(team string) ([]ApiKey, error) {
+func (db *database) Read(team string) (ApiKeys, error) {
 	ctx := context.Background()
 
 	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 AND expires > NOW();`
@@ -174,7 +161,7 @@ func (db *database) Read(team string) ([]ApiKey, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *database) ReadAll(team, limit string) ([]ApiKey, error) {
+func (db *database) ReadAll(team, limit string) (ApiKeys, error) {
 	var query string
 	var rows pgx.Rows
 	var err error

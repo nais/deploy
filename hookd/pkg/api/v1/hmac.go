@@ -4,8 +4,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
-
-	"github.com/navikt/deployment/hookd/pkg/database"
 )
 
 // ValidateMAC reports whether messageMAC is a valid HMAC tag for message.
@@ -21,9 +19,9 @@ func GenMAC(message, key []byte) []byte {
 	return mac.Sum(nil)
 }
 
-func ValidateAnyMAC(message, messageMAC []byte, apiKeys []database.ApiKey) error {
+func ValidateAnyMAC(message, messageMAC []byte, apiKeys []Key) error {
 	for _, apiKey := range apiKeys {
-		if ValidateMAC(message, messageMAC, apiKey.Key) {
+		if ValidateMAC(message, messageMAC, apiKey) {
 			return nil
 		}
 	}
