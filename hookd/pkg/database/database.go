@@ -26,6 +26,13 @@ type RepositoryTeamStore interface {
 	WriteRepositoryTeams(repository string, teams []string) error
 }
 
+type DeploymentStore interface {
+	Deployment(id string) (*Deployment, error)
+	WriteDeployment(deployment Deployment) error
+	DeploymentStatus(deploymentID string) ([]DeploymentStatus, error)
+	WriteDeploymentStatus(status DeploymentStatus) error
+}
+
 type database struct {
 	conn          *pgxpool.Pool
 	encryptionKey []byte
@@ -37,6 +44,7 @@ func IsErrNotFound(err error) bool {
 
 var _ ApiKeyStore = &database{}
 var _ RepositoryTeamStore = &database{}
+var _ DeploymentStore = &database{}
 
 func New(dsn string, encryptionKey []byte) (*database, error) {
 	ctx := context.Background()
