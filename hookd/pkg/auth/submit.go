@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	gh "github.com/google/go-github/v27/github"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -12,7 +12,7 @@ type SubmittedFormHandler struct {
 	accessToken           string
 	userClient            *gh.Client
 	ApplicationClient     *gh.Client
-	TeamRepositoryStorage persistence.TeamRepositoryStorage
+	TeamRepositoryStorage database.RepositoryTeamStore
 }
 
 type SubmittedFormData struct {
@@ -67,7 +67,7 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = h.TeamRepositoryStorage.Write(fullName, teamNames)
+	err = h.TeamRepositoryStorage.WriteRepositoryTeams(fullName, teamNames)
 	if err != nil {
 		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)

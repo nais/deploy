@@ -19,7 +19,6 @@ import (
 )
 
 type apiKeyStorage struct {
-	database.Database
 }
 
 type testCase struct {
@@ -50,24 +49,38 @@ func tokenValidatorMiddleware(next http.Handler) http.Handler {
 	return next
 }
 
-func (a *apiKeyStorage) Read(team string) (database.ApiKeys, error) {
-	return a.ReadAll(team, "")
-}
-
-func (a *apiKeyStorage) ReadAll(team, limit string) (database.ApiKeys, error) {
-	switch team {
+func (a *apiKeyStorage) ApiKeys(id string) (database.ApiKeys, error) {
+	switch id {
 	case "team1":
-		return []database.ApiKey{{
+		return database.ApiKeys{{
 			Team:    "team1",
 			GroupId: "group1-claim",
 			Key:     key1,
+		}}, nil
+	case "group1-claim":
+		return database.ApiKeys{{
+			Team:    "team1",
+			GroupId: "group1-claim",
+			Key:     key1,
+		}}, nil
+	case "group2-claim":
+		return database.ApiKeys{{
+			Team:    "team2",
+			GroupId: "group2-claim",
+			Key:     key2,
+		}}, nil
+	case "group4-claim":
+		return database.ApiKeys{{
+			Team:    "team4",
+			GroupId: "group4-claim",
+			Key:     key4,
 		}}, nil
 	default:
 		return nil, fmt.Errorf("err")
 	}
 }
 
-func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
 	switch team {
 	case "team1":
 		return nil
@@ -75,34 +88,6 @@ func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 	return fmt.Errorf("err")
 }
 
-func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == database.ErrNotFound
-}
-
-func (a *apiKeyStorage) ReadByGroupClaim(group string) (database.ApiKeys, error) {
-	switch group {
-	case "group1-claim":
-		return []database.ApiKey{{
-			Team:    "team1",
-			GroupId: "group1-claim",
-			Key:     key1,
-		}}, nil
-	case "group2-claim":
-		return []database.ApiKey{{
-			Team:    "team2",
-			GroupId: "group2-claim",
-			Key:     key2,
-		}}, nil
-	case "group4-claim":
-		return []database.ApiKey{{
-			Team:    "team4",
-			GroupId: "group4-claim",
-			Key:     key4,
-		}}, nil
-	default:
-		return database.ApiKeys{}, nil
-	}
-}
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
 	body := make([]database.ApiKey, 0)
 	decoder := json.NewDecoder(recorder.Body)
@@ -111,6 +96,7 @@ func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response re
 	assert.Equal(t, response.Body, body)
 	return
 }
+
 func fileReader(file string) io.Reader {
 	f, err := os.Open(file)
 	if err != nil {
@@ -118,6 +104,7 @@ func fileReader(file string) io.Reader {
 	}
 	return f
 }
+
 func statusSubTest(t *testing.T, folder, file string) {
 	var request *http.Request
 	inFile := fmt.Sprintf("testdata/%s/%s", folder, file)
@@ -138,9 +125,9 @@ func statusSubTest(t *testing.T, folder, file string) {
 	recorder := httptest.NewRecorder()
 	apiKeyStore := apiKeyStorage{}
 	handler := api.New(api.Config{
+		ApiKeyStore:                 &apiKeyStore,
 		MetricsPath:                 "/metrics",
 		OAuthKeyValidatorMiddleware: tokenValidatorMiddleware,
-		Database:                    &apiKeyStore,
 	})
 
 	switch folder {
@@ -161,6 +148,7 @@ func statusSubTest(t *testing.T, folder, file string) {
 	handler.ServeHTTP(recorder, request)
 	testResponse(t, recorder, test.Response)
 }
+
 func TestApiKeyHandler(t *testing.T) {
 	subFolders, err := ioutil.ReadDir("testdata")
 	if err != nil {

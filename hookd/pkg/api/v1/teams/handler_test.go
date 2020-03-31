@@ -19,7 +19,6 @@ import (
 )
 
 type apiKeyStorage struct {
-	database.Database
 }
 
 type testCase struct {
@@ -38,19 +37,11 @@ type response struct {
 	Body       []api_v1_teams.Team `json:"body"`
 }
 
-func (a *apiKeyStorage) Read(team string) (database.ApiKeys, error) {
-	return nil, fmt.Errorf("err")
-}
-
-func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
 	return fmt.Errorf("err")
 }
 
-func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == database.ErrNotFound
-}
-
-func (a *apiKeyStorage) ReadByGroupClaim(group string) (database.ApiKeys, error) {
+func (a *apiKeyStorage) ApiKeys(group string) (database.ApiKeys, error) {
 	groups := make(database.ApiKeys, 0)
 
 	switch group {
@@ -61,8 +52,6 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) (database.ApiKeys, error)
 			Expires: time.Time{},
 			Created: time.Time{},
 		})
-		return groups, nil
-
 	case "group2-claim":
 		groups = append(groups, database.ApiKey{
 			Team:    "team2",
@@ -70,8 +59,6 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) (database.ApiKeys, error)
 			Expires: time.Time{},
 			Created: time.Time{},
 		})
-		return groups, nil
-
 	case "group4-claim":
 		groups = append(groups, database.ApiKey{
 			Team:    "team4",
@@ -79,11 +66,8 @@ func (a *apiKeyStorage) ReadByGroupClaim(group string) (database.ApiKeys, error)
 			Expires: time.Time{},
 			Created: time.Time{},
 		})
-		return groups, nil
-
-	default:
-		return groups, nil
 	}
+	return groups, nil
 }
 
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {

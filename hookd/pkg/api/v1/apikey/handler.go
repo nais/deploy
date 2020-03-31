@@ -12,7 +12,7 @@ import (
 )
 
 type ApiKeyHandler struct {
-	APIKeyStorage database.Database
+	APIKeyStorage database.ApiKeyStore
 }
 
 // This method returns all the keys the user is authorized to see
@@ -30,7 +30,7 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 	keys := make([]database.ApiKey, 0)
 
 	for _, group := range groups {
-		groupKeys, err := h.APIKeyStorage.ReadByGroupClaim(group)
+		groupKeys, err := h.APIKeyStorage.ApiKeys(group)
 		if err != nil {
 			logger.Error(err)
 		}
@@ -58,11 +58,11 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	team := chi.URLParam(r, "team")
-	apiKeys, err := h.APIKeyStorage.ReadAll(team, r.URL.Query().Get("limit"))
+	apiKeys, err := h.APIKeyStorage.ApiKeys(team)
 
 	if err != nil {
 		logger.Errorln(err)
-		if h.APIKeyStorage.IsErrNotFound(err) {
+		if database.IsErrNotFound(err) {
 			w.WriteHeader(http.StatusNotFound)
 			logger.Errorf("%s: %s", api_v1.FailedAuthenticationMsg, err)
 			return
@@ -91,7 +91,7 @@ func (h *ApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, keys)
 }
 
-// This method returns the deploy apiKey for a specific team
+// This method rotates the api key for a specific team
 func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request) {
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
@@ -104,11 +104,10 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 	}
 
 	team := chi.URLParam(r, "team")
-	apiKeys, err := h.APIKeyStorage.Read(team)
+	apiKeys, err := h.APIKeyStorage.ApiKeys(team)
 
 	if err != nil {
-		logger.Errorln(err)
-		if h.APIKeyStorage.IsErrNotFound(err) {
+		if database.IsErrNotFound(err) {
 			w.WriteHeader(http.StatusNotFound)
 			logger.Errorf("team does not exist: %s", err)
 			return
@@ -139,7 +138,7 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	logger.Infof("generated new api key for %s (%s)", keyToRotate.Team, keyToRotate.GroupId)
-	err = h.APIKeyStorage.Write(keyToRotate.Team, keyToRotate.GroupId, newKey)
+	err = h.APIKeyStorage.RotateApiKey(keyToRotate.Team, keyToRotate.GroupId, newKey)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Errorf("unable to persist api key: %s", err)
@@ -148,7 +147,7 @@ func (h *ApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 
 	w.WriteHeader(http.StatusCreated)
 
-	apiKeys, err = h.APIKeyStorage.Read(team)
+	apiKeys, err = h.APIKeyStorage.ApiKeys(team)
 	if err != nil {
 		return // api keys were created, but we cannot return the full list
 	}

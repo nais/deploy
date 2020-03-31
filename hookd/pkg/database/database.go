@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 )
@@ -17,15 +15,13 @@ var (
 	ErrNotFound = fmt.Errorf("api key not found")
 )
 
-type Database interface {
-	Migrate() error
-	Read(team string) (ApiKeys, error)
-	ReadAll(team, limit string) (ApiKeys, error)
-	ReadByGroupClaim(group string) (ApiKeys, error)
-	Write(team, groupId string, key []byte) error
-	IsErrNotFound(err error) bool
+type ApiKeyStore interface {
+	ApiKeys(id string) (ApiKeys, error)
+	RotateApiKey(team, groupId string, key []byte) error
+}
 
-	// legacy layer
+// legacy layer
+type RepositoryTeamStore interface {
 	ReadRepositoryTeams(repository string) ([]string, error)
 	WriteRepositoryTeams(repository string, teams []string) error
 }
@@ -35,27 +31,12 @@ type database struct {
 	encryptionKey []byte
 }
 
-type ApiKey struct {
-	Team    string     `json:"team"`
-	GroupId string     `json:"groupId"`
-	Key     api_v1.Key `json:"key"`
-	Expires time.Time  `json:"expires"`
-	Created time.Time  `json:"created"`
+func IsErrNotFound(err error) bool {
+	return err == ErrNotFound
 }
 
-type ApiKeys []ApiKey
-
-func (apikeys ApiKeys) Keys() []api_v1.Key {
-	keys := make([]api_v1.Key, len(apikeys))
-	for i := range apikeys {
-		keys[i] = apikeys[i].Key
-	}
-	return keys
-}
-
-const selectApiKeyFields = `key, team, team_azure_id, created, expires`
-
-var _ Database = &database{}
+var _ ApiKeyStore = &database{}
+var _ RepositoryTeamStore = &database{}
 
 func New(dsn string, encryptionKey []byte) (*database, error) {
 	ctx := context.Background()
@@ -80,7 +61,7 @@ func (db *database) decrypt(encrypted string) ([]byte, error) {
 }
 
 func (db *database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
-	apiKeys := make([]ApiKey, 0)
+	apiKeys := make(ApiKeys, 0)
 
 	for rows.Next() {
 		var apiKey ApiKey
@@ -135,11 +116,12 @@ func (db *database) Migrate() error {
 	return nil
 }
 
-func (db *database) ReadByGroupClaim(group string) (ApiKeys, error) {
+// Read all API keys matching the provided team or azure group ID.
+func (db *database) ApiKeys(id string) (ApiKeys, error) {
 	ctx := context.Background()
 
-	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team_azure_id = $1 ORDER BY expires DESC;`
-	rows, err := db.conn.Query(ctx, query, group)
+	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 OR team_azure_id = $1 ORDER BY expires DESC;`
+	rows, err := db.conn.Query(ctx, query, id)
 
 	if err != nil {
 		return nil, err
@@ -148,42 +130,7 @@ func (db *database) ReadByGroupClaim(group string) (ApiKeys, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *database) Read(team string) (ApiKeys, error) {
-	ctx := context.Background()
-
-	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 AND expires > NOW();`
-	rows, err := db.conn.Query(ctx, query, team)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return db.scanApiKeyRows(rows)
-}
-
-func (db *database) ReadAll(team, limit string) (ApiKeys, error) {
-	var query string
-	var rows pgx.Rows
-	var err error
-
-	ctx := context.Background()
-
-	if limit == "" {
-		query = `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 ORDER BY expires DESC`
-		rows, err = db.conn.Query(ctx, query, team)
-	} else {
-		query = `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT $2`
-		rows, err = db.conn.Query(ctx, query, team, limit)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return db.scanApiKeyRows(rows)
-}
-
-func (db *database) Write(team, groupId string, key []byte) error {
+func (db *database) RotateApiKey(team, groupId string, key []byte) error {
 	var query string
 
 	encrypted, err := crypto.Encrypt(key, db.encryptionKey)
@@ -214,10 +161,6 @@ VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 	}
 
 	return tx.Commit(ctx)
-}
-
-func (db *database) IsErrNotFound(err error) bool {
-	return err == ErrNotFound
 }
 
 func (db *database) ReadRepositoryTeams(repository string) ([]string, error) {

@@ -34,16 +34,12 @@ type mockRepository struct {
 	Contents map[string][]string
 }
 
-func (s *mockRepository) Read(repository string) ([]string, error) {
+func (s *mockRepository) ReadRepositoryTeams(repository string) ([]string, error) {
 	return []string{}, nil
 }
 
-func (s *mockRepository) Write(repository string, teams []string) error {
+func (s *mockRepository) WriteRepositoryTeams(repository string, teams []string) error {
 	return nil
-}
-
-func (s *mockRepository) IsErrNotFound(err error) bool {
-	return false
 }
 
 type handlerTest struct {

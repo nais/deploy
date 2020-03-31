@@ -18,7 +18,7 @@ import (
 )
 
 type Handler struct {
-	APIKeyStorage database.Database
+	APIKeyStorage database.ApiKeyStore
 	TeamClient    graphapi.Client
 	SecretKey     []byte
 }
@@ -111,7 +111,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Request body validated successfully")
 
-	if !api_v1.ValidateMAC(data, []byte(signature), h.SecretKey) {
+	if !api_v1.ValidateMAC(data, signature, h.SecretKey) {
 		w.WriteHeader(http.StatusForbidden)
 		response.Message = api_v1.FailedAuthenticationMsg
 		response.render(w)
@@ -121,9 +121,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("HMAC signature validated successfully")
 
-	_, err = h.APIKeyStorage.Read(request.Team)
+	keys, err := h.APIKeyStorage.ApiKeys(request.Team)
 	if err != nil {
-		if h.APIKeyStorage.IsErrNotFound(err) {
+		if database.IsErrNotFound(err) {
 			request.Rotate = true
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
@@ -134,8 +134,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if !request.Rotate {
-		logger.Infof("Not overwriting existing team key")
+	if !request.Rotate && len(keys.Valid()) != 0 {
+		logger.Infof("Not overwriting existing team key which is still valid")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -165,7 +165,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.APIKeyStorage.Write(request.Team, azureTeam.AzureUUID, key)
+	err = h.APIKeyStorage.RotateApiKey(request.Team, azureTeam.AzureUUID, key)
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		response.Message = "unable to persist API key"
