@@ -37,11 +37,11 @@ type response struct {
 	Body       []api_v1_teams.Team `json:"body"`
 }
 
-func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
 	return fmt.Errorf("err")
 }
 
-func (a *apiKeyStorage) ApiKeys(group string) (database.ApiKeys, error) {
+func (a *apiKeyStorage) ApiKeys(ctx context.Context, group string) (database.ApiKeys, error) {
 	groups := make(database.ApiKeys, 0)
 
 	switch group {

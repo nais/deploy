@@ -113,7 +113,7 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Request body validated successfully")
-	apiKeys, err := h.APIKeyStorage.ApiKeys(statusRequest.Team)
+	apiKeys, err := h.APIKeyStorage.ApiKeys(r.Context(), statusRequest.Team)
 
 	if err != nil {
 		if database.IsErrNotFound(err) {
@@ -146,7 +146,7 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Querying database for deployment status")
 
-	deploymentStatus, err := h.DeploymentStore.DeploymentStatus(statusRequest.DeploymentID)
+	deploymentStatus, err := h.DeploymentStore.DeploymentStatus(r.Context(), statusRequest.DeploymentID)
 
 	if err != nil {
 		if database.IsErrNotFound(err) {

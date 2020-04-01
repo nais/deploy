@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
@@ -34,11 +35,11 @@ type mockRepository struct {
 	Contents map[string][]string
 }
 
-func (s *mockRepository) ReadRepositoryTeams(repository string) ([]string, error) {
+func (s *mockRepository) ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error) {
 	return []string{}, nil
 }
 
-func (s *mockRepository) WriteRepositoryTeams(repository string, teams []string) error {
+func (s *mockRepository) WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error {
 	return nil
 }
 

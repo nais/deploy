@@ -16,21 +16,21 @@ var (
 )
 
 type ApiKeyStore interface {
-	ApiKeys(id string) (ApiKeys, error)
-	RotateApiKey(team, groupId string, key []byte) error
+	ApiKeys(ctx context.Context, id string) (ApiKeys, error)
+	RotateApiKey(ctx context.Context, team, groupId string, key []byte) error
 }
 
 // legacy layer
 type RepositoryTeamStore interface {
-	ReadRepositoryTeams(repository string) ([]string, error)
-	WriteRepositoryTeams(repository string, teams []string) error
+	ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error)
+	WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error
 }
 
 type DeploymentStore interface {
-	Deployment(id string) (*Deployment, error)
-	WriteDeployment(deployment Deployment) error
-	DeploymentStatus(deploymentID string) ([]DeploymentStatus, error)
-	WriteDeploymentStatus(status DeploymentStatus) error
+	Deployment(ctx context.Context, id string) (*Deployment, error)
+	WriteDeployment(ctx context.Context, deployment Deployment) error
+	DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error)
+	WriteDeploymentStatus(ctx context.Context, status DeploymentStatus) error
 }
 
 type database struct {
@@ -96,8 +96,7 @@ func (db *database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
 	return apiKeys, nil
 }
 
-func (db *database) Migrate() error {
-	ctx := context.Background()
+func (db *database) Migrate(ctx context.Context) error {
 	var version int
 
 	query := `SELECT MAX(version) FROM migrations`
@@ -125,9 +124,7 @@ func (db *database) Migrate() error {
 }
 
 // Read all API keys matching the provided team or azure group ID.
-func (db *database) ApiKeys(id string) (ApiKeys, error) {
-	ctx := context.Background()
-
+func (db *database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
 	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 OR team_azure_id = $1 ORDER BY expires DESC;`
 	rows, err := db.conn.Query(ctx, query, id)
 
@@ -138,15 +135,13 @@ func (db *database) ApiKeys(id string) (ApiKeys, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *database) RotateApiKey(team, groupId string, key []byte) error {
+func (db *database) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
 	var query string
 
 	encrypted, err := crypto.Encrypt(key, db.encryptionKey)
 	if err != nil {
 		return fmt.Errorf("encrypt api key: %s", err)
 	}
-
-	ctx := context.Background()
 
 	tx, err := db.conn.Begin(ctx)
 	if err != nil {
@@ -171,9 +166,7 @@ VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 	return tx.Commit(ctx)
 }
 
-func (db *database) ReadRepositoryTeams(repository string) ([]string, error) {
-	ctx := context.Background()
-
+func (db *database) ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error) {
 	query := `SELECT team FROM team_repositories WHERE repository = $1;`
 	rows, err := db.conn.Query(ctx, query, repository)
 
@@ -198,10 +191,8 @@ func (db *database) ReadRepositoryTeams(repository string) ([]string, error) {
 	return teams, nil
 }
 
-func (db *database) WriteRepositoryTeams(repository string, teams []string) error {
+func (db *database) WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error {
 	var query string
-
-	ctx := context.Background()
 
 	tx, err := db.conn.Begin(ctx)
 	if err != nil {

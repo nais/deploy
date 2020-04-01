@@ -13,6 +13,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
@@ -62,7 +63,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		err = db.WriteRepositoryTeams(repository, teams)
+		err = db.WriteRepositoryTeams(context.Background(), repository, teams)
 		if err != nil {
 			log.Fatal(err)
 		}

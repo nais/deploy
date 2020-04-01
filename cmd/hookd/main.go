@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -108,7 +109,7 @@ func run() error {
 		return fmt.Errorf("setup postgres connection: %s", err)
 	}
 
-	err = db.Migrate()
+	err = db.Migrate(context.Background())
 	if err != nil {
 		return fmt.Errorf("migrating database: %s", err)
 	}

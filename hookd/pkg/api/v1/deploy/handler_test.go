@@ -2,6 +2,7 @@ package api_v1_deploy_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -48,7 +49,7 @@ type testCase struct {
 type apiKeyStorage struct {
 }
 
-func (a *apiKeyStorage) ApiKeys(team string) (database.ApiKeys, error) {
+func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
 	switch team {
 	case "notfound":
 		return nil, database.ErrNotFound
@@ -62,21 +63,21 @@ func (a *apiKeyStorage) ApiKeys(team string) (database.ApiKeys, error) {
 	}
 }
 
-func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
 	return nil
 }
 
 type deploymentStorage struct{}
 
-func (s *deploymentStorage) Deployment(id string) (*database.Deployment, error) {
+func (s *deploymentStorage) Deployment(ctx context.Context, id string) (*database.Deployment, error) {
 	return nil, nil
 }
 
-func (s *deploymentStorage) WriteDeployment(deployment database.Deployment) error {
+func (s *deploymentStorage) WriteDeployment(ctx context.Context, deployment database.Deployment) error {
 	return nil
 }
 
-func (s *deploymentStorage) DeploymentStatus(deploymentID string) ([]database.DeploymentStatus, error) {
+func (s *deploymentStorage) DeploymentStatus(ctx context.Context, deploymentID string) ([]database.DeploymentStatus, error) {
 	return []database.DeploymentStatus{
 		{
 			ID:           "foo",
@@ -87,7 +88,7 @@ func (s *deploymentStorage) DeploymentStatus(deploymentID string) ([]database.De
 	}, nil
 }
 
-func (s *deploymentStorage) WriteDeploymentStatus(status database.DeploymentStatus) error {
+func (s *deploymentStorage) WriteDeploymentStatus(ctx context.Context, status database.DeploymentStatus) error {
 	return nil
 }
 

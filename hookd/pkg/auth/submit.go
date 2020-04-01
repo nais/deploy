@@ -67,7 +67,7 @@ func (h *SubmittedFormHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = h.TeamRepositoryStorage.WriteRepositoryTeams(fullName, teamNames)
+	err = h.TeamRepositoryStorage.WriteRepositoryTeams(r.Context(), fullName, teamNames)
 	if err != nil {
 		log.Error(err)
 		w.WriteHeader(http.StatusInternalServerError)

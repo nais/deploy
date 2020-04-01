@@ -175,7 +175,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Request body validated successfully")
-	apiKeys, err := h.APIKeyStorage.ApiKeys(deploymentRequest.Team)
+	apiKeys, err := h.APIKeyStorage.ApiKeys(r.Context(), deploymentRequest.Team)
 
 	if err != nil {
 		if database.IsErrNotFound(err) {
@@ -210,7 +210,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Team:    deploymentRequest.Team,
 		Created: time.Now(),
 	}
-	err = h.DeploymentStore.WriteDeployment(deployment)
+	err = h.DeploymentStore.WriteDeployment(r.Context(), deployment)
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -219,6 +219,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return
 	}
+
+	logger.Tracef("Deployment committed to database")
 
 	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deploymentResponse.CorrelationID)
 	if err != nil {

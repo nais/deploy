@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -54,9 +55,9 @@ func (h *GithubDeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	h.log.Errorf("Additionally, while responding to HTTP request: %s", err)
 }
 
-func (h *GithubDeploymentHandler) validateTeamAccess(req *types.DeploymentRequest) error {
+func (h *GithubDeploymentHandler) validateTeamAccess(ctx context.Context, req *types.DeploymentRequest) error {
 	fullName := req.GetDeployment().GetRepository().FullName()
-	allowedTeams, err := h.TeamRepositoryStorage.ReadRepositoryTeams(fullName)
+	allowedTeams, err := h.TeamRepositoryStorage.ReadRepositoryTeams(ctx, fullName)
 	if err != nil {
 		if database.IsErrNotFound(err) {
 			return fmt.Errorf("repository '%s' is not registered", fullName)
@@ -133,7 +134,7 @@ func (h *GithubDeploymentHandler) handler(r *http.Request) (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	if err := h.validateTeamAccess(deploymentRequest); err != nil {
+	if err := h.validateTeamAccess(r.Context(), deploymentRequest); err != nil {
 		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
 		return http.StatusForbidden, err
 	}

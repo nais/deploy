@@ -188,7 +188,7 @@ func main() {
 			log.Fatalf("extract team uuid from azure: %s", err)
 		}
 
-		err = db.RotateApiKey(team.Name, azureTeam.AzureUUID, apiKey)
+		err = db.RotateApiKey(context.Background(), team.Name, azureTeam.AzureUUID, apiKey)
 		if err != nil {
 			log.Fatalf("write api key to database: %s", err)
 		}

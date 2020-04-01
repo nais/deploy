@@ -31,7 +31,7 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	keys := make([]database.ApiKey, 0)
 	for _, group := range groups {
-		apiKeys, err := h.APIKeyStorage.ApiKeys(group)
+		apiKeys, err := h.APIKeyStorage.ApiKeys(r.Context(), group)
 		if err != nil {
 			logger.Error(err)
 		}

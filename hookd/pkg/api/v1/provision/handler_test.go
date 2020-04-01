@@ -48,7 +48,7 @@ type apiKeyStorage struct {
 type teamClient struct {
 }
 
-func (a *apiKeyStorage) ApiKeys(team string) (database.ApiKeys, error) {
+func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
 	switch team {
 	case "new", "unwritable":
 		return nil, database.ErrNotFound
@@ -62,7 +62,7 @@ func (a *apiKeyStorage) ApiKeys(team string) (database.ApiKeys, error) {
 	}
 }
 
-func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
 	switch team {
 	case "unwritable", "unwritable_with_rotate":
 		return fmt.Errorf("service unavailable")

@@ -22,9 +22,7 @@ type DeploymentStatus struct {
 	Created      time.Time
 }
 
-func (db *database) Deployment(id string) (*Deployment, error) {
-	ctx := context.Background()
-
+func (db *database) Deployment(ctx context.Context, id string) (*Deployment, error) {
 	query := `SELECT id, team, created, github_id, github_repository FROM deployment WHERE id = $1;`
 	rows, err := db.conn.Query(ctx, query, id)
 
@@ -53,10 +51,8 @@ func (db *database) Deployment(id string) (*Deployment, error) {
 	return nil, ErrNotFound
 }
 
-func (db *database) WriteDeployment(deployment Deployment) error {
+func (db *database) WriteDeployment(ctx context.Context, deployment Deployment) error {
 	var query string
-
-	ctx := context.Background()
 
 	query = `
 INSERT INTO deployment (id, team, created, github_id, github_repository)
@@ -73,9 +69,7 @@ VALUES ($1, $2, $3, $4, $5);
 	return err
 }
 
-func (db *database) DeploymentStatus(deploymentID string) ([]DeploymentStatus, error) {
-	ctx := context.Background()
-
+func (db *database) DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error) {
 	query := `SELECT id, deployment_id, status, message, github_id, created FROM deployment_status WHERE deployment_id = $1 ORDER BY created DESC;`
 	rows, err := db.conn.Query(ctx, query, deploymentID)
 
@@ -112,10 +106,8 @@ func (db *database) DeploymentStatus(deploymentID string) ([]DeploymentStatus, e
 	return statuses, nil
 }
 
-func (db *database) WriteDeploymentStatus(status DeploymentStatus) error {
+func (db *database) WriteDeploymentStatus(ctx context.Context, status DeploymentStatus) error {
 	var query string
-
-	ctx := context.Background()
 
 	query = `
 INSERT INTO deployment_status (id, deployment_id, status, message, github_id, created)

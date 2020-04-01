@@ -49,7 +49,7 @@ func tokenValidatorMiddleware(next http.Handler) http.Handler {
 	return next
 }
 
-func (a *apiKeyStorage) ApiKeys(id string) (database.ApiKeys, error) {
+func (a *apiKeyStorage) ApiKeys(ctx context.Context, id string) (database.ApiKeys, error) {
 	switch id {
 	case "team1":
 		return database.ApiKeys{{
@@ -80,7 +80,7 @@ func (a *apiKeyStorage) ApiKeys(id string) (database.ApiKeys, error) {
 	}
 }
 
-func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
 	switch team {
 	case "team1":
 		return nil

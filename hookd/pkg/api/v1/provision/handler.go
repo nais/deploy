@@ -121,7 +121,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("HMAC signature validated successfully")
 
-	keys, err := h.APIKeyStorage.ApiKeys(request.Team)
+	keys, err := h.APIKeyStorage.ApiKeys(r.Context(), request.Team)
 	if err != nil {
 		if database.IsErrNotFound(err) {
 			request.Rotate = true
@@ -165,7 +165,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.APIKeyStorage.RotateApiKey(request.Team, azureTeam.AzureUUID, key)
+	err = h.APIKeyStorage.RotateApiKey(r.Context(), request.Team, azureTeam.AzureUUID, key)
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		response.Message = "unable to persist API key"
