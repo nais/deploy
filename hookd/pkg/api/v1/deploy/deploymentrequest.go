@@ -19,7 +19,7 @@ var (
 )
 
 // DeploymentRequestMessage creates a deployment request from user input provided to the deployment API.
-func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, deliveryID string) (*types.DeploymentRequest, error) {
+func DeploymentRequestMessage(r *DeploymentRequest, deliveryID string) (*types.DeploymentRequest, error) {
 	kube, err := types.KubernetesFromJSONResources(r.Resources)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,6 @@ func DeploymentRequestMessage(r *DeploymentRequest, deployment *gh.Deployment, d
 				Name:  r.Repository,
 				Owner: r.Owner,
 			},
-			DeploymentID: deployment.GetID(),
 		},
 		PayloadSpec: &types.Payload{
 			Team:       r.Team,

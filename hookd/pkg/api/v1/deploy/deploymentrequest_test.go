@@ -40,10 +40,9 @@ func TestDeploymentRequestFromEvent(t *testing.T) {
 func TestDeploymentRequest(t *testing.T) {
 	deploymentRequest := &server.DeploymentRequest{}
 	deploymentRequest.Resources = []byte(`[{"foo": "bar"}]`)
-	githubDeployment := &gh.Deployment{}
 	correlationID := "bar"
 
-	deployMsg, err := server.DeploymentRequestMessage(deploymentRequest, githubDeployment, correlationID)
+	deployMsg, err := server.DeploymentRequestMessage(deploymentRequest, correlationID)
 
 	assert.NoError(t, err)
 

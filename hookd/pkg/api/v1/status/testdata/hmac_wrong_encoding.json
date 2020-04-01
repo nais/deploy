@@ -4,10 +4,8 @@
       "x-nais-signature": "foobar"
     },
     "body": {
-      "deploymentID": 123,
-      "team": "nobody",
-      "owner": "foo",
-      "repository": "bar"
+      "deploymentID": "123",
+      "team": "nobody"
     }
   },
   "response": {

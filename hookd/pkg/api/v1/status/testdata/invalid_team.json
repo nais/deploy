@@ -1,9 +1,7 @@
 {
   "request": {
     "body": {
-      "deploymentID": 123,
-      "owner": "foo",
-      "repository": "bar"
+      "deploymentID": "123"
     }
   },
   "response": {

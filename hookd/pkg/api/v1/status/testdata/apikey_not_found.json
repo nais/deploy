@@ -1,10 +1,8 @@
 {
   "request": {
     "body": {
-      "deploymentID": 123,
-      "team": "notfound",
-      "owner": "foo",
-      "repository": "bar"
+      "deploymentID": "123",
+      "team": "notfound"
     }
   },
   "response": {

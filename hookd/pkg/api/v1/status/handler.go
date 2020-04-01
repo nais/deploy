@@ -10,7 +10,6 @@ import (
 
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
 	types "github.com/navikt/deployment/common/pkg/deployment"
@@ -18,14 +17,12 @@ import (
 )
 
 type StatusHandler struct {
-	APIKeyStorage database.ApiKeyStore
-	GithubClient  github.Client
+	APIKeyStorage   database.ApiKeyStore
+	DeploymentStore database.DeploymentStore
 }
 
 type StatusRequest struct {
-	DeploymentID int64            `json:"deploymentID"`
-	Owner        string           `json:"owner"`
-	Repository   string           `json:"repository"`
+	DeploymentID string           `json:"deploymentID"`
 	Team         string           `json:"team"`
 	Timestamp    api_v1.Timestamp `json:"timestamp"`
 }
@@ -40,17 +37,8 @@ func (r *StatusResponse) render(w io.Writer) {
 }
 
 func (r *StatusRequest) validate() error {
-
-	if r.DeploymentID == 0 {
+	if len(r.DeploymentID) == 0 {
 		return fmt.Errorf("no deployment ID specified")
-	}
-
-	if len(r.Owner) == 0 {
-		return fmt.Errorf("no repository owner specified")
-	}
-
-	if len(r.Repository) == 0 {
-		return fmt.Errorf("no repository specified")
 	}
 
 	if len(r.Team) == 0 {
@@ -68,7 +56,6 @@ func (r *StatusRequest) LogFields() log.Fields {
 	return log.Fields{
 		types.LogFieldDeploymentID: r.DeploymentID,
 		types.LogFieldTeam:         r.Team,
-		types.LogFieldRepository:   fmt.Sprintf("%s/%s", r.Owner, r.Repository),
 	}
 }
 
@@ -157,36 +144,27 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("HMAC signature validated successfully")
 
-	logger.Tracef("Querying GitHub for deployment status")
+	logger.Tracef("Querying database for deployment status")
 
-	deploymentStatus, err := h.GithubClient.DeploymentStatus(
-		r.Context(),
-		statusRequest.Owner,
-		statusRequest.Repository,
-		statusRequest.DeploymentID,
-	)
+	deploymentStatus, err := h.DeploymentStore.DeploymentStatus(statusRequest.DeploymentID)
 
 	if err != nil {
-		if err == github.ErrDeploymentNotFound {
-			w.WriteHeader(http.StatusBadRequest)
-			logger.Infof("Deployment %d does not exist", statusRequest.DeploymentID)
-			return
-		} else if err == github.ErrNoDeploymentStatuses {
-			w.WriteHeader(http.StatusNoContent)
-			logger.Info("Deployment status requested, but none available yet")
+		if database.IsErrNotFound(err) {
+			w.WriteHeader(http.StatusNotFound)
+			logger.Infof("deployment %s does not exist", statusRequest.DeploymentID)
 			return
 		}
 		w.WriteHeader(http.StatusBadGateway)
-		statusResponse.Message = "unable to return deployment status: GitHub is unavailable"
+		statusResponse.Message = "unable to return deployment status: database is unavailable"
 		statusResponse.render(w)
-		logger.Errorf("Unable to return deployment status: GitHub is unavailable: %s", err)
+		logger.Errorf("%s: %s", statusResponse.Message, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	state := deploymentStatus.GetState()
-	statusResponse.Status = &state
-	statusResponse.Message = "deployment status retrieved successfully"
+	state := deploymentStatus[0]
+	statusResponse.Status = &state.Status
+	statusResponse.Message = state.Message
 	statusResponse.render(w)
 
 	logger.Info("Status request processed successfully")

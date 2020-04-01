@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 
@@ -23,7 +22,7 @@ import (
 
 type DeploymentHandler struct {
 	APIKeyStorage     database.ApiKeyStore
-	GithubClient      github.Client
+	DeploymentStore   database.DeploymentStore
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
 	BaseURL           string
@@ -45,7 +44,6 @@ type DeploymentResponse struct {
 	Message          string         `json:"message,omitempty"`
 	CorrelationID    string         `json:"correlationID,omitempty"`
 	LogURL           string         `json:"logURL,omitempty"`
-	GithubDeployment *gh.Deployment `json:"githubDeployment,omitempty"`
 }
 
 func (r *DeploymentResponse) render(w io.Writer) {
@@ -103,7 +101,6 @@ func (r *DeploymentRequest) GithubDeploymentRequest() gh.DeploymentRequest {
 func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var deploymentResponse DeploymentResponse
-	var githubDeployment *gh.Deployment
 
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
@@ -208,46 +205,22 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("HMAC signature validated successfully")
 
-	err = h.GithubClient.TeamAllowed(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, deploymentRequest.Team)
-	switch err {
-	case nil:
-		logger.Tracef("Team access to repository on GitHub validated successfully")
-	case github.ErrGitHubNotEnabled:
-		logger.Tracef("Skipping team access validation because GitHub integration is not enabled")
-	case github.ErrTeamNotExist, github.ErrTeamNoAccess:
-		deploymentResponse.Message = err.Error()
-		w.WriteHeader(http.StatusForbidden)
-		deploymentResponse.render(w)
-		logger.Error(err)
-		return
-	default:
-		deploymentResponse.Message = "unable to communicate with GitHub"
-		w.WriteHeader(http.StatusBadGateway)
+	deployment := database.Deployment{
+		ID:      requestID.String(),
+		Team:    deploymentRequest.Team,
+		Created: time.Now(),
+	}
+	err = h.DeploymentStore.WriteDeployment(deployment)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		deploymentResponse.Message = fmt.Sprintf("unable to store deployment in database")
 		deploymentResponse.render(w)
 		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return
 	}
 
-	githubRequest := deploymentRequest.GithubDeploymentRequest()
-	githubDeployment, err = h.GithubClient.CreateDeployment(r.Context(), deploymentRequest.Owner, deploymentRequest.Repository, &githubRequest)
-	deploymentResponse.GithubDeployment = githubDeployment
-
-	switch err {
-	case nil:
-		logger = logger.WithField(types.LogFieldDeploymentID, githubDeployment.GetID())
-		logger.Info("GitHub deployment created successfully")
-	case github.ErrGitHubNotEnabled:
-		logger.Tracef("Skipping GitHub deployment API creation because GitHub integration is not enabled")
-		githubDeployment = &gh.Deployment{}
-	default:
-		w.WriteHeader(http.StatusBadGateway)
-		deploymentResponse.Message = "unable to create GitHub deployment"
-		deploymentResponse.render(w)
-		logger.Errorf("unable to create GitHub deployment: %s", err)
-		return
-	}
-
-	deployMsg, err := DeploymentRequestMessage(deploymentRequest, githubDeployment, deploymentResponse.CorrelationID)
+	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deploymentResponse.CorrelationID)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		deploymentResponse.Message = "unable to create deployment message"

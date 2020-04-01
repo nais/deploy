@@ -19,7 +19,6 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 	"github.com/navikt/deployment/hookd/pkg/server"
@@ -38,7 +37,7 @@ type Config struct {
 	BaseURL                     string
 	Certificates                map[string]discovery.CertificateList
 	Clusters                    []string
-	GithubClient                github.Client
+	DeploymentStore             database.DeploymentStore
 	GithubConfig                config.Github
 	InstallationClient          *gh.Client
 	MetricsPath                 string
@@ -56,9 +55,9 @@ func New(cfg Config) chi.Router {
 
 	deploymentHandler := &api_v1_deploy.DeploymentHandler{
 		BaseURL:           cfg.BaseURL,
+		DeploymentStore:   cfg.DeploymentStore,
 		DeploymentRequest: cfg.RequestChan,
 		DeploymentStatus:  cfg.StatusChan,
-		GithubClient:      cfg.GithubClient,
 		APIKeyStorage:     cfg.ApiKeyStore,
 		Clusters:          cfg.Clusters,
 	}
@@ -66,13 +65,14 @@ func New(cfg Config) chi.Router {
 	teamsHandler := &api_v1_teams.TeamsHandler{
 		APIKeyStorage: cfg.ApiKeyStore,
 	}
+
 	apikeyHandler := &api_v1_apikey.ApiKeyHandler{
 		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
 	statusHandler := &api_v1_status.StatusHandler{
-		GithubClient:  cfg.GithubClient,
-		APIKeyStorage: cfg.ApiKeyStore,
+		APIKeyStorage:   cfg.ApiKeyStore,
+		DeploymentStore: cfg.DeploymentStore,
 	}
 
 	provisionHandler := &api_v1_provision.Handler{

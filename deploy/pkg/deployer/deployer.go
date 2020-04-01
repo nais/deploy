@@ -213,10 +213,6 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	log.Infof("message...: %s", response.Message)
 	log.Infof("logs......: %s", response.LogURL)
 
-	if response.GithubDeployment != nil {
-		log.Infof("github....: %s", response.GithubDeployment.GetURL())
-	}
-
 	if resp.StatusCode != http.StatusCreated {
 		return ExitNoDeployment, fmt.Errorf("deployment failed: %s", response.Message)
 	}
@@ -228,7 +224,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	log.Infof("Polling deployment status until it has reached its final state...")
 
 	for {
-		cont, status, err := check(response.GithubDeployment.GetID(), decoded, *targetURL, cfg)
+		cont, status, err := check(response.CorrelationID, decoded, *targetURL, cfg)
 		if !cont {
 			return status, err
 		}
@@ -260,12 +256,10 @@ func setupLogging(actions, quiet bool) {
 // Check if a deployment has reached a terminal state.
 // The first return value is true if the state might change, false otherwise.
 // Additionally, returns an error if any error occurred.
-func check(deploymentID int64, key []byte, targetURL url.URL, cfg Config) (bool, ExitCode, error) {
+func check(deploymentID string, key []byte, targetURL url.URL, cfg Config) (bool, ExitCode, error) {
 	statusReq := &api_v1_status.StatusRequest{
 		DeploymentID: deploymentID,
 		Team:         cfg.Team,
-		Owner:        cfg.Owner,
-		Repository:   cfg.Repository,
 		Timestamp:    api_v1.Timestamp(time.Now().Unix()),
 	}
 

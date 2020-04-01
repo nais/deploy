@@ -2,7 +2,6 @@ package api_v1_deploy_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -13,14 +12,11 @@ import (
 	"testing"
 	"time"
 
-	gh "github.com/google/go-github/v27/github"
+	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
-	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/github"
-
-	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,37 +45,6 @@ type testCase struct {
 	Response response `json:"response"`
 }
 
-type githubClient struct{}
-
-func (g *githubClient) TeamAllowed(ctx context.Context, owner, repository, teamName string) error {
-	switch teamName {
-	case "team_not_repo_owner":
-		return github.ErrTeamNoAccess
-	case "team_not_on_github":
-		return github.ErrTeamNotExist
-	default:
-		return nil
-	}
-}
-
-func (g *githubClient) CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error) {
-	switch repository {
-	case "unavailable":
-		return nil, fmt.Errorf("GitHub is down!")
-	default:
-		return &gh.Deployment{
-			ID: gh.Int64(deploymentID),
-		}, nil
-	}
-}
-
-func (g *githubClient) DeploymentStatus(ctx context.Context, owner, repository string, deploymentID int64) (*gh.DeploymentStatus, error) {
-	return &gh.DeploymentStatus{
-		ID:    gh.Int64(deploymentID),
-		State: gh.String("success"),
-	}, nil
-}
-
 type apiKeyStorage struct {
 }
 
@@ -101,6 +66,31 @@ func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
 	return nil
 }
 
+type deploymentStorage struct{}
+
+func (s *deploymentStorage) Deployment(id string) (*database.Deployment, error) {
+	return nil, nil
+}
+
+func (s *deploymentStorage) WriteDeployment(deployment database.Deployment) error {
+	return nil
+}
+
+func (s *deploymentStorage) DeploymentStatus(deploymentID string) ([]database.DeploymentStatus, error) {
+	return []database.DeploymentStatus{
+		{
+			ID:           "foo",
+			DeploymentID: "123",
+			Status:       "success",
+			Message:      "all resources deployed",
+		},
+	}, nil
+}
+
+func (s *deploymentStorage) WriteDeploymentStatus(status database.DeploymentStatus) error {
+	return nil
+}
+
 func fileReader(file string) io.Reader {
 	f, err := os.Open(file)
 	if err != nil {
@@ -116,8 +106,6 @@ func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response re
 	assert.Equal(t, response.StatusCode, recorder.Code)
 	assert.Equal(t, response.Body.Message, decodedBody.Message)
 	assert.NotEmpty(t, decodedBody.CorrelationID)
-
-	assert.Equal(t, response.Body.GithubDeployment.GetID(), decodedBody.GithubDeployment.GetID())
 }
 
 func subTest(t *testing.T, name string) {
@@ -153,16 +141,16 @@ func subTest(t *testing.T, name string) {
 
 	requests := make(chan types.DeploymentRequest, 1024)
 	statuses := make(chan types.DeploymentStatus, 1024)
-	ghClient := githubClient{}
-	apiKeyStore := apiKeyStorage{}
+	apiKeyStore := &apiKeyStorage{}
+	deployStore := &deploymentStorage{}
 
 	handler := api.New(api.Config{
-		ApiKeyStore:  &apiKeyStore,
-		Clusters:     validClusters,
-		GithubClient: &ghClient,
-		MetricsPath:  "/metrics",
-		RequestChan:  requests,
-		StatusChan:   statuses,
+		ApiKeyStore:     apiKeyStore,
+		DeploymentStore: deployStore,
+		Clusters:        validClusters,
+		MetricsPath:     "/metrics",
+		RequestChan:     requests,
+		StatusChan:      statuses,
 	})
 
 	handler.ServeHTTP(recorder, request)

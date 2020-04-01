@@ -136,6 +136,7 @@ func run() error {
 	} else {
 		githubClient = github.FakeClient()
 	}
+	_ = githubClient // FIXME
 
 	certificates, err := discovery.FetchCertificates(cfg.Azure)
 	if err != nil {
@@ -152,7 +153,6 @@ func run() error {
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
 		Clusters:                    cfg.Clusters,
-		GithubClient:                githubClient,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,

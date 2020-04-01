@@ -15,9 +15,6 @@
   "response": {
     "statusCode": 201,
     "body": {
-      "githubDeployment": {
-        "id": 123789
-      },
       "message": "deployment request accepted and dispatched"
     }
   }
