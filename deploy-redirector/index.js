@@ -17,5 +17,12 @@ app.get('*', (req, res) => {
     urls[req.url] += 1
     res.redirect(301, path)
 })
+app.post('*', (req, res) => {
+    if (! urls[req.url]) {
+        urls[req.url] = 0
+    }
+    urls[req.url] += 1
+    res.redirect(301, path)
+})
 
 app.listen(8080)
