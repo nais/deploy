@@ -22,7 +22,6 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -35,10 +34,10 @@ var (
 type Middleware func(http.Handler) http.Handler
 
 type Config struct {
+	ApiKeyStore                 database.ApiKeyStore
 	BaseURL                     string
 	Certificates                map[string]discovery.CertificateList
 	Clusters                    []string
-	Database                    database.Database
 	GithubClient                github.Client
 	GithubConfig                config.Github
 	InstallationClient          *gh.Client
@@ -48,7 +47,7 @@ type Config struct {
 	RequestChan                 chan deployment.DeploymentRequest
 	StatusChan                  chan deployment.DeploymentStatus
 	TeamClient                  graphapi.Client
-	TeamRepositoryStorage       persistence.TeamRepositoryStorage
+	TeamRepositoryStorage       database.RepositoryTeamStore
 }
 
 func New(cfg Config) chi.Router {
@@ -60,24 +59,24 @@ func New(cfg Config) chi.Router {
 		DeploymentRequest: cfg.RequestChan,
 		DeploymentStatus:  cfg.StatusChan,
 		GithubClient:      cfg.GithubClient,
-		APIKeyStorage:     cfg.Database,
+		APIKeyStorage:     cfg.ApiKeyStore,
 		Clusters:          cfg.Clusters,
 	}
 
 	teamsHandler := &api_v1_teams.TeamsHandler{
-		APIKeyStorage: cfg.Database,
+		APIKeyStorage: cfg.ApiKeyStore,
 	}
 	apikeyHandler := &api_v1_apikey.ApiKeyHandler{
-		APIKeyStorage: cfg.Database,
+		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
 	statusHandler := &api_v1_status.StatusHandler{
 		GithubClient:  cfg.GithubClient,
-		APIKeyStorage: cfg.Database,
+		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
 	provisionHandler := &api_v1_provision.Handler{
-		APIKeyStorage: cfg.Database,
+		APIKeyStorage: cfg.ApiKeyStore,
 		TeamClient:    cfg.TeamClient,
 		SecretKey:     cfg.ProvisionKey,
 	}
@@ -124,16 +123,22 @@ func New(cfg Config) chi.Router {
 			chi_middleware.AllowContentType("application/json"),
 			chi_middleware.Timeout(requestTimeout),
 		)
-		r.Route("/apikey", func(r chi.Router) {
-			r.Use(cfg.OAuthKeyValidatorMiddleware)
-			r.Get("/", apikeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
-			r.Get("/{team}", apikeyHandler.GetTeamApiKey)     // -> apikey til dette spesifikke teamet
-			r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
-		})
-		r.Route("/teams", func(r chi.Router) {
-			r.Use(cfg.OAuthKeyValidatorMiddleware)
-			r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
-		})
+		if cfg.OAuthKeyValidatorMiddleware != nil {
+			r.Route("/apikey", func(r chi.Router) {
+				r.Use(cfg.OAuthKeyValidatorMiddleware)
+				r.Get("/", apikeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
+				r.Get("/{team}", apikeyHandler.GetTeamApiKey)     // -> apikey til dette spesifikke teamet
+				r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
+			})
+			r.Route("/teams", func(r chi.Router) {
+				r.Use(cfg.OAuthKeyValidatorMiddleware)
+				r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
+			})
+		} else {
+			log.Error("Refusing to set up team API key retrieval without OAuth middleware; try configuring --azure-*")
+			log.Error("Note: /api/v1/apikey will be unavailable")
+			log.Error("Note: /api/v1/teams will be unavailable")
+		}
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
 		r.Post("/status", statusHandler.ServeHTTP)
 		r.Get("/queue", queueHandler.ServeHTTP)

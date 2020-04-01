@@ -10,8 +10,8 @@ import (
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -22,7 +22,7 @@ const (
 type GithubDeploymentHandler struct {
 	log                   *log.Entry
 	SecretToken           string
-	TeamRepositoryStorage persistence.TeamRepositoryStorage
+	TeamRepositoryStorage database.RepositoryTeamStore
 	DeploymentStatus      chan types.DeploymentStatus
 	DeploymentRequest     chan types.DeploymentRequest
 	Clusters              api_v1.ClusterList
@@ -56,9 +56,9 @@ func (h *GithubDeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 func (h *GithubDeploymentHandler) validateTeamAccess(req *types.DeploymentRequest) error {
 	fullName := req.GetDeployment().GetRepository().FullName()
-	allowedTeams, err := h.TeamRepositoryStorage.Read(fullName)
+	allowedTeams, err := h.TeamRepositoryStorage.ReadRepositoryTeams(fullName)
 	if err != nil {
-		if h.TeamRepositoryStorage.IsErrNotFound(err) {
+		if database.IsErrNotFound(err) {
 			return fmt.Errorf("repository '%s' is not registered", fullName)
 		}
 		return fmt.Errorf("unable to check if repository has team access: %s", err)

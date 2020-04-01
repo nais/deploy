@@ -15,12 +15,12 @@
       {
         "team": "team1",
         "groupId": "group1-claim",
-        "key": "key1"
+        "key": "abcdef"
       },
       {
         "team": "team2",
         "groupId": "group2-claim",
-        "key": "key2"
+        "key": "123456"
       }
     ]
   }

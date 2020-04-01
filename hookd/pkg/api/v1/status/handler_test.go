@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var secretKey = "foobar"
+var secretKey = []byte("foobar")
 
 const (
 	deploymentID = 123789
@@ -74,30 +74,24 @@ func (g *githubClient) DeploymentStatus(ctx context.Context, owner, repository s
 }
 
 type apiKeyStorage struct {
-	database.Database
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
+func (a *apiKeyStorage) ApiKeys(team string) (database.ApiKeys, error) {
 	switch team {
 	case "notfound":
 		return nil, database.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
 	default:
-		return []database.ApiKey{{Key: secretKey}}, nil
+		return []database.ApiKey{{
+			Key:     secretKey,
+			Expires: time.Now().Add(1 * time.Hour),
+		}}, nil
 	}
 }
 
-func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
 	return nil
-}
-
-func (a *apiKeyStorage) Migrate() error {
-	return nil
-}
-
-func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == database.ErrNotFound
 }
 
 func testStatusResponse(t *testing.T, recorder *httptest.ResponseRecorder, response statusResponse) {
@@ -155,7 +149,8 @@ func statusSubTest(t *testing.T, name string) {
 
 	body := addTimestampToBody(test.Request.Body, 0)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest("GET", "/api/v1/status", bytes.NewReader(body))
+	request := httptest.NewRequest("POST", "/api/v1/status", bytes.NewReader(body))
+	request.Header.Set("content-type", "application/json")
 
 	for key, val := range test.Request.Headers {
 		request.Header.Set(key, val)
@@ -163,7 +158,7 @@ func statusSubTest(t *testing.T, name string) {
 
 	// Generate HMAC header for cases where the header should be valid
 	if len(request.Header.Get(api_v1.SignatureHeader)) == 0 {
-		mac := api_v1.GenMAC(body, []byte(secretKey))
+		mac := api_v1.GenMAC(body, secretKey)
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 

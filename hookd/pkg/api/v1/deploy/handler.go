@@ -22,7 +22,7 @@ import (
 )
 
 type DeploymentHandler struct {
-	APIKeyStorage     database.Database
+	APIKeyStorage     database.ApiKeyStore
 	GithubClient      github.Client
 	DeploymentStatus  chan types.DeploymentStatus
 	DeploymentRequest chan types.DeploymentRequest
@@ -117,9 +117,12 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger = logger.WithField(types.LogFieldDeliveryID, requestID.String())
 	deploymentResponse.CorrelationID = requestID.String()
 	deploymentResponse.LogURL = logproxy.MakeURL(h.BaseURL, requestID.String(), time.Now())
+	logger = logger.WithFields(log.Fields{
+		types.LogFieldDeliveryID:    deploymentResponse.CorrelationID,
+		types.LogFieldCorrelationID: deploymentResponse.CorrelationID,
+	})
 
 	logger.Tracef("Incoming request")
 
@@ -175,10 +178,10 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Request body validated successfully")
-	apiKeys, err := h.APIKeyStorage.Read(deploymentRequest.Team)
+	apiKeys, err := h.APIKeyStorage.ApiKeys(deploymentRequest.Team)
 
 	if err != nil {
-		if h.APIKeyStorage.IsErrNotFound(err) {
+		if database.IsErrNotFound(err) {
 			w.WriteHeader(http.StatusForbidden)
 			deploymentResponse.Message = api_v1.FailedAuthenticationMsg
 			deploymentResponse.render(w)
@@ -194,7 +197,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Tracef("Team API key retrieved from storage")
-	err = api_v1.ValidateAnyMAC(data, signature, apiKeys)
+	err = api_v1.ValidateAnyMAC(data, signature, apiKeys.Valid().Keys())
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		deploymentResponse.Message = api_v1.FailedAuthenticationMsg

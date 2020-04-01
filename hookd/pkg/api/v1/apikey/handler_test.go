@@ -11,16 +11,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/navikt/deployment/hookd/pkg/api"
-	api_v1_apikey "github.com/navikt/deployment/hookd/pkg/api/v1/apikey"
+	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/stretchr/testify/assert"
 )
 
 type apiKeyStorage struct {
-	database.Database
 }
 
 type testCase struct {
@@ -41,44 +39,48 @@ type response struct {
 	Body       []database.ApiKey `json:"body"`
 }
 
+var (
+	key1 = api_v1.Key{0xab, 0xcd, 0xef} // abcdef
+	key2 = api_v1.Key{0x12, 0x34, 0x56} // 123456
+	key4 = api_v1.Key{0x00}             // not used
+)
+
 func tokenValidatorMiddleware(next http.Handler) http.Handler {
 	return next
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
-	teams := []database.ApiKey{}
-	switch team {
+func (a *apiKeyStorage) ApiKeys(id string) (database.ApiKeys, error) {
+	switch id {
 	case "team1":
-		teams = append(teams, database.ApiKey{
+		return database.ApiKeys{{
 			Team:    "team1",
 			GroupId: "group1-claim",
-			Key:     "key1",
-			Expires: time.Time{},
-			Created: time.Time{},
-		})
-		return teams, nil
-	default:
-		return nil, fmt.Errorf("err")
-	}
-}
-func (a *apiKeyStorage) ReadAll(team, limit string) ([]database.ApiKey, error) {
-	teams := []database.ApiKey{}
-	switch team {
-	case "team1":
-		teams = append(teams, database.ApiKey{
+			Key:     key1,
+		}}, nil
+	case "group1-claim":
+		return database.ApiKeys{{
 			Team:    "team1",
 			GroupId: "group1-claim",
-			Key:     "key1",
-			Expires: time.Time{},
-			Created: time.Time{},
-		})
-		return teams, nil
+			Key:     key1,
+		}}, nil
+	case "group2-claim":
+		return database.ApiKeys{{
+			Team:    "team2",
+			GroupId: "group2-claim",
+			Key:     key2,
+		}}, nil
+	case "group4-claim":
+		return database.ApiKeys{{
+			Team:    "team4",
+			GroupId: "group4-claim",
+			Key:     key4,
+		}}, nil
 	default:
 		return nil, fmt.Errorf("err")
 	}
 }
 
-func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
 	switch team {
 	case "team1":
 		return nil
@@ -86,51 +88,15 @@ func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
 	return fmt.Errorf("err")
 }
 
-func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == database.ErrNotFound
-}
-
-func (a *apiKeyStorage) ReadByGroupClaim(group string) ([]database.ApiKey, error) {
-	groups := []database.ApiKey{}
-	switch group {
-	case "group1-claim":
-		groups = append(groups, database.ApiKey{
-			Team:    "team1",
-			GroupId: "group1-claim",
-			Key:     "key1",
-			Expires: time.Time{},
-			Created: time.Time{},
-		})
-		return groups, nil
-	case "group2-claim":
-		groups = append(groups, database.ApiKey{
-			Team:    "team2",
-			GroupId: "group2-claim",
-			Key:     "key2",
-			Expires: time.Time{},
-			Created: time.Time{},
-		})
-		return groups, nil
-	case "group4-claim":
-		groups = append(groups, database.ApiKey{
-			Team:    "team4",
-			GroupId: "group4-claim",
-			Key:     "key4",
-			Expires: time.Time{},
-			Created: time.Time{},
-		})
-		return groups, nil
-	default:
-		return groups, nil
-	}
-}
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
-	body := []database.ApiKey{}
-	json.Unmarshal(recorder.Body.Bytes(), &body)
+	body := make([]database.ApiKey, 0)
+	decoder := json.NewDecoder(recorder.Body)
+	_ = decoder.Decode(&body)
 	assert.Equal(t, response.StatusCode, recorder.Code)
 	assert.Equal(t, response.Body, body)
 	return
 }
+
 func fileReader(file string) io.Reader {
 	f, err := os.Open(file)
 	if err != nil {
@@ -138,7 +104,9 @@ func fileReader(file string) io.Reader {
 	}
 	return f
 }
+
 func statusSubTest(t *testing.T, folder, file string) {
+	var request *http.Request
 	inFile := fmt.Sprintf("testdata/%s/%s", folder, file)
 
 	fixture := fileReader(inFile)
@@ -156,46 +124,31 @@ func statusSubTest(t *testing.T, folder, file string) {
 	}
 	recorder := httptest.NewRecorder()
 	apiKeyStore := apiKeyStorage{}
+	handler := api.New(api.Config{
+		ApiKeyStore:                 &apiKeyStore,
+		MetricsPath:                 "/metrics",
+		OAuthKeyValidatorMiddleware: tokenValidatorMiddleware,
+	})
+
 	switch folder {
 	case "GetApiKeys":
-		request := httptest.NewRequest("GET", "/api/v1/teams", bytes.NewReader(test.Request.Body))
-		request = request.WithContext(context.WithValue(request.Context(), "groups", test.Request.Groups))
-		for key, val := range test.Request.Headers {
-			request.Header.Set(key, val)
-		}
-		handler := api_v1_apikey.ApiKeyHandler{
-			APIKeyStorage: &apiKeyStore,
-		}
-		handler.GetApiKeys(recorder, request)
-		testResponse(t, recorder, test.Response)
+		request = httptest.NewRequest("GET", "/api/v1/teams", bytes.NewReader(test.Request.Body))
 	case "GetTeamApiKey":
-		request := httptest.NewRequest("GET", "/api/v1/apikey/team1", bytes.NewReader(test.Request.Body))
-		request = request.WithContext(context.WithValue(request.Context(), "groups", test.Request.Groups))
-		for key, val := range test.Request.Headers {
-			request.Header.Set(key, val)
-		}
-		handler := api.New(api.Config{
-			MetricsPath:                 "/metrics",
-			OAuthKeyValidatorMiddleware: tokenValidatorMiddleware,
-			Database:                    &apiKeyStore,
-		})
-		handler.ServeHTTP(recorder, request)
-		testResponse(t, recorder, test.Response)
+		request = httptest.NewRequest("GET", "/api/v1/apikey/team1", bytes.NewReader(test.Request.Body))
 	case "RotateTeamApiKey":
-		request := httptest.NewRequest("POST", "/api/v1/apikey/team1", bytes.NewReader(test.Request.Body))
-		request = request.WithContext(context.WithValue(request.Context(), "groups", test.Request.Groups))
-		for key, val := range test.Request.Headers {
-			request.Header.Set(key, val)
-		}
-		handler := api.New(api.Config{
-			MetricsPath:                 "/metrics",
-			OAuthKeyValidatorMiddleware: tokenValidatorMiddleware,
-			Database:                    &apiKeyStore,
-		})
-		handler.ServeHTTP(recorder, request)
-		testResponse(t, recorder, test.Response)
+		request = httptest.NewRequest("POST", "/api/v1/apikey/team1", bytes.NewReader(test.Request.Body))
+	default:
+		panic("unhandled test case")
 	}
+
+	request = request.WithContext(context.WithValue(request.Context(), "groups", test.Request.Groups))
+	for key, val := range test.Request.Headers {
+		request.Header.Set(key, val)
+	}
+	handler.ServeHTTP(recorder, request)
+	testResponse(t, recorder, test.Response)
 }
+
 func TestApiKeyHandler(t *testing.T) {
 	subFolders, err := ioutil.ReadDir("testdata")
 	if err != nil {

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/navikt/deployment/common/pkg/kafka"
 )
@@ -69,6 +70,7 @@ func parseInt(str string) int {
 func DefaultConfig() *Config {
 	return &Config{
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
+		Clusters:      strings.FieldsFunc(getEnv("CLUSTERS", ""), func(r rune) bool { return r == ',' }),
 		ListenAddress: getEnv("LISTEN_ADDRESS", "127.0.0.1:8080"),
 		LogFormat:     getEnv("LOG_FORMAT", "text"),
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),

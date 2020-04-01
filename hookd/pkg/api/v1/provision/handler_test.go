@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/provision"
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
@@ -22,7 +23,7 @@ import (
 )
 
 var (
-	secretKey    = "foobar"
+	secretKey    = api_v1.Key{0xab, 0xcd, 0xef} // abcdef
 	provisionKey = []byte("cryptographically secure")
 )
 
@@ -42,38 +43,32 @@ type testCase struct {
 }
 
 type apiKeyStorage struct {
-	database.Database
 }
 
 type teamClient struct {
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
+func (a *apiKeyStorage) ApiKeys(team string) (database.ApiKeys, error) {
 	switch team {
 	case "new", "unwritable":
 		return nil, database.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
 	default:
-		return []database.ApiKey{{Key: secretKey}}, nil
+		return []database.ApiKey{{
+			Key:     secretKey,
+			Expires: time.Now().Add(1 * time.Hour),
+		}}, nil
 	}
 }
 
-func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
 	switch team {
 	case "unwritable", "unwritable_with_rotate":
 		return fmt.Errorf("service unavailable")
 	default:
 		return nil
 	}
-}
-
-func (a *apiKeyStorage) Migrate() error {
-	return nil
-}
-
-func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == database.ErrNotFound
 }
 
 func (t *teamClient) Team(ctx context.Context, name string) (*graphapi.Team, error) {
@@ -145,7 +140,8 @@ func statusSubTest(t *testing.T, name string) {
 
 	body := addTimestampToBody(test.Request.Body, 0)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest("GET", "/api/v1/provision", bytes.NewReader(body))
+	request := httptest.NewRequest("POST", "/api/v1/provision", bytes.NewReader(body))
+	request.Header.Set("content-type", "application/json")
 
 	for key, val := range test.Request.Headers {
 		request.Header.Set(key, val)
@@ -160,11 +156,12 @@ func statusSubTest(t *testing.T, name string) {
 	apiKeyStore := &apiKeyStorage{}
 	teamClient := &teamClient{}
 
-	handler := api_v1_provision.Handler{
-		APIKeyStorage: apiKeyStore,
-		SecretKey:     provisionKey,
-		TeamClient:    teamClient,
-	}
+	handler := api.New(api.Config{
+		ApiKeyStore:  apiKeyStore,
+		MetricsPath:  "/metrics",
+		ProvisionKey: provisionKey,
+		TeamClient:   teamClient,
+	})
 
 	handler.ServeHTTP(recorder, request)
 

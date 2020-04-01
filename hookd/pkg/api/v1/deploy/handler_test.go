@@ -11,8 +11,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	gh "github.com/google/go-github/v27/github"
+	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -26,7 +28,7 @@ const (
 	deploymentID = 123789
 )
 
-var secretKey = "foobar"
+var secretKey = api_v1.Key{0xab, 0xcd, 0xef} // abcdef
 
 var validClusters = []string{
 	"local",
@@ -79,30 +81,24 @@ func (g *githubClient) DeploymentStatus(ctx context.Context, owner, repository s
 }
 
 type apiKeyStorage struct {
-	database.Database
 }
 
-func (a *apiKeyStorage) Read(team string) ([]database.ApiKey, error) {
+func (a *apiKeyStorage) ApiKeys(team string) (database.ApiKeys, error) {
 	switch team {
 	case "notfound":
 		return nil, database.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
 	default:
-		return []database.ApiKey{{Key: secretKey}}, nil
+		return []database.ApiKey{{
+			Key:     secretKey,
+			Expires: time.Now().Add(1 * time.Hour),
+		}}, nil
 	}
 }
 
-func (a *apiKeyStorage) Write(team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(team, groupId string, key []byte) error {
 	return nil
-}
-
-func (a *apiKeyStorage) Migrate() error {
-	return nil
-}
-
-func (a *apiKeyStorage) IsErrNotFound(err error) bool {
-	return err == database.ErrNotFound
 }
 
 func fileReader(file string) io.Reader {
@@ -142,7 +138,8 @@ func subTest(t *testing.T, name string) {
 	}
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest("GET", "/", bytes.NewReader(test.Request.Body))
+	request := httptest.NewRequest("POST", "/api/v1/deploy", bytes.NewReader(test.Request.Body))
+	request.Header.Set("content-type", "application/json")
 
 	for key, val := range test.Request.Headers {
 		request.Header.Set(key, val)
@@ -150,7 +147,7 @@ func subTest(t *testing.T, name string) {
 
 	// Generate HMAC header for cases where the header should be valid
 	if len(request.Header.Get(api_v1.SignatureHeader)) == 0 {
-		mac := api_v1.GenMAC(test.Request.Body, []byte(secretKey))
+		mac := api_v1.GenMAC(test.Request.Body, secretKey)
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
@@ -159,13 +156,14 @@ func subTest(t *testing.T, name string) {
 	ghClient := githubClient{}
 	apiKeyStore := apiKeyStorage{}
 
-	handler := api_v1_deploy.DeploymentHandler{
-		DeploymentRequest: requests,
-		DeploymentStatus:  statuses,
-		APIKeyStorage:     &apiKeyStore,
-		GithubClient:      &ghClient,
-		Clusters:          validClusters,
-	}
+	handler := api.New(api.Config{
+		ApiKeyStore:  &apiKeyStore,
+		Clusters:     validClusters,
+		GithubClient: &ghClient,
+		MetricsPath:  "/metrics",
+		RequestChan:  requests,
+		StatusChan:   statuses,
+	})
 
 	handler.ServeHTTP(recorder, request)
 

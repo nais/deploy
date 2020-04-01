@@ -23,7 +23,6 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
-	"github.com/navikt/deployment/hookd/pkg/persistence"
 	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -114,8 +113,6 @@ func run() error {
 		return fmt.Errorf("migrating database: %s", err)
 	}
 
-	teamRepositoryStorage := persistence.NewTeamRepositoryStorage(db)
-
 	kafkaClient, err := kafka.NewDualClient(
 		cfg.Kafka,
 		cfg.Kafka.StatusTopic,
@@ -151,10 +148,10 @@ func run() error {
 	statusChan := make(chan deployment.DeploymentStatus, queueSize)
 
 	router := api.New(api.Config{
+		ApiKeyStore:                 db,
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
 		Clusters:                    cfg.Clusters,
-		Database:                    db,
 		GithubClient:                githubClient,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
@@ -164,7 +161,7 @@ func run() error {
 		RequestChan:                 requestChan,
 		StatusChan:                  statusChan,
 		TeamClient:                  graphAPIClient,
-		TeamRepositoryStorage:       teamRepositoryStorage,
+		TeamRepositoryStorage:       db,
 	})
 
 	go func() {

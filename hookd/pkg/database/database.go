@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -16,15 +15,13 @@ var (
 	ErrNotFound = fmt.Errorf("api key not found")
 )
 
-type Database interface {
-	Migrate() error
-	Read(team string) ([]ApiKey, error)
-	ReadAll(team, limit string) ([]ApiKey, error)
-	ReadByGroupClaim(group string) ([]ApiKey, error)
-	Write(team, groupId string, key []byte) error
-	IsErrNotFound(err error) bool
+type ApiKeyStore interface {
+	ApiKeys(id string) (ApiKeys, error)
+	RotateApiKey(team, groupId string, key []byte) error
+}
 
-	// legacy layer
+// legacy layer
+type RepositoryTeamStore interface {
 	ReadRepositoryTeams(repository string) ([]string, error)
 	WriteRepositoryTeams(repository string, teams []string) error
 }
@@ -34,17 +31,14 @@ type database struct {
 	encryptionKey []byte
 }
 
-type ApiKey struct {
-	Team    string    `json:"team"`
-	GroupId string    `json:"groupId"`
-	Key     string    `json:"key"`
-	Expires time.Time `json:"expires"`
-	Created time.Time `json:"created"`
+func IsErrNotFound(err error) bool {
+	return err == ErrNotFound
 }
 
-var _ Database = &database{}
+var _ ApiKeyStore = &database{}
+var _ RepositoryTeamStore = &database{}
 
-func New(dsn string, encryptionKey []byte) (Database, error) {
+func New(dsn string, encryptionKey []byte) (*database, error) {
 	ctx := context.Background()
 
 	conn, err := pgxpool.Connect(ctx, dsn)
@@ -58,25 +52,22 @@ func New(dsn string, encryptionKey []byte) (Database, error) {
 	}, nil
 }
 
-func (db *database) decrypt(encrypted string) (string, error) {
+func (db *database) decrypt(encrypted string) ([]byte, error) {
 	decoded, err := hex.DecodeString(encrypted)
 	if err != nil {
-		return "", fmt.Errorf("decode hex: %s", err)
+		return nil, fmt.Errorf("decode hex: %s", err)
 	}
-	decrypted, err := crypto.Decrypt(decoded, db.encryptionKey)
-	if err != nil {
-		return "", fmt.Errorf("decrypt: %s", err)
-	}
-	return hex.EncodeToString(decrypted), nil
+	return crypto.Decrypt(decoded, db.encryptionKey)
 }
 
-func (db *database) scanApiKeyRows(rows pgx.Rows) ([]ApiKey, error) {
-	apiKeys := make([]ApiKey, 0)
+func (db *database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
+	apiKeys := make(ApiKeys, 0)
 
 	for rows.Next() {
 		var apiKey ApiKey
 		var encrypted string
 
+		// see selectApiKeyFields
 		err := rows.Scan(&encrypted, &apiKey.Team, &apiKey.GroupId, &apiKey.Created, &apiKey.Expires)
 		if err != nil {
 			return nil, err
@@ -125,11 +116,12 @@ func (db *database) Migrate() error {
 	return nil
 }
 
-func (db *database) ReadByGroupClaim(group string) ([]ApiKey, error) {
+// Read all API keys matching the provided team or azure group ID.
+func (db *database) ApiKeys(id string) (ApiKeys, error) {
 	ctx := context.Background()
 
-	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team_azure_id = $1 ORDER BY expires DESC;`
-	rows, err := db.conn.Query(ctx, query, group)
+	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 OR team_azure_id = $1 ORDER BY expires DESC;`
+	rows, err := db.conn.Query(ctx, query, id)
 
 	if err != nil {
 		return nil, err
@@ -138,42 +130,7 @@ func (db *database) ReadByGroupClaim(group string) ([]ApiKey, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *database) Read(team string) ([]ApiKey, error) {
-	ctx := context.Background()
-
-	query := `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 AND expires > NOW();`
-	rows, err := db.conn.Query(ctx, query, team)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return db.scanApiKeyRows(rows)
-}
-
-func (db *database) ReadAll(team, limit string) ([]ApiKey, error) {
-	var query string
-	var rows pgx.Rows
-	var err error
-
-	ctx := context.Background()
-
-	if limit == "" {
-		query = `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC`
-		rows, err = db.conn.Query(ctx, query, team)
-	} else {
-		query = `SELECT key, team, team_azure_id, created, expires FROM apikey WHERE team = $1 ORDER BY expires DESC LIMIT $2`
-		rows, err = db.conn.Query(ctx, query, team, limit)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return db.scanApiKeyRows(rows)
-}
-
-func (db *database) Write(team, groupId string, key []byte) error {
+func (db *database) RotateApiKey(team, groupId string, key []byte) error {
 	var query string
 
 	encrypted, err := crypto.Encrypt(key, db.encryptionKey)
@@ -204,10 +161,6 @@ VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 	}
 
 	return tx.Commit(ctx)
-}
-
-func (db *database) IsErrNotFound(err error) bool {
-	return err == ErrNotFound
 }
 
 func (db *database) ReadRepositoryTeams(repository string) ([]string, error) {

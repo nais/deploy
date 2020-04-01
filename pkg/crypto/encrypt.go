@@ -62,6 +62,9 @@ func Encrypt(plaintext, key []byte) ([]byte, error) {
 // Decrypts a ciphertext encrypted with AES-256-GCM.
 // The first 12 bytes of the ciphertext is assumed to be the IV.
 func Decrypt(ciphertext, key []byte) ([]byte, error) {
+	if len(ciphertext) <= 12 {
+		return nil, fmt.Errorf("string is too short")
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

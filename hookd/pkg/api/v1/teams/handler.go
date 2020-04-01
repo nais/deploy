@@ -11,7 +11,7 @@ import (
 )
 
 type TeamsHandler struct {
-	APIKeyStorage database.Database
+	APIKeyStorage database.ApiKeyStore
 }
 type Team struct {
 	Team    string `json:"team"`
@@ -31,7 +31,7 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	keys := make([]database.ApiKey, 0)
 	for _, group := range groups {
-		apiKeys, err := h.APIKeyStorage.ReadByGroupClaim(group)
+		apiKeys, err := h.APIKeyStorage.ApiKeys(group)
 		if err != nil {
 			logger.Error(err)
 		}
