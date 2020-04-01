@@ -9,8 +9,8 @@ type Deployment struct {
 	ID               string
 	Team             string
 	Created          time.Time
-	GitHubID         int
-	GitHubRepository string
+	GitHubID         *int
+	GitHubRepository *string
 }
 
 type DeploymentStatus struct {
@@ -18,7 +18,7 @@ type DeploymentStatus struct {
 	DeploymentID string
 	Status       string
 	Message      string
-	GitHubID     int
+	GitHubID     *int
 	Created      time.Time
 }
 

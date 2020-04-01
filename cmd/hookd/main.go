@@ -154,6 +154,7 @@ func run() error {
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
 		Clusters:                    cfg.Clusters,
+		DeploymentStore:             db,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,
