@@ -133,6 +133,8 @@ func (h *GithubDeploymentHandler) handler(r *http.Request) (int, error) {
 		return http.StatusBadRequest, err
 	}
 
+	h.log.Tracef("Legacy API still in use")
+
 	if err := h.validateTeamAccess(deploymentRequest); err != nil {
 		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
 		return http.StatusForbidden, err
