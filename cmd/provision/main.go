@@ -33,7 +33,7 @@ provision provisions team API keys.
 
 const (
 	provisionAPIPath = "/api/v1/provision"
-	defaultServer    = "https://deployment.prod-sbs.nais.io"
+	defaultServer    = "https://deploy.nais.io"
 )
 
 type ExitCode int

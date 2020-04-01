@@ -36,7 +36,7 @@ const (
 	DefaultPollInterval = time.Second * 5
 	DefaultRef          = "master"
 	DefaultOwner        = "navikt"
-	DefaultDeployServer = "https://deployment.prod-sbs.nais.io"
+	DefaultDeployServer = "https://deploy.nais.io"
 
 	ResourceRequiredMsg   = "at least one Kubernetes resource is required to make sense of the deployment"
 	APIKeyRequiredMsg     = "API key required"

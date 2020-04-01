@@ -9,8 +9,8 @@ import (
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/hookd/pkg/api/v1"
-	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
+	api_v1_deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
@@ -133,6 +133,8 @@ func (h *GithubDeploymentHandler) handler(r *http.Request) (int, error) {
 		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
 		return http.StatusBadRequest, err
 	}
+
+	h.log.Tracef("Legacy API still in use")
 
 	if err := h.validateTeamAccess(r.Context(), deploymentRequest); err != nil {
 		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)

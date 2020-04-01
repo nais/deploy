@@ -10,8 +10,8 @@ spec:
     enabled: true
   env:
   - name: REDIRECT_URL
-    value: "http://deploy.dev-gcp.nais.io"
-  image: navikt/deploy-redirector:0.5
+    value: "http://deploy.nais.io"
+  image: navikt/deploy-redirector:0.6
   ingresses:
   - https://deploy-redirector.prod-sbs.nais.io
   port: 8080
