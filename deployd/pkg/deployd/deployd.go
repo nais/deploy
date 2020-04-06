@@ -175,7 +175,7 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 	deployStatus <- deployment.NewInProgressStatus(*req)
 
 	go func() {
-		logger.Infof("Waiting for resources to be successfully rollet out")
+		logger.Infof("Waiting for resources to be successfully rolled out")
 		wait.Wait()
 		logger.Infof("Finished monitoring all resources")
 

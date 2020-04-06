@@ -55,7 +55,7 @@ func DeploymentStatus(status deployment.DeploymentStatus, githubReturnCode int) 
 		return
 	}
 
-	ttd := float64(time.Now().Unix() - status.GetTimestamp())
+	ttd := float64(time.Now().Sub(status.Timestamp()))
 
 	leadTime.With(prometheus.Labels{
 		LabelStatusCode:      strconv.Itoa(githubReturnCode),

@@ -1,8 +1,6 @@
 package database_mapper
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/database"
@@ -14,6 +12,6 @@ func DeploymentStatus(status deployment.DeploymentStatus) database.DeploymentSta
 		DeploymentID: status.GetDeliveryID(),
 		Status:       status.GetState().String(),
 		Message:      status.GetDescription(),
-		Created:      time.Unix(status.GetTimestamp(), 0),
+		Created:      status.Timestamp(),
 	}
 }

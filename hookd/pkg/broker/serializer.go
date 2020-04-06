@@ -2,7 +2,6 @@ package broker
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/golang/protobuf/proto"
@@ -43,7 +42,7 @@ func (s *serializer) Marshal(request deployment.DeploymentRequest) (*sarama.Prod
 	return &sarama.ProducerMessage{
 		Topic:     s.topic,
 		Value:     sarama.StringEncoder(ciphertext),
-		Timestamp: time.Unix(request.GetTimestamp(), 0),
+		Timestamp: request.Timestamp(),
 	}, nil
 }
 

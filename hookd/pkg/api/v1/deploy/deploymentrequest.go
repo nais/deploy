@@ -24,7 +24,7 @@ func DeploymentRequestMessage(r *DeploymentRequest, deliveryID string) (*types.D
 	if err != nil {
 		return nil, err
 	}
-	now := time.Unix(r.Timestamp, 0)
+	now := time.Now()
 	return &types.DeploymentRequest{
 		Deployment: &types.DeploymentSpec{
 			Repository: &types.GithubRepository{
@@ -39,7 +39,7 @@ func DeploymentRequestMessage(r *DeploymentRequest, deliveryID string) (*types.D
 		},
 		DeliveryID: deliveryID,
 		Cluster:    r.Cluster,
-		Timestamp:  now.Unix(),
+		Time:       types.TimeAsTimestamp(now),
 		Deadline:   now.Add(ttl).Unix(),
 	}, nil
 }
@@ -86,7 +86,7 @@ func DeploymentRequestFromEvent(ev *gh.DeploymentEvent, deliveryID string) (*typ
 		PayloadSpec: payload,
 		DeliveryID:  deliveryID,
 		Cluster:     cluster,
-		Timestamp:   now.Unix(),
+		Time:        types.TimeAsTimestamp(now),
 		Deadline:    now.Add(ttl).Unix(),
 	}, nil
 }

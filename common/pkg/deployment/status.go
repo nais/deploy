@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"fmt"
+	"time"
 )
 
 func NewErrorStatus(req DeploymentRequest, err error) *DeploymentStatus {
@@ -12,7 +13,7 @@ func NewErrorStatus(req DeploymentRequest, err error) *DeploymentStatus {
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
-		Timestamp:   req.GetTimestamp(),
+		Time:        TimeAsTimestamp(time.Now()),
 	}
 }
 
@@ -24,7 +25,7 @@ func NewFailureStatus(req DeploymentRequest, err error) *DeploymentStatus {
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
-		Timestamp:   req.GetTimestamp(),
+		Time:        TimeAsTimestamp(time.Now()),
 	}
 }
 
@@ -36,7 +37,7 @@ func NewInProgressStatus(req DeploymentRequest) *DeploymentStatus {
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
-		Timestamp:   req.GetTimestamp(),
+		Time:        TimeAsTimestamp(time.Now()),
 	}
 }
 
@@ -48,7 +49,7 @@ func NewQueuedStatus(req DeploymentRequest) *DeploymentStatus {
 		Description: "deployment request has been put on the queue for further processing",
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
-		Timestamp:   req.GetTimestamp(),
+		Time:        TimeAsTimestamp(time.Now()),
 	}
 }
 
@@ -60,6 +61,6 @@ func NewSuccessStatus(req DeploymentRequest) *DeploymentStatus {
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
-		Timestamp:   req.GetTimestamp(),
+		Time:        TimeAsTimestamp(time.Now()),
 	}
 }
