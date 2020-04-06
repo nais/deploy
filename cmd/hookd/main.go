@@ -10,15 +10,14 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	"github.com/golang/protobuf/proto"
 	gh "github.com/google/go-github/v27/github"
-	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
+	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -146,8 +145,9 @@ func run() error {
 
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
-	requestChan := make(chan deployment.DeploymentRequest, queueSize)
-	statusChan := make(chan deployment.DeploymentStatus, queueSize)
+	serializer := broker.NewSerializer(kafkaClient.ProducerTopic, encryptionKey)
+
+	sideBrok := broker.New(db, kafkaClient.Producer, serializer)
 
 	router := api.New(api.Config{
 		ApiKeyStore:                 db,
@@ -155,13 +155,12 @@ func run() error {
 		Certificates:                certificates,
 		Clusters:                    cfg.Clusters,
 		DeploymentStore:             db,
+		Broker:                      sideBrok,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,
 		OAuthKeyValidatorMiddleware: middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID),
 		ProvisionKey:                provisionKey,
-		RequestChan:                 requestChan,
-		StatusChan:                  statusChan,
 		TeamClient:                  graphAPIClient,
 		TeamRepositoryStorage:       db,
 	})
@@ -178,118 +177,51 @@ func run() error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
-	// Three loops:
-	//
-	//   1) Listen for deployment status messages from Kafka. Forward them to the
-	//      deployment status queue.
-	//
-	//   2) Process the deployment request queue.
-	//      Requests are put on the Kafka queue. Failed messages are put on the queue again.
-	//
-	//   3) Process the deployment status queue.
-	//      Statuses are posted to Github. Failed messages are put on the queue again.
-	//
+	handleKafkaStatus := func(m sarama.ConsumerMessage) (bool, error) {
+		retry := false
+		status, err := serializer.Unmarshal(m)
+		if err != nil {
+			return retry, err
+		}
+
+		metrics.UpdateQueue(*status)
+
+		ctx, cancel := context.WithTimeout(context.Background(), retryInterval)
+		defer cancel()
+		err = sideBrok.HandleDeploymentStatus(ctx, *status)
+
+		switch {
+		default:
+			retry = true
+		case err == nil:
+		case database.IsErrForeignKeyViolation(err):
+		}
+
+		return retry, err
+	}
+
+	// Loop through incoming deployment status messages from deployd and commit them to the database.
 	for {
 		select {
 		case m := <-kafkaClient.RecvQ:
-			metrics.KafkaQueueSize.Set(float64(len(kafkaClient.RecvQ)))
-
-			status := deployment.DeploymentStatus{}
+			var err error
+			retry := true
 			logger := kafka.ConsumerMessageLogger(&m)
 
-			payload, err := crypto.Decrypt(m.Value, encryptionKey)
-			if err != nil {
-				logger.Errorf("Unable to decrypt Kafka message: %s", err)
-				kafkaClient.Consumer.MarkOffset(&m, "")
-				continue
+			metrics.KafkaQueueSize.Set(float64(len(kafkaClient.RecvQ)))
+
+			for retry {
+				retry, err = handleKafkaStatus(m)
+				if err != nil && retry {
+					logger.Errorf("process deployment status: %s", err)
+					time.Sleep(retryInterval)
+				}
 			}
 
-			err = proto.Unmarshal(payload, &status)
-			if err != nil {
-				logger.Errorf("Discarding incoming message: %s", err)
-				kafkaClient.Consumer.MarkOffset(&m, "")
-				continue
-			}
-
-			statusChan <- status
 			kafkaClient.Consumer.MarkOffset(&m, "")
-
-		case req := <-requestChan:
-			metrics.DeploymentRequestQueueSize.Set(float64(len(requestChan)))
-
-			logger := log.WithFields(req.LogFields())
-
-			payload, err := proto.Marshal(&req)
 			if err != nil {
-				logger.Errorf("Marshal JSON for Kafka message: %s", err)
-				continue
+				logger.Errorf("discard deployment status: %s", err)
 			}
-
-			ciphertext, err := crypto.Encrypt(payload, encryptionKey)
-			if err != nil {
-				logger.Errorf("Unable to encrypt Kafka message: %s", err)
-				continue
-			}
-
-			msg := sarama.ProducerMessage{
-				Topic:     kafkaClient.ProducerTopic,
-				Value:     sarama.StringEncoder(ciphertext),
-				Timestamp: time.Unix(req.GetTimestamp(), 0),
-			}
-
-			_, _, err = kafkaClient.Producer.SendMessage(&msg)
-			if err == nil {
-				metrics.Dispatched.Inc()
-				logger.Info("Deployment request published to Kafka")
-				st := deployment.NewQueuedStatus(req)
-				statusChan <- *st
-				continue
-			}
-
-			logger.Errorf("Publishing message to Kafka: %s", err)
-			go func() {
-				logger.Tracef("Retrying in %.0f seconds", retryInterval.Seconds())
-				time.Sleep(retryInterval)
-				requestChan <- req
-				logger.Tracef("Request resubmitted to queue")
-			}()
-
-		case status := <-statusChan:
-			metrics.GithubStatusQueueSize.Set(float64(len(statusChan)))
-			metrics.UpdateQueue(status)
-
-			logger := log.WithFields(status.LogFields())
-
-			if !cfg.Github.Enabled {
-				logger.Warn("Process deployment status: discarding message due to GitHub being disabled")
-				metrics.DeploymentStatus(status, 0)
-				continue
-			}
-
-			ghs, req, err := github.CreateDeploymentStatus(installationClient, &status, cfg.BaseURL)
-			metrics.DeploymentStatus(status, req.StatusCode)
-
-			if err == nil {
-				logger = logger.WithFields(log.Fields{
-					deployment.LogFieldDeploymentStatusID: ghs.GetID(),
-				})
-				logger.Infof("Published deployment status to GitHub: %s", status.GetDescription())
-				continue
-			}
-
-			logger.Errorf("Sending deployment status to Github: %s", err)
-
-			if err == github.ErrEmptyRepository || err == github.ErrEmptyDeployment {
-				logger.Tracef("Error is non-retriable; giving up")
-				continue
-			}
-
-			go func() {
-				logger.Tracef("Retrying in %.0f seconds", retryInterval.Seconds())
-				time.Sleep(retryInterval)
-				statusChan <- status
-				logger.Tracef("Deployment status resubmitted to queue")
-			}()
 
 		case <-signals:
 			return nil

@@ -11,6 +11,7 @@ import (
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 	api_v1_deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
+	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
@@ -21,12 +22,11 @@ const (
 )
 
 type GithubDeploymentHandler struct {
-	log                   *log.Entry
+	Broker                broker.Broker
+	Clusters              api_v1.ClusterList
 	SecretToken           string
 	TeamRepositoryStorage database.RepositoryTeamStore
-	DeploymentStatus      chan types.DeploymentStatus
-	DeploymentRequest     chan types.DeploymentRequest
-	Clusters              api_v1.ClusterList
+	log                   *log.Entry
 }
 
 func (h *GithubDeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -130,19 +130,26 @@ func (h *GithubDeploymentHandler) handler(r *http.Request) (int, error) {
 
 	if len(deploymentRequest.GetPayloadSpec().GetTeam()) == 0 {
 		err := fmt.Errorf("no team was specified in deployment payload")
-		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
+		status := types.NewErrorStatus(*deploymentRequest, err)
+		h.Broker.HandleDeploymentStatus(r.Context(), *status)
 		return http.StatusBadRequest, err
 	}
 
 	h.log.Tracef("Legacy API still in use")
 
 	if err := h.validateTeamAccess(r.Context(), deploymentRequest); err != nil {
-		h.DeploymentStatus <- *types.NewErrorStatus(*deploymentRequest, err)
+		status := types.NewErrorStatus(*deploymentRequest, err)
+		h.Broker.HandleDeploymentStatus(r.Context(), *status)
 		return http.StatusForbidden, err
 	}
 
 	h.log.Infof("Validation successful; dispatching deployment")
-	h.DeploymentRequest <- *deploymentRequest
+
+	err = h.Broker.SendDeploymentRequest(r.Context(), *deploymentRequest)
+	if err != nil {
+		h.log.Errorf("error while sending deployment request: %s", err)
+		return http.StatusServiceUnavailable, fmt.Errorf("internal error while dispatching deployment request")
+	}
 
 	return http.StatusCreated, nil
 }

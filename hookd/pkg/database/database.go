@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -40,6 +41,11 @@ type database struct {
 
 func IsErrNotFound(err error) bool {
 	return err == ErrNotFound
+}
+
+// Returns true if the error message is a foreign key constraint violation
+func IsErrForeignKeyViolation(err error) bool {
+	return strings.Contains(err.Error(), "SQLSTATE 23503")
 }
 
 var _ ApiKeyStore = &database{}

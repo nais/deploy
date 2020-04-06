@@ -31,7 +31,7 @@ func NewFailureStatus(req DeploymentRequest, err error) *DeploymentStatus {
 func NewInProgressStatus(req DeploymentRequest) *DeploymentStatus {
 	return &DeploymentStatus{
 		Deployment:  req.Deployment,
-		Description: fmt.Sprintf("Resources have been applied to Kubernetes; waiting for new pods to report healthy status."),
+		Description: "Resources have been applied to Kubernetes; waiting for new pods to report healthy status",
 		State:       GithubDeploymentState_in_progress,
 		DeliveryID:  req.GetDeliveryID(),
 		Team:        req.GetPayloadSpec().GetTeam(),
@@ -48,6 +48,7 @@ func NewQueuedStatus(req DeploymentRequest) *DeploymentStatus {
 		Description: "deployment request has been put on the queue for further processing",
 		Team:        req.GetPayloadSpec().GetTeam(),
 		Cluster:     req.GetCluster(),
+		Timestamp:   req.GetTimestamp(),
 	}
 }
 

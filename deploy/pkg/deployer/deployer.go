@@ -279,33 +279,30 @@ func check(deploymentID string, key []byte, targetURL url.URL, cfg Config) (bool
 	req.Header.Add("content-type", "application/json")
 	req.Header.Add(api_v1.SignatureHeader, signature)
 
+	response := &api_v1_status.StatusResponse{}
 	resp, err := http.DefaultClient.Do(req)
-	if resp != nil && resp.StatusCode >= 400 && resp.StatusCode < 500 {
-		return false, ExitInternalError, fmt.Errorf("bad request: %s", err)
-	}
 	if err != nil {
 		return true, ExitInternalError, fmt.Errorf("error making request: %s", err)
 	}
 
-	if resp.StatusCode == http.StatusNoContent {
-		log.Info("deployment: pending creation on GitHub")
-		return true, ExitSuccess, nil
-	} else if resp.StatusCode != http.StatusOK {
-		log.Infof("status....: %s", resp.Status)
-	}
-
-	response := &api_v1_status.StatusResponse{}
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(response)
 	if err != nil {
-		return true, ExitInternalError, fmt.Errorf("received invalid response from server: %s", err)
+		return true, ExitInternalError, fmt.Errorf("received invalid response from server: %s: %s", resp.Status, err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	switch {
+	case resp == nil:
+		return false, ExitInternalError, fmt.Errorf("null reply from server")
+	case resp.StatusCode >= 400 && resp.StatusCode < 500:
+		return false, ExitInternalError, fmt.Errorf("bad request: %s", response.Message)
+	case resp.StatusCode != http.StatusOK:
+		log.Infof("status....: %s", resp.Status)
 		log.Infof("message...: %s", response.Message)
-	}
-
-	if response.Status == nil {
+		return true, ExitInternalError, nil
+	case response.Status == nil:
+		fallthrough
+	case resp.StatusCode == http.StatusNoContent:
 		return true, ExitSuccess, nil
 	}
 

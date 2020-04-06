@@ -7,7 +7,6 @@ import (
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
 	gh "github.com/google/go-github/v27/github"
-	"github.com/navikt/deployment/common/pkg/deployment"
 	api_v1_apikey "github.com/navikt/deployment/hookd/pkg/api/v1/apikey"
 	api_v1_deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	api_v1_provision "github.com/navikt/deployment/hookd/pkg/api/v1/provision"
@@ -17,6 +16,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
+	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
@@ -35,6 +35,7 @@ type Middleware func(http.Handler) http.Handler
 type Config struct {
 	ApiKeyStore                 database.ApiKeyStore
 	BaseURL                     string
+	Broker                      broker.Broker
 	Certificates                map[string]discovery.CertificateList
 	Clusters                    []string
 	DeploymentStore             database.DeploymentStore
@@ -43,8 +44,6 @@ type Config struct {
 	MetricsPath                 string
 	OAuthKeyValidatorMiddleware Middleware
 	ProvisionKey                []byte
-	RequestChan                 chan deployment.DeploymentRequest
-	StatusChan                  chan deployment.DeploymentStatus
 	TeamClient                  graphapi.Client
 	TeamRepositoryStorage       database.RepositoryTeamStore
 }
@@ -54,12 +53,11 @@ func New(cfg Config) chi.Router {
 	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
 
 	deploymentHandler := &api_v1_deploy.DeploymentHandler{
-		BaseURL:           cfg.BaseURL,
-		DeploymentStore:   cfg.DeploymentStore,
-		DeploymentRequest: cfg.RequestChan,
-		DeploymentStatus:  cfg.StatusChan,
-		APIKeyStorage:     cfg.ApiKeyStore,
-		Clusters:          cfg.Clusters,
+		APIKeyStorage:   cfg.ApiKeyStore,
+		BaseURL:         cfg.BaseURL,
+		Broker:          cfg.Broker,
+		Clusters:        cfg.Clusters,
+		DeploymentStore: cfg.DeploymentStore,
 	}
 
 	teamsHandler := &api_v1_teams.TeamsHandler{
@@ -82,11 +80,10 @@ func New(cfg Config) chi.Router {
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
-		DeploymentRequest:     cfg.RequestChan,
-		DeploymentStatus:      cfg.StatusChan,
+		Broker:                cfg.Broker,
+		Clusters:              cfg.Clusters,
 		SecretToken:           cfg.GithubConfig.WebhookSecret,
 		TeamRepositoryStorage: cfg.TeamRepositoryStorage,
-		Clusters:              cfg.Clusters,
 	}
 
 	queueHandler := &api_v1_queue.Handler{}

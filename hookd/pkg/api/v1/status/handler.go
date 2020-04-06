@@ -151,7 +151,9 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if database.IsErrNotFound(err) {
 			w.WriteHeader(http.StatusNotFound)
-			logger.Infof("deployment %s does not exist", statusRequest.DeploymentID)
+			statusResponse.Message = "deployment not found"
+			statusResponse.render(w)
+			logger.Errorf("deployment %s does not exist", statusRequest.DeploymentID)
 			return
 		}
 		w.WriteHeader(http.StatusBadGateway)
@@ -167,5 +169,5 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	statusResponse.Message = state.Message
 	statusResponse.render(w)
 
-	logger.Info("Status request processed successfully")
+	logger.Tracef("Status request processed successfully")
 }

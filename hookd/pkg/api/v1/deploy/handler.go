@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	deployment_proto "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
+	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
@@ -21,12 +23,11 @@ import (
 )
 
 type DeploymentHandler struct {
-	APIKeyStorage     database.ApiKeyStore
-	DeploymentStore   database.DeploymentStore
-	DeploymentStatus  chan types.DeploymentStatus
-	DeploymentRequest chan types.DeploymentRequest
-	BaseURL           string
-	Clusters          api_v1.ClusterList
+	APIKeyStorage   database.ApiKeyStore
+	Broker          broker.Broker
+	DeploymentStore database.DeploymentStore
+	BaseURL         string
+	Clusters        api_v1.ClusterList
 }
 
 type DeploymentRequest struct {
@@ -41,9 +42,9 @@ type DeploymentRequest struct {
 }
 
 type DeploymentResponse struct {
-	Message          string         `json:"message,omitempty"`
-	CorrelationID    string         `json:"correlationID,omitempty"`
-	LogURL           string         `json:"logURL,omitempty"`
+	Message       string `json:"message,omitempty"`
+	CorrelationID string `json:"correlationID,omitempty"`
+	LogURL        string `json:"logURL,omitempty"`
 }
 
 func (r *DeploymentResponse) render(w io.Writer) {
@@ -205,11 +206,21 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("HMAC signature validated successfully")
 
+	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deploymentResponse.CorrelationID)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = "unable to create deployment message"
+		deploymentResponse.render(w)
+		logger.Errorf("unable to create deployment message: %s", err)
+		return
+	}
+
 	deployment := database.Deployment{
 		ID:      requestID.String(),
 		Team:    deploymentRequest.Team,
 		Created: time.Now(),
 	}
+
 	err = h.DeploymentStore.WriteDeployment(r.Context(), deployment)
 
 	if err != nil {
@@ -222,16 +233,23 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Deployment committed to database")
 
-	deployMsg, err := DeploymentRequestMessage(deploymentRequest, deploymentResponse.CorrelationID)
+	err = h.Broker.SendDeploymentRequest(r.Context(), *deployMsg)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		deploymentResponse.Message = "unable to create deployment message"
+		w.WriteHeader(http.StatusInternalServerError)
+		deploymentResponse.Message = fmt.Sprintf("unable to dispatch request to deploy queue")
 		deploymentResponse.render(w)
-		logger.Errorf("unable to create deployment message: %s", err)
+		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return
 	}
 
-	h.DeploymentRequest <- *deployMsg
+	status := deployment_proto.NewQueuedStatus(*deployMsg)
+	err = h.Broker.HandleDeploymentStatus(r.Context(), *status)
+
+	if err != nil {
+		logger.Errorf("unable to store deployment status in database: %s", err)
+		// it is unfortunate that the status could not be persisted, but the deployment request
+		// has been dispatched, hence 201 Created, and the show must go on.
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	deploymentResponse.Message = "deployment request accepted and dispatched"
