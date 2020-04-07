@@ -13,16 +13,12 @@ import (
 	"testing"
 	"time"
 
-	types "github.com/navikt/deployment/common/pkg/deployment"
+	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/stretchr/testify/assert"
-)
-
-const (
-	deploymentID = 123789
 )
 
 var secretKey = api_v1.Key{0xab, 0xcd, 0xef} // abcdef
@@ -46,8 +42,17 @@ type testCase struct {
 	Response response `json:"response"`
 }
 
-type apiKeyStorage struct {
+type borker struct{}
+
+func (b *borker) SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error {
+	return nil
 }
+
+func (b *borker) HandleDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) error {
+	return nil
+}
+
+type apiKeyStorage struct{}
 
 func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
 	switch team {
@@ -67,17 +72,15 @@ func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, 
 	return nil
 }
 
-type deploymentStorage struct{}
-
-func (s *deploymentStorage) Deployment(ctx context.Context, id string) (*database.Deployment, error) {
+func (a *apiKeyStorage) Deployment(ctx context.Context, id string) (*database.Deployment, error) {
 	return nil, nil
 }
 
-func (s *deploymentStorage) WriteDeployment(ctx context.Context, deployment database.Deployment) error {
+func (a *apiKeyStorage) WriteDeployment(ctx context.Context, deployment database.Deployment) error {
 	return nil
 }
 
-func (s *deploymentStorage) DeploymentStatus(ctx context.Context, deploymentID string) ([]database.DeploymentStatus, error) {
+func (a *apiKeyStorage) DeploymentStatus(ctx context.Context, deploymentID string) ([]database.DeploymentStatus, error) {
 	return []database.DeploymentStatus{
 		{
 			ID:           "foo",
@@ -88,7 +91,7 @@ func (s *deploymentStorage) DeploymentStatus(ctx context.Context, deploymentID s
 	}, nil
 }
 
-func (s *deploymentStorage) WriteDeploymentStatus(ctx context.Context, status database.DeploymentStatus) error {
+func (a *apiKeyStorage) WriteDeploymentStatus(ctx context.Context, status database.DeploymentStatus) error {
 	return nil
 }
 
@@ -140,18 +143,15 @@ func subTest(t *testing.T, name string) {
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
-	requests := make(chan types.DeploymentRequest, 1024)
-	statuses := make(chan types.DeploymentStatus, 1024)
 	apiKeyStore := &apiKeyStorage{}
-	deployStore := &deploymentStorage{}
+	brok := &borker{}
 
 	handler := api.New(api.Config{
 		ApiKeyStore:     apiKeyStore,
-		DeploymentStore: deployStore,
+		Broker:          brok,
+		DeploymentStore: apiKeyStore,
 		Clusters:        validClusters,
 		MetricsPath:     "/metrics",
-		RequestChan:     requests,
-		StatusChan:      statuses,
 	})
 
 	handler.ServeHTTP(recorder, request)

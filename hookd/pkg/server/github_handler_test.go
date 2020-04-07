@@ -19,10 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const (
-	queueSize = 32
-)
-
 var (
 	secretToken      = "abc"
 	wrongSecretToken = "wrong"
@@ -40,6 +36,16 @@ func (s *mockRepository) ReadRepositoryTeams(ctx context.Context, repository str
 }
 
 func (s *mockRepository) WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error {
+	return nil
+}
+
+type borker struct{}
+
+func (b *borker) SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error {
+	return nil
+}
+
+func (b *borker) HandleDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) error {
 	return nil
 }
 
@@ -62,16 +68,12 @@ func (h *handlerTest) Sign(key string) {
 }
 
 func newHandler() *server.GithubDeploymentHandler {
-	requestChan := make(chan deployment.DeploymentRequest, queueSize)
-	statusChan := make(chan deployment.DeploymentStatus, queueSize)
-
 	store := &mockRepository{
 		Contents: make(map[string][]string, 0),
 	}
 
 	return &server.GithubDeploymentHandler{
-		DeploymentRequest:     requestChan,
-		DeploymentStatus:      statusChan,
+		Broker:                &borker{},
 		TeamRepositoryStorage: store,
 		SecretToken:           secretToken,
 		Clusters:              validClusters,

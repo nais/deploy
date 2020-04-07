@@ -4,6 +4,7 @@ import (
 	"context"
 
 	gh "github.com/google/go-github/v27/github"
+	"github.com/navikt/deployment/common/pkg/deployment"
 )
 
 type fakeClient struct{}
@@ -20,6 +21,6 @@ func (c *fakeClient) TeamAllowed(ctx context.Context, owner, repository, team st
 	return ErrGitHubNotEnabled
 }
 
-func (c *fakeClient) DeploymentStatus(ctx context.Context, owner, repository string, deploymentID int64) (*gh.DeploymentStatus, error) {
+func (c *fakeClient) CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus, baseurl string) (*gh.DeploymentStatus, error) {
 	return nil, ErrGitHubNotEnabled
 }

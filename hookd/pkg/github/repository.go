@@ -9,10 +9,6 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
-var (
-	repositories Repositories
-)
-
 type Repositories struct {
 	sync.RWMutex
 	List          []repo
