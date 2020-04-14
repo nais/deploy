@@ -27,13 +27,6 @@ type RepositoryTeamStore interface {
 	WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error
 }
 
-type DeploymentStore interface {
-	Deployment(ctx context.Context, id string) (*Deployment, error)
-	WriteDeployment(ctx context.Context, deployment Deployment) error
-	DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error)
-	WriteDeploymentStatus(ctx context.Context, status DeploymentStatus) error
-}
-
 type database struct {
 	conn          *pgxpool.Pool
 	encryptionKey []byte
@@ -50,7 +43,6 @@ func IsErrForeignKeyViolation(err error) bool {
 
 var _ ApiKeyStore = &database{}
 var _ RepositoryTeamStore = &database{}
-var _ DeploymentStore = &database{}
 
 func New(dsn string, encryptionKey []byte) (*database, error) {
 	ctx := context.Background()
@@ -77,6 +69,7 @@ func (db *database) decrypt(encrypted string) ([]byte, error) {
 func (db *database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
 	apiKeys := make(ApiKeys, 0)
 
+	defer rows.Close()
 	for rows.Next() {
 		var apiKey ApiKey
 		var encrypted string
@@ -181,6 +174,8 @@ func (db *database) ReadRepositoryTeams(ctx context.Context, repository string) 
 	}
 
 	teams := make([]string, 0)
+
+	defer rows.Close()
 	for rows.Next() {
 		var team string
 		err := rows.Scan(&team)

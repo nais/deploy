@@ -24,16 +24,18 @@ const maxDescriptionLength = 140
 type Client interface {
 	CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error)
 	TeamAllowed(ctx context.Context, owner, repository, team string) error
-	CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus, baseurl string) (*gh.DeploymentStatus, error)
+	CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus) (*gh.DeploymentStatus, error)
 }
 
 type client struct {
-	client *gh.Client
+	client  *gh.Client
+	baseurl string
 }
 
-func New(c *gh.Client) Client {
+func New(c *gh.Client, baseurl string) Client {
 	return &client{
-		client: c,
+		client:  c,
+		baseurl: baseurl,
 	}
 }
 
@@ -66,7 +68,7 @@ func (c *client) CreateDeployment(ctx context.Context, owner, repository string,
 	return dep, err
 }
 
-func (c *client) CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus, baseurl string) (*gh.DeploymentStatus, error) {
+func (c *client) CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus) (*gh.DeploymentStatus, error) {
 	dep := status.GetDeployment()
 	if dep == nil {
 		return nil, ErrEmptyDeployment
@@ -83,7 +85,7 @@ func (c *client) CreateDeploymentStatus(ctx context.Context, status *deployment.
 		description = description[:maxDescriptionLength]
 	}
 
-	url := logproxy.MakeURL(baseurl, status.GetDeliveryID(), time.Now())
+	url := logproxy.MakeURL(c.baseurl, status.GetDeliveryID(), time.Now())
 
 	st, _, err := c.client.Repositories.CreateDeploymentStatus(
 		ctx,

@@ -22,6 +22,15 @@ type DeploymentStatus struct {
 	Created      time.Time
 }
 
+type DeploymentStore interface {
+	Deployment(ctx context.Context, id string) (*Deployment, error)
+	WriteDeployment(ctx context.Context, deployment Deployment) error
+	DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error)
+	WriteDeploymentStatus(ctx context.Context, status DeploymentStatus) error
+}
+
+var _ DeploymentStore = &database{}
+
 func (db *database) Deployment(ctx context.Context, id string) (*Deployment, error) {
 	query := `SELECT id, team, created, github_id, github_repository FROM deployment WHERE id = $1;`
 	rows, err := db.conn.Query(ctx, query, id)
@@ -30,6 +39,7 @@ func (db *database) Deployment(ctx context.Context, id string) (*Deployment, err
 		return nil, err
 	}
 
+	defer rows.Close()
 	for rows.Next() {
 		deployment := &Deployment{}
 
@@ -56,7 +66,9 @@ func (db *database) WriteDeployment(ctx context.Context, deployment Deployment) 
 
 	query = `
 INSERT INTO deployment (id, team, created, github_id, github_repository)
-VALUES ($1, $2, $3, $4, $5);
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (id) DO UPDATE
+SET github_id = EXCLUDED.github_id, github_repository = EXCLUDED.github_repository;
 `
 	_, err := db.conn.Exec(ctx, query,
 		deployment.ID,
@@ -79,6 +91,7 @@ func (db *database) DeploymentStatus(ctx context.Context, deploymentID string) (
 
 	statuses := make([]DeploymentStatus, 0)
 
+	defer rows.Close()
 	for rows.Next() {
 		status := DeploymentStatus{}
 

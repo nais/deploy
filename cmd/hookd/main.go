@@ -132,11 +132,10 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("cannot instantiate Github installation client: %s", err)
 		}
-		githubClient = github.New(installationClient)
+		githubClient = github.New(installationClient, cfg.BaseURL)
 	} else {
 		githubClient = github.FakeClient()
 	}
-	_ = githubClient // FIXME
 
 	certificates, err := discovery.FetchCertificates(cfg.Azure)
 	if err != nil {
@@ -147,7 +146,7 @@ func run() error {
 
 	serializer := broker.NewSerializer(kafkaClient.ProducerTopic, encryptionKey)
 
-	sideBrok := broker.New(db, kafkaClient.Producer, serializer)
+	sideBrok := broker.New(db, kafkaClient.Producer, serializer, githubClient)
 
 	router := api.New(api.Config{
 		ApiKeyStore:                 db,

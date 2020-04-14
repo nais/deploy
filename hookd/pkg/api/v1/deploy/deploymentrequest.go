@@ -31,6 +31,8 @@ func DeploymentRequestMessage(r *DeploymentRequest, deliveryID string) (*types.D
 				Name:  r.Repository,
 				Owner: r.Owner,
 			},
+			Environment: r.Environment,
+			Ref:         r.Ref,
 		},
 		PayloadSpec: &types.Payload{
 			Team:       r.Team,

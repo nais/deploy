@@ -21,6 +21,6 @@ func (c *fakeClient) TeamAllowed(ctx context.Context, owner, repository, team st
 	return ErrGitHubNotEnabled
 }
 
-func (c *fakeClient) CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus, baseurl string) (*gh.DeploymentStatus, error) {
+func (c *fakeClient) CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus) (*gh.DeploymentStatus, error) {
 	return nil, ErrGitHubNotEnabled
 }
