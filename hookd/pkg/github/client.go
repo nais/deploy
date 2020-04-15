@@ -8,6 +8,7 @@ import (
 
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
+	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 )
 
@@ -100,4 +101,15 @@ func (c *client) CreateDeploymentStatus(ctx context.Context, status *deployment.
 	)
 
 	return st, err
+}
+
+func DeploymentRequest(r deployment.DeploymentRequest) gh.DeploymentRequest {
+	requiredContexts := make([]string, 0)
+	return gh.DeploymentRequest{
+		Environment:      gh.String(r.GetDeployment().GetEnvironment()),
+		Ref:              gh.String(r.GetDeployment().GetRef()),
+		Task:             gh.String(api_v1.DirectDeployGithubTask),
+		AutoMerge:        gh.Bool(false),
+		RequiredContexts: &requiredContexts,
+	}
 }

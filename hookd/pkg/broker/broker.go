@@ -48,17 +48,6 @@ func New(db database.DeploymentStore, producer sarama.SyncProducer, serializer S
 	return b
 }
 
-func githubrq(r deployment.DeploymentRequest) gh.DeploymentRequest {
-	requiredContexts := make([]string, 0)
-	return gh.DeploymentRequest{
-		Environment:      gh.String(r.GetDeployment().GetEnvironment()),
-		Ref:              gh.String(r.GetDeployment().GetRef()),
-		Task:             gh.String(api_v1.DirectDeployGithubTask),
-		AutoMerge:        gh.Bool(false),
-		RequiredContexts: &requiredContexts,
-	}
-}
-
 func (b *broker) githubLoop() {
 	for {
 		select {
@@ -94,7 +83,7 @@ func (b *broker) createGithubDeployment(request deployment.DeploymentRequest) er
 		return err
 	}
 
-	payload := githubrq(request)
+	payload := github.DeploymentRequest(request)
 	ghdeploy, err := b.githubClient.CreateDeployment(ctx, repo.GetOwner(), repo.GetName(), &payload)
 	if err != nil {
 		return fmt.Errorf("create GitHub deployment: %s", err)
