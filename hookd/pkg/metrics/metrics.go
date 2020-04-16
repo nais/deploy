@@ -1,8 +1,6 @@
 package metrics
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -36,40 +34,36 @@ func gauge(name, help string) prometheus.Gauge {
 	})
 }
 
-func WebhookRequest(code int) {
-	webhookRequests.With(prometheus.Labels{
-		LabelStatusCode: strconv.Itoa(code),
-	}).Inc()
-}
-
-func DeploymentStatus(status deployment.DeploymentStatus, githubReturnCode int) {
-	githubStatus.With(prometheus.Labels{
-		LabelStatusCode:      strconv.Itoa(githubReturnCode),
-		LabelDeploymentState: status.GetState().String(),
-		Repository:           status.GetDeployment().GetRepository().FullName(),
-		Team:                 status.GetTeam(),
-		Cluster:              status.GetCluster(),
-	}).Inc()
-
-	if status.GetState() != deployment.GithubDeploymentState_success || githubReturnCode > 299 {
-		return
-	}
-
-	ttd := float64(time.Now().Sub(status.Timestamp()))
-
-	leadTime.With(prometheus.Labels{
-		LabelStatusCode:      strconv.Itoa(githubReturnCode),
-		LabelDeploymentState: status.GetState().String(),
-		Repository:           status.GetDeployment().GetRepository().FullName(),
-		Team:                 status.GetTeam(),
-		Cluster:              status.GetCluster(),
-	}).Observe(ttd)
+func GitHubRequest(statusCode int, repository, team string) {
+	githubRequests.With(prometheus.Labels{
+		LabelStatusCode: strconv.Itoa(statusCode),
+		Repository:      repository,
+		Team:            team,
+	})
 }
 
 func UpdateQueue(status deployment.DeploymentStatus) {
+	stateTransitions.With(prometheus.Labels{
+		LabelDeploymentState: status.GetState().String(),
+		Repository:           status.GetDeployment().GetRepository().FullName(),
+		Team:                 status.GetTeam(),
+		Cluster:              status.GetCluster(),
+	}).Inc()
+
 	switch status.GetState() {
+
 	// These three states are definite and signify the end of a deployment.
 	case deployment.GithubDeploymentState_success:
+
+		// In case of successful deployment, report the lead time.
+		ttd := float64(time.Now().Sub(status.Timestamp()))
+		leadTime.With(prometheus.Labels{
+			LabelDeploymentState: status.GetState().String(),
+			Repository:           status.GetDeployment().GetRepository().FullName(),
+			Team:                 status.GetTeam(),
+			Cluster:              status.GetCluster(),
+		}).Observe(ttd)
+
 		fallthrough
 	case deployment.GithubDeploymentState_error:
 		fallthrough
@@ -84,30 +78,29 @@ func UpdateQueue(status deployment.DeploymentStatus) {
 	queueSize.Set(float64(len(deployQueue)))
 }
 
-func WriteQueue(w io.Writer) error {
-	return json.NewEncoder(w).Encode(deployQueue)
-}
-
 var (
-	webhookRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:      "webhook_requests",
-		Help:      "number of incoming Github webhook requests",
+	githubRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "github_requests",
+		Help:      "number of Github requests made",
 		Namespace: namespace,
 		Subsystem: subsystem,
 	},
 		[]string{
 			LabelStatusCode,
+			LabelDeploymentState,
+			Repository,
+			Team,
+			Cluster,
 		},
 	)
 
-	githubStatus = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:      "github_status",
-		Help:      "number of Github status updates posted",
+	stateTransitions = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "state_transition",
+		Help:      "deployment state transitions",
 		Namespace: namespace,
 		Subsystem: subsystem,
 	},
 		[]string{
-			LabelStatusCode,
 			LabelDeploymentState,
 			Repository,
 			Team,
@@ -129,7 +122,6 @@ var (
 		Subsystem: subsystem,
 	},
 		[]string{
-			LabelStatusCode,
 			LabelDeploymentState,
 			Repository,
 			Team,
@@ -137,39 +129,15 @@ var (
 		},
 	)
 
-	Dispatched = prometheus.NewCounter(prometheus.CounterOpts{
-		Name:      "dispatched",
-		Help:      "number of deployment requests dispatched to Kafka",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	})
-
-	VaultTokenRefresh = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:      "vault_token_refresh",
-		Help:      "number of token refresh calls made to Vault",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
-		[]string{
-			LabelStatusCode,
-		},
-	)
-
-	KafkaQueueSize             = gauge("kafka_queue_size", "number of messages received from Kafka and waiting to be processed")
-	DeploymentRequestQueueSize = gauge("deployment_request_queue_size", "number of github status updates waiting to be posted")
-	GithubStatusQueueSize      = gauge("github_status_queue_size", "number of github status updates waiting to be posted")
+	KafkaQueueSize = gauge("kafka_queue_size", "number of messages received from Kafka and waiting to be processed")
 )
 
 func init() {
-	prometheus.MustRegister(webhookRequests)
-	prometheus.MustRegister(githubStatus)
+	prometheus.MustRegister(githubRequests)
+	prometheus.MustRegister(stateTransitions)
 	prometheus.MustRegister(queueSize)
 	prometheus.MustRegister(leadTime)
-	prometheus.MustRegister(Dispatched)
-	prometheus.MustRegister(VaultTokenRefresh)
 	prometheus.MustRegister(KafkaQueueSize)
-	prometheus.MustRegister(DeploymentRequestQueueSize)
-	prometheus.MustRegister(GithubStatusQueueSize)
 }
 
 func Handler() http.Handler {

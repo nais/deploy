@@ -13,7 +13,7 @@ func FakeClient() Client {
 	return &fakeClient{}
 }
 
-func (c *fakeClient) CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error) {
+func (c *fakeClient) CreateDeployment(ctx context.Context, request deployment.DeploymentRequest) (*gh.Deployment, error) {
 	return nil, ErrGitHubNotEnabled
 }
 
@@ -21,6 +21,6 @@ func (c *fakeClient) TeamAllowed(ctx context.Context, owner, repository, team st
 	return ErrGitHubNotEnabled
 }
 
-func (c *fakeClient) CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus) (*gh.DeploymentStatus, error) {
+func (c *fakeClient) CreateDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) (*gh.DeploymentStatus, error) {
 	return nil, ErrGitHubNotEnabled
 }

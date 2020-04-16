@@ -8,12 +8,11 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
-	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	database_mapper "github.com/navikt/deployment/hookd/pkg/database/mapper"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -83,8 +82,7 @@ func (b *broker) createGithubDeployment(request deployment.DeploymentRequest) er
 		return err
 	}
 
-	payload := github.DeploymentRequest(request)
-	ghdeploy, err := b.githubClient.CreateDeployment(ctx, repo.GetOwner(), repo.GetName(), &payload)
+	ghdeploy, err := b.githubClient.CreateDeployment(ctx, request)
 	if err != nil {
 		return fmt.Errorf("create GitHub deployment: %s", err)
 	}
@@ -125,7 +123,7 @@ func (b *broker) createGithubDeploymentStatus(status deployment.DeploymentStatus
 	}
 
 	status.Deployment.DeploymentID = int64(*deploy.GitHubID)
-	_, err = b.githubClient.CreateDeploymentStatus(ctx, &status)
+	_, err = b.githubClient.CreateDeploymentStatus(ctx, status)
 	if err != nil {
 		return fmt.Errorf("create GitHub deployment status: %s", err)
 	}
@@ -157,6 +155,8 @@ func (b *broker) HandleDeploymentStatus(ctx context.Context, status deployment.D
 	if err != nil {
 		return fmt.Errorf("write to database: %s", err)
 	}
+
+	metrics.UpdateQueue(status)
 
 	log.WithFields(status.LogFields()).Infof("Saved deployment status")
 

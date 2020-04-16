@@ -183,8 +183,6 @@ func run() error {
 			return retry, err
 		}
 
-		metrics.UpdateQueue(*status)
-
 		ctx, cancel := context.WithTimeout(context.Background(), retryInterval)
 		defer cancel()
 		err = sideBrok.HandleDeploymentStatus(ctx, *status)

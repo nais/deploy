@@ -10,6 +10,7 @@ import (
 	"github.com/navikt/deployment/common/pkg/deployment"
 	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
+	"github.com/navikt/deployment/hookd/pkg/metrics"
 )
 
 var (
@@ -23,9 +24,9 @@ var (
 const maxDescriptionLength = 140
 
 type Client interface {
-	CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error)
 	TeamAllowed(ctx context.Context, owner, repository, team string) error
-	CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus) (*gh.DeploymentStatus, error)
+	CreateDeployment(ctx context.Context, request deployment.DeploymentRequest) (*gh.Deployment, error)
+	CreateDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) (*gh.DeploymentStatus, error)
 }
 
 type client struct {
@@ -64,12 +65,20 @@ func (c *client) TeamAllowed(ctx context.Context, owner, repository, teamName st
 	return nil
 }
 
-func (c *client) CreateDeployment(ctx context.Context, owner, repository string, request *gh.DeploymentRequest) (*gh.Deployment, error) {
-	dep, _, err := c.client.Repositories.CreateDeployment(ctx, owner, repository, request)
+func (c *client) CreateDeployment(ctx context.Context, request deployment.DeploymentRequest) (*gh.Deployment, error) {
+	repo := request.GetDeployment().GetRepository()
+	payload := DeploymentRequest(request)
+
+	dep, resp, err := c.client.Repositories.CreateDeployment(ctx, repo.GetOwner(), repo.GetName(), &payload)
+
+	if resp != nil {
+		metrics.GitHubRequest(resp.StatusCode, repo.FullName(), request.GetPayloadSpec().GetTeam())
+	}
+
 	return dep, err
 }
 
-func (c *client) CreateDeploymentStatus(ctx context.Context, status *deployment.DeploymentStatus) (*gh.DeploymentStatus, error) {
+func (c *client) CreateDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) (*gh.DeploymentStatus, error) {
 	dep := status.GetDeployment()
 	if dep == nil {
 		return nil, ErrEmptyDeployment
@@ -88,7 +97,7 @@ func (c *client) CreateDeploymentStatus(ctx context.Context, status *deployment.
 
 	url := logproxy.MakeURL(c.baseurl, status.GetDeliveryID(), time.Now())
 
-	st, _, err := c.client.Repositories.CreateDeploymentStatus(
+	st, resp, err := c.client.Repositories.CreateDeploymentStatus(
 		ctx,
 		repo.GetOwner(),
 		repo.GetName(),
@@ -99,6 +108,10 @@ func (c *client) CreateDeploymentStatus(ctx context.Context, status *deployment.
 			LogURL:      &url,
 		},
 	)
+
+	if resp != nil {
+		metrics.GitHubRequest(resp.StatusCode, repo.FullName(), status.GetTeam())
+	}
 
 	return st, err
 }

@@ -13,7 +13,6 @@ import (
 	api_v1_deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -31,8 +30,6 @@ type GithubDeploymentHandler struct {
 
 func (h *GithubDeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	code, err := h.handler(r)
-
-	metrics.WebhookRequest(code)
 
 	w.WriteHeader(code)
 

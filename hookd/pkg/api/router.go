@@ -10,7 +10,6 @@ import (
 	api_v1_apikey "github.com/navikt/deployment/hookd/pkg/api/v1/apikey"
 	api_v1_deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
 	api_v1_provision "github.com/navikt/deployment/hookd/pkg/api/v1/provision"
-	api_v1_queue "github.com/navikt/deployment/hookd/pkg/api/v1/queue"
 	api_v1_status "github.com/navikt/deployment/hookd/pkg/api/v1/status"
 	api_v1_teams "github.com/navikt/deployment/hookd/pkg/api/v1/teams"
 	"github.com/navikt/deployment/hookd/pkg/auth"
@@ -86,8 +85,6 @@ func New(cfg Config) chi.Router {
 		TeamRepositoryStorage: cfg.TeamRepositoryStorage,
 	}
 
-	queueHandler := &api_v1_queue.Handler{}
-
 	// Pre-populate request metrics
 	for _, code := range api_v1_deploy.StatusCodes {
 		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
@@ -138,7 +135,6 @@ func New(cfg Config) chi.Router {
 		}
 		r.Post("/deploy", deploymentHandler.ServeHTTP)
 		r.Post("/status", statusHandler.ServeHTTP)
-		r.Get("/queue", queueHandler.ServeHTTP)
 		if len(cfg.ProvisionKey) == 0 {
 			log.Error("Refusing to set up team API provisioning endpoint without pre-shared secret; try using --provision-key")
 			log.Error("Note: /api/v1/provision will be unavailable")
