@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 )
@@ -56,6 +58,13 @@ func New(dsn string, encryptionKey []byte) (*database, error) {
 		conn:          conn,
 		encryptionKey: encryptionKey,
 	}, nil
+}
+
+func (db *database) timedQuery(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
+	now := time.Now()
+	rows, err := db.conn.Query(ctx, sql, args...)
+	metrics.DatabaseQuery(now, err)
+	return rows, err
 }
 
 func (db *database) decrypt(encrypted string) ([]byte, error) {
@@ -124,8 +133,10 @@ func (db *database) Migrate(ctx context.Context) error {
 
 // Read all API keys matching the provided team or azure group ID.
 func (db *database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
+	var err error
+
 	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 OR team_azure_id = $1 ORDER BY expires DESC;`
-	rows, err := db.conn.Query(ctx, query, id)
+	rows, err := db.timedQuery(ctx, query, id)
 
 	if err != nil {
 		return nil, err
@@ -167,7 +178,7 @@ VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 
 func (db *database) ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error) {
 	query := `SELECT team FROM team_repositories WHERE repository = $1;`
-	rows, err := db.conn.Query(ctx, query, repository)
+	rows, err := db.timedQuery(ctx, query, repository)
 
 	if err != nil {
 		return nil, err

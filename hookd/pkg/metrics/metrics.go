@@ -14,6 +14,10 @@ const (
 	namespace = "deployment"
 	subsystem = "hookd"
 
+	StatusOK    = "ok"
+	StatusError = "error"
+
+	LabelStatus          = "status"
 	LabelStatusCode      = "status_code"
 	LabelDeploymentState = "deployment_state"
 	Repository           = "repository"
@@ -40,6 +44,20 @@ func GitHubRequest(statusCode int, repository, team string) {
 		Repository:      repository,
 		Team:            team,
 	})
+}
+
+func statusLabel(err error) string {
+	if err == nil {
+		return StatusOK
+	}
+	return StatusError
+}
+
+func DatabaseQuery(t time.Time, err error) {
+	elapsed := time.Since(t)
+	databaseQueries.With(prometheus.Labels{
+		LabelStatus: statusLabel(err),
+	}).Observe(elapsed.Seconds())
 }
 
 func UpdateQueue(status deployment.DeploymentStatus) {
@@ -79,6 +97,18 @@ func UpdateQueue(status deployment.DeploymentStatus) {
 }
 
 var (
+	databaseQueries = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:      "database_queries",
+		Help:      "time to execute database queries",
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Buckets:   prometheus.LinearBuckets(0.005, 0.005, 20),
+	},
+		[]string{
+			LabelStatus,
+		},
+	)
+
 	githubRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:      "github_requests",
 		Help:      "number of Github requests made",
@@ -133,6 +163,7 @@ var (
 )
 
 func init() {
+	prometheus.MustRegister(databaseQueries)
 	prometheus.MustRegister(githubRequests)
 	prometheus.MustRegister(stateTransitions)
 	prometheus.MustRegister(queueSize)

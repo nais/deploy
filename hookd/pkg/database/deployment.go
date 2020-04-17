@@ -33,7 +33,7 @@ var _ DeploymentStore = &database{}
 
 func (db *database) Deployment(ctx context.Context, id string) (*Deployment, error) {
 	query := `SELECT id, team, created, github_id, github_repository FROM deployment WHERE id = $1;`
-	rows, err := db.conn.Query(ctx, query, id)
+	rows, err := db.timedQuery(ctx, query, id)
 
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ SET github_id = EXCLUDED.github_id, github_repository = EXCLUDED.github_reposito
 
 func (db *database) DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error) {
 	query := `SELECT id, deployment_id, status, message, github_id, created FROM deployment_status WHERE deployment_id = $1 ORDER BY created DESC;`
-	rows, err := db.conn.Query(ctx, query, deploymentID)
+	rows, err := db.timedQuery(ctx, query, deploymentID)
 
 	if err != nil {
 		return nil, err
