@@ -73,14 +73,21 @@ func (s *deploymentStorage) WriteDeployment(ctx context.Context, deployment data
 }
 
 func (s *deploymentStorage) DeploymentStatus(ctx context.Context, deploymentID string) ([]database.DeploymentStatus, error) {
-	return []database.DeploymentStatus{
-		{
-			ID:           "foo",
-			DeploymentID: "123",
-			Status:       "success",
-			Message:      "all resources deployed",
-		},
-	}, nil
+	switch deploymentID {
+	case "unavailable":
+		return nil, fmt.Errorf("unavailable")
+	case "notfound":
+		return nil, database.ErrNotFound
+	default:
+		return []database.DeploymentStatus{
+			{
+				ID:           "foo",
+				DeploymentID: "123",
+				Status:       "success",
+				Message:      "all resources deployed",
+			},
+		}, nil
+	}
 }
 
 func (s *deploymentStorage) WriteDeploymentStatus(ctx context.Context, status database.DeploymentStatus) error {

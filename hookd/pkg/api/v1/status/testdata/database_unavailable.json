@@ -1,0 +1,15 @@
+{
+  "request": {
+    "body": {
+      "team": "foo",
+      "deploymentID": "unavailable"
+    }
+  },
+  "response": {
+    "statusCode": 503,
+    "body": {
+      "message": "unable to determine deployment status; database is unavailable"
+    }
+  }
+}
+

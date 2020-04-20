@@ -1,0 +1,14 @@
+{
+  "request": {
+    "body": {
+      "team": "foo",
+      "deploymentID": "notfound"
+    }
+  },
+  "response": {
+    "statusCode": 404,
+    "body": {
+      "message": "deployment not found"
+    }
+  }
+}

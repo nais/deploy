@@ -156,8 +156,8 @@ func (h *StatusHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			logger.Errorf("deployment %s does not exist", statusRequest.DeploymentID)
 			return
 		}
-		w.WriteHeader(http.StatusBadGateway)
-		statusResponse.Message = "unable to return deployment status: database is unavailable"
+		w.WriteHeader(http.StatusServiceUnavailable)
+		statusResponse.Message = "unable to determine deployment status; database is unavailable"
 		statusResponse.render(w)
 		logger.Errorf("%s: %s", statusResponse.Message, err)
 		return
