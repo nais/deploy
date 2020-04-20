@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -10,24 +9,12 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
-	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	ErrNotFound = fmt.Errorf("api key not found")
+	ErrNotFound = fmt.Errorf("database row not found")
 )
-
-type ApiKeyStore interface {
-	ApiKeys(ctx context.Context, id string) (ApiKeys, error)
-	RotateApiKey(ctx context.Context, team, groupId string, key []byte) error
-}
-
-// legacy layer
-type RepositoryTeamStore interface {
-	ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error)
-	WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error
-}
 
 type database struct {
 	conn          *pgxpool.Pool
@@ -42,9 +29,6 @@ func IsErrNotFound(err error) bool {
 func IsErrForeignKeyViolation(err error) bool {
 	return strings.Contains(err.Error(), "SQLSTATE 23503")
 }
-
-var _ ApiKeyStore = &database{}
-var _ RepositoryTeamStore = &database{}
 
 func New(dsn string, encryptionKey []byte) (*database, error) {
 	ctx := context.Background()
@@ -65,43 +49,6 @@ func (db *database) timedQuery(ctx context.Context, sql string, args ...interfac
 	rows, err := db.conn.Query(ctx, sql, args...)
 	metrics.DatabaseQuery(now, err)
 	return rows, err
-}
-
-func (db *database) decrypt(encrypted string) ([]byte, error) {
-	decoded, err := hex.DecodeString(encrypted)
-	if err != nil {
-		return nil, fmt.Errorf("decode hex: %s", err)
-	}
-	return crypto.Decrypt(decoded, db.encryptionKey)
-}
-
-func (db *database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
-	apiKeys := make(ApiKeys, 0)
-
-	defer rows.Close()
-	for rows.Next() {
-		var apiKey ApiKey
-		var encrypted string
-
-		// see selectApiKeyFields
-		err := rows.Scan(&encrypted, &apiKey.Team, &apiKey.GroupId, &apiKey.Created, &apiKey.Expires)
-		if err != nil {
-			return nil, err
-		}
-
-		apiKey.Key, err = db.decrypt(encrypted)
-		if err != nil {
-			return nil, err
-		}
-
-		apiKeys = append(apiKeys, apiKey)
-	}
-
-	if len(apiKeys) == 0 {
-		return nil, ErrNotFound
-	}
-
-	return apiKeys, nil
 }
 
 func (db *database) Migrate(ctx context.Context) error {
@@ -129,103 +76,4 @@ func (db *database) Migrate(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// Read all API keys matching the provided team or azure group ID.
-func (db *database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
-	var err error
-
-	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 OR team_azure_id = $1 ORDER BY expires DESC;`
-	rows, err := db.timedQuery(ctx, query, id)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return db.scanApiKeyRows(rows)
-}
-
-func (db *database) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
-	var query string
-
-	encrypted, err := crypto.Encrypt(key, db.encryptionKey)
-	if err != nil {
-		return fmt.Errorf("encrypt api key: %s", err)
-	}
-
-	tx, err := db.conn.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to start transaction: %s", err)
-	}
-
-	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1 AND team_azure_id = $2;`
-	_, err = tx.Exec(ctx, query, team, groupId)
-	if err != nil {
-		return err
-	}
-
-	query = `
-INSERT INTO apikey (key, team, team_azure_id, created, expires)
-VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
-`
-	_, err = tx.Exec(ctx, query, hex.EncodeToString(encrypted), team, groupId)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
-}
-
-func (db *database) ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error) {
-	query := `SELECT team FROM team_repositories WHERE repository = $1;`
-	rows, err := db.timedQuery(ctx, query, repository)
-
-	if err != nil {
-		return nil, err
-	}
-
-	teams := make([]string, 0)
-
-	defer rows.Close()
-	for rows.Next() {
-		var team string
-		err := rows.Scan(&team)
-		if err != nil {
-			return nil, err
-		}
-		teams = append(teams, team)
-	}
-
-	if len(teams) == 0 {
-		return nil, ErrNotFound
-	}
-
-	return teams, nil
-}
-
-func (db *database) WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error {
-	var query string
-
-	tx, err := db.conn.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to start transaction: %s", err)
-	}
-
-	query = `DELETE FROM team_repositories WHERE repository = $1;`
-	_, err = tx.Exec(ctx, query, repository)
-	if err != nil {
-		tx.Rollback(ctx)
-		return err
-	}
-
-	for _, team := range teams {
-		query = `INSERT INTO team_repositories (team, repository) VALUES ($1, $2);`
-		_, err = tx.Exec(ctx, query, team, repository)
-		if err != nil {
-			tx.Rollback(ctx)
-			return err
-		}
-	}
-
-	return tx.Commit(ctx)
 }
