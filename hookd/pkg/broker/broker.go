@@ -53,20 +53,33 @@ func (b *broker) githubLoop() {
 		case request := <-b.requests:
 			logger := log.WithFields(request.LogFields())
 			err := b.createGithubDeployment(request)
-			if err != nil {
+			switch err {
+			case github.ErrTeamNotExist:
+				logger.Errorf(
+					"Not syncing deployment to GitHub: team %s does not exist on GitHub",
+					request.GetPayloadSpec().GetTeam(),
+				)
+			case github.ErrTeamNoAccess:
+				logger.Errorf(
+					"Not syncing deployment to GitHub: team %s does not have admin rights to repository %s",
+					request.GetPayloadSpec().GetTeam(),
+					request.GetDeployment().GetRepository().FullName(),
+				)
+			case nil:
+				logger.Tracef("Synchronized deployment to GitHub")
+			default:
 				logger.Errorf("Unable to sync deployment to GitHub: %s", err)
-				continue
 			}
-			logger.Tracef("Synchronized deployment to GitHub")
 
 		case status := <-b.statuses:
 			logger := log.WithFields(status.LogFields())
 			err := b.createGithubDeploymentStatus(status)
-			if err != nil {
+			switch err {
+			case nil:
+				logger.Tracef("Synchronized deployment status to GitHub")
+			default:
 				logger.Errorf("Unable to sync deployment status to GitHub: %s", err)
-				continue
 			}
-			logger.Tracef("Synchronized deployment status to GitHub")
 		}
 	}
 }
