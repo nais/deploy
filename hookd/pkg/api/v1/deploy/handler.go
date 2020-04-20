@@ -224,8 +224,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err = h.DeploymentStore.WriteDeployment(r.Context(), deployment)
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		deploymentResponse.Message = fmt.Sprintf("unable to store deployment in database")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		deploymentResponse.Message = fmt.Sprintf("database is unavailable; try again later")
 		deploymentResponse.render(w)
 		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return
@@ -235,8 +235,8 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err = h.Broker.SendDeploymentRequest(r.Context(), *deployMsg)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		deploymentResponse.Message = fmt.Sprintf("unable to dispatch request to deploy queue")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		deploymentResponse.Message = fmt.Sprintf("deploy queue is unavailable; try again later")
 		deploymentResponse.render(w)
 		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return

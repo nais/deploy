@@ -1,0 +1,21 @@
+{
+  "request": {
+    "body": {
+      "resources": [
+        {}
+      ],
+      "team": "kafka_unavailable",
+      "cluster": "local",
+      "owner": "foo",
+      "repository": "bar",
+      "ref": "master",
+      "environment": "baz"
+    }
+  },
+  "response": {
+    "statusCode": 503,
+    "body": {
+      "message": "deploy queue is unavailable; try again later"
+    }
+  }
+}

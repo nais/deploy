@@ -45,6 +45,10 @@ type testCase struct {
 type borker struct{}
 
 func (b *borker) SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error {
+	switch deployment.GetPayloadSpec().GetTeam() {
+	case "kafka_unavailable":
+		return fmt.Errorf("deploy queue is unavailable; try again later")
+	}
 	return nil
 }
 
@@ -52,9 +56,9 @@ func (b *borker) HandleDeploymentStatus(ctx context.Context, status deployment.D
 	return nil
 }
 
-type apiKeyStorage struct{}
+type db struct{}
 
-func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
+func (db *db) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
 	switch team {
 	case "notfound":
 		return nil, database.ErrNotFound
@@ -68,19 +72,23 @@ func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiK
 	}
 }
 
-func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
+func (db *db) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
 	return nil
 }
 
-func (a *apiKeyStorage) Deployment(ctx context.Context, id string) (*database.Deployment, error) {
+func (db *db) Deployment(ctx context.Context, id string) (*database.Deployment, error) {
 	return nil, nil
 }
 
-func (a *apiKeyStorage) WriteDeployment(ctx context.Context, deployment database.Deployment) error {
+func (db *db) WriteDeployment(ctx context.Context, deployment database.Deployment) error {
+	switch deployment.Team {
+	case "database_unavailable":
+		return fmt.Errorf("oops")
+	}
 	return nil
 }
 
-func (a *apiKeyStorage) DeploymentStatus(ctx context.Context, deploymentID string) ([]database.DeploymentStatus, error) {
+func (db *db) DeploymentStatus(ctx context.Context, deploymentID string) ([]database.DeploymentStatus, error) {
 	return []database.DeploymentStatus{
 		{
 			ID:           "foo",
@@ -91,7 +99,7 @@ func (a *apiKeyStorage) DeploymentStatus(ctx context.Context, deploymentID strin
 	}, nil
 }
 
-func (a *apiKeyStorage) WriteDeploymentStatus(ctx context.Context, status database.DeploymentStatus) error {
+func (db *db) WriteDeploymentStatus(ctx context.Context, status database.DeploymentStatus) error {
 	return nil
 }
 
@@ -143,7 +151,7 @@ func subTest(t *testing.T, name string) {
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
-	apiKeyStore := &apiKeyStorage{}
+	apiKeyStore := &db{}
 	brok := &borker{}
 
 	handler := api.New(api.Config{
