@@ -50,7 +50,7 @@ func (c *client) TeamAllowed(ctx context.Context, owner, repository, teamName st
 		return err
 	}
 
-	repo, _, err := c.client.Teams.IsTeamRepo(ctx, team.GetID(), owner, repository)
+	repo, resp, err := c.client.Teams.IsTeamRepo(ctx, team.GetID(), owner, repository)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return ErrTeamNoAccess
