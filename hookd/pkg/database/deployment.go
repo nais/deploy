@@ -18,7 +18,6 @@ type DeploymentStatus struct {
 	DeploymentID string
 	Status       string
 	Message      string
-	GitHubID     *int
 	Created      time.Time
 }
 
@@ -82,7 +81,7 @@ SET github_id = EXCLUDED.github_id, github_repository = EXCLUDED.github_reposito
 }
 
 func (db *database) DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error) {
-	query := `SELECT id, deployment_id, status, message, github_id, created FROM deployment_status WHERE deployment_id = $1 ORDER BY created DESC;`
+	query := `SELECT id, deployment_id, status, message, created FROM deployment_status WHERE deployment_id = $1 ORDER BY created DESC;`
 	rows, err := db.timedQuery(ctx, query, deploymentID)
 
 	if err != nil {
@@ -101,7 +100,6 @@ func (db *database) DeploymentStatus(ctx context.Context, deploymentID string) (
 			&status.DeploymentID,
 			&status.Status,
 			&status.Message,
-			&status.GitHubID,
 			&status.Created,
 		)
 
@@ -123,15 +121,14 @@ func (db *database) WriteDeploymentStatus(ctx context.Context, status Deployment
 	var query string
 
 	query = `
-INSERT INTO deployment_status (id, deployment_id, status, message, github_id, created)
-VALUES ($1, $2, $3, $4, $5, $6);
+INSERT INTO deployment_status (id, deployment_id, status, message, created)
+VALUES ($1, $2, $3, $4, $5);
 `
 	_, err := db.conn.Exec(ctx, query,
 		status.ID,
 		status.DeploymentID,
 		status.Status,
 		status.Message,
-		status.GitHubID,
 		status.Created,
 	)
 
