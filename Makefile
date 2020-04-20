@@ -57,6 +57,9 @@ docker:
 upload:
 	docker push navikt/deployment:latest
 
+migration:
+	go generate ./...
+
 # Generate a GitHub workflow file for canary deployments across clusters
 # The hbrender tool can be found at https://github.com/ambientsound/hbrender
 canary-workflow:
