@@ -5,6 +5,7 @@ participant github as "GitHub"
 participant ci as "Continuous Integration"
 database registry as "Docker Hub"
 participant hookd
+database db as "Postgres"
 collections deployd
 participant kubernetes as "NAIS"
 
@@ -17,21 +18,38 @@ ci -> registry: Push image
 ci -> github: Start deployment
 note right: Authenticate with GitHub token
 github -> hookd: Send webhook to NAIS deploy
+hookd -> db: Create deployment
+
+loop until timeout or success
+	ci -> github: Poll for final deployment status
+	github --> ci
+end
 
 ==NAIS deploy v2==
 ci -> hookd: Start deployment
 note right: Authenticate with team API key
+hookd -> db: Create deployment
 hookd -> github: Create deployment
+note right: if enabled
+
+loop until timeout or success
+	ci -> hookd: Poll for final deployment status
+	hookd --> ci
+end
 
 ==Deploy phase==
 hookd -> deployd: Commission deployment
-hookd -> github: Update deployment status
-note left: queued
+hookd -> db: Append deployment status
+note right: queued
+hookd -> github: Sync deployment status
+note right: if enabled
 deployd -> kubernetes: Deploy
 kubernetes --> deployd
 deployd -> hookd: Report status
-hookd -> github: Update deployment status
-note left: in_progress
+hookd -> db: Append deployment status
+note right: in_progress
+hookd -> github: Sync deployment status
+note right: if enabled
 
 loop until timeout or success
 	deployd -> kubernetes: Check rollout status
@@ -39,15 +57,20 @@ loop until timeout or success
 end
 
 deployd -> hookd: Report status
-hookd -> github: Update deployment status
-note left: success
+hookd -> db: Append deployment status
+note right: success
+hookd -> github: Sync deployment status
+note right: if enabled
 
 ==Errors==
-hookd -> github: Application failed to start
-note left: failure
-hookd -> github: Error in deployment request
-note left: error
-hookd -> github: Internal error in NAIS deploy
-note left: error
+hookd -> db:  Append deployment status
+note left: Application failed to start
+note right: failure
+hookd -> db:  Append deployment status
+note left: Error in deployment request
+note right: error
+hookd -> db:  Append deployment status
+note left: Internal error in NAIS deploy
+note right: error
 
 @enduml
