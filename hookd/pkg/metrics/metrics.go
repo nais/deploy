@@ -117,10 +117,8 @@ var (
 	},
 		[]string{
 			LabelStatusCode,
-			LabelDeploymentState,
 			Repository,
 			Team,
-			Cluster,
 		},
 	)
 
