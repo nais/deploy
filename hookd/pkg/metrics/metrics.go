@@ -43,7 +43,7 @@ func GitHubRequest(statusCode int, repository, team string) {
 		LabelStatusCode: strconv.Itoa(statusCode),
 		Repository:      repository,
 		Team:            team,
-	})
+	}).Inc()
 }
 
 func statusLabel(err error) string {
