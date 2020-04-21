@@ -510,9 +510,5 @@ func validate(cfg Config) error {
 		return fmt.Errorf(APIKeyRequiredMsg)
 	}
 
-	if len(cfg.Repository) == 0 {
-		return fmt.Errorf(RepositoryRequiredMsg)
-	}
-
 	return nil
 }

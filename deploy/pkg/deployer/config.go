@@ -56,6 +56,12 @@ func init() {
 	cfg.PollInterval = DefaultPollInterval
 
 	flag.Parse()
+
+	// Both owner and repository must be set in a valid request, but they are not required
+	if len(cfg.Owner) == 0 || len(cfg.Repository) == 0 {
+		cfg.Owner = ""
+		cfg.Repository = ""
+	}
 }
 
 // config return user input and default values as Config.

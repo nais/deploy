@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	requestTimeout = time.Second * 5
+	requestTimeout  = time.Second * 5
+	errNoRepository = fmt.Errorf("no repository specified")
 )
 
 type broker struct {
@@ -75,6 +76,8 @@ func (b *broker) githubLoop() {
 			logger := log.WithFields(status.LogFields())
 			err := b.createGithubDeploymentStatus(status)
 			switch err {
+			case errNoRepository:
+				logger.Tracef("Not syncing deployment to GitHub: %s", err)
 			case nil:
 				logger.Tracef("Synchronized deployment status to GitHub")
 			default:
@@ -89,6 +92,9 @@ func (b *broker) createGithubDeployment(request deployment.DeploymentRequest) er
 	defer cancel()
 
 	repo := request.GetDeployment().GetRepository()
+	if !repo.Valid() {
+		return errNoRepository
+	}
 
 	err := b.githubClient.TeamAllowed(ctx, repo.GetOwner(), repo.GetName(), request.GetPayloadSpec().GetTeam())
 	if err != nil {

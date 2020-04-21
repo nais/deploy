@@ -53,14 +53,6 @@ func (r *DeploymentResponse) render(w io.Writer) {
 
 func (r *DeploymentRequest) validate() error {
 
-	if len(r.Owner) == 0 {
-		return fmt.Errorf("no repository owner specified")
-	}
-
-	if len(r.Repository) == 0 {
-		return fmt.Errorf("no repository specified")
-	}
-
 	if len(r.Cluster) == 0 {
 		return fmt.Errorf("no cluster specified")
 	}
