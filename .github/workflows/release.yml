@@ -6,6 +6,7 @@ env:
   image: docker.pkg.github.com/${{ github.repository }}/deploy
   hookd_image: docker.pkg.github.com/${{ github.repository }}/hookd
   deployd_image: docker.pkg.github.com/${{ github.repository }}/deployd
+  canary_deployer_image: docker.pkg.github.com/${{ github.repository }}/canary-deployer
   dockerhub_image: navikt/deployment
 
 jobs:
@@ -24,6 +25,7 @@ jobs:
         docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
         docker build --tag ${hookd_image}:${version} --tag ${hookd_image}:latest -f Dockerfile.hookd .
         docker build --tag ${deployd_image}:${version} --tag ${deployd_image}:latest -f Dockerfile.deployd .
+        docker build --tag ${canary_deployer_image}:${version} --tag ${canary_deployer_image}:latest .
     - name: Push versioned Docker image to GitHub
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,6 +34,7 @@ jobs:
         docker push ${image}:${version}
         docker push ${hookd_image}:${version}
         docker push ${deployd_image}:${version}
+        docker push ${canary_deployer_image}:${version}
     - name: Push production Docker image to GitHub
       if: github.ref == 'refs/heads/master'
       env:
@@ -42,6 +45,7 @@ jobs:
         docker push ${image}:latest
         docker push ${hookd_image}:latest
         docker push ${deployd_image}:latest
+        docker push ${canary_deployer_image}:latest
     - name: Push production Docker image to Dockerhub
       if: github.ref == 'refs/heads/master'
       env:
