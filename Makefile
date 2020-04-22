@@ -2,7 +2,7 @@ PROTOC = $(shell which protoc)
 PROTOC_GEN_GO = $(shell which protoc-gen-go)
 HOOKD_ALPINE_LDFLAGS := -X github.com/navikt/deployment/hookd/pkg/auth.TemplateLocation=/app/templates/ -X github.com/navikt/deployment/hookd/pkg/auth.StaticAssetsLocation=/app/assets/
 
-.PHONY: all proto hookd deployd token-generator deploy provision alpine test docker upload canary-workflow
+.PHONY: all proto hookd deployd token-generator deploy provision alpine test docker upload
 
 all: hookd deployd deploy provision
 
@@ -59,8 +59,3 @@ upload:
 
 migration:
 	go generate ./...
-
-# Generate a GitHub workflow file for canary deployments across clusters
-# The hbrender tool can be found at https://github.com/ambientsound/hbrender
-canary-workflow:
-	hbrender --template .github/workflows/canary.yml.in --vars .github/workflows/canary.yml.vars > .github/workflows/canary.yml
