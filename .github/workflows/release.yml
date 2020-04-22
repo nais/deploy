@@ -25,7 +25,7 @@ jobs:
         docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
         docker build --tag ${hookd_image}:${version} --tag ${hookd_image}:latest -f Dockerfile.hookd .
         docker build --tag ${deployd_image}:${version} --tag ${deployd_image}:latest -f Dockerfile.deployd .
-        docker build --tag ${canary_deployer_image}:${version} --tag ${canary_deployer_image}:latest .
+        docker build --tag ${canary_deployer_image}:${version} --tag ${canary_deployer_image}:latest canary-deployer
     - name: Push versioned Docker image to GitHub
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
