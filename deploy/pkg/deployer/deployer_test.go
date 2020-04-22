@@ -27,7 +27,7 @@ func TestHappyPath(t *testing.T) {
 		}
 
 		assert.Equal(t, deployRequest.Team, "aura", "auto-detection of team works")
-		assert.Equal(t, deployRequest.Owner, deployer.DefaultOwner, "defaulting works")
+		assert.Equal(t, deployRequest.Ref, "master", "defaulting works")
 		assert.Equal(t, deployRequest.Environment, "dev-fss:nais", "auto-detection of environment works")
 
 		b, err := json.Marshal(&api_v1_deploy.DeploymentResponse{})
@@ -63,7 +63,7 @@ func TestHappyPathForAlert(t *testing.T) {
 		}
 
 		assert.Equal(t, deployRequest.Team, "aura", "auto-detection of team works")
-		assert.Equal(t, deployRequest.Owner, deployer.DefaultOwner, "defaulting works")
+		assert.Equal(t, deployRequest.Ref, "master", "defaulting works")
 		assert.Equal(t, deployRequest.Environment, "dev-fss", "auto-detection of environment works")
 
 		resources := make([]json.RawMessage, len(cfg.Resource))
@@ -168,7 +168,6 @@ func TestValidationFailures(t *testing.T) {
 		errorMsg  string
 		transform func(cfg deployer.Config) deployer.Config
 	}{
-		{deployer.RepositoryRequiredMsg, func(cfg deployer.Config) deployer.Config { cfg.Repository = ""; return cfg }},
 		{deployer.ClusterRequiredMsg, func(cfg deployer.Config) deployer.Config { cfg.Cluster = ""; return cfg }},
 		{deployer.APIKeyRequiredMsg, func(cfg deployer.Config) deployer.Config { cfg.APIKey = ""; return cfg }},
 		{deployer.ResourceRequiredMsg, func(cfg deployer.Config) deployer.Config { cfg.Resource = nil; return cfg }},
