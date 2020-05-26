@@ -152,7 +152,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	azureTeam, err := h.TeamClient.Team(r.Context(), request.Team)
 	if err != nil {
 		if h.TeamClient.IsErrNotFound(err) {
-			w.WriteHeader(http.StatusForbidden)
+			w.WriteHeader(http.StatusBadRequest)
 			response.Message = "team does not exist in Azure AD"
 			response.render(w)
 			logger.Error(response.Message)
