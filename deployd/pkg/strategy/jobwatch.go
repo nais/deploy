@@ -34,8 +34,8 @@ func (j job) Watch(logger *log.Entry, resource unstructured.Unstructured, deadli
 			return nil
 		}
 
-		if status, condtion := jobFailed(job); status {
-			return fmt.Errorf("job failed: %s", condtion.String())
+		if status, condition := jobFailed(job); status {
+			return fmt.Errorf("job failed: %s", condition.String())
 		}
 
 		logger.Tracef("Still waiting for job to complete...")
