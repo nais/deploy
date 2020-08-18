@@ -33,8 +33,12 @@ func (j job) Watch(logger *log.Entry, resource unstructured.Unstructured, deadli
 		if jobComplete(job) {
 			return nil
 		}
-		logger.Tracef("Still waiting for job to complete...")
 
+		if status, condtion := jobFailed(job); status {
+			return fmt.Errorf("job failed: %s", condtion.String())
+		}
+
+		logger.Tracef("Still waiting for job to complete...")
 		time.Sleep(requestInterval)
 	}
 
@@ -51,4 +55,13 @@ func jobComplete(job *v1.Job) bool {
 		}
 	}
 	return false
+}
+
+func jobFailed(job *v1.Job) (bool, v1.JobCondition) {
+	for _, condition := range job.Status.Conditions {
+		if condition.Type == v1.JobFailed {
+			return true, condition
+		}
+	}
+	return false, v1.JobCondition{}
 }
