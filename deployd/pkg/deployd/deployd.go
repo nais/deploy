@@ -159,7 +159,7 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 
 		logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
 
-		go func() {
+		go func(logger *log.Entry, resource unstructured.Unstructured) {
 			wait.Add(1)
 			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", gvk, n, ns, deploymentTimeout.String())
 			err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
@@ -169,7 +169,7 @@ func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config
 			}
 			logger.Infof("Finished monitoring rollout status of '%s/%s' in namespace '%s'", gvk, n, ns)
 			wait.Done()
-		}()
+		}(logger, resource)
 	}
 
 	deployStatus <- deployment.NewInProgressStatus(*req)
