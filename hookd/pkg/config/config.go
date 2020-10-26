@@ -27,6 +27,7 @@ type Github struct {
 }
 
 type Config struct {
+	GrpcAddress           string
 	ListenAddress         string
 	LogFormat             string
 	LogLevel              string
@@ -72,6 +73,7 @@ func DefaultConfig() *Config {
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
 		Clusters:      strings.FieldsFunc(getEnv("CLUSTERS", ""), func(r rune) bool { return r == ',' }),
 		ListenAddress: getEnv("LISTEN_ADDRESS", "127.0.0.1:8080"),
+		GrpcAddress:   getEnv("GRPC_LISTEN_ADDRESS", "127.0.0.1:9090"),
 		LogFormat:     getEnv("LOG_FORMAT", "text"),
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),
 		Kafka:         kafka.DefaultConfig(),

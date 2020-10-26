@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v27/github"
+	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/api"
@@ -21,11 +23,13 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
 	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -147,6 +151,24 @@ func run() error {
 	serializer := broker.NewSerializer(kafkaClient.ProducerTopic, encryptionKey)
 
 	sideBrok := broker.New(db, kafkaClient.Producer, serializer, githubClient)
+
+	// Set up gRPC server
+	deployServer := &deployserver.DeployServer{}
+	grpcServer := grpc.NewServer()
+	deployment.RegisterDeployServer(grpcServer, deployServer)
+	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
+	if err != nil {
+		return fmt.Errorf("unable to set up gRPC server: %w", err)
+	}
+	go func() {
+		err := grpcServer.Serve(grpcListener)
+		if err != nil {
+			log.Error(err)
+			os.Exit(114)
+		}
+	}()
+
+	log.Infof("gRPC server started")
 
 	router := api.New(api.Config{
 		ApiKeyStore:                 db,
