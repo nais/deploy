@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ import (
 	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"google.golang.org/grpc"
 )
 
 var cfg = config.DefaultConfig()
@@ -28,6 +30,7 @@ func init() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
 	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
+	flag.StringVar(&cfg.GrpcServer, "grpc-server", cfg.GrpcServer, "gRPC server endpoint on hookd.")
 	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
 	flag.BoolVar(&cfg.TeamNamespaces, "team-namespaces", cfg.TeamNamespaces, "Set to true if team service accounts live in team's own namespace.")
 	flag.BoolVar(&cfg.AutoCreateServiceAccount, "auto-create-service-account", cfg.AutoCreateServiceAccount, "Set to true to automatically create service accounts.")
@@ -63,6 +66,25 @@ func run() error {
 	log.Infof("kafka topic for statuses: %s", cfg.Kafka.StatusTopic)
 	log.Infof("kafka consumer group....: %s", cfg.Kafka.GroupID)
 	log.Infof("kafka brokers...........: %+v", cfg.Kafka.Brokers)
+
+	grpcConnection, err := grpc.Dial(cfg.GrpcServer, grpc.WithInsecure())
+	if err != nil {
+		return fmt.Errorf("connecting to hookd gRPC server: %w", err)
+	}
+
+	grpcClient := deployment.NewDeployClient(grpcConnection)
+	deploymentStream, err := grpcClient.Deployments(context.Background(), &deployment.GetDeploymentOpts{})
+	if err != nil {
+		return fmt.Errorf("open deployment stream: %w", err)
+	}
+
+	for {
+		deploymentRequest, err := deploymentStream.Recv()
+		if err != nil {
+			return fmt.Errorf("get next deployment: %w", err)
+		}
+		_ = deploymentRequest
+	}
 
 	encryptionKey, err := crypto.KeyFromHexString(cfg.EncryptionKey)
 	if err != nil {
