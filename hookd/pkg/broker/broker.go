@@ -24,7 +24,6 @@ var (
 type broker struct {
 	db           database.DeploymentStore
 	producer     sarama.SyncProducer
-	serializer   Serializer
 	githubClient github.Client
 	requests     chan deployment.DeploymentRequest
 	statuses     chan deployment.DeploymentStatus
@@ -35,11 +34,10 @@ type Broker interface {
 	HandleDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) error
 }
 
-func New(db database.DeploymentStore, producer sarama.SyncProducer, serializer Serializer, githubClient github.Client) Broker {
+func New(db database.DeploymentStore, producer sarama.SyncProducer, githubClient github.Client) Broker {
 	b := &broker{
 		db:           db,
 		producer:     producer,
-		serializer:   serializer,
 		githubClient: githubClient,
 		requests:     make(chan deployment.DeploymentRequest, 4096),
 		statuses:     make(chan deployment.DeploymentStatus, 4096),

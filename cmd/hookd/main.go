@@ -63,8 +63,6 @@ func init() {
 	flag.StringVar(&cfg.Azure.DiscoveryURL, "azure.discoveryurl", cfg.Azure.DiscoveryURL, "Azure DiscoveryURL")
 	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
 	flag.StringVar(&cfg.Azure.TeamMembershipAppID, "azure.teamMembershipAppID", cfg.Azure.TeamMembershipAppID, "Application ID of canonical team list")
-
-	kafka.SetupFlags(&cfg.Kafka)
 }
 
 func run() error {
@@ -74,19 +72,9 @@ func run() error {
 		return err
 	}
 
-	kafkaLogger, err := logging.New(cfg.Kafka.Verbosity, cfg.LogFormat)
-	if err != nil {
-		return err
-	}
 
 	log.Info("hookd is starting")
-	log.Infof("kafka topic for requests: %s", cfg.Kafka.RequestTopic)
-	log.Infof("kafka topic for statuses: %s", cfg.Kafka.StatusTopic)
-	log.Infof("kafka consumer group....: %s", cfg.Kafka.GroupID)
-	log.Infof("kafka brokers...........: %+v", cfg.Kafka.Brokers)
 	log.Infof("web frontend templates..: %s", auth.TemplateLocation)
-
-	sarama.Logger = kafkaLogger
 
 	if cfg.Github.Enabled && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
 		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")
@@ -117,17 +105,6 @@ func run() error {
 		return fmt.Errorf("migrating database: %s", err)
 	}
 
-	kafkaClient, err := kafka.NewDualClient(
-		cfg.Kafka,
-		cfg.Kafka.StatusTopic,
-		cfg.Kafka.RequestTopic,
-	)
-	if err != nil {
-		return fmt.Errorf("while setting up Kafka: %s", err)
-	}
-
-	go kafkaClient.ConsumerLoop()
-
 	var installationClient *gh.Client
 	var githubClient github.Client
 
@@ -147,8 +124,6 @@ func run() error {
 	}
 
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
-
-	serializer := broker.NewSerializer(kafkaClient.ProducerTopic, encryptionKey)
 
 	sideBrok := broker.New(db, kafkaClient.Producer, serializer, githubClient)
 
@@ -198,54 +173,6 @@ func run() error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
-	handleKafkaStatus := func(m sarama.ConsumerMessage) (bool, error) {
-		retry := false
-		status, err := serializer.Unmarshal(m)
-		if err != nil {
-			return retry, err
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), retryInterval)
-		defer cancel()
-		err = sideBrok.HandleDeploymentStatus(ctx, *status)
-
-		switch {
-		default:
-			retry = true
-		case err == nil:
-		case database.IsErrForeignKeyViolation(err):
-		}
-
-		return retry, err
-	}
-
-	// Loop through incoming deployment status messages from deployd and commit them to the database.
-	for {
-		select {
-		case m := <-kafkaClient.RecvQ:
-			var err error
-			retry := true
-			logger := kafka.ConsumerMessageLogger(&m)
-
-			metrics.KafkaQueueSize.Set(float64(len(kafkaClient.RecvQ)))
-
-			for retry {
-				retry, err = handleKafkaStatus(m)
-				if err != nil && retry {
-					logger.Errorf("process deployment status: %s", err)
-					time.Sleep(retryInterval)
-				}
-			}
-
-			kafkaClient.Consumer.MarkOffset(&m, "")
-			if err != nil {
-				logger.Errorf("discard deployment status: %s", err)
-			}
-
-		case <-signals:
-			return nil
-		}
-	}
 }
 
 func main() {

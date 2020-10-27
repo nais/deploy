@@ -4,8 +4,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/navikt/deployment/common/pkg/kafka"
 )
 
 type Azure struct {
@@ -32,7 +30,6 @@ type Config struct {
 	LogFormat             string
 	LogLevel              string
 	BaseURL               string
-	Kafka                 kafka.Config
 	Azure                 Azure
 	Github                Github
 	DatabaseURL           string
@@ -76,7 +73,6 @@ func DefaultConfig() *Config {
 		GrpcAddress:   getEnv("GRPC_LISTEN_ADDRESS", "127.0.0.1:9090"),
 		LogFormat:     getEnv("LOG_FORMAT", "text"),
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),
-		Kafka:         kafka.DefaultConfig(),
 		Azure: Azure{
 			ClientID:            getEnv("AZURE_CLIENT_ID", ""),
 			ClientSecret:        getEnv("AZURE_CLIENT_SECRET", ""),
