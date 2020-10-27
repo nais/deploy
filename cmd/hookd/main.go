@@ -16,7 +16,6 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
-	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -46,7 +45,6 @@ func init() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringSliceVar(&cfg.Clusters, "clusters", cfg.Clusters, "Comma-separated list of valid clusters that can be deployed to.")
 	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
-	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "Pre-shared key used for message encryption over Kafka.")
 
 	flag.StringVar(&cfg.DatabaseEncryptionKey, "database-encryption-key", cfg.DatabaseEncryptionKey, "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.StringVar(&cfg.DatabaseURL, "database.url", cfg.DatabaseURL, "PostgreSQL connection information.")
@@ -113,7 +111,7 @@ func run() error {
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
-	deployServer := deployserver.New(cfg.Clusters)
+	deployServer := deployserver.New(cfg.Clusters, db, githubClient)
 	grpcServer := grpc.NewServer()
 	deployment.RegisterDeployServer(grpcServer, deployServer)
 	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
@@ -130,15 +128,13 @@ func run() error {
 
 	log.Infof("gRPC server started")
 
-	sideBrok := broker.New(db, deployServer, githubClient)
-
 	router := api.New(api.Config{
 		ApiKeyStore:                 db,
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
 		Clusters:                    cfg.Clusters,
 		DeploymentStore:             db,
-		Broker:                      sideBrok,
+		DeployServer:                deployServer,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,

@@ -128,7 +128,7 @@ func userClient(oauthtoken string) *gh.Client {
 	return gh.NewClient(tc)
 }
 
-func graphqlClient(oauthtoken string) (*githubv4.Client) {
+func graphqlClient(oauthtoken string) *githubv4.Client {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: oauthtoken,
 	})

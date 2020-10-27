@@ -29,7 +29,6 @@ func init() {
 	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
 	flag.BoolVar(&cfg.TeamNamespaces, "team-namespaces", cfg.TeamNamespaces, "Set to true if team service accounts live in team's own namespace.")
 	flag.BoolVar(&cfg.AutoCreateServiceAccount, "auto-create-service-account", cfg.AutoCreateServiceAccount, "Set to true to automatically create service accounts.")
-	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "Pre-shared key used for message encryption over Kafka.")
 }
 
 func run() error {
@@ -76,7 +75,7 @@ func run() error {
 		for {
 			req, err := deploymentStream.Recv()
 			if err != nil {
-				log.Errorf("get next deployment: %w", err)
+				log.Errorf("get next deployment: %v", err)
 			} else {
 				logger := log.WithFields(req.LogFields())
 				deployd.Run(logger, req, *cfg, kube, statusChan)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
 	"net/http"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
-	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
@@ -34,7 +34,7 @@ type Middleware func(http.Handler) http.Handler
 type Config struct {
 	ApiKeyStore                 database.ApiKeyStore
 	BaseURL                     string
-	Broker                      broker.Broker
+	DeployServer                deployserver.DeployServer
 	Certificates                map[string]discovery.CertificateList
 	Clusters                    []string
 	DeploymentStore             database.DeploymentStore
@@ -54,7 +54,7 @@ func New(cfg Config) chi.Router {
 	deploymentHandler := &api_v1_deploy.DeploymentHandler{
 		APIKeyStorage:   cfg.ApiKeyStore,
 		BaseURL:         cfg.BaseURL,
-		Broker:          cfg.Broker,
+		DeployServer:    cfg.DeployServer,
 		Clusters:        cfg.Clusters,
 		DeploymentStore: cfg.DeploymentStore,
 	}
@@ -79,7 +79,7 @@ func New(cfg Config) chi.Router {
 	}
 
 	githubDeploymentHandler := &server.GithubDeploymentHandler{
-		Broker:                cfg.Broker,
+		Broker:                cfg.DeployServer,
 		Clusters:              cfg.Clusters,
 		SecretToken:           cfg.GithubConfig.WebhookSecret,
 		TeamRepositoryStorage: cfg.TeamRepositoryStorage,

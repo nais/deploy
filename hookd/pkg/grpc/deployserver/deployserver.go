@@ -3,6 +3,8 @@ package deployserver
 import (
 	"context"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/database"
+	"github.com/navikt/deployment/hookd/pkg/github"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 )
@@ -12,19 +14,32 @@ const channelSize = 1000
 type DeployServer interface {
 	deployment.DeployServer
 	Queue(request *deployment.DeploymentRequest)
+	SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error
+	HandleDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) error
 }
 
 type deployServer struct {
-	channels map[string]chan *deployment.DeploymentRequest
+	channels     map[string]chan *deployment.DeploymentRequest
+	db           database.DeploymentStore
+	githubClient github.Client
+	requests     chan deployment.DeploymentRequest
+	statuses     chan deployment.DeploymentStatus
 }
 
-func New(clusters []string) DeployServer {
+func New(clusters []string, db database.DeploymentStore, githubClient github.Client) DeployServer {
 	server := &deployServer{
-		channels: make(map[string]chan *deployment.DeploymentRequest),
+		channels:     make(map[string]chan *deployment.DeploymentRequest),
+		db:           db,
+		githubClient: githubClient,
+		requests:     make(chan deployment.DeploymentRequest, 4096),
+		statuses:     make(chan deployment.DeploymentStatus, 4096),
 	}
 	for _, cluster := range clusters {
 		server.channels[cluster] = make(chan *deployment.DeploymentRequest, channelSize)
 	}
+
+	go server.githubLoop()
+
 	return server
 }
 
@@ -44,60 +59,6 @@ func (s *deployServer) Deployments(deploymentOpts *deployment.GetDeploymentOpts,
 	return fmt.Errorf("channel closed unexpectedly")
 }
 
-func (s *deployServer) ReportStatus(context.Context, *deployment.DeploymentStatus) (*deployment.ReportStatusOpts, error) {
-	return nil, fmt.Errorf("not implemented")
+func (s *deployServer) ReportStatus(ctx context.Context, status *deployment.DeploymentStatus) (*deployment.ReportStatusOpts, error) {
+	return nil, s.HandleDeploymentStatus(ctx, *status)
 }
-
-/*
-func (m sarama.ConsumerMessage)(bool, error) {
-	retry := false
-	status, err := serializer.Unmarshal(m)
-	if err != nil {
-		return retry, err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), retryInterval)
-	defer cancel()
-	err = sideBrok.HandleDeploymentStatus(ctx, *status)
-
-	switch {
-	default:
-		retry = true
-	case err == nil:
-	case database.IsErrForeignKeyViolation(err):
-	}
-
-	return retry, err
-}
-
-// Loop through incoming deployment status messages from deployd and commit them to the database.
-func temp() {
-	for {
-		select {
-		case m := <-kafkaClient.RecvQ:
-			var err error
-			retry := true
-			logger := kafka.ConsumerMessageLogger(&m)
-
-			metrics.KafkaQueueSize.Set(float64(len(kafkaClient.RecvQ)))
-
-			for retry {
-				retry, err = handleKafkaStatus(m)
-				if err != nil && retry {
-					logger.Errorf("process deployment status: %s", err)
-					time.Sleep(retryInterval)
-				}
-			}
-
-			kafkaClient.Consumer.MarkOffset(&m, "")
-			if err != nil {
-				logger.Errorf("discard deployment status: %s", err)
-			}
-
-		case <-signals:
-			return nil
-		}
-	}
-
-}
-*/

@@ -36,7 +36,6 @@ type Config struct {
 	MetricsPath           string
 	Clusters              []string
 	ProvisionKey          string
-	EncryptionKey         string
 	DatabaseEncryptionKey string
 }
 
@@ -92,7 +91,6 @@ func DefaultConfig() *Config {
 		DatabaseURL:           getEnv("DATABASE_URL", "postgresql://postgres:root@127.0.0.1:5432/hookd"),
 		MetricsPath:           getEnv("METRICS_PATH", "/metrics"),
 		ProvisionKey:          getEnv("PROVISION_KEY", ""),
-		EncryptionKey:         getEnv("ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 		DatabaseEncryptionKey: getEnv("DATABASE_ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 	}
 }

@@ -140,13 +140,13 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		namespaces := make(map[string]interface{})
 		cfg.Environment = cfg.Cluster
 
-		for i, _ := range cfg.Resource {
+		for i := range cfg.Resource {
 			namespace := detectNamespace(resources[i])
 			namespaces[namespace] = new(interface{})
 		}
 
 		if len(namespaces) == 1 {
-			for namespace, _ := range namespaces {
+			for namespace := range namespaces {
 				if len(namespace) != 0 {
 					cfg.Environment = fmt.Sprintf("%s:%s", cfg.Cluster, namespace)
 				}

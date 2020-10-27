@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	deployment_proto "github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/api/v1"
-	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
@@ -24,7 +24,7 @@ import (
 
 type DeploymentHandler struct {
 	APIKeyStorage   database.ApiKeyStore
-	Broker          broker.Broker
+	DeployServer    deployserver.DeployServer
 	DeploymentStore database.DeploymentStore
 	BaseURL         string
 	Clusters        api_v1.ClusterList
@@ -225,7 +225,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Deployment committed to database")
 
-	err = h.Broker.SendDeploymentRequest(r.Context(), *deployMsg)
+	err = h.DeployServer.SendDeploymentRequest(r.Context(), *deployMsg)
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		deploymentResponse.Message = fmt.Sprintf("deploy queue is unavailable; try again later")
@@ -235,7 +235,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := deployment_proto.NewQueuedStatus(*deployMsg)
-	err = h.Broker.HandleDeploymentStatus(r.Context(), *status)
+	err = h.DeployServer.HandleDeploymentStatus(r.Context(), *status)
 
 	if err != nil {
 		logger.Errorf("unable to store deployment status in database: %s", err)

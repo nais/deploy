@@ -103,6 +103,16 @@ func (db *db) WriteDeploymentStatus(ctx context.Context, status database.Deploym
 	return nil
 }
 
+func (b *borker) Deployments(deploymentOpts *deployment.GetDeploymentOpts, deploymentsServer deployment.Deploy_DeploymentsServer) error {
+	return nil
+}
+
+func (b *borker) ReportStatus(ctx context.Context, status *deployment.DeploymentStatus) (*deployment.ReportStatusOpts, error) {
+	return nil, nil
+}
+
+func (b *borker) Queue(request *deployment.DeploymentRequest) {}
+
 func fileReader(file string) io.Reader {
 	f, err := os.Open(file)
 	if err != nil {
@@ -156,7 +166,7 @@ func subTest(t *testing.T, name string) {
 
 	handler := api.New(api.Config{
 		ApiKeyStore:     apiKeyStore,
-		Broker:          brok,
+		DeployServer:    brok,
 		DeploymentStore: apiKeyStore,
 		Clusters:        validClusters,
 		MetricsPath:     "/metrics",
