@@ -11,17 +11,40 @@ import (
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 )
-
-type DeployServer struct {
+const channelSize = 1000
+type DeployServer interface {
+	deployment.DeployServer
+	Queue(request *deployment.DeploymentRequest)
 }
 
-var _ deployment.DeployServer = &DeployServer{}
-
-func (s *DeployServer) Deployments(*deployment.GetDeploymentOpts, deployment.Deploy_DeploymentsServer) error {
-	return fmt.Errorf("not implemented")
+type deployServer struct {
+	channels map[string]chan *deployment.DeploymentRequest
+}
+func New(clusters []string) DeployServer {
+	server := &deployServer{}
+	for _, cluster := range clusters {
+		server.channels[cluster] = make(chan *deployment.DeploymentRequest, channelSize)
+	}
+	return server
 }
 
-func (s *DeployServer) ReportStatus(context.Context, *deployment.DeploymentStatus) (*deployment.ReportStatusOpts, error) {
+var _ DeployServer = &deployServer{}
+
+func (s *deployServer) Queue(request *deployment.DeploymentRequest) {
+	s.channels[request.Cluster] <- request
+}
+
+func (s *deployServer) Deployments(deploymentOpts *deployment.GetDeploymentOpts, deploymentsServer deployment.Deploy_DeploymentsServer) error {
+	for message := range s.channels[deploymentOpts.Cluster] {
+		err := deploymentsServer.Send(message)
+		if err != nil {
+			return fmt.Errorf("unable to send deployment message: %w", err)
+		}
+	}
+	return fmt.Errorf("channel closed unexpectedly")
+}
+
+func (s *deployServer) ReportStatus(context.Context, *deployment.DeploymentStatus) (*deployment.ReportStatusOpts, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

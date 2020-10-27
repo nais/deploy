@@ -72,7 +72,6 @@ func run() error {
 		return err
 	}
 
-
 	log.Info("hookd is starting")
 	log.Infof("web frontend templates..: %s", auth.TemplateLocation)
 
@@ -83,11 +82,6 @@ func run() error {
 	provisionKey, err := hex.DecodeString(cfg.ProvisionKey)
 	if err != nil {
 		return fmt.Errorf("provisioning pre-shared key must be a hex encoded string")
-	}
-
-	encryptionKey, err := crypto.KeyFromHexString(cfg.EncryptionKey)
-	if err != nil {
-		return err
 	}
 
 	dbEncryptionKey, err := hex.DecodeString(cfg.DatabaseEncryptionKey)
@@ -128,7 +122,7 @@ func run() error {
 	sideBrok := broker.New(db, kafkaClient.Producer, serializer, githubClient)
 
 	// Set up gRPC server
-	deployServer := &deployserver.DeployServer{}
+	deployServer := deployserver.New(cfg.Clusters)
 	grpcServer := grpc.NewServer()
 	deployment.RegisterDeployServer(grpcServer, deployServer)
 	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)

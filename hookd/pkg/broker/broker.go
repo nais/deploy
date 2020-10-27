@@ -5,6 +5,8 @@ package broker
 import (
 	"context"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
+	"github.com/shurcooL/githubv4"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -23,7 +25,7 @@ var (
 
 type broker struct {
 	db           database.DeploymentStore
-	producer     sarama.SyncProducer
+	grpc         deployserver.DeployServer
 	githubClient github.Client
 	requests     chan deployment.DeploymentRequest
 	statuses     chan deployment.DeploymentStatus
@@ -34,10 +36,10 @@ type Broker interface {
 	HandleDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) error
 }
 
-func New(db database.DeploymentStore, producer sarama.SyncProducer, githubClient github.Client) Broker {
+func New(db database.DeploymentStore, grpc deployment.DeployServer, githubClient github.Client) Broker {
 	b := &broker{
 		db:           db,
-		producer:     producer,
+		grpc:         grpc,
 		githubClient: githubClient,
 		requests:     make(chan deployment.DeploymentRequest, 4096),
 		statuses:     make(chan deployment.DeploymentStatus, 4096),
@@ -149,15 +151,7 @@ func (b *broker) createGithubDeploymentStatus(status deployment.DeploymentStatus
 }
 
 func (b *broker) SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error {
-	msg, err := b.serializer.Marshal(deployment)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = b.producer.SendMessage(msg)
-	if err != nil {
-		return fmt.Errorf("publish message to Kafka: %s", err)
-	}
+	b.grpc.Queue(&deployment)
 
 	log.WithFields(deployment.LogFields()).Infof("Sent deployment request")
 
