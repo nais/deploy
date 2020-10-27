@@ -3,8 +3,6 @@ package config
 import (
 	"os"
 	"strconv"
-
-	"github.com/navikt/deployment/common/pkg/kafka"
 )
 
 type Config struct {
@@ -17,7 +15,6 @@ type Config struct {
 	TeamNamespaces           bool
 	AutoCreateServiceAccount bool
 	EncryptionKey            string
-	Kafka                    kafka.Config
 }
 
 func getEnv(key, fallback string) string {
@@ -42,7 +39,6 @@ func DefaultConfig() *Config {
 		MetricsPath:              getEnv("METRICS_PATH", "/metrics"),
 		TeamNamespaces:           parseBool(getEnv("TEAM_NAMESPACES", "false")),
 		AutoCreateServiceAccount: parseBool(getEnv("AUTO_CREATE_SERVICE_ACCOUNT", "true")),
-		Kafka:                    kafka.DefaultConfig(),
 		EncryptionKey:            getEnv("ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 	}
 }
