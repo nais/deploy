@@ -3,15 +3,12 @@ package deployserver
 import (
 	"context"
 	"fmt"
-	"github.com/Shopify/sarama"
-	"github.com/navikt/deployment/common/pkg/kafka"
-	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/metrics"
-	"time"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 )
+
 const channelSize = 1000
+
 type DeployServer interface {
 	deployment.DeployServer
 	Queue(request *deployment.DeploymentRequest)
@@ -20,8 +17,11 @@ type DeployServer interface {
 type deployServer struct {
 	channels map[string]chan *deployment.DeploymentRequest
 }
+
 func New(clusters []string) DeployServer {
-	server := &deployServer{}
+	server := &deployServer{
+		channels: make(map[string]chan *deployment.DeploymentRequest),
+	}
 	for _, cluster := range clusters {
 		server.channels[cluster] = make(chan *deployment.DeploymentRequest, channelSize)
 	}
@@ -48,7 +48,8 @@ func (s *deployServer) ReportStatus(context.Context, *deployment.DeploymentStatu
 	return nil, fmt.Errorf("not implemented")
 }
 
-func(m sarama.ConsumerMessage) (bool, error) {
+/*
+func (m sarama.ConsumerMessage)(bool, error) {
 	retry := false
 	status, err := serializer.Unmarshal(m)
 	if err != nil {
@@ -99,3 +100,4 @@ func temp() {
 	}
 
 }
+*/

@@ -73,7 +73,9 @@ func run() error {
 	}
 
 	grpcClient := deployment.NewDeployClient(grpcConnection)
-	deploymentStream, err := grpcClient.Deployments(context.Background(), &deployment.GetDeploymentOpts{})
+	deploymentStream, err := grpcClient.Deployments(context.Background(), &deployment.GetDeploymentOpts{
+		Cluster: cfg.Cluster,
+	})
 	if err != nil {
 		return fmt.Errorf("open deployment stream: %w", err)
 	}
@@ -83,7 +85,7 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("get next deployment: %w", err)
 		}
-		_ = deploymentRequest
+		log.Infof("deployment: %#v", deploymentRequest)
 	}
 
 	encryptionKey, err := crypto.KeyFromHexString(cfg.EncryptionKey)

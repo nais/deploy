@@ -8,12 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
 
-	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/common/pkg/kafka"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/auth"
@@ -24,18 +21,14 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
-	"github.com/navikt/deployment/hookd/pkg/metrics"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
-	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"google.golang.org/grpc"
 )
 
 var (
-	cfg           = config.DefaultConfig()
-	retryInterval = time.Second * 5
-	queueSize     = 32
+	cfg = config.DefaultConfig()
 )
 
 func init() {
@@ -119,8 +112,6 @@ func run() error {
 
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
-	sideBrok := broker.New(db, kafkaClient.Producer, serializer, githubClient)
-
 	// Set up gRPC server
 	deployServer := deployserver.New(cfg.Clusters)
 	grpcServer := grpc.NewServer()
@@ -138,6 +129,8 @@ func run() error {
 	}()
 
 	log.Infof("gRPC server started")
+
+	sideBrok := broker.New(db, deployServer, githubClient)
 
 	router := api.New(api.Config{
 		ApiKeyStore:                 db,
@@ -166,7 +159,9 @@ func run() error {
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
+	<-signals
 
+	return nil
 }
 
 func main() {

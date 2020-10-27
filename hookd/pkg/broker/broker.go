@@ -5,11 +5,10 @@ package broker
 import (
 	"context"
 	"fmt"
-	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
-	"github.com/shurcooL/githubv4"
 	"time"
 
-	"github.com/Shopify/sarama"
+	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
+
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	database_mapper "github.com/navikt/deployment/hookd/pkg/database/mapper"
@@ -36,7 +35,7 @@ type Broker interface {
 	HandleDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) error
 }
 
-func New(db database.DeploymentStore, grpc deployment.DeployServer, githubClient github.Client) Broker {
+func New(db database.DeploymentStore, grpc deployserver.DeployServer, githubClient github.Client) Broker {
 	b := &broker{
 		db:           db,
 		grpc:         grpc,
