@@ -3,6 +3,7 @@ package deployserver
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
@@ -42,6 +43,14 @@ func New(db database.DeploymentStore, githubClient github.Client) DeployServer {
 
 var _ DeployServer = &deployServer{}
 
+func (s *deployServer) onlineClusters() []string {
+	clusters := make([]string, 0, len(s.streams))
+	for k := range s.streams {
+		clusters = append(clusters, k)
+	}
+	return clusters
+}
+
 func (s *deployServer) Queue(request *deployment.DeploymentRequest) error {
 	stream, ok := s.streams[request.Cluster]
 	if !ok {
@@ -51,11 +60,13 @@ func (s *deployServer) Queue(request *deployment.DeploymentRequest) error {
 }
 
 func (s *deployServer) Deployments(opts *deployment.GetDeploymentOpts, stream deployment.Deploy_DeploymentsServer) error {
-	log.Infof("Connection opened from cluster %s", opts.Cluster)
 	s.streams[opts.Cluster] = stream
+	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
+	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))
 	<-stream.Context().Done()
 	delete(s.streams, opts.Cluster)
-	log.Errorf("Connection from cluster %s closed", opts.Cluster)
+	log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
+	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))
 	return nil
 }
 
