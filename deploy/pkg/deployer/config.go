@@ -24,6 +24,7 @@ type Config struct {
 	Ref             string
 	Repository      string
 	Resource        []string
+	Retry           bool
 	Team            string
 	Variables       []string
 	VariablesFile   string
@@ -35,22 +36,23 @@ var cfg Config
 func init() {
 	flag.ErrHelp = fmt.Errorf("\ndeploy prepares and submits Kubernetes resources to a NAIS cluster.\n")
 
-	flag.BoolVar(&cfg.Actions, "actions", getEnvBool("ACTIONS"), "Use GitHub Actions compatible error and warning messages. (env ACTIONS)")
+	flag.BoolVar(&cfg.Actions, "actions", getEnvBool("ACTIONS", false), "Use GitHub Actions compatible error and warning messages. (env ACTIONS)")
 	flag.StringVar(&cfg.APIKey, "apikey", os.Getenv("APIKEY"), "NAIS Deploy API key. (env APIKEY)")
 	flag.StringVar(&cfg.DeployServerURL, "deploy-server", getEnv("DEPLOY_SERVER", DefaultDeployServer), "URL to API server. (env DEPLOY_SERVER)")
 	flag.StringVar(&cfg.Cluster, "cluster", os.Getenv("CLUSTER"), "NAIS cluster to deploy into. (env CLUSTER)")
 	flag.StringVar(&cfg.Environment, "environment", os.Getenv("ENVIRONMENT"), "Environment for GitHub deployment. Autodetected from nais.yaml if not specified. (env ENVIRONMENT)")
-	flag.BoolVar(&cfg.DryRun, "dry-run", getEnvBool("DRY_RUN"), "Run templating, but don't actually make any requests. (env DRY_RUN)")
+	flag.BoolVar(&cfg.DryRun, "dry-run", getEnvBool("DRY_RUN", false), "Run templating, but don't actually make any requests. (env DRY_RUN)")
 	flag.StringVar(&cfg.Owner, "owner", getEnv("OWNER", DefaultOwner), "Owner of GitHub repository. (env OWNER)")
-	flag.BoolVar(&cfg.PrintPayload, "print-payload", getEnvBool("PRINT_PAYLOAD"), "Print templated resources to standard output. (env PRINT_PAYLOAD)")
-	flag.BoolVar(&cfg.Quiet, "quiet", getEnvBool("QUIET"), "Suppress printing of informational messages except errors. (env QUIET)")
+	flag.BoolVar(&cfg.PrintPayload, "print-payload", getEnvBool("PRINT_PAYLOAD", false), "Print templated resources to standard output. (env PRINT_PAYLOAD)")
+	flag.BoolVar(&cfg.Quiet, "quiet", getEnvBool("QUIET", false), "Suppress printing of informational messages except errors. (env QUIET)")
 	flag.StringVar(&cfg.Ref, "ref", getEnv("REF", DefaultRef), "Git commit hash, tag, or branch of the code being deployed. (env REF)")
 	flag.StringSliceVar(&cfg.Resource, "resource", getEnvStringSlice("RESOURCE"), "File with Kubernetes resource. Can be specified multiple times. (env RESOURCE)")
 	flag.StringVar(&cfg.Repository, "repository", os.Getenv("REPOSITORY"), "Name of GitHub repository. (env REPOSITORY)")
+	flag.BoolVar(&cfg.Retry, "retry", getEnvBool("RETRY", true), "Retry deploy when encountering transient errors. (env RETRY)")
 	flag.StringVar(&cfg.Team, "team", os.Getenv("TEAM"), "Team making the deployment. Auto-detected from nais.yaml if possible. (env TEAM)")
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
-	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT"), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
+	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT", false), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
 
 	// Purposely do not expose the PollInterval variable
 	cfg.PollInterval = DefaultPollInterval
@@ -86,10 +88,10 @@ func getEnvStringSlice(key string) []string {
 	return []string{}
 }
 
-func getEnvBool(key string) bool {
+func getEnvBool(key string, def bool) bool {
 	b, err := strconv.ParseBool(os.Getenv(key))
 	if err != nil {
-		return false
+		return def
 	}
 
 	return b

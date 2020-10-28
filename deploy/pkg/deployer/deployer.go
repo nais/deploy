@@ -186,32 +186,50 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	sig := sign(buf.Bytes(), decoded)
 
-	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
-
-	if err != nil {
-		return ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
-	}
-
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add(api_v1.SignatureHeader, fmt.Sprintf("%s", sig))
-	log.Infof("Submitting deployment request to %s...", targetURL.String())
-	resp, err := d.Client.Do(req)
-
-	if err != nil {
-		return ExitUnavailable, err
-	}
-
-	log.Infof("status....: %s", resp.Status)
+	var resp *http.Response
 	response := &api_v1_deploy.DeploymentResponse{}
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(response)
 
-	if err != nil {
-		return ExitUnavailable, fmt.Errorf("received invalid response from server: %s", err)
+	for {
+		req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
+
+		if err != nil {
+			return ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
+		}
+
+		req.Header.Add("content-type", "application/json")
+		req.Header.Add(api_v1.SignatureHeader, fmt.Sprintf("%s", sig))
+		log.Infof("Submitting deployment request to %s...", targetURL.String())
+		resp, err = d.Client.Do(req)
+
+		if err != nil {
+			return ExitUnavailable, err
+		}
+
+		log.Infof("status....: %s", resp.Status)
+		decoder := json.NewDecoder(resp.Body)
+		err = decoder.Decode(response)
+
+		if err != nil {
+			return ExitUnavailable, fmt.Errorf("received invalid response from server: %s", err)
+		}
+
+		log.Infof("message...: %s", response.Message)
+		log.Infof("logs......: %s", response.LogURL)
+
+		if resp.StatusCode == http.StatusServiceUnavailable && cfg.Retry {
+			log.Infof("retrying in %s...", cfg.PollInterval)
+			time.Sleep(cfg.PollInterval)
+			buf.Reset()
+			err = mkpayload(buf, allResources, cfg)
+			if err != nil {
+				return ExitInvocationFailure, err
+			}
+			sig = sign(buf.Bytes(), decoded)
+			continue
+		}
+
+		break
 	}
-
-	log.Infof("message...: %s", response.Message)
-	log.Infof("logs......: %s", response.LogURL)
 
 	if resp.StatusCode != http.StatusCreated {
 		return ExitNoDeployment, fmt.Errorf("deployment failed: %s", response.Message)
