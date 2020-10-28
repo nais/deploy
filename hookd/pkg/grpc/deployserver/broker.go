@@ -122,7 +122,10 @@ func (s *deployServer) createGithubDeploymentStatus(status deployment.Deployment
 }
 
 func (s *deployServer) SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error {
-	s.Queue(&deployment)
+	err := s.Queue(&deployment)
+	if err != nil {
+		return err
+	}
 
 	log.WithFields(deployment.LogFields()).Infof("Sent deployment request")
 

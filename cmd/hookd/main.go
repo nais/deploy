@@ -111,7 +111,7 @@ func run() error {
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
-	deployServer := deployserver.New(cfg.Clusters, db, githubClient)
+	deployServer := deployserver.New(db, githubClient)
 	grpcServer := grpc.NewServer()
 	deployment.RegisterDeployServer(grpcServer, deployServer)
 	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)

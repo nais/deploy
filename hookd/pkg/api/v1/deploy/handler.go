@@ -228,7 +228,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err = h.DeployServer.SendDeploymentRequest(r.Context(), *deployMsg)
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		deploymentResponse.Message = fmt.Sprintf("deploy queue is unavailable; try again later")
+		deploymentResponse.Message = fmt.Sprintf("deploy unavailable; try again later")
 		deploymentResponse.render(w)
 		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return

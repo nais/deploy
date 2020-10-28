@@ -3,39 +3,36 @@ package deployserver
 import (
 	"context"
 	"fmt"
+
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 )
 
-const channelSize = 1000
-
 type DeployServer interface {
 	deployment.DeployServer
-	Queue(request *deployment.DeploymentRequest)
+	Queue(request *deployment.DeploymentRequest) error
 	SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error
 	HandleDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) error
 }
 
 type deployServer struct {
-	channels     map[string]chan *deployment.DeploymentRequest
+	streams      map[string]deployment.Deploy_DeploymentsServer
 	db           database.DeploymentStore
 	githubClient github.Client
 	requests     chan deployment.DeploymentRequest
 	statuses     chan deployment.DeploymentStatus
 }
 
-func New(clusters []string, db database.DeploymentStore, githubClient github.Client) DeployServer {
+func New(db database.DeploymentStore, githubClient github.Client) DeployServer {
 	server := &deployServer{
-		channels:     make(map[string]chan *deployment.DeploymentRequest),
+		streams:      make(map[string]deployment.Deploy_DeploymentsServer),
 		db:           db,
 		githubClient: githubClient,
 		requests:     make(chan deployment.DeploymentRequest, 4096),
 		statuses:     make(chan deployment.DeploymentStatus, 4096),
-	}
-	for _, cluster := range clusters {
-		server.channels[cluster] = make(chan *deployment.DeploymentRequest, channelSize)
 	}
 
 	go server.githubLoop()
@@ -45,18 +42,21 @@ func New(clusters []string, db database.DeploymentStore, githubClient github.Cli
 
 var _ DeployServer = &deployServer{}
 
-func (s *deployServer) Queue(request *deployment.DeploymentRequest) {
-	s.channels[request.Cluster] <- request
+func (s *deployServer) Queue(request *deployment.DeploymentRequest) error {
+	stream, ok := s.streams[request.Cluster]
+	if !ok {
+		return fmt.Errorf("cluster '%s' is offline", request.Cluster)
+	}
+	return stream.Send(request)
 }
 
-func (s *deployServer) Deployments(deploymentOpts *deployment.GetDeploymentOpts, deploymentsServer deployment.Deploy_DeploymentsServer) error {
-	for message := range s.channels[deploymentOpts.Cluster] {
-		err := deploymentsServer.Send(message)
-		if err != nil {
-			return fmt.Errorf("unable to send deployment message: %w", err)
-		}
-	}
-	return fmt.Errorf("channel closed unexpectedly")
+func (s *deployServer) Deployments(opts *deployment.GetDeploymentOpts, stream deployment.Deploy_DeploymentsServer) error {
+	log.Infof("Connection opened from cluster %s", opts.Cluster)
+	s.streams[opts.Cluster] = stream
+	<-stream.Context().Done()
+	delete(s.streams, opts.Cluster)
+	log.Errorf("Connection from cluster %s closed", opts.Cluster)
+	return nil
 }
 
 func (s *deployServer) ReportStatus(ctx context.Context, status *deployment.DeploymentStatus) (*deployment.ReportStatusOpts, error) {
