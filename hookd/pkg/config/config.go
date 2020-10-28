@@ -67,7 +67,7 @@ func parseInt(str string) int {
 func DefaultConfig() *Config {
 	return &Config{
 		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
-		Clusters:      strings.FieldsFunc(getEnv("CLUSTERS", ""), func(r rune) bool { return r == ',' }),
+		Clusters:      strings.FieldsFunc(getEnv("CLUSTERS", "local"), func(r rune) bool { return r == ',' }),
 		ListenAddress: getEnv("LISTEN_ADDRESS", "127.0.0.1:8080"),
 		GrpcAddress:   getEnv("GRPC_LISTEN_ADDRESS", "127.0.0.1:9090"),
 		LogFormat:     getEnv("LOG_FORMAT", "text"),

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/logging"
@@ -47,19 +48,6 @@ func run() error {
 	}
 	log.Infof("kubernetes..............: %s", kube.Config.Host)
 
-	grpcConnection, err := grpc.Dial(cfg.GrpcServer, grpc.WithInsecure())
-	if err != nil {
-		return fmt.Errorf("connecting to hookd gRPC server: %w", err)
-	}
-
-	grpcClient := deployment.NewDeployClient(grpcConnection)
-	deploymentStream, err := grpcClient.Deployments(context.Background(), &deployment.GetDeploymentOpts{
-		Cluster: cfg.Cluster,
-	})
-	if err != nil {
-		return fmt.Errorf("open deployment stream: %w", err)
-	}
-
 	statusChan := make(chan *deployment.DeploymentStatus, 1024)
 
 	metricsServer := http.NewServeMux()
@@ -70,15 +58,36 @@ func run() error {
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
-
+	var grpcClient deployment.DeployClient
 	go func() {
 		for {
-			req, err := deploymentStream.Recv()
+			grpcClient = nil
+			grpcConnection, err := grpc.Dial(cfg.GrpcServer, grpc.WithInsecure())
 			if err != nil {
-				log.Errorf("get next deployment: %v", err)
-			} else {
-				logger := log.WithFields(req.LogFields())
-				deployd.Run(logger, req, *cfg, kube, statusChan)
+				log.Errorf("connecting to hookd gRPC server: %s", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+			grpcClient = deployment.NewDeployClient(grpcConnection)
+			deploymentStream, err := grpcClient.Deployments(context.Background(), &deployment.GetDeploymentOpts{
+				Cluster: cfg.Cluster,
+			})
+			if err != nil {
+				log.Errorf("open deployment stream: %s", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			for {
+				req, err := deploymentStream.Recv()
+				if err != nil {
+					log.Errorf("failed connecting to hookd: %v", err)
+					grpcConnection.Close()
+					break
+				} else {
+					logger := log.WithFields(req.LogFields())
+					deployd.Run(logger, req, *cfg, kube, statusChan)
+				}
 			}
 		}
 	}()
@@ -88,6 +97,12 @@ func run() error {
 		select {
 		case status := <-statusChan:
 			logger := log.WithFields(status.LogFields())
+			if grpcClient == nil {
+				statusChan <- status
+				logger.Trace("unable to send status, retrying...")
+				time.Sleep(5 * time.Second)
+				break
+			}
 			switch {
 			case status == nil:
 				metrics.DeployIgnored.Inc()

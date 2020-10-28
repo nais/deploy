@@ -60,5 +60,5 @@ func (s *deployServer) Deployments(deploymentOpts *deployment.GetDeploymentOpts,
 }
 
 func (s *deployServer) ReportStatus(ctx context.Context, status *deployment.DeploymentStatus) (*deployment.ReportStatusOpts, error) {
-	return nil, s.HandleDeploymentStatus(ctx, *status)
+	return &deployment.ReportStatusOpts{}, s.HandleDeploymentStatus(ctx, *status)
 }
