@@ -55,40 +55,42 @@ func run() error {
 	log.Infof("Serving metrics on %s endpoint %s", cfg.MetricsListenAddr, cfg.MetricsPath)
 	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
 
+	grpcConnection, err := grpc.Dial(cfg.GrpcServer, grpc.WithInsecure())
+	if err != nil {
+		return fmt.Errorf("connecting to hookd gRPC server: %s", err)
+	}
+
+	grpcClient := deployment.NewDeployClient(grpcConnection)
+
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
-	var grpcClient deployment.DeployClient
 	go func() {
 		for {
-			grpcClient = nil
-			grpcConnection, err := grpc.Dial(cfg.GrpcServer, grpc.WithInsecure())
-			if err != nil {
-				log.Errorf("connecting to hookd gRPC server: %s", err)
-				time.Sleep(5 * time.Second)
-				continue
-			}
-			grpcClient = deployment.NewDeployClient(grpcConnection)
 			deploymentStream, err := grpcClient.Deployments(context.Background(), &deployment.GetDeploymentOpts{
 				Cluster: cfg.Cluster,
 			})
+
 			if err != nil {
-				log.Errorf("open deployment stream: %s", err)
+				log.Errorf("Open hookd deployment stream: %s", err)
 				time.Sleep(5 * time.Second)
 				continue
 			}
 
+			log.Infof("Connected to hookd and receiving deployment requests")
+
 			for {
 				req, err := deploymentStream.Recv()
 				if err != nil {
-					log.Errorf("failed connecting to hookd: %v", err)
-					grpcConnection.Close()
+					log.Errorf("Receive deployment request: %v", err)
 					break
 				} else {
 					logger := log.WithFields(req.LogFields())
 					deployd.Run(logger, req, *cfg, kube, statusChan)
 				}
 			}
+
+			log.Errorf("Disconnected from hookd")
 		}
 	}()
 
@@ -97,12 +99,6 @@ func run() error {
 		select {
 		case status := <-statusChan:
 			logger := log.WithFields(status.LogFields())
-			if grpcClient == nil {
-				statusChan <- status
-				logger.Trace("unable to send status, retrying...")
-				time.Sleep(5 * time.Second)
-				break
-			}
 			switch {
 			case status == nil:
 				metrics.DeployIgnored.Inc()
@@ -120,6 +116,9 @@ func run() error {
 			_, err = grpcClient.ReportStatus(context.Background(), status)
 			if err != nil {
 				logger.Errorf("While reporting deployment status: %s", err)
+				statusChan <- status
+				time.Sleep(5 * time.Second)
+				break
 			} else {
 				logger.Infof("Deployment response sent successfully")
 			}
