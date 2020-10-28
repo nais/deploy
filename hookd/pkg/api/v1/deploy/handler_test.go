@@ -46,7 +46,7 @@ type borker struct{}
 
 func (b *borker) SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error {
 	switch deployment.GetPayloadSpec().GetTeam() {
-	case "kafka_unavailable":
+	case "deployd_unavailable":
 		return fmt.Errorf("deploy queue is unavailable; try again later")
 	}
 	return nil
@@ -111,7 +111,9 @@ func (b *borker) ReportStatus(ctx context.Context, status *deployment.Deployment
 	return nil, nil
 }
 
-func (b *borker) Queue(request *deployment.DeploymentRequest) {}
+func (b *borker) Queue(request *deployment.DeploymentRequest) error {
+	return nil
+}
 
 func fileReader(file string) io.Reader {
 	f, err := os.Open(file)

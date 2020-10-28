@@ -57,7 +57,9 @@ func (b *borker) ReportStatus(ctx context.Context, status *deployment.Deployment
 	return nil, nil
 }
 
-func (b *borker) Queue(request *deployment.DeploymentRequest) {}
+func (b *borker) Queue(request *deployment.DeploymentRequest) error {
+	return nil
+}
 
 type handlerTest struct {
 	Handler  *server.GithubDeploymentHandler

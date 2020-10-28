@@ -4,7 +4,7 @@
       "resources": [
         {}
       ],
-      "team": "kafka_unavailable",
+      "team": "deployd_unavailable",
       "cluster": "local",
       "owner": "foo",
       "repository": "bar",
@@ -15,7 +15,7 @@
   "response": {
     "statusCode": 503,
     "body": {
-      "message": "deploy queue is unavailable; try again later"
+      "message": "deploy unavailable; try again later"
     }
   }
 }
