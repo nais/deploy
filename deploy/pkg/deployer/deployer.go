@@ -2,6 +2,7 @@ package deployer
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -31,12 +32,13 @@ type ActionsFormatter struct{}
 type ExitCode int
 
 const (
-	DeployAPIPath       = "/api/v1/deploy"
-	StatusAPIPath       = "/api/v1/status"
-	DefaultPollInterval = time.Second * 5
-	DefaultRef          = "master"
-	DefaultOwner        = "navikt"
-	DefaultDeployServer = "https://deploy.nais.io"
+	DeployAPIPath        = "/api/v1/deploy"
+	StatusAPIPath        = "/api/v1/status"
+	DefaultPollInterval  = time.Second * 5
+	DefaultRef           = "master"
+	DefaultOwner         = "navikt"
+	DefaultDeployServer  = "https://deploy.nais.io"
+	DefaultDeployTimeout = time.Minute * 10
 
 	ResourceRequiredMsg   = "at least one Kubernetes resource is required to make sense of the deployment"
 	APIKeyRequiredMsg     = "API key required"
@@ -57,6 +59,7 @@ const (
 	ExitInvocationFailure
 	ExitInternalError
 	ExitTemplateError
+	ExitTimeout
 )
 
 type Deployer struct {
@@ -66,7 +69,8 @@ type Deployer struct {
 
 func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	setupLogging(cfg.Actions, cfg.Quiet)
-
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
 	if err := validate(cfg); err != nil {
 		if !cfg.DryRun {
 			return ExitInvocationFailure, err
@@ -190,6 +194,13 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	response := &api_v1_deploy.DeploymentResponse{}
 
 	for {
+		select {
+		case <-ctx.Done():
+			return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
+		default:
+
+		}
+
 		req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
 
 		if err != nil {
@@ -218,7 +229,11 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 		if resp.StatusCode == http.StatusServiceUnavailable && cfg.Retry {
 			log.Infof("retrying in %s...", cfg.PollInterval)
-			time.Sleep(cfg.PollInterval)
+			select {
+			case <-ctx.Done():
+				return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
+			case <-time.NewTimer(cfg.PollInterval).C:
+			}
 			buf.Reset()
 			err = mkpayload(buf, allResources, cfg)
 			if err != nil {
@@ -243,13 +258,18 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	for {
 		cont, status, err := check(response.CorrelationID, decoded, *targetURL, cfg)
+
 		if !cont {
 			return status, err
 		}
 		if err != nil {
 			log.Error(err)
 		}
-		time.Sleep(cfg.PollInterval)
+		select {
+		case <-ctx.Done():
+			return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
+		case <-time.NewTimer(cfg.PollInterval).C:
+		}
 	}
 }
 

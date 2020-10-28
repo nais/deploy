@@ -90,6 +90,8 @@ func run() error {
 		return fmt.Errorf("migrating database: %s", err)
 	}
 
+
+
 	var installationClient *gh.Client
 	var githubClient github.Client
 

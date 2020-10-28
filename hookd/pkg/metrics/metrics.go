@@ -156,8 +156,6 @@ var (
 			Cluster,
 		},
 	)
-
-	KafkaQueueSize = gauge("kafka_queue_size", "number of messages received from Kafka and waiting to be processed")
 )
 
 func init() {
@@ -166,7 +164,6 @@ func init() {
 	prometheus.MustRegister(stateTransitions)
 	prometheus.MustRegister(queueSize)
 	prometheus.MustRegister(leadTime)
-	prometheus.MustRegister(KafkaQueueSize)
 }
 
 func Handler() http.Handler {
