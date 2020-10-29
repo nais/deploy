@@ -54,6 +54,7 @@ func init() {
 	flag.StringVar(&cfg.Azure.DiscoveryURL, "azure.discoveryurl", cfg.Azure.DiscoveryURL, "Azure DiscoveryURL")
 	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
 	flag.StringVar(&cfg.Azure.TeamMembershipAppID, "azure.teamMembershipAppID", cfg.Azure.TeamMembershipAppID, "Application ID of canonical team list")
+	flag.StringVar(&cfg.Azure.PreAuthorizedApps, "azure.preAuthorizedApps", cfg.Azure.PreAuthorizedApps, "Preauthorized Applications as Json")
 }
 
 func run() error {
@@ -89,8 +90,6 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("migrating database: %s", err)
 	}
-
-
 
 	var installationClient *gh.Client
 	var githubClient github.Client

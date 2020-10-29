@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
 	"net/http"
 	"os"
 	"os/signal"
@@ -34,6 +35,9 @@ func init() {
 	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
 	flag.BoolVar(&cfg.TeamNamespaces, "team-namespaces", cfg.TeamNamespaces, "Set to true if team service accounts live in team's own namespace.")
 	flag.BoolVar(&cfg.AutoCreateServiceAccount, "auto-create-service-account", cfg.AutoCreateServiceAccount, "Set to true to automatically create service accounts.")
+	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
+	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
+	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
 }
 
 func run() error {
@@ -45,6 +49,20 @@ func run() error {
 
 	log.Infof("deployd starting up")
 	log.Infof("cluster.................: %s", cfg.Cluster)
+
+	client := oauth2.Client{
+		ClientID:     cfg.Azure.ClientID,
+		ClientSecret: cfg.Azure.ClientSecret,
+		TenantID:     cfg.Azure.Tenant,
+	}
+
+	config := client.Config()
+
+	token, err := config.Token(context.Background())
+	if err != nil {
+		return err
+	}
+	log.Info(token)
 
 	kube, err := kubeclient.New()
 	if err != nil {

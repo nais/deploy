@@ -15,6 +15,13 @@ type Config struct {
 	MetricsPath              string
 	TeamNamespaces           bool
 	AutoCreateServiceAccount bool
+	Azure                    Azure
+}
+
+type Azure struct {
+	ClientID     string `json:"clientid"`
+	ClientSecret string `json:"clientsecret"`
+	Tenant       string `json:"tenant"`
 }
 
 func getEnv(key, fallback string) string {
@@ -40,5 +47,10 @@ func DefaultConfig() *Config {
 		MetricsPath:              getEnv("METRICS_PATH", "/metrics"),
 		TeamNamespaces:           parseBool(getEnv("TEAM_NAMESPACES", "false")),
 		AutoCreateServiceAccount: parseBool(getEnv("AUTO_CREATE_SERVICE_ACCOUNT", "true")),
+		Azure: Azure{
+			ClientID:     getEnv("AZURE_APP_CLIENT_ID", ""),
+			ClientSecret: getEnv("AZURE_APP_CLIENT_SECRET", ""),
+			Tenant:       getEnv("AZURE_APP_TENANT_ID", ""),
+		},
 	}
 }

@@ -12,6 +12,7 @@ type Azure struct {
 	Tenant              string `json:"tenant"`
 	DiscoveryURL        string `json:"discoveryurl"`
 	TeamMembershipAppID string `json:"teamMembershipAppID"`
+	PreAuthorizedApps   string `json:"preAuthorizedApps"`
 }
 
 type Github struct {
@@ -73,11 +74,12 @@ func DefaultConfig() *Config {
 		LogFormat:     getEnv("LOG_FORMAT", "text"),
 		LogLevel:      getEnv("LOG_LEVEL", "debug"),
 		Azure: Azure{
-			ClientID:            getEnv("AZURE_CLIENT_ID", ""),
-			ClientSecret:        getEnv("AZURE_CLIENT_SECRET", ""),
-			Tenant:              getEnv("AZURE_TENANT", ""),
+			ClientID:            getEnv("AZURE_APP_CLIENT_ID", ""),
+			ClientSecret:        getEnv("AZURE_APP_CLIENT_SECRET", ""),
+			Tenant:              getEnv("AZURE_APP_TENANT_ID", ""),
 			DiscoveryURL:        getEnv("AZURE_DISCOVERY_URL", "https://login.microsoftonline.com/common/discovery/v2.0/keys"),
 			TeamMembershipAppID: getEnv("AZURE_TEAM_MEMBERSHIP_APP_ID", ""),
+			PreAuthorizedApps:   getEnv("AZURE_APP_PRE_AUTHORIZED_APPS", ""),
 		},
 		Github: Github{
 			ApplicationID: parseInt(getEnv("GITHUB_APP_ID", "0")),
