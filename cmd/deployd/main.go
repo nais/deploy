@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -17,6 +18,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 )
 
 var cfg = config.DefaultConfig()
@@ -26,6 +29,7 @@ func init() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
 	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
+	flag.BoolVar(&cfg.GrpcInsecure, "grpc-insecure", cfg.GrpcInsecure, "Use insecure connection when connecting to gRPC server.")
 	flag.StringVar(&cfg.GrpcServer, "grpc-server", cfg.GrpcServer, "gRPC server endpoint on hookd.")
 	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
 	flag.BoolVar(&cfg.TeamNamespaces, "team-namespaces", cfg.TeamNamespaces, "Set to true if team service accounts live in team's own namespace.")
@@ -55,7 +59,25 @@ func run() error {
 	log.Infof("Serving metrics on %s endpoint %s", cfg.MetricsListenAddr, cfg.MetricsPath)
 	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
 
-	grpcConnection, err := grpc.Dial(cfg.GrpcServer, grpc.WithInsecure())
+	dialOptions := make([]grpc.DialOption, 0)
+	if cfg.GrpcInsecure {
+		dialOptions = append(dialOptions, grpc.WithInsecure())
+	} else {
+		tlsOpts := &tls.Config{}
+		cred := credentials.NewTLS(tlsOpts)
+		if err != nil {
+			return fmt.Errorf("gRPC configured to use TLS, but system-wide CA certificate bundle cannot be loaded")
+		}
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
+	}
+
+	dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:                10 * time.Second,
+		Timeout:             20 * time.Second,
+		PermitWithoutStream: true,
+	}))
+
+	grpcConnection, err := grpc.Dial(cfg.GrpcServer, dialOptions...)
 	if err != nil {
 		return fmt.Errorf("connecting to hookd gRPC server: %s", err)
 	}

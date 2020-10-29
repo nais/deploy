@@ -10,6 +10,7 @@ type Config struct {
 	LogLevel                 string
 	Cluster                  string
 	MetricsListenAddr        string
+	GrpcInsecure             bool
 	GrpcServer               string
 	MetricsPath              string
 	TeamNamespaces           bool
@@ -33,6 +34,7 @@ func DefaultConfig() *Config {
 		LogFormat:                getEnv("LOG_FORMAT", "text"),
 		LogLevel:                 getEnv("LOG_LEVEL", "debug"),
 		Cluster:                  getEnv("CLUSTER", "local"),
+		GrpcInsecure:             parseBool(getEnv("GRPC_INSECURE", "true")),
 		GrpcServer:               getEnv("GRPC_SERVER", "127.0.0.1:9090"),
 		MetricsListenAddr:        getEnv("METRICS_LISTEN_ADDRESS", "127.0.0.1:8081"),
 		MetricsPath:              getEnv("METRICS_PATH", "/metrics"),
