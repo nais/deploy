@@ -20,6 +20,7 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
 	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
+	"github.com/navikt/deployment/hookd/pkg/grpc/interceptor"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -45,6 +46,9 @@ func init() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringSliceVar(&cfg.Clusters, "clusters", cfg.Clusters, "Comma-separated list of valid clusters that can be deployed to.")
 	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
+
+	flag.StringVar(&cfg.GrpcAddress, "grpc-address", cfg.GrpcAddress, "Listen address of gRPC server.")
+	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", cfg.GrpcAuthentication, "Validate tokens on gRPC connection.")
 
 	flag.StringVar(&cfg.DatabaseEncryptionKey, "database-encryption-key", cfg.DatabaseEncryptionKey, "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.StringVar(&cfg.DatabaseURL, "database.url", cfg.DatabaseURL, "PostgreSQL connection information.")
@@ -113,7 +117,19 @@ func run() error {
 
 	// Set up gRPC server
 	deployServer := deployserver.New(db, githubClient)
-	grpcServer := grpc.NewServer()
+	serverOpts := make([]grpc.ServerOption, 0)
+	if cfg.GrpcAuthentication {
+		intercept := &interceptor.ServerInterceptor{
+			Audience:     cfg.Azure.ClientID,
+			Certificates: certificates,
+		}
+		serverOpts = append(
+			serverOpts,
+			grpc.UnaryInterceptor(intercept.UnaryServerInterceptor),
+			grpc.StreamInterceptor(intercept.StreamServerInterceptor),
+		)
+	}
+	grpcServer := grpc.NewServer(serverOpts...)
 	deployment.RegisterDeployServer(grpcServer, deployServer)
 	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
 	if err != nil {

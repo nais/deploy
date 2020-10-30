@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
+	"github.com/navikt/deployment/hookd/pkg/grpc/interceptor"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/logging"
@@ -32,6 +34,8 @@ func init() {
 	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
 	flag.BoolVar(&cfg.GrpcInsecure, "grpc-insecure", cfg.GrpcInsecure, "Use insecure connection when connecting to gRPC server.")
 	flag.StringVar(&cfg.GrpcServer, "grpc-server", cfg.GrpcServer, "gRPC server endpoint on hookd.")
+	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", cfg.GrpcAuthentication, "Use token authentication on gRPC connection.")
+	flag.StringVar(&cfg.HookdApplicationID, "hookd-application-id", cfg.HookdApplicationID, "Azure application ID of hookd, used for token authentication.")
 	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
 	flag.BoolVar(&cfg.TeamNamespaces, "team-namespaces", cfg.TeamNamespaces, "Set to true if team service accounts live in team's own namespace.")
 	flag.BoolVar(&cfg.AutoCreateServiceAccount, "auto-create-service-account", cfg.AutoCreateServiceAccount, "Set to true to automatically create service accounts.")
@@ -50,19 +54,9 @@ func run() error {
 	log.Infof("deployd starting up")
 	log.Infof("cluster.................: %s", cfg.Cluster)
 
-	client := oauth2.Client{
-		ClientID:     cfg.Azure.ClientID,
-		ClientSecret: cfg.Azure.ClientSecret,
-		TenantID:     cfg.Azure.Tenant,
+	if !cfg.GrpcInsecure && len(cfg.HookdApplicationID) == 0 {
+		return fmt.Errorf("Secure gRPC operation enabled, but --hookd-application-id is not specified")
 	}
-
-	config := client.Config()
-
-	token, err := config.Token(context.Background())
-	if err != nil {
-		return err
-	}
-	log.Info(token)
 
 	kube, err := kubeclient.New()
 	if err != nil {
@@ -87,6 +81,20 @@ func run() error {
 			return fmt.Errorf("gRPC configured to use TLS, but system-wide CA certificate bundle cannot be loaded")
 		}
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
+	}
+
+	if cfg.GrpcAuthentication {
+		tokenConfig := oauth2.Config(oauth2.ClientConfig{
+			ClientID:     cfg.Azure.ClientID,
+			ClientSecret: cfg.Azure.ClientSecret,
+			TenantID:     cfg.Azure.Tenant,
+			Scopes:       []string{fmt.Sprintf("api://%s/.default", cfg.HookdApplicationID)},
+		})
+		intercept := interceptor.ClientInterceptor{
+			Config: tokenConfig,
+		}
+		go intercept.TokenLoop()
+		dialOptions = append(dialOptions, grpc.WithUnaryInterceptor(intercept.UnaryClientInterceptor))
 	}
 
 	dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{

@@ -5,18 +5,18 @@ import (
 	"golang.org/x/oauth2/microsoft"
 )
 
-type Client struct {
+type ClientConfig struct {
 	ClientID     string
 	ClientSecret string
 	TenantID     string
+	Scopes       []string
 }
 
-func (c *Client) Config() clientcredentials.Config {
+func Config(config ClientConfig) clientcredentials.Config {
 	return clientcredentials.Config{
-		ClientID:     c.ClientID,
-		ClientSecret: c.ClientSecret,
-		Scopes:       []string{"https://graph.microsoft.com/.default"},
-		TokenURL:     microsoft.AzureADEndpoint(c.TenantID).TokenURL,
+		ClientID:     config.ClientID,
+		ClientSecret: config.ClientSecret,
+		Scopes:       config.Scopes,
+		TokenURL:     microsoft.AzureADEndpoint(config.TenantID).TokenURL,
 	}
-
 }

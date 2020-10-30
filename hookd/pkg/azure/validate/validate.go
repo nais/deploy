@@ -13,7 +13,7 @@ func JWTValidator(certificates map[string]discovery.CertificateList, audience st
 		var kid string
 		var ok bool
 
-		if claims, ok := token.Claims.(*jwt.MapClaims); !ok {
+		if claims, ok := token.Claims.(jwt.MapClaims); !ok {
 			return nil, fmt.Errorf("Unable to retrieve claims from token")
 		} else {
 			if valid := claims.VerifyAudience(audience, true); !valid {

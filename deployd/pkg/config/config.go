@@ -10,8 +10,10 @@ type Config struct {
 	LogLevel                 string
 	Cluster                  string
 	MetricsListenAddr        string
+	GrpcAuthentication       bool
 	GrpcInsecure             bool
 	GrpcServer               string
+	HookdApplicationID       string
 	MetricsPath              string
 	TeamNamespaces           bool
 	AutoCreateServiceAccount bool
@@ -41,8 +43,10 @@ func DefaultConfig() *Config {
 		LogFormat:                getEnv("LOG_FORMAT", "text"),
 		LogLevel:                 getEnv("LOG_LEVEL", "debug"),
 		Cluster:                  getEnv("CLUSTER", "local"),
+		GrpcAuthentication:       parseBool(getEnv("GRPC_AUTHENTICATION", "false")),
 		GrpcInsecure:             parseBool(getEnv("GRPC_INSECURE", "true")),
 		GrpcServer:               getEnv("GRPC_SERVER", "127.0.0.1:9090"),
+		HookdApplicationID:       getEnv("HOOKD_APPLICATION_ID", ""),
 		MetricsListenAddr:        getEnv("METRICS_LISTEN_ADDRESS", "127.0.0.1:8081"),
 		MetricsPath:              getEnv("METRICS_PATH", "/metrics"),
 		TeamNamespaces:           parseBool(getEnv("TEAM_NAMESPACES", "false")),
