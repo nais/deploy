@@ -27,6 +27,10 @@ import (
 
 var cfg = config.DefaultConfig()
 
+const (
+	requestBackoff = 2 * time.Second
+)
+
 func init() {
 	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
@@ -118,13 +122,14 @@ func run() error {
 	signal.Notify(signals, os.Interrupt)
 	go func() {
 		for {
+			time.Sleep(requestBackoff)
+
 			deploymentStream, err := grpcClient.Deployments(context.Background(), &deployment.GetDeploymentOpts{
 				Cluster: cfg.Cluster,
 			})
 
 			if err != nil {
 				log.Errorf("Open hookd deployment stream: %s", err)
-				time.Sleep(5 * time.Second)
 				continue
 			}
 
@@ -134,7 +139,6 @@ func run() error {
 				req, err := deploymentStream.Recv()
 				if err != nil {
 					log.Errorf("Receive deployment request: %v", err)
-					time.Sleep(time.Second * 5)
 					break
 				} else {
 					logger := log.WithFields(req.LogFields())
