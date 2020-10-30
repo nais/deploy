@@ -2,11 +2,11 @@ package interceptor
 
 import (
 	"context"
+	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/azure/validate"
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -16,6 +16,7 @@ import (
 type ServerInterceptor struct {
 	Audience     string
 	Certificates map[string]discovery.CertificateList
+	PreAuthApps  []oauth2.PreAuthorizedApplication
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
@@ -30,14 +31,19 @@ func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 	}
 
 	accessToken := values[0]
-	claims, err := jwt.Parse(accessToken, validate.JWTValidator(t.Certificates, t.Audience))
+	var claims jwt.MapClaims
+	_, err = jwt.ParseWithClaims(accessToken, &claims, validate.JWTValidator(t.Certificates, t.Audience))
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "access token is invalid: %v", err)
 	}
 
-	log.Infof("token: %#v", claims)
+	for _, authApp := range t.PreAuthApps {
+		if authApp.ClientId == claims["azp"] {
+			return handler(ctx, req)
+		}
+	}
 
-	return handler(ctx, req)
+	return nil, status.Errorf(codes.PermissionDenied, "application is not authorized")
 
 }
 

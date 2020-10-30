@@ -5,6 +5,11 @@ import (
 	"golang.org/x/oauth2/microsoft"
 )
 
+type PreAuthorizedApplication struct {
+	Name     string `json:"name"`
+	ClientId string `json:"clientId"`
+}
+
 type ClientConfig struct {
 	ClientID     string
 	ClientSecret string

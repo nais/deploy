@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
 	"net"
 	"net/http"
 	"os"
@@ -116,32 +118,11 @@ func run() error {
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
-	deployServer := deployserver.New(db, githubClient)
-	serverOpts := make([]grpc.ServerOption, 0)
-	if cfg.GrpcAuthentication {
-		intercept := &interceptor.ServerInterceptor{
-			Audience:     cfg.Azure.ClientID,
-			Certificates: certificates,
-		}
-		serverOpts = append(
-			serverOpts,
-			grpc.UnaryInterceptor(intercept.UnaryServerInterceptor),
-			grpc.StreamInterceptor(intercept.StreamServerInterceptor),
-		)
-	}
-	grpcServer := grpc.NewServer(serverOpts...)
-	deployment.RegisterDeployServer(grpcServer, deployServer)
-	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
+	deployServer, err := startGrpcServer(db, githubClient, certificates, err)
 	if err != nil {
-		return fmt.Errorf("unable to set up gRPC server: %w", err)
+		return err
 	}
-	go func() {
-		err := grpcServer.Serve(grpcListener)
-		if err != nil {
-			log.Error(err)
-			os.Exit(114)
-		}
-	}()
+
 
 	log.Infof("gRPC server started")
 
@@ -175,6 +156,44 @@ func run() error {
 	<-signals
 
 	return nil
+}
+
+func startGrpcServer(db database.DeploymentStore, githubClient github.Client, certificates map[string]discovery.CertificateList, err error) (deployserver.DeployServer, error) {
+	deployServer := deployserver.New(db, githubClient)
+	serverOpts := make([]grpc.ServerOption, 0)
+	if cfg.GrpcAuthentication {
+		preAuthApps := []oauth2.PreAuthorizedApplication{}
+		err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
+		}
+
+		intercept := &interceptor.ServerInterceptor{
+			Audience:     cfg.Azure.ClientID,
+			Certificates: certificates,
+			PreAuthApps: preAuthApps,
+		}
+		serverOpts = append(
+			serverOpts,
+			grpc.UnaryInterceptor(intercept.UnaryServerInterceptor),
+			grpc.StreamInterceptor(intercept.StreamServerInterceptor),
+		)
+	}
+	grpcServer := grpc.NewServer(serverOpts...)
+	deployment.RegisterDeployServer(grpcServer, deployServer)
+	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set up gRPC server: %w", err)
+	}
+	go func() {
+		err := grpcServer.Serve(grpcListener)
+		if err != nil {
+			log.Error(err)
+			os.Exit(114)
+		}
+	}()
+
+	return deployServer, nil
 }
 
 func main() {
