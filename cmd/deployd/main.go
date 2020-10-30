@@ -32,7 +32,7 @@ func init() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
 	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
-	flag.BoolVar(&cfg.GrpcInsecure, "grpc-insecure", cfg.GrpcInsecure, "Use insecure connection when connecting to gRPC server.")
+	flag.BoolVar(&cfg.GrpcUseTLS, "grpc-use-tls", cfg.GrpcUseTLS, "Use secure connection when connecting to gRPC server.")
 	flag.StringVar(&cfg.GrpcServer, "grpc-server", cfg.GrpcServer, "gRPC server endpoint on hookd.")
 	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", cfg.GrpcAuthentication, "Use token authentication on gRPC connection.")
 	flag.StringVar(&cfg.HookdApplicationID, "hookd-application-id", cfg.HookdApplicationID, "Azure application ID of hookd, used for token authentication.")
@@ -54,8 +54,8 @@ func run() error {
 	log.Infof("deployd starting up")
 	log.Infof("cluster.................: %s", cfg.Cluster)
 
-	if !cfg.GrpcInsecure && len(cfg.HookdApplicationID) == 0 {
-		return fmt.Errorf("Secure gRPC operation enabled, but --hookd-application-id is not specified")
+	if cfg.GrpcAuthentication && len(cfg.HookdApplicationID) == 0 {
+		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-application-id is not specified")
 	}
 
 	kube, err := kubeclient.New()
@@ -72,7 +72,7 @@ func run() error {
 	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
 
 	dialOptions := make([]grpc.DialOption, 0)
-	if cfg.GrpcInsecure {
+	if !cfg.GrpcUseTLS {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
 	} else {
 		tlsOpts := &tls.Config{}
@@ -91,7 +91,8 @@ func run() error {
 			Scopes:       []string{fmt.Sprintf("api://%s/.default", cfg.HookdApplicationID)},
 		})
 		intercept := &interceptor.ClientInterceptor{
-			Config: tokenConfig,
+			Config:     tokenConfig,
+			RequireTLS: cfg.GrpcUseTLS,
 		}
 		go intercept.TokenLoop()
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))

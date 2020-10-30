@@ -11,7 +11,7 @@ type Config struct {
 	Cluster                  string
 	MetricsListenAddr        string
 	GrpcAuthentication       bool
-	GrpcInsecure             bool
+	GrpcUseTLS               bool
 	GrpcServer               string
 	HookdApplicationID       string
 	MetricsPath              string
@@ -44,7 +44,7 @@ func DefaultConfig() *Config {
 		LogLevel:                 getEnv("LOG_LEVEL", "debug"),
 		Cluster:                  getEnv("CLUSTER", "local"),
 		GrpcAuthentication:       parseBool(getEnv("GRPC_AUTHENTICATION", "false")),
-		GrpcInsecure:             parseBool(getEnv("GRPC_INSECURE", "true")),
+		GrpcUseTLS:               parseBool(getEnv("GRPC_USE_TLS", "false")),
 		GrpcServer:               getEnv("GRPC_SERVER", "127.0.0.1:9090"),
 		HookdApplicationID:       getEnv("HOOKD_APPLICATION_ID", ""),
 		MetricsListenAddr:        getEnv("METRICS_LISTEN_ADDRESS", "127.0.0.1:8081"),

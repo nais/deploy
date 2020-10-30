@@ -10,8 +10,9 @@ import (
 )
 
 type ClientInterceptor struct {
-	Config clientcredentials.Config
-	token  oauth2.Token
+	Config     clientcredentials.Config
+	RequireTLS bool
+	token      oauth2.Token
 }
 
 func (t *ClientInterceptor) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
@@ -19,8 +20,7 @@ func (t *ClientInterceptor) GetRequestMetadata(ctx context.Context, uri ...strin
 }
 
 func (t *ClientInterceptor) RequireTransportSecurity() bool {
-	// fixme
-	return false
+	return t.RequireTLS
 }
 
 func (t *ClientInterceptor) TokenLoop() {
