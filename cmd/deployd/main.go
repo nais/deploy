@@ -90,11 +90,11 @@ func run() error {
 			TenantID:     cfg.Azure.Tenant,
 			Scopes:       []string{fmt.Sprintf("api://%s/.default", cfg.HookdApplicationID)},
 		})
-		intercept := interceptor.ClientInterceptor{
+		intercept := &interceptor.ClientInterceptor{
 			Config: tokenConfig,
 		}
 		go intercept.TokenLoop()
-		dialOptions = append(dialOptions, grpc.WithUnaryInterceptor(intercept.UnaryClientInterceptor))
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 	}
 
 	dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{
@@ -133,6 +133,7 @@ func run() error {
 				req, err := deploymentStream.Recv()
 				if err != nil {
 					log.Errorf("Receive deployment request: %v", err)
+					time.Sleep(time.Second * 5)
 					break
 				} else {
 					logger := log.WithFields(req.LogFields())

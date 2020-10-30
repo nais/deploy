@@ -2,10 +2,9 @@ package interceptor
 
 import (
 	"context"
-	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
-
 	"github.com/dgrijalva/jwt-go"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
+	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
 	"github.com/navikt/deployment/hookd/pkg/azure/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -20,31 +19,38 @@ type ServerInterceptor struct {
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+	err = t.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return handler(ctx, req)
+}
+
+func (t *ServerInterceptor) authenticate(ctx context.Context) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "metadata is not provided")
+		return status.Errorf(codes.Unauthenticated, "metadata is not provided")
 	}
 
 	values := md["authorization"]
 	if len(values) == 0 {
-		return nil, status.Errorf(codes.Unauthenticated, "authorization token is not provided")
+		return status.Errorf(codes.Unauthenticated, "authorization token is not provided")
 	}
 
 	accessToken := values[0]
 	var claims jwt.MapClaims
-	_, err = jwt.ParseWithClaims(accessToken, &claims, validate.JWTValidator(t.Certificates, t.Audience))
+	_, err := jwt.ParseWithClaims(accessToken, &claims, validate.JWTValidator(t.Certificates, t.Audience))
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "access token is invalid: %v", err)
+		return status.Errorf(codes.Unauthenticated, "access token is invalid: %v", err)
 	}
 
 	for _, authApp := range t.PreAuthApps {
 		if authApp.ClientId == claims["azp"] {
-			return handler(ctx, req)
+			return nil
 		}
 	}
 
-	return nil, status.Errorf(codes.PermissionDenied, "application is not authorized")
-
+	return status.Errorf(codes.PermissionDenied, "application is not authorized")
 }
 
 func (t *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
@@ -52,7 +58,11 @@ func (t *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 }
 
 func (t *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	// fixme
+	err := t.authenticate(ss.Context())
+	if err != nil {
+		return err
+	}
+
 	return handler(srv, ss)
 }
 

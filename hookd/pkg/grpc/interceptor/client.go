@@ -7,13 +7,20 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 type ClientInterceptor struct {
 	Config clientcredentials.Config
 	token  oauth2.Token
+}
+
+func (t *ClientInterceptor) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	return map[string]string{"authorization": t.token.AccessToken}, nil
+}
+
+func (t *ClientInterceptor) RequireTransportSecurity() bool {
+	// fixme
+	return false
 }
 
 func (t *ClientInterceptor) TokenLoop() {
@@ -40,22 +47,4 @@ func (t *ClientInterceptor) TokenLoop() {
 		timer.Reset(duration)
 		log.Infof("Successfully refreshed oauth2 token, next refresh in %s", duration.String())
 	}
-}
-
-func (t *ClientInterceptor) UnaryClientInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", t.token.AccessToken)
-	return invoker(ctx, method, req, reply, cc, opts...)
-}
-
-func (t *ClientInterceptor) Unary() grpc.UnaryClientInterceptor {
-	return t.UnaryClientInterceptor
-}
-
-func (t *ClientInterceptor) StreamClientInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	// fixme
-	return nil, nil
-}
-
-func (t *ClientInterceptor) Stream() grpc.StreamClientInterceptor {
-	return t.StreamClientInterceptor
 }
