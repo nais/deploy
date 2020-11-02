@@ -22,7 +22,6 @@ import (
 	flag "github.com/spf13/pflag"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
 )
 
 var cfg = config.DefaultConfig()
@@ -101,12 +100,6 @@ func run() error {
 		go intercept.TokenLoop()
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 	}
-
-	dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{
-		Time:                10 * time.Second,
-		Timeout:             20 * time.Second,
-		PermitWithoutStream: true,
-	}))
 
 	grpcConnection, err := grpc.Dial(cfg.GrpcServer, dialOptions...)
 	if err != nil {

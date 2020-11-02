@@ -53,7 +53,7 @@ func (s *deployServer) onlineClusters() []string {
 func (s *deployServer) Deployments(opts *deployment.GetDeploymentOpts, stream deployment.Deploy_DeploymentsServer) error {
 	err := s.clusterOnline(opts.Cluster)
 	if err == nil {
-		log.Infof("rejected connection from cluster '%s': already connected", opts.Cluster)
+		log.Warnf("Rejected connection from cluster '%s': already connected", opts.Cluster)
 		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
 	}
 	s.streams[opts.Cluster] = stream
