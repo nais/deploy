@@ -14,7 +14,6 @@ import (
 
 type DeployServer interface {
 	deployment.DeployServer
-	Queue(request *deployment.DeploymentRequest) error
 	SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error
 	HandleDeploymentStatus(ctx context.Context, status deployment.DeploymentStatus) error
 }
@@ -51,15 +50,12 @@ func (s *deployServer) onlineClusters() []string {
 	return clusters
 }
 
-func (s *deployServer) Queue(request *deployment.DeploymentRequest) error {
-	stream, ok := s.streams[request.Cluster]
-	if !ok {
-		return fmt.Errorf("cluster '%s' is offline", request.Cluster)
-	}
-	return stream.Send(request)
-}
-
 func (s *deployServer) Deployments(opts *deployment.GetDeploymentOpts, stream deployment.Deploy_DeploymentsServer) error {
+	err := s.clusterOnline(opts.Cluster)
+	if err == nil {
+		log.Infof("rejected connection from cluster '%s': already connected", opts.Cluster)
+		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
+	}
 	s.streams[opts.Cluster] = stream
 	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
 	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))

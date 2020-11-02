@@ -1,4 +1,4 @@
-// package deployServer provides message switching between hookd and Kafka
+// package deployServer provides message streams between hookd and deployd
 
 package deployserver
 
@@ -121,16 +121,28 @@ func (s *deployServer) createGithubDeploymentStatus(status deployment.Deployment
 	return nil
 }
 
-func (s *deployServer) SendDeploymentRequest(ctx context.Context, deployment deployment.DeploymentRequest) error {
-	err := s.Queue(&deployment)
+func (s *deployServer) SendDeploymentRequest(ctx context.Context, request deployment.DeploymentRequest) error {
+	err := s.clusterOnline(request.Cluster)
+	if err != nil {
+		return err
+	}
+	err = s.streams[request.Cluster].Send(&request)
 	if err != nil {
 		return err
 	}
 
-	log.WithFields(deployment.LogFields()).Infof("Sent deployment request")
+	log.WithFields(request.LogFields()).Infof("Sent deployment request")
 
-	s.requests <- deployment
+	s.requests <- request
 
+	return nil
+}
+
+func (s *deployServer) clusterOnline(clusterName string) error {
+	_, ok := s.streams[clusterName]
+	if !ok {
+		return fmt.Errorf("cluster '%s' is offline", clusterName)
+	}
 	return nil
 }
 
