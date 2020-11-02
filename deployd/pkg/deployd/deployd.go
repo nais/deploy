@@ -83,6 +83,8 @@ func Prepare(req *deployment.DeploymentRequest, cluster string) error {
 func Run(logger *log.Entry, req *deployment.DeploymentRequest, cfg config.Config, kube kubeclient.TeamClientProvider, deployStatus chan *deployment.DeploymentStatus) {
 	var namespace string
 
+	logger.Infof("Starting deployment")
+
 	// Check the validity of the message.
 	err := Prepare(req, cfg.Cluster)
 	nl := logger.WithFields(req.LogFields())

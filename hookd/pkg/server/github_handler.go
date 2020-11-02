@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
 	"io/ioutil"
 	"net/http"
 
@@ -11,7 +12,6 @@ import (
 	types "github.com/navikt/deployment/common/pkg/deployment"
 	api_v1 "github.com/navikt/deployment/hookd/pkg/api/v1"
 	api_v1_deploy "github.com/navikt/deployment/hookd/pkg/api/v1/deploy"
-	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	log "github.com/sirupsen/logrus"
 )
@@ -21,7 +21,7 @@ const (
 )
 
 type GithubDeploymentHandler struct {
-	Broker                broker.Broker
+	Broker                deployserver.DeployServer
 	Clusters              api_v1.ClusterList
 	SecretToken           string
 	TeamRepositoryStorage database.RepositoryTeamStore

@@ -2,6 +2,7 @@ package deployer
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -31,12 +32,13 @@ type ActionsFormatter struct{}
 type ExitCode int
 
 const (
-	DeployAPIPath       = "/api/v1/deploy"
-	StatusAPIPath       = "/api/v1/status"
-	DefaultPollInterval = time.Second * 5
-	DefaultRef          = "master"
-	DefaultOwner        = "navikt"
-	DefaultDeployServer = "https://deploy.nais.io"
+	DeployAPIPath        = "/api/v1/deploy"
+	StatusAPIPath        = "/api/v1/status"
+	DefaultPollInterval  = time.Second * 5
+	DefaultRef           = "master"
+	DefaultOwner         = "navikt"
+	DefaultDeployServer  = "https://deploy.nais.io"
+	DefaultDeployTimeout = time.Minute * 10
 
 	ResourceRequiredMsg   = "at least one Kubernetes resource is required to make sense of the deployment"
 	APIKeyRequiredMsg     = "API key required"
@@ -57,6 +59,7 @@ const (
 	ExitInvocationFailure
 	ExitInternalError
 	ExitTemplateError
+	ExitTimeout
 )
 
 type Deployer struct {
@@ -66,7 +69,8 @@ type Deployer struct {
 
 func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	setupLogging(cfg.Actions, cfg.Quiet)
-
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
 	if err := validate(cfg); err != nil {
 		if !cfg.DryRun {
 			return ExitInvocationFailure, err
@@ -140,13 +144,13 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		namespaces := make(map[string]interface{})
 		cfg.Environment = cfg.Cluster
 
-		for i, _ := range cfg.Resource {
+		for i := range cfg.Resource {
 			namespace := detectNamespace(resources[i])
 			namespaces[namespace] = new(interface{})
 		}
 
 		if len(namespaces) == 1 {
-			for namespace, _ := range namespaces {
+			for namespace := range namespaces {
 				if len(namespace) != 0 {
 					cfg.Environment = fmt.Sprintf("%s:%s", cfg.Cluster, namespace)
 				}
@@ -186,32 +190,61 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	sig := sign(buf.Bytes(), decoded)
 
-	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
-
-	if err != nil {
-		return ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
-	}
-
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add(api_v1.SignatureHeader, fmt.Sprintf("%s", sig))
-	log.Infof("Submitting deployment request to %s...", targetURL.String())
-	resp, err := d.Client.Do(req)
-
-	if err != nil {
-		return ExitUnavailable, err
-	}
-
-	log.Infof("status....: %s", resp.Status)
+	var resp *http.Response
 	response := &api_v1_deploy.DeploymentResponse{}
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(response)
 
-	if err != nil {
-		return ExitUnavailable, fmt.Errorf("received invalid response from server: %s", err)
+	for {
+		select {
+		case <-ctx.Done():
+			return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
+		default:
+
+		}
+
+		req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
+
+		if err != nil {
+			return ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
+		}
+
+		req.Header.Add("content-type", "application/json")
+		req.Header.Add(api_v1.SignatureHeader, fmt.Sprintf("%s", sig))
+		log.Infof("Submitting deployment request to %s...", targetURL.String())
+		resp, err = d.Client.Do(req)
+
+		if err != nil {
+			return ExitUnavailable, err
+		}
+
+		log.Infof("status....: %s", resp.Status)
+		decoder := json.NewDecoder(resp.Body)
+		err = decoder.Decode(response)
+
+		if err != nil {
+			return ExitUnavailable, fmt.Errorf("received invalid response from server: %s", err)
+		}
+
+		log.Infof("message...: %s", response.Message)
+		log.Infof("logs......: %s", response.LogURL)
+
+		if resp.StatusCode == http.StatusServiceUnavailable && cfg.Retry {
+			log.Infof("retrying in %s...", cfg.PollInterval)
+			select {
+			case <-ctx.Done():
+				return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
+			case <-time.NewTimer(cfg.PollInterval).C:
+			}
+			buf.Reset()
+			err = mkpayload(buf, allResources, cfg)
+			if err != nil {
+				return ExitInvocationFailure, err
+			}
+			sig = sign(buf.Bytes(), decoded)
+			continue
+		}
+
+		break
 	}
-
-	log.Infof("message...: %s", response.Message)
-	log.Infof("logs......: %s", response.LogURL)
 
 	if resp.StatusCode != http.StatusCreated {
 		return ExitNoDeployment, fmt.Errorf("deployment failed: %s", response.Message)
@@ -225,13 +258,18 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	for {
 		cont, status, err := check(response.CorrelationID, decoded, *targetURL, cfg)
+
 		if !cont {
 			return status, err
 		}
 		if err != nil {
 			log.Error(err)
 		}
-		time.Sleep(cfg.PollInterval)
+		select {
+		case <-ctx.Done():
+			return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
+		case <-time.NewTimer(cfg.PollInterval).C:
+		}
 	}
 }
 

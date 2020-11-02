@@ -49,6 +49,18 @@ func (b *borker) HandleDeploymentStatus(ctx context.Context, status deployment.D
 	return nil
 }
 
+func (b *borker) Deployments(deploymentOpts *deployment.GetDeploymentOpts, deploymentsServer deployment.Deploy_DeploymentsServer) error {
+	return nil
+}
+
+func (b *borker) ReportStatus(ctx context.Context, status *deployment.DeploymentStatus) (*deployment.ReportStatusOpts, error) {
+	return nil, nil
+}
+
+func (b *borker) Queue(request *deployment.DeploymentRequest) error {
+	return nil
+}
+
 type handlerTest struct {
 	Handler  *server.GithubDeploymentHandler
 	Body     *bytes.Buffer

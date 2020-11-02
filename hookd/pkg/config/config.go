@@ -4,8 +4,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/navikt/deployment/common/pkg/kafka"
 )
 
 type Azure struct {
@@ -14,6 +12,7 @@ type Azure struct {
 	Tenant              string `json:"tenant"`
 	DiscoveryURL        string `json:"discoveryurl"`
 	TeamMembershipAppID string `json:"teamMembershipAppID"`
+	PreAuthorizedApps   string `json:"preAuthorizedApps"`
 }
 
 type Github struct {
@@ -27,18 +26,18 @@ type Github struct {
 }
 
 type Config struct {
+	GrpcAddress           string
+	GrpcAuthentication    bool
 	ListenAddress         string
 	LogFormat             string
 	LogLevel              string
 	BaseURL               string
-	Kafka                 kafka.Config
 	Azure                 Azure
 	Github                Github
 	DatabaseURL           string
 	MetricsPath           string
 	Clusters              []string
 	ProvisionKey          string
-	EncryptionKey         string
 	DatabaseEncryptionKey string
 }
 
@@ -69,18 +68,20 @@ func parseInt(str string) int {
 
 func DefaultConfig() *Config {
 	return &Config{
-		BaseURL:       getEnv("BASE_URL", "http://localhost:8080"),
-		Clusters:      strings.FieldsFunc(getEnv("CLUSTERS", ""), func(r rune) bool { return r == ',' }),
-		ListenAddress: getEnv("LISTEN_ADDRESS", "127.0.0.1:8080"),
-		LogFormat:     getEnv("LOG_FORMAT", "text"),
-		LogLevel:      getEnv("LOG_LEVEL", "debug"),
-		Kafka:         kafka.DefaultConfig(),
+		BaseURL:            getEnv("BASE_URL", "http://localhost:8080"),
+		Clusters:           strings.FieldsFunc(getEnv("CLUSTERS", "local"), func(r rune) bool { return r == ',' }),
+		ListenAddress:      getEnv("LISTEN_ADDRESS", "127.0.0.1:8080"),
+		GrpcAddress:        getEnv("GRPC_LISTEN_ADDRESS", "127.0.0.1:9090"),
+		GrpcAuthentication: parseBool(getEnv("GRPC_AUTHENTICATION", "false")),
+		LogFormat:          getEnv("LOG_FORMAT", "text"),
+		LogLevel:           getEnv("LOG_LEVEL", "debug"),
 		Azure: Azure{
-			ClientID:            getEnv("AZURE_CLIENT_ID", ""),
-			ClientSecret:        getEnv("AZURE_CLIENT_SECRET", ""),
-			Tenant:              getEnv("AZURE_TENANT", ""),
+			ClientID:            getEnv("AZURE_APP_CLIENT_ID", ""),
+			ClientSecret:        getEnv("AZURE_APP_CLIENT_SECRET", ""),
+			Tenant:              getEnv("AZURE_APP_TENANT_ID", ""),
 			DiscoveryURL:        getEnv("AZURE_DISCOVERY_URL", "https://login.microsoftonline.com/common/discovery/v2.0/keys"),
 			TeamMembershipAppID: getEnv("AZURE_TEAM_MEMBERSHIP_APP_ID", ""),
+			PreAuthorizedApps:   getEnv("AZURE_APP_PRE_AUTHORIZED_APPS", ""),
 		},
 		Github: Github{
 			ApplicationID: parseInt(getEnv("GITHUB_APP_ID", "0")),
@@ -94,7 +95,6 @@ func DefaultConfig() *Config {
 		DatabaseURL:           getEnv("DATABASE_URL", "postgresql://postgres:root@127.0.0.1:5432/hookd"),
 		MetricsPath:           getEnv("METRICS_PATH", "/metrics"),
 		ProvisionKey:          getEnv("PROVISION_KEY", ""),
-		EncryptionKey:         getEnv("ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 		DatabaseEncryptionKey: getEnv("DATABASE_ENCRYPTION_KEY", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 	}
 }

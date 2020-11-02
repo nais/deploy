@@ -18,9 +18,6 @@ hookd:
 deployd:
 	go build -o bin/deployd cmd/deployd/main.go
 
-token-generator:
-	go build -o bin/token-generator cmd/token-generator/*.go
-
 deploy:
 	go build -o bin/deploy cmd/deploy/main.go
 

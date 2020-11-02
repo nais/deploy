@@ -3,35 +3,34 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
 
-	"github.com/Shopify/sarama"
 	gh "github.com/google/go-github/v27/github"
-	"github.com/navikt/deployment/common/pkg/kafka"
+	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/api"
 	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
-	"github.com/navikt/deployment/hookd/pkg/broker"
 	"github.com/navikt/deployment/hookd/pkg/config"
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/github"
-	"github.com/navikt/deployment/hookd/pkg/metrics"
+	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
+	"github.com/navikt/deployment/hookd/pkg/grpc/interceptor"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
-	"github.com/navikt/deployment/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"google.golang.org/grpc"
 )
 
 var (
-	cfg           = config.DefaultConfig()
-	retryInterval = time.Second * 5
-	queueSize     = 32
+	cfg = config.DefaultConfig()
 )
 
 func init() {
@@ -49,7 +48,9 @@ func init() {
 	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
 	flag.StringSliceVar(&cfg.Clusters, "clusters", cfg.Clusters, "Comma-separated list of valid clusters that can be deployed to.")
 	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
-	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "Pre-shared key used for message encryption over Kafka.")
+
+	flag.StringVar(&cfg.GrpcAddress, "grpc-address", cfg.GrpcAddress, "Listen address of gRPC server.")
+	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", cfg.GrpcAuthentication, "Validate tokens on gRPC connection.")
 
 	flag.StringVar(&cfg.DatabaseEncryptionKey, "database-encryption-key", cfg.DatabaseEncryptionKey, "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.StringVar(&cfg.DatabaseURL, "database.url", cfg.DatabaseURL, "PostgreSQL connection information.")
@@ -59,8 +60,7 @@ func init() {
 	flag.StringVar(&cfg.Azure.DiscoveryURL, "azure.discoveryurl", cfg.Azure.DiscoveryURL, "Azure DiscoveryURL")
 	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
 	flag.StringVar(&cfg.Azure.TeamMembershipAppID, "azure.teamMembershipAppID", cfg.Azure.TeamMembershipAppID, "Application ID of canonical team list")
-
-	kafka.SetupFlags(&cfg.Kafka)
+	flag.StringVar(&cfg.Azure.PreAuthorizedApps, "azure.preAuthorizedApps", cfg.Azure.PreAuthorizedApps, "Preauthorized Applications as Json")
 }
 
 func run() error {
@@ -70,19 +70,8 @@ func run() error {
 		return err
 	}
 
-	kafkaLogger, err := logging.New(cfg.Kafka.Verbosity, cfg.LogFormat)
-	if err != nil {
-		return err
-	}
-
 	log.Info("hookd is starting")
-	log.Infof("kafka topic for requests: %s", cfg.Kafka.RequestTopic)
-	log.Infof("kafka topic for statuses: %s", cfg.Kafka.StatusTopic)
-	log.Infof("kafka consumer group....: %s", cfg.Kafka.GroupID)
-	log.Infof("kafka brokers...........: %+v", cfg.Kafka.Brokers)
 	log.Infof("web frontend templates..: %s", auth.TemplateLocation)
-
-	sarama.Logger = kafkaLogger
 
 	if cfg.Github.Enabled && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
 		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")
@@ -91,11 +80,6 @@ func run() error {
 	provisionKey, err := hex.DecodeString(cfg.ProvisionKey)
 	if err != nil {
 		return fmt.Errorf("provisioning pre-shared key must be a hex encoded string")
-	}
-
-	encryptionKey, err := crypto.KeyFromHexString(cfg.EncryptionKey)
-	if err != nil {
-		return err
 	}
 
 	dbEncryptionKey, err := hex.DecodeString(cfg.DatabaseEncryptionKey)
@@ -112,17 +96,6 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("migrating database: %s", err)
 	}
-
-	kafkaClient, err := kafka.NewDualClient(
-		cfg.Kafka,
-		cfg.Kafka.StatusTopic,
-		cfg.Kafka.RequestTopic,
-	)
-	if err != nil {
-		return fmt.Errorf("while setting up Kafka: %s", err)
-	}
-
-	go kafkaClient.ConsumerLoop()
 
 	var installationClient *gh.Client
 	var githubClient github.Client
@@ -144,9 +117,14 @@ func run() error {
 
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
-	serializer := broker.NewSerializer(kafkaClient.ProducerTopic, encryptionKey)
+	// Set up gRPC server
+	deployServer, err := startGrpcServer(db, githubClient, certificates, err)
+	if err != nil {
+		return err
+	}
 
-	sideBrok := broker.New(db, kafkaClient.Producer, serializer, githubClient)
+
+	log.Infof("gRPC server started")
 
 	router := api.New(api.Config{
 		ApiKeyStore:                 db,
@@ -154,7 +132,7 @@ func run() error {
 		Certificates:                certificates,
 		Clusters:                    cfg.Clusters,
 		DeploymentStore:             db,
-		Broker:                      sideBrok,
+		DeployServer:                deployServer,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,
@@ -175,55 +153,47 @@ func run() error {
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
+	<-signals
 
-	handleKafkaStatus := func(m sarama.ConsumerMessage) (bool, error) {
-		retry := false
-		status, err := serializer.Unmarshal(m)
+	return nil
+}
+
+func startGrpcServer(db database.DeploymentStore, githubClient github.Client, certificates map[string]discovery.CertificateList, err error) (deployserver.DeployServer, error) {
+	deployServer := deployserver.New(db, githubClient)
+	serverOpts := make([]grpc.ServerOption, 0)
+	if cfg.GrpcAuthentication {
+		preAuthApps := []oauth2.PreAuthorizedApplication{}
+		err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
 		if err != nil {
-			return retry, err
+			return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), retryInterval)
-		defer cancel()
-		err = sideBrok.HandleDeploymentStatus(ctx, *status)
-
-		switch {
-		default:
-			retry = true
-		case err == nil:
-		case database.IsErrForeignKeyViolation(err):
+		intercept := &interceptor.ServerInterceptor{
+			Audience:     cfg.Azure.ClientID,
+			Certificates: certificates,
+			PreAuthApps: preAuthApps,
 		}
-
-		return retry, err
+		serverOpts = append(
+			serverOpts,
+			grpc.UnaryInterceptor(intercept.UnaryServerInterceptor),
+			grpc.StreamInterceptor(intercept.StreamServerInterceptor),
+		)
 	}
-
-	// Loop through incoming deployment status messages from deployd and commit them to the database.
-	for {
-		select {
-		case m := <-kafkaClient.RecvQ:
-			var err error
-			retry := true
-			logger := kafka.ConsumerMessageLogger(&m)
-
-			metrics.KafkaQueueSize.Set(float64(len(kafkaClient.RecvQ)))
-
-			for retry {
-				retry, err = handleKafkaStatus(m)
-				if err != nil && retry {
-					logger.Errorf("process deployment status: %s", err)
-					time.Sleep(retryInterval)
-				}
-			}
-
-			kafkaClient.Consumer.MarkOffset(&m, "")
-			if err != nil {
-				logger.Errorf("discard deployment status: %s", err)
-			}
-
-		case <-signals:
-			return nil
-		}
+	grpcServer := grpc.NewServer(serverOpts...)
+	deployment.RegisterDeployServer(grpcServer, deployServer)
+	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
+	if err != nil {
+		return nil, fmt.Errorf("unable to set up gRPC server: %w", err)
 	}
+	go func() {
+		err := grpcServer.Serve(grpcListener)
+		if err != nil {
+			log.Error(err)
+			os.Exit(114)
+		}
+	}()
+
+	return deployServer, nil
 }
 
 func main() {
