@@ -1,12 +1,13 @@
 package config
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"sort"
-	"strings"
 )
 
 type Azure struct {
@@ -52,28 +53,29 @@ func (a *Azure) HasConfig() bool {
 }
 
 const (
-	GithubEnabled            = "github.enabled"
+	AzureClientId            = "azure.app-client-id"
+	AzureClientSecret        = "azure.app-client-secret"
+	AzurePreAuthorizedApps   = "azure.app-pre-authorized-apps"
+	AzureTeamMembershipAppId = "azure.team-membership-app-id"
+	AzureTenant              = "azure.app-tenant-id"
+	AzureWellKnownUrl        = "azure.app-well-known-url"
+	BaseUrl                  = "base-url"
+	Cluster                  = "clusters"
+	DatabaseEncryptionKey    = "database-encryption-key"
+	DatabaseUrl              = "database-url"
 	GithubAppId              = "github.app-id"
-	GithubInstallId          = "github.install-id"
-	GithubKeyFile            = "github.key-file"
 	GithubClientId           = "github.client-id"
 	GithubClientSecret       = "github.client-secret"
-	BaseUrl                  = "base-url"
+	GithubEnabled            = "github.enabled"
+	GithubInstallId          = "github.install-id"
+	GithubKeyFile            = "github.key-file"
+	GrpcAddress              = "grpc-address"
+	GrpcAuthentication       = "grpc-authentication"
 	ListenAddress            = "listen-address"
 	LogFormat                = "log-format"
 	LogLevel                 = "log-level"
-	Cluster                  = "clusters"
+	MetricsPath              = "metrics-path"
 	ProvisionKey             = "provision-key"
-	GrpcAddress              = "grpc-address"
-	GrpcAuthentication       = "grpc-authentication"
-	DatabaseEncryptionKey    = "database-encryption-key"
-	DatabaseUrl              = "database-url"
-	AzureClientId            = "azure.app-client-id"
-	AzureClientSecret        = "azure.app-client-secret"
-	AzureWellKnownUrl        = "azure.app-well-known-url"
-	AzureTenant              = "azure.app-tenant-id"
-	AzureTeamMembershipAppId = "azure.team-membership-app-id"
-	AzurePreAuthorizedApps   = "azure.app-pre-authorized-apps"
 )
 
 func init() {
@@ -102,6 +104,7 @@ func init() {
 	flag.String(LogLevel, "debug", "Logging verbosity level.")
 	flag.StringSlice(Cluster, []string{"local"}, "Comma-separated list of valid clusters that can be deployed to.")
 	flag.String(ProvisionKey, "", "Pre-shared key for /api/v1/provision endpoint.")
+	flag.String(MetricsPath, "/metrics", "HTTP endpoint for exposed metrics.")
 
 	flag.String(GrpcAddress, "127.0.0.1:9090", "Listen address of gRPC server.")
 	flag.Bool(GrpcAuthentication, false, "Validate tokens on gRPC connection.")
