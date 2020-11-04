@@ -25,52 +25,30 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/grpc/interceptor"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
 	log "github.com/sirupsen/logrus"
-	flag "github.com/spf13/pflag"
 	"google.golang.org/grpc"
 )
 
-var (
-	cfg = config.DefaultConfig()
-)
-
-func init() {
-	flag.BoolVar(&cfg.Github.Enabled, "github-enabled", cfg.Github.Enabled, "Enable connections to Github.")
-	flag.StringVar(&cfg.Github.WebhookSecret, "github-webhook-secret", cfg.Github.WebhookSecret, "Github pre-shared webhook secret key.")
-	flag.IntVar(&cfg.Github.ApplicationID, "github-app-id", cfg.Github.ApplicationID, "Github App ID.")
-	flag.IntVar(&cfg.Github.InstallID, "github-install-id", cfg.Github.InstallID, "Github App installation ID.")
-	flag.StringVar(&cfg.Github.KeyFile, "github-key-file", cfg.Github.KeyFile, "Path to PEM key owned by Github App.")
-	flag.StringVar(&cfg.Github.ClientID, "github-client-id", cfg.Github.ClientID, "Client ID of the Github App.")
-	flag.StringVar(&cfg.Github.ClientSecret, "github-client-secret", cfg.Github.ClientSecret, "Client secret of the GitHub App.")
-
-	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "Base URL where hookd can be reached.")
-	flag.StringVar(&cfg.ListenAddress, "listen-address", cfg.ListenAddress, "IP:PORT")
-	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
-	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
-	flag.StringSliceVar(&cfg.Clusters, "clusters", cfg.Clusters, "Comma-separated list of valid clusters that can be deployed to.")
-	flag.StringVar(&cfg.ProvisionKey, "provision-key", cfg.ProvisionKey, "Pre-shared key for /api/v1/provision endpoint.")
-
-	flag.StringVar(&cfg.GrpcAddress, "grpc-address", cfg.GrpcAddress, "Listen address of gRPC server.")
-	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", cfg.GrpcAuthentication, "Validate tokens on gRPC connection.")
-
-	flag.StringVar(&cfg.DatabaseEncryptionKey, "database-encryption-key", cfg.DatabaseEncryptionKey, "Key used to encrypt api keys at rest in PostgreSQL database.")
-	flag.StringVar(&cfg.DatabaseURL, "database.url", cfg.DatabaseURL, "PostgreSQL connection information.")
-
-	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
-	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
-	flag.StringVar(&cfg.Azure.WellKnownURL, "azure.well-known-url", cfg.Azure.WellKnownURL, "URL to Azure configuration.")
-	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
-	flag.StringVar(&cfg.Azure.TeamMembershipAppID, "azure.teamMembershipAppID", cfg.Azure.TeamMembershipAppID, "Application ID of canonical team list")
-	flag.StringVar(&cfg.Azure.PreAuthorizedApps, "azure.preAuthorizedApps", cfg.Azure.PreAuthorizedApps, "Preauthorized Applications as Json")
+var maskedConfig = []string{
+	config.AzureClientSecret,
+	config.GithubClientSecret,
+	config.DatabaseEncryptionKey,
+	config.DatabaseUrl,
+	config.ProvisionKey,
 }
 
 func run() error {
-	flag.Parse()
+	cfg, err := config.New()
+	if err != nil {
+		return err
+	}
 
 	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
 		return err
 	}
 
 	log.Info("hookd is starting")
+
+	config.Print(maskedConfig)
 
 	if cfg.Github.Enabled && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
 		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")
@@ -121,7 +99,7 @@ func run() error {
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
-	deployServer, err := startGrpcServer(db, githubClient, certificates, err)
+	deployServer, err := startGrpcServer(*cfg, db, githubClient, certificates)
 	if err != nil {
 		return err
 	}
@@ -160,7 +138,7 @@ func run() error {
 	return nil
 }
 
-func startGrpcServer(db database.DeploymentStore, githubClient github.Client, certificates map[string]discovery.CertificateList, err error) (deployserver.DeployServer, error) {
+func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (deployserver.DeployServer, error) {
 	deployServer := deployserver.New(db, githubClient)
 	serverOpts := make([]grpc.ServerOption, 0)
 	if cfg.GrpcAuthentication {
