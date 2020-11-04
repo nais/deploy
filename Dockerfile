@@ -18,5 +18,3 @@ COPY --from=builder /src/bin/hookd /app/hookd
 COPY --from=builder /src/bin/deployd /app/deployd
 COPY --from=builder /src/bin/deploy /app/deploy
 COPY --from=builder /src/bin/provision /app/provision
-COPY --from=builder /src/hookd/templates /app/templates
-COPY --from=builder /src/hookd/assets /app/assets

@@ -1,6 +1,5 @@
 PROTOC = $(shell which protoc)
 PROTOC_GEN_GO = $(shell which protoc-gen-go)
-HOOKD_ALPINE_LDFLAGS := -X github.com/navikt/deployment/hookd/pkg/auth.TemplateLocation=/app/templates/ -X github.com/navikt/deployment/hookd/pkg/auth.StaticAssetsLocation=/app/assets/
 
 .PHONY: all proto hookd deployd token-generator deploy provision alpine test docker upload
 
@@ -40,7 +39,7 @@ provision:
 	go build -o bin/provision cmd/provision/*.go
 
 alpine:
-	go build -a -installsuffix cgo -ldflags "-s $(HOOKD_ALPINE_LDFLAGS)" -o bin/hookd cmd/hookd/main.go
+	go build -a -installsuffix cgo -o bin/hookd cmd/hookd/main.go
 	go build -a -installsuffix cgo -o bin/deployd cmd/deployd/main.go
 	go build -a -installsuffix cgo -o bin/deploy cmd/deploy/main.go
 	go build -a -installsuffix cgo -o bin/provision cmd/provision/*.go

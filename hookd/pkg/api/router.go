@@ -14,7 +14,6 @@ import (
 	api_v1_provision "github.com/navikt/deployment/hookd/pkg/api/v1/provision"
 	api_v1_status "github.com/navikt/deployment/hookd/pkg/api/v1/status"
 	api_v1_teams "github.com/navikt/deployment/hookd/pkg/api/v1/teams"
-	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
 	"github.com/navikt/deployment/hookd/pkg/config"
@@ -139,48 +138,6 @@ func New(cfg Config) chi.Router {
 			r.Post("/provision", provisionHandler.ServeHTTP)
 		}
 	})
-
-	// "Legacy" user authentication and repository/team connections
-	router.Route("/auth", func(r chi.Router) {
-		loginHandler := &auth.LoginHandler{
-			ClientID: cfg.GithubConfig.ClientID,
-		}
-		logoutHandler := &auth.LogoutHandler{}
-		callbackHandler := &auth.CallbackHandler{
-			ClientID:     cfg.GithubConfig.ClientID,
-			ClientSecret: cfg.GithubConfig.ClientSecret,
-		}
-		formHandler := &auth.FormHandler{}
-		submittedFormHandler := &auth.SubmittedFormHandler{
-			TeamRepositoryStorage: cfg.TeamRepositoryStorage,
-			ApplicationClient:     cfg.InstallationClient,
-		}
-
-		r.Get("/login", loginHandler.ServeHTTP)
-		r.Get("/logout", logoutHandler.ServeHTTP)
-		r.Get("/callback", callbackHandler.ServeHTTP)
-		r.Get("/form", formHandler.ServeHTTP)
-		r.Post("/submit", submittedFormHandler.ServeHTTP)
-
-	})
-
-	// "Legacy" proxy/caching layer between user, application, and GitHub.
-	router.Route("/proxy", func(r chi.Router) {
-		teamProxyHandler := &auth.TeamsProxyHandler{
-			ApplicationClient: cfg.InstallationClient,
-		}
-		repositoryProxyHandler := &auth.RepositoriesProxyHandler{}
-
-		r.Get("/teams", teamProxyHandler.ServeHTTP)
-		r.Get("/repositories", repositoryProxyHandler.ServeHTTP)
-	})
-
-	// "Legacy" static assets (css, js, images)
-	staticHandler := http.StripPrefix(
-		"/assets",
-		http.FileServer(http.Dir(auth.StaticAssetsLocation)),
-	)
-	router.Handle("/assets/*", staticHandler)
 
 	return router
 }

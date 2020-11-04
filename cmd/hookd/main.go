@@ -5,17 +5,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 
+	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
+
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/logging"
 	"github.com/navikt/deployment/hookd/pkg/api"
-	"github.com/navikt/deployment/hookd/pkg/auth"
 	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
 	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
 	"github.com/navikt/deployment/hookd/pkg/config"
@@ -71,7 +71,6 @@ func run() error {
 	}
 
 	log.Info("hookd is starting")
-	log.Infof("web frontend templates..: %s", auth.TemplateLocation)
 
 	if cfg.Github.Enabled && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
 		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")
@@ -123,7 +122,6 @@ func run() error {
 		return err
 	}
 
-
 	log.Infof("gRPC server started")
 
 	router := api.New(api.Config{
@@ -162,7 +160,7 @@ func startGrpcServer(db database.DeploymentStore, githubClient github.Client, ce
 	deployServer := deployserver.New(db, githubClient)
 	serverOpts := make([]grpc.ServerOption, 0)
 	if cfg.GrpcAuthentication {
-		preAuthApps := []oauth2.PreAuthorizedApplication{}
+		preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
 		err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
 		if err != nil {
 			return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
@@ -171,7 +169,7 @@ func startGrpcServer(db database.DeploymentStore, githubClient github.Client, ce
 		intercept := &interceptor.ServerInterceptor{
 			Audience:     cfg.Azure.ClientID,
 			Certificates: certificates,
-			PreAuthApps: preAuthApps,
+			PreAuthApps:  preAuthApps,
 		}
 		serverOpts = append(
 			serverOpts,
