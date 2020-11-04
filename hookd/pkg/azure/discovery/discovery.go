@@ -13,11 +13,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type OpenIDConfiguration struct {
+	JwksURI string `json:"jwks_uri"`
+}
+
 type CertificateList []*x509.Certificate
 
 func FetchCertificates(azure config.Azure) (map[string]CertificateList, error) {
-	log.Infof("Discover Microsoft signing certificates from %s", azure.DiscoveryURL)
-	azureKeyDiscovery, err := DiscoverURL(azure.DiscoveryURL)
+	log.Infof("Discover OpenID configuration from %s", azure.WellKnownURL)
+	openIDConfig, err := GetOpenIDConfiguration(azure.WellKnownURL)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Infof("Discover signing certificates from %s", openIDConfig.JwksURI)
+	azureKeyDiscovery, err := DiscoverURL(openIDConfig.JwksURI)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +64,22 @@ func (k *KeyDiscovery) Map() (result map[string]CertificateList, err error) {
 
 type KeyDiscovery struct {
 	Keys []Key `json:"keys"`
+}
+
+func GetOpenIDConfiguration(url string) (*OpenIDConfiguration, error) {
+	response, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &OpenIDConfiguration{}
+	decoder := json.NewDecoder(response.Body)
+	err = decoder.Decode(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
 func DiscoverURL(url string) (*KeyDiscovery, error) {

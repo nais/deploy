@@ -57,7 +57,7 @@ func init() {
 
 	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
 	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
-	flag.StringVar(&cfg.Azure.DiscoveryURL, "azure.discoveryurl", cfg.Azure.DiscoveryURL, "Azure DiscoveryURL")
+	flag.StringVar(&cfg.Azure.WellKnownURL, "azure.well-known-url", cfg.Azure.WellKnownURL, "URL to Azure configuration.")
 	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
 	flag.StringVar(&cfg.Azure.TeamMembershipAppID, "azure.teamMembershipAppID", cfg.Azure.TeamMembershipAppID, "Application ID of canonical team list")
 	flag.StringVar(&cfg.Azure.PreAuthorizedApps, "azure.preAuthorizedApps", cfg.Azure.PreAuthorizedApps, "Preauthorized Applications as Json")

@@ -85,7 +85,7 @@ var cfg = Config{
 		ClientID:            getEnv("AZURE_CLIENT_ID", ""),
 		ClientSecret:        getEnv("AZURE_CLIENT_SECRET", ""),
 		Tenant:              getEnv("AZURE_TENANT", ""),
-		DiscoveryURL:        getEnv("AZURE_DISCOVERY_URL", "https://login.microsoftonline.com/common/discovery/v2.0/keys"),
+		WellKnownURL:        getEnv("AZURE_DISCOVERY_URL", "https://login.microsoftonline.com/common/discovery/v2.0/keys"),
 		TeamMembershipAppID: getEnv("AZURE_TEAM_MEMBERSHIP_APP_ID", ""),
 	},
 }
@@ -110,7 +110,7 @@ func main() {
 	flag.StringVar(&cfg.EncryptionKey, "encryption-key", cfg.EncryptionKey, "encryption key for team keys")
 	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
 	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
-	flag.StringVar(&cfg.Azure.DiscoveryURL, "azure.discoveryurl", cfg.Azure.DiscoveryURL, "Azure DiscoveryURL")
+	flag.StringVar(&cfg.Azure.WellKnownURL, "azure.discoveryurl", cfg.Azure.WellKnownURL, "Azure DiscoveryURL")
 	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
 	flag.StringVar(&cfg.Azure.TeamMembershipAppID, "azure.teamMembershipAppID", cfg.Azure.TeamMembershipAppID, "Application ID of canonical team list")
 

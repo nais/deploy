@@ -10,7 +10,7 @@ type Azure struct {
 	ClientID            string `json:"clientid"`
 	ClientSecret        string `json:"clientsecret"`
 	Tenant              string `json:"tenant"`
-	DiscoveryURL        string `json:"discoveryurl"`
+	WellKnownURL        string `json:"well-known-url"`
 	TeamMembershipAppID string `json:"teamMembershipAppID"`
 	PreAuthorizedApps   string `json:"preAuthorizedApps"`
 }
@@ -46,7 +46,7 @@ func (a *Azure) HasConfig() bool {
 		a.ClientSecret != "" &&
 		a.Tenant != "" &&
 		a.TeamMembershipAppID != "" &&
-		a.DiscoveryURL != ""
+		a.WellKnownURL != ""
 }
 
 func getEnv(key, fallback string) string {
@@ -79,9 +79,9 @@ func DefaultConfig() *Config {
 			ClientID:            getEnv("AZURE_APP_CLIENT_ID", ""),
 			ClientSecret:        getEnv("AZURE_APP_CLIENT_SECRET", ""),
 			Tenant:              getEnv("AZURE_APP_TENANT_ID", ""),
-			DiscoveryURL:        getEnv("AZURE_DISCOVERY_URL", "https://login.microsoftonline.com/common/discovery/v2.0/keys"),
-			TeamMembershipAppID: getEnv("AZURE_TEAM_MEMBERSHIP_APP_ID", ""),
+			WellKnownURL:        getEnv("AZURE_APP_WELL_KNOWN_URL", "https://login.microsoftonline.com/common/discovery/v2.0/.well-known/openid-configuration"),
 			PreAuthorizedApps:   getEnv("AZURE_APP_PRE_AUTHORIZED_APPS", ""),
+			TeamMembershipAppID: getEnv("AZURE_TEAM_MEMBERSHIP_APP_ID", ""),
 		},
 		Github: Github{
 			ApplicationID: parseInt(getEnv("GITHUB_APP_ID", "0")),
