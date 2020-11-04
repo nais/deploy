@@ -78,7 +78,7 @@ const (
 	ProvisionKey             = "provision-key"
 )
 
-func init() {
+func Initialize() {
 	// Automatically read configuration options from environment variables.
 	// i.e. --proxy.address will be configurable using PROXY_ADDRESS.
 	viper.AutomaticEnv()

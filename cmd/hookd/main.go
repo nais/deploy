@@ -37,6 +37,7 @@ var maskedConfig = []string{
 }
 
 func run() error {
+	config.Initialize()
 	cfg, err := config.New()
 	if err != nil {
 		return err
