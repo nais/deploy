@@ -1,9 +1,10 @@
 package api
 
 import (
-	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
 	"net/http"
 	"time"
+
+	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
 
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
@@ -20,7 +21,6 @@ import (
 	"github.com/navikt/deployment/hookd/pkg/database"
 	"github.com/navikt/deployment/hookd/pkg/logproxy"
 	"github.com/navikt/deployment/hookd/pkg/middleware"
-	"github.com/navikt/deployment/hookd/pkg/server"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
@@ -78,13 +78,6 @@ func New(cfg Config) chi.Router {
 		SecretKey:     cfg.ProvisionKey,
 	}
 
-	githubDeploymentHandler := &server.GithubDeploymentHandler{
-		Broker:                cfg.DeployServer,
-		Clusters:              cfg.Clusters,
-		SecretToken:           cfg.GithubConfig.WebhookSecret,
-		TeamRepositoryStorage: cfg.TeamRepositoryStorage,
-	}
-
 	// Pre-populate request metrics
 	for _, code := range api_v1_deploy.StatusCodes {
 		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
@@ -103,6 +96,10 @@ func New(cfg Config) chi.Router {
 		prometheusMiddleware.Handler(),
 		chi_middleware.StripSlashes,
 	)
+
+	router.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusGone)
+	})
 
 	// Mount /metrics endpoint with no authentication
 	router.Get(cfg.MetricsPath, promhttp.Handler().ServeHTTP)
@@ -142,9 +139,6 @@ func New(cfg Config) chi.Router {
 			r.Post("/provision", provisionHandler.ServeHTTP)
 		}
 	})
-
-	// Mount /events for "legacy" GitHub deployment handling
-	router.Post("/events", githubDeploymentHandler.ServeHTTP)
 
 	// "Legacy" user authentication and repository/team connections
 	router.Route("/auth", func(r chi.Router) {
