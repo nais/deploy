@@ -3,26 +3,26 @@
 ## Overview
 NAIS deploy facilitates application deployment into NAV's Kubernetes clusters.
 
-Developers push or merge code into the master branch of a Git repository, triggering an automated build using CircleCI, Travis CI, or Jenkins.
-A successful build produces a Docker image artifact, which is uploaded onto Docker Hub.
+Developers push or merge code into the master branch of a Git repository, triggering an automated build using (preferably) Github actions.
+A successful build produces a Docker image artifact, which is uploaded onto Github package registry.
 The final step in the build pipeline sends an API request to NAIS deploy to deploy the Docker image onto one of our Kubernetes clusters.
 
 ![Sequence diagram of deployment components](doc/sequence.png)
 
 ## How it works
-1. As the final step in one of your CI pipelines, a [deployment request](https://developer.github.com/v3/repos/deployments/#create-a-deployment) is created using GitHub's API. This will trigger a webhook set up at Github.
-2. `hookd` receives the webhook, verifies its integrity and authenticity, and passes the message on to `deployd` via Kafka.
-3. `deployd` receives the message from `hookd`, assumes the identity of the deploying team, and applies your _Kubernetes resources_ into the specified [cluster](https://doc.nais.io/clusters).
-4. If the Kubernetes resources contained any _Application_ or _Deployment_ resources, `deployd` will wait until these are rolled out successfully, or a timeout occurs.
+1. The teams pipeline use `deploy` to send a deployment request to `hookd`.
+1. `hookd` receives the deployment request, verifies its integrity and authenticity, and passes the message on to `deployd` via gRPC.
+1. `deployd` receives the message from `hookd`, assumes the identity of the deploying team, and applies your _Kubernetes resources_ into the specified [cluster](https://doc.nais.io/clusters).
+1. If the Kubernetes resources contained any _Application_ or _Deployment_ resources, `deployd` will wait until these are rolled out successfully, or a timeout occurs.
 
 Any fatal error will short-circuit the process with a `error` or `failure` status posted back to Github. A successful deployment will result in a `success` status.
-Intermediary statuses might be posted, indicating the current state of the deployment.
+Intermediary statuses will be posted, indicating the current state of the deployment.
 
 ## Usage
-
 The usage documentation has been moved to [NAIS platform documentation](https://doc.nais.io/deployment).
 
 ### Deploy API
+_We strongly recommend that teams use the `deploy` cli to deploy, rather than posting directly to `hookd`._
 
 Post to `/api/v1/deploy` to deploy one or more resources into one of our Kubernetes clusters.
 
@@ -30,7 +30,6 @@ Successful requests result in creation of a _deployment_ object on GitHub. Use t
 to track the status of your deployment.
 
 #### Request specification
-
 ```json
 {
   "resources": [
@@ -101,160 +100,78 @@ This service communicates with Github, and acts as a relay between the Internet 
 
 Its main tasks are to:
 * validate deployment events
-* relay deployment requests to _deployd_ using Kafka
+* relay deployment requests to _deployd_ using gRPC
 * report deployment status back to GitHub
 
 The validation part is done by checking if the signature attached to the deployment event is valid, and by checking the format of the deployment.
 Refer to the [GitHub documentation](https://developer.github.com/webhooks/securing/) as to how webhooks are secured.
 
 ### deployd
-Deployd's responsibility is to deploy resources into a Kubernetes cluster, and report state changes back to hookd using Kafka.
+Deployd's responsibility is to deploy resources into a Kubernetes cluster, and report state changes back to hookd using gRPC.
 
-### token-generator
-token-generator is a daemon that can issue credentials out-of-band. For example:
-
-#### Overview
-```
-> POST /api/v1/tokens
-> Authorization: Basic YWRtaW46YWRtaW4=
-> {
->     "repository": "navikt/deployment",
->     "sources": ["github"],
->     "sinks": ["circleci"]
-> }
----
-< HTTP/1.1 201 Created
-< X-Correlation-Id: 59b7112f-2c50-4a69-acfd-775f8a14b3bc
-< Date: Wed, 31 Jul 2019 13:17:26 GMT
-< Content-Length: 0
-```
-
-This request will issue a _JSON Web Token_ (JWT) on behalf of a Github App Installation.
-~The token will be scoped to the specific repository in question.~
-(See [go-github #1238](https://github.com/google/go-github/pull/1238))
-Afterwards, the token is uploaded out-of-band to the CircleCI build belonging to this repository.
-The token is valid for one hour and is available as the environment variable `$GITHUB_TOKEN`.
-The client sees only the HTTP response. The token itself is available to CircleCI jobs.
-Calls to this API will block, returning only when either the token has been uploaded,
-or when an error occurred.
-
-If you run into trouble, you can search the logs for `correlation-id:"..."`.
-
-#### User portal
-
-Users can log in with their Azure credentials in the user portal at `http://localhost:8080`.
-
-In the future, the user portal will enable users to provision API keys to their team.
-
-#### Configuration
-
-Create a file `token-generator.yaml` with the following contents and place it in your working directory.
-
-```yaml
-# for the 'github' source
-github:
-  appid: 246
-  installid: 753
-  keyfile: github-app-private-key.pem
-
-# for the 'circleci' sink
-circleci:
-  apitoken: 6d9627000451337133713371337a72b40c55a47f
-
-# optional; for the user portal.
-azure:
-  tenant: 39273030-3046-400d-9ee4-34d916ecdc97
-  clientid: 306b4e93-3987-4c45-ae38-d16e403e0144
-  clientsecret: eW91d2lzaAo=
-  redirecturl: http://localhost:8080/auth/callback
-  discoveryurl: https://login.microsoftonline.com/39273030-3046-400d-9ee4-34d916ecdc97/discovery/keys
-
-# optional; for Google Cloud Storage backed API key storage.
-storage:
-  bucketname: your-gcs-bucket
-  keyfile: your-credentials.json
-```
-
-The same configuration can be accessed using flags or environment variables:
-
-```
-./token-generator --help
-
-export GITHUB_APPID=246
-export CIRCLECI_APITOKEN=6d9627000451337133713371337a72b40c55a47f
-./token-generator --github.installid=753 --github.keyfile=github-app-private-key.pem
-```
-
-### Kafka
-Kafka is used as a communication channel between hookd and deployd. Hookd sends deployment requests to a `deploymentRequests` topic, which fans out
-and in turn hits all the deployd instances. Deployd acts on the information, and then sends a deployment status to the `deploymentStatus` topic.
-Hookd picks up replies to this topic, and publishes the deployment status to Github.
-
-### Amazon S3 (Amazon Simple Storage Service)
-Used as a configuration backend. Information about repository team access is stored here, and accessed on each deployment request.
-
-
-## Developing
+### gRPC
+gRPC is used as a communication protocol between hookd and deployd. 
+Hookd starts a gRPC server with a deployment stream and a status service. 
+Deployd registers as a client on Hookd.
+When Hookd receives a deployment request, it adds it to the relevant gRPC deployment stream. 
+Deployd acts on the information, and then sends a deployment status to the gRPC status service on Hookd.
+Hookd publishes the deployment status to Github.
 
 ### Compiling
-[Install Golang 1.12 or newer](https://golang.org/doc/install).
+[Install Golang 1.15 or newer](https://golang.org/doc/install).
 
-Check out the repository and run `make`. Dependencies will download automatically, and you should have three binary files at `hookd/hookd`, `deployd/deployd` and `token-generator`.
+Check out the repository and run `make`. Dependencies will download automatically, and you should have three binary files at `bin/hookd`, `bin/deployd`, `bin/deploy` and `bin/provision`.
 
-### External dependencies
-Start the external dependencies by running `docker-compose up`. This will start local Kafka, S3, and Vault servers.
-
-The S3 access and secret keys are `accesskey` and `secretkey` respectively. Conveniently, these are
-the default options for _hookd_ as well, so you don't have to configure anything.
-
-### Vault
-The `/api/v1/deploy` endpoint uses Hashicorp Vault to store teams' API keys. To make this work, set up a Vault KV store version 1
-on the server specified by `--vault-address` and on the path specified by `--vault-path`.
-
-For instance, with the default values of `--vault-address=http://localhost:8080 --vault-path=/v1/apikey/nais-deploy --vault-key=key`:
-
-* Set up `/apikey` as a KV v1 store.
-* Create secrets under `/apikey/nais-deploy/<team>` with key `key` and the pre-shared secret as the value.
-
-### token-generator
-* Set up a google cloud storage bucket
-* Create a credentials file
-
-### Development on the frontend application
-To enable the frontend on your local instance, you need to configure hookd against the staging deployment application at Github.
-This is required to enable OAuth and Github queries.
-The parameters can be found on the [Github installation page](https://github.com/organizations/navikt/settings/installations/).
-You must also generate a private key for this installation, in order to sign your JSON web tokens.
-
-Configure hookd as follows:
-
-```
---github-enabled=true \
---github-install-id=XXXXXX \
---github-app-id=XXXXXX \
---github-client-id=XXXXXX \
---github-client-secret=XXXXXX \
---github-key-file=/path/to/private-key.pem \
+## Running locally
+### Postgres
+Start the database by running `docker-compose up`. This will start an empty local database.
+When you start `hookd`, the schema will be patched to current version.
+If this is the first time running this database, you have to add a dummy deployment key for deploy to work:
+```bash
+psql -U postgres -h localhost -p 5432 hookd <<< EOF
+insert into
+    apikey (key, team, team_azure_id, created, expires)
+    values ('1608bf2caf81bb68d50bfb094a8e0d90de2b27260767a64a0103c6255077eb446f4fabcb7ae94514380b4fdc006bd50dfe2ea73f4b60c0c55891a60f',
+            'aura',
+            '59dbf5e6-8243-471c-bd57-162346f08d75', now(),now()+interval '10 years');
+EOF
 ```
 
-### Simulating Github deployment requests
-When you want to send webhooks to _hookd_ without invoking Github, you can use the `mkdeploy` tool, which simulates these requests.
+### Hookd
+run `./bin/hookd`
+For local development, hookd will by default start with an insecure listener, Azure AD token validation turned off and github integration disabled.
+secure listener and Azure AD token validation can be turned on passing the following flags:
+```
+--azure.clientid string              Azure ClientId.
+--azure.clientsecret string          Azure ClientSecret
+--azure.discoveryurl string          Azure DiscoveryURL (default "https://login.microsoftonline.com/common/discovery/v2.0/keys")
+--azure.preAuthorizedApps string     Preauthorized Applications as Json
+--azure.teamMembershipAppID string   Application ID of canonical team list
+--azure.tenant string                Azure Tenant
+--grpc-authentication                Validate tokens on gRPC connection.
+```
+If you wish to test with these flags, you should have an application with [Azure AD](https://doc.nais.io/security/auth/azure-ad) enabled.
 
-Start a local Kafka instance as described above, and then run your local hookd instance.
+Github integration can be turned on using the following flags:
 ```
-./hookd/hookd
-```
-
-If you want to deploy, you want to start up `deployd` as well:
-```
-./deployd/deployd
-```
-
-Compile the `mkdeploy` tool:
-```
-cd hookd/cmd/mkdeploy
-make
+--github-app-id int                  Github App ID.
+--github-client-id string            Client ID of the Github App.
+--github-client-secret string        Client secret of the GitHub App.
+--github-enabled                     Enable connections to Github.
+--github-install-id int              Github App installation ID.
+--github-key-file string             Path to PEM key owned by Github App. (default "private-key.pem")
 ```
 
-You can now run `mkdeploy`. The default parameters should work fine, but you'll probably want to specify a deployment payload, which, by default, is empty.
-Run `./mkdeploy --help` to see which options you can tweak.
+### Deployd
+To enable secure listener and Azure AD token validation on deployd, the following flags apply:
+```
+--azure.clientid string         Azure ClientId.
+--azure.clientsecret string     Azure ClientSecret
+--azure.tenant string           Azure Tenant
+--grpc-authentication           Use token authentication on gRPC connection.
+--grpc-use-tls                  Use secure connection when connecting to gRPC server.
+```
+
+### Deploy
+Once the above components are running and configured, you can deploy using the following command:
+`./bin/deploy --resource res.yaml --cluster local --apikey 20cefcd6bd0e8b8860c4ea90e75d7123019ed7866c61bd09e23821948878a11d --deploy-server http://localhost:8080 --wait`
