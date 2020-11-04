@@ -79,7 +79,7 @@ func DefaultConfig() *Config {
 			ClientID:            getEnv("AZURE_APP_CLIENT_ID", ""),
 			ClientSecret:        getEnv("AZURE_APP_CLIENT_SECRET", ""),
 			Tenant:              getEnv("AZURE_APP_TENANT_ID", ""),
-			WellKnownURL:        getEnv("AZURE_APP_WELL_KNOWN_URL", "https://login.microsoftonline.com/common/discovery/v2.0/.well-known/openid-configuration"),
+			WellKnownURL:        getEnv("AZURE_APP_WELL_KNOWN_URL", ""),
 			PreAuthorizedApps:   getEnv("AZURE_APP_PRE_AUTHORIZED_APPS", ""),
 			TeamMembershipAppID: getEnv("AZURE_TEAM_MEMBERSHIP_APP_ID", ""),
 		},

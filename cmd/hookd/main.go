@@ -109,9 +109,13 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	certificates, err := discovery.FetchCertificates(cfg.Azure)
-	if err != nil {
-		return fmt.Errorf("unable to fetch Azure certificates: %s", err)
+	certificates := make(map[string]discovery.CertificateList)
+	if cfg.Azure.HasConfig() {
+		log.Infof("Azure token validation and GraphQL functionality enabled")
+		certificates, err = discovery.FetchCertificates(cfg.Azure)
+		if err != nil {
+			return fmt.Errorf("unable to fetch Azure certificates: %s", err)
+		}
 	}
 
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
