@@ -19,43 +19,32 @@ import (
 	"github.com/navikt/deployment/deployd/pkg/kubeclient"
 	"github.com/navikt/deployment/deployd/pkg/metrics"
 	log "github.com/sirupsen/logrus"
-	flag "github.com/spf13/pflag"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
-
-var cfg = config.DefaultConfig()
 
 const (
 	requestBackoff = 2 * time.Second
 )
 
-func init() {
-	flag.StringVar(&cfg.LogFormat, "log-format", cfg.LogFormat, "Log format, either 'json' or 'text'.")
-	flag.StringVar(&cfg.LogLevel, "log-level", cfg.LogLevel, "Logging verbosity level.")
-	flag.StringVar(&cfg.Cluster, "cluster", cfg.Cluster, "Apply changes only within this cluster.")
-	flag.StringVar(&cfg.MetricsListenAddr, "metrics-listen-addr", cfg.MetricsListenAddr, "Serve metrics on this address.")
-	flag.BoolVar(&cfg.GrpcUseTLS, "grpc-use-tls", cfg.GrpcUseTLS, "Use secure connection when connecting to gRPC server.")
-	flag.StringVar(&cfg.GrpcServer, "grpc-server", cfg.GrpcServer, "gRPC server endpoint on hookd.")
-	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", cfg.GrpcAuthentication, "Use token authentication on gRPC connection.")
-	flag.StringVar(&cfg.HookdApplicationID, "hookd-application-id", cfg.HookdApplicationID, "Azure application ID of hookd, used for token authentication.")
-	flag.StringVar(&cfg.MetricsPath, "metrics-path", cfg.MetricsPath, "Serve metrics on this endpoint.")
-	flag.BoolVar(&cfg.TeamNamespaces, "team-namespaces", cfg.TeamNamespaces, "Set to true if team service accounts live in team's own namespace.")
-	flag.BoolVar(&cfg.AutoCreateServiceAccount, "auto-create-service-account", cfg.AutoCreateServiceAccount, "Set to true to automatically create service accounts.")
-	flag.StringVar(&cfg.Azure.ClientID, "azure.clientid", cfg.Azure.ClientID, "Azure ClientId.")
-	flag.StringVar(&cfg.Azure.ClientSecret, "azure.clientsecret", cfg.Azure.ClientSecret, "Azure ClientSecret")
-	flag.StringVar(&cfg.Azure.Tenant, "azure.tenant", cfg.Azure.Tenant, "Azure Tenant")
+var maskedConfig = []string{
+	config.AzureClientSecret,
 }
 
 func run() error {
-	flag.Parse()
+	config.Initialize()
+	cfg, err := config.New()
+	if err != nil {
+		return err
+	}
 
 	if err := logging.Setup(cfg.LogLevel, cfg.LogFormat); err != nil {
 		return err
 	}
 
 	log.Infof("deployd starting up")
-	log.Infof("cluster.................: %s", cfg.Cluster)
+
+	config.Print(maskedConfig)
 
 	if cfg.GrpcAuthentication && len(cfg.HookdApplicationID) == 0 {
 		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-application-id is not specified")
