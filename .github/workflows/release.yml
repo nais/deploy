@@ -18,8 +18,8 @@ jobs:
     - uses: actions/checkout@v1
     - name: Generate version tags
       run: |
-        echo ::set-env name=version::$(./version.sh)
-        echo ::set-env name=deploy_action_api_version::$(cat actions/deploy/version)
+        echo "version=$(./version.sh)" >> $GITHUB_ENV
+        echo "deploy_action_api_version=$(cat actions/deploy/version)" >> $GITHUB_ENV
     - name: Build Docker images
       run: |
         docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
@@ -133,9 +133,9 @@ jobs:
     - name: Generate image environment variable
       run: |
         version=$(./version.sh)
-        echo ::set-env name=version::${version}
-        echo ::set-env name=IMAGE::${image}:${version}
-        echo ::set-env name=NAIS_YAML::${GITHUB_WORKSPACE}/nais-yaml
+        echo "version=${version}" >> $GITHUB_ENV
+        echo "IMAGE=${image}:${version}" >> $GITHUB_ENV
+        echo "NAIS_YAML=${GITHUB_WORKSPACE}/nais-yaml" >> $GITHUB_ENV
         pwd
     - name: Bump version in nais-yaml
       env:
