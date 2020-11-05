@@ -11,6 +11,7 @@ import (
 	"os/signal"
 
 	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
+	"github.com/navikt/deployment/pkg/conftools"
 
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/common/pkg/deployment"
@@ -37,8 +38,8 @@ var maskedConfig = []string{
 }
 
 func run() error {
-	config.Initialize()
-	cfg, err := config.New()
+	cfg := config.Initialize()
+	err := conftools.Load(cfg)
 	if err != nil {
 		return err
 	}
@@ -47,9 +48,11 @@ func run() error {
 		return err
 	}
 
-	log.Info("hookd is starting")
+	log.Info("hookd starting up")
 
-	config.Print(maskedConfig)
+	for _, line := range conftools.Format(maskedConfig) {
+		log.Info(line)
+	}
 
 	if cfg.Github.Enabled && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
 		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")

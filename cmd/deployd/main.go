@@ -11,6 +11,7 @@ import (
 
 	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
 	"github.com/navikt/deployment/hookd/pkg/grpc/interceptor"
+	"github.com/navikt/deployment/pkg/conftools"
 
 	"github.com/navikt/deployment/common/pkg/deployment"
 	"github.com/navikt/deployment/common/pkg/logging"
@@ -32,8 +33,8 @@ var maskedConfig = []string{
 }
 
 func run() error {
-	config.Initialize()
-	cfg, err := config.New()
+	cfg := config.Initialize()
+	err := conftools.Load(cfg)
 	if err != nil {
 		return err
 	}
@@ -44,7 +45,9 @@ func run() error {
 
 	log.Infof("deployd starting up")
 
-	config.Print(maskedConfig)
+	for _, line := range conftools.Format(maskedConfig) {
+		log.Info(line)
+	}
 
 	if cfg.GrpcAuthentication && len(cfg.HookdApplicationID) == 0 {
 		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-application-id is not specified")

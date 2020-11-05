@@ -1,11 +1,8 @@
 package config
 
 import (
-	"sort"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
-	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -78,7 +75,7 @@ const (
 	ProvisionKey             = "provision-key"
 )
 
-func Initialize() {
+func Initialize() *Config {
 	// Automatically read configuration options from environment variables.
 	// i.e. --proxy.address will be configurable using PROXY_ADDRESS.
 	viper.AutomaticEnv()
@@ -119,59 +116,5 @@ func Initialize() {
 	flag.String(AzureTeamMembershipAppId, "", "Application ID of canonical team list")
 	flag.String(AzurePreAuthorizedApps, "", "Preauthorized Applications as Json")
 
-}
-
-func decoderHook(dc *mapstructure.DecoderConfig) {
-	dc.TagName = "json"
-	dc.ErrorUnused = true
-}
-
-func New() (*Config, error) {
-	var err error
-	var cfg Config
-
-	err = viper.ReadInConfig()
-	if err != nil {
-		if err.(viper.ConfigFileNotFoundError) != err {
-			return nil, err
-		}
-	}
-
-	flag.Parse()
-
-	err = viper.BindPFlags(flag.CommandLine)
-	if err != nil {
-		return nil, err
-	}
-
-	err = viper.Unmarshal(&cfg, decoderHook)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
-}
-
-// Print out all configuration options except secret stuff.
-func Print(redacted []string) {
-	ok := func(key string) bool {
-		for _, forbiddenKey := range redacted {
-			if forbiddenKey == key {
-				return false
-			}
-		}
-		return true
-	}
-
-	var keys sort.StringSlice = viper.AllKeys()
-
-	keys.Sort()
-	for _, key := range keys {
-		if ok(key) {
-			log.Printf("%s: %v", key, viper.Get(key))
-		} else {
-			log.Printf("%s: ***REDACTED***", key)
-		}
-	}
-
+	return &Config{}
 }
