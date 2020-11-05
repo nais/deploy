@@ -7,8 +7,8 @@ all: hookd deployd deploy provision
 
 proto:
 	wget -O deployment.proto https://raw.githubusercontent.com/navikt/protos/master/deployment/deployment.proto
-	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=. deployment.proto
-	mv deployment.pb.go common/pkg/deployment/
+	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=plugins=grpc:. deployment.proto
+	mv deployment.pb.go pkg/pb/
 	rm -f deployment.proto
 
 hookd:

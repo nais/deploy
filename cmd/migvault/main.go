@@ -36,12 +36,12 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/proxy"
 
-	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
-	"github.com/navikt/deployment/hookd/pkg/config"
+	"github.com/navikt/deployment/pkg/azure/graphapi"
+	"github.com/navikt/deployment/pkg/hookd/config"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 
-	"github.com/navikt/deployment/hookd/pkg/database"
+	"github.com/navikt/deployment/pkg/hookd/database"
 )
 
 type Config struct {

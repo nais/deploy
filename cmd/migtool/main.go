@@ -22,7 +22,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/navikt/deployment/hookd/pkg/database"
+	"github.com/navikt/deployment/pkg/hookd/database"
 )
 
 func main() {

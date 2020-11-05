@@ -10,21 +10,21 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
+	"github.com/navikt/deployment/pkg/azure/oauth2"
 	"github.com/navikt/deployment/pkg/conftools"
 
 	gh "github.com/google/go-github/v27/github"
-	"github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/common/pkg/logging"
-	"github.com/navikt/deployment/hookd/pkg/api"
-	"github.com/navikt/deployment/hookd/pkg/azure/discovery"
-	"github.com/navikt/deployment/hookd/pkg/azure/graphapi"
-	"github.com/navikt/deployment/hookd/pkg/config"
-	"github.com/navikt/deployment/hookd/pkg/database"
-	"github.com/navikt/deployment/hookd/pkg/github"
-	"github.com/navikt/deployment/hookd/pkg/grpc/deployserver"
-	"github.com/navikt/deployment/hookd/pkg/grpc/interceptor"
-	"github.com/navikt/deployment/hookd/pkg/middleware"
+	"github.com/navikt/deployment/pkg/azure/discovery"
+	"github.com/navikt/deployment/pkg/azure/graphapi"
+	"github.com/navikt/deployment/pkg/grpc/deployserver"
+	"github.com/navikt/deployment/pkg/grpc/interceptor"
+	"github.com/navikt/deployment/pkg/logging"
+	"github.com/navikt/deployment/pkg/pb"
+	"github.com/navikt/deployment/pkg/hookd/api"
+	"github.com/navikt/deployment/pkg/hookd/config"
+	"github.com/navikt/deployment/pkg/hookd/database"
+	"github.com/navikt/deployment/pkg/hookd/github"
+	"github.com/navikt/deployment/pkg/hookd/middleware"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -164,7 +164,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClien
 		)
 	}
 	grpcServer := grpc.NewServer(serverOpts...)
-	deployment.RegisterDeployServer(grpcServer, deployServer)
+	pb.RegisterDeployServer(grpcServer, deployServer)
 	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
 	if err != nil {
 		return nil, fmt.Errorf("unable to set up gRPC server: %w", err)

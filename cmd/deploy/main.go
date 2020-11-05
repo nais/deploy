@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/navikt/deployment/deploy/pkg/deployer"
+	"github.com/navikt/deployment/pkg/deployer"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )

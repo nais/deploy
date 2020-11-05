@@ -9,16 +9,16 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/navikt/deployment/hookd/pkg/azure/oauth2"
-	"github.com/navikt/deployment/hookd/pkg/grpc/interceptor"
+	"github.com/navikt/deployment/pkg/azure/oauth2"
 	"github.com/navikt/deployment/pkg/conftools"
+	"github.com/navikt/deployment/pkg/grpc/interceptor"
 
-	"github.com/navikt/deployment/common/pkg/deployment"
-	"github.com/navikt/deployment/common/pkg/logging"
-	"github.com/navikt/deployment/deployd/pkg/config"
-	"github.com/navikt/deployment/deployd/pkg/deployd"
-	"github.com/navikt/deployment/deployd/pkg/kubeclient"
-	"github.com/navikt/deployment/deployd/pkg/metrics"
+	"github.com/navikt/deployment/pkg/logging"
+	"github.com/navikt/deployment/pkg/pb"
+	"github.com/navikt/deployment/pkg/deployd/config"
+	"github.com/navikt/deployment/pkg/deployd/deployd"
+	"github.com/navikt/deployment/pkg/deployd/kubeclient"
+	"github.com/navikt/deployment/pkg/deployd/metrics"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -59,7 +59,7 @@ func run() error {
 	}
 	log.Infof("kubernetes..............: %s", kube.Config.Host)
 
-	statusChan := make(chan *deployment.DeploymentStatus, 1024)
+	statusChan := make(chan *pb.DeploymentStatus, 1024)
 
 	metricsServer := http.NewServeMux()
 	metricsServer.Handle(cfg.MetricsPath, metrics.Handler())
@@ -98,7 +98,7 @@ func run() error {
 		return fmt.Errorf("connecting to hookd gRPC server: %s", err)
 	}
 
-	grpcClient := deployment.NewDeployClient(grpcConnection)
+	grpcClient := pb.NewDeployClient(grpcConnection)
 
 	defer grpcConnection.Close()
 
@@ -109,7 +109,7 @@ func run() error {
 		for {
 			time.Sleep(requestBackoff)
 
-			deploymentStream, err := grpcClient.Deployments(context.Background(), &deployment.GetDeploymentOpts{
+			deploymentStream, err := grpcClient.Deployments(context.Background(), &pb.GetDeploymentOpts{
 				Cluster: cfg.Cluster,
 			})
 
@@ -144,9 +144,9 @@ func run() error {
 			case status == nil:
 				metrics.DeployIgnored.Inc()
 				break SEL
-			case status.GetState() == deployment.GithubDeploymentState_error:
+			case status.GetState() == pb.GithubDeploymentState_error:
 				fallthrough
-			case status.GetState() == deployment.GithubDeploymentState_failure:
+			case status.GetState() == pb.GithubDeploymentState_failure:
 				metrics.DeployFailed.Inc()
 				logger.Errorf(status.GetDescription())
 			default:
