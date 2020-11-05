@@ -18,10 +18,10 @@ import (
 
 	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
-	types "github.com/navikt/deployment/pkg/pb"
 	"github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/api/v1/deploy"
 	"github.com/navikt/deployment/pkg/hookd/api/v1/status"
+	types "github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -44,7 +44,6 @@ const (
 	APIKeyRequiredMsg     = "API key required"
 	MalformedURLMsg       = "wrong format of deployment server URL"
 	ClusterRequiredMsg    = "cluster required; see https://doc.nais.io/clusters"
-	RepositoryRequiredMsg = "repository required"
 	MalformedAPIKeyMsg    = "API key must be a hex encoded string"
 )
 
@@ -344,7 +343,7 @@ func check(deploymentID string, key []byte, targetURL url.URL, cfg Config) (bool
 		return true, ExitSuccess, nil
 	}
 
-	log.Infof("deployment: %s", *response.Status)
+	log.Infof("deployment: %s: %s", *response.Status, response.Message)
 
 	status := types.GithubDeploymentState(types.GithubDeploymentState_value[*response.Status])
 	switch status {
