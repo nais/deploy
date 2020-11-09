@@ -26,17 +26,9 @@ const (
 )
 
 var (
-	deployQueue = make(map[string]interface{})
+	deployQueue        = make(map[string]interface{})
+	clusterConnections = make(map[string]bool)
 )
-
-func gauge(name, help string) prometheus.Gauge {
-	return prometheus.NewGauge(prometheus.GaugeOpts{
-		Name:      name,
-		Help:      help,
-		Namespace: namespace,
-		Subsystem: subsystem,
-	})
-}
 
 func GitHubRequest(statusCode int, repository, team string) {
 	githubRequests.With(prometheus.Labels{
@@ -44,6 +36,24 @@ func GitHubRequest(statusCode int, repository, team string) {
 		Repository:      repository,
 		Team:            team,
 	}).Inc()
+}
+
+func SetConnectedClusters(clusters []string) {
+	for k := range clusterConnections {
+		clusterConnections[k] = false
+	}
+	for _, k := range clusters {
+		clusterConnections[k] = true
+	}
+	for k := range clusterConnections {
+		i := 0.0
+		if clusterConnections[k] {
+			i = 1.0
+		}
+		clusterStatus.With(prometheus.Labels{
+			Cluster: k,
+		}).Set(i)
+	}
 }
 
 func statusLabel(err error) string {
@@ -143,6 +153,17 @@ var (
 		Subsystem: subsystem,
 	})
 
+	clusterStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:      "cluster_status",
+		Help:      "0 if cluster is down, 1 if cluster is up",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			Cluster,
+		},
+	)
+
 	leadTime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Name:      "lead_time_seconds",
 		Help:      "the time it takes from a deploy is made to it is running in the cluster",
@@ -164,6 +185,7 @@ func init() {
 	prometheus.MustRegister(stateTransitions)
 	prometheus.MustRegister(queueSize)
 	prometheus.MustRegister(leadTime)
+	prometheus.MustRegister(clusterStatus)
 }
 
 func Handler() http.Handler {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/navikt/deployment/pkg/hookd/database"
 	"github.com/navikt/deployment/pkg/hookd/github"
+	"github.com/navikt/deployment/pkg/hookd/metrics"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/navikt/deployment/pkg/pb"
@@ -50,6 +51,11 @@ func (s *deployServer) onlineClusters() []string {
 	return clusters
 }
 
+func (s *deployServer) reportOnlineClusters() {
+	metrics.SetConnectedClusters(s.onlineClusters())
+	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))
+}
+
 func (s *deployServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Deploy_DeploymentsServer) error {
 	err := s.clusterOnline(opts.Cluster)
 	if err == nil {
@@ -58,11 +64,15 @@ func (s *deployServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Deploy_
 	}
 	s.streams[opts.Cluster] = stream
 	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
-	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))
+	s.reportOnlineClusters()
+
+	// wait for disconnect
 	<-stream.Context().Done()
+
 	delete(s.streams, opts.Cluster)
 	log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
-	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))
+	s.reportOnlineClusters()
+
 	return nil
 }
 
