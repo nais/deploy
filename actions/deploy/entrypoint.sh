@@ -24,11 +24,11 @@ fi
 if [ ! -z "$IMAGE" ]; then
     export VARS_ORIGINAL="$VARS"
     export VARS=`mktemp`
+    cat "$VARS_ORIGINAL" > "$VARS"
     if [ -z "$VARS_ORIGINAL" ]; then
         echo "---" > $VARS
-    else
-        cat $VARS_ORIGINAL > $VARS
     fi
+
     yq w --inplace $VARS image "$IMAGE"
 fi
 
