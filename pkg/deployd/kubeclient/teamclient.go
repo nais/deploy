@@ -15,6 +15,7 @@ import (
 
 const (
 	CorrelationIDAnnotation = "nais.io/deploymentCorrelationID"
+	GitRefShaAnnotation     = "nais.io/deploymentGitRefSha"
 )
 
 type teamClient struct {

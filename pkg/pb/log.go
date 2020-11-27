@@ -14,6 +14,8 @@ const (
 	LogFieldEventType            = "event_type"
 	LogFieldDeploymentStatusID   = "deployment_status_id"
 	LogFieldDeploymentStatusType = "deployment_status"
+	LogFieldGitRefSha            = "git_ref_sha"
+	LogFieldGitRef               = "git_ref"
 )
 
 func (m *DeploymentStatus) LogFields() log.Fields {
@@ -36,5 +38,7 @@ func (m *DeploymentRequest) LogFields() log.Fields {
 		LogFieldTeam:          m.GetPayloadSpec().GetTeam(),
 		LogFieldCluster:       m.GetCluster(),
 		LogFieldRepository:    m.GetDeployment().GetRepository().FullName(),
+		LogFieldGitRef:        m.GetDeployment().GetRef(),
+		LogFieldGitRefSha:     m.GetGitRefSha(),
 	}
 }

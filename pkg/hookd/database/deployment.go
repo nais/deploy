@@ -11,6 +11,7 @@ type Deployment struct {
 	Created          time.Time
 	GitHubID         *int
 	GitHubRepository *string
+	GitRefSha        *string
 }
 
 type DeploymentStatus struct {

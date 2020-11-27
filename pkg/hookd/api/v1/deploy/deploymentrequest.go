@@ -43,6 +43,7 @@ func DeploymentRequestMessage(r *DeploymentRequest, deliveryID string) (*types.D
 		Cluster:    r.Cluster,
 		Time:       types.TimeAsTimestamp(now),
 		Deadline:   now.Add(ttl).Unix(),
+		GitRefSha:  r.GitRefSha,
 	}, nil
 }
 

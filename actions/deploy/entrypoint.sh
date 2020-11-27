@@ -19,6 +19,10 @@ if [ -z "$WAIT" ]; then
     export WAIT="true"
 fi
 
+if [ -z "$GITHUB_SHA" ]; then
+    export GIT_REF_SHA="$GITHUB_SHA"
+fi
+
 # Inject "image" as a template variable to a new copy of the vars file.
 # If the file doesn't exist, it is created. The original file is left untouched.
 if [ ! -z "$IMAGE" ]; then

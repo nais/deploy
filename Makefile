@@ -11,6 +11,9 @@ proto:
 	mv deployment.pb.go pkg/pb/
 	rm -f deployment.proto
 
+fmt:
+	go fmt github.com/navikt/deployment/...
+
 hookd:
 	go build -o bin/hookd cmd/hookd/main.go
 

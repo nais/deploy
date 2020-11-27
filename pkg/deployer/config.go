@@ -15,6 +15,7 @@ type Config struct {
 	APIKey          string
 	DeployServerURL string
 	Cluster         string
+	GitRefSha       string
 	Environment     string
 	PrintPayload    bool
 	DryRun          bool
@@ -55,6 +56,7 @@ func init() {
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT", false), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
+	flag.StringVar(&cfg.GitRefSha, "git-ref-sha", getEnv("GIT_REF_SHA", ""), "The git sha of the ref which will be deployed. (env GIT_REF_SHA)")
 
 	// Purposely do not expose the PollInterval variable
 	cfg.PollInterval = DefaultPollInterval

@@ -38,6 +38,7 @@ type DeploymentRequest struct {
 	Owner       string          `json:"owner,omitempty"`
 	Repository  string          `json:"repository,omitempty"`
 	Ref         string          `json:"ref,omitempty"`
+	GitRefSha   string          `json:"gitRefSha,omitempty"`
 	Timestamp   int64           `json:"timestamp"`
 }
 
