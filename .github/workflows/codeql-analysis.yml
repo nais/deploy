@@ -69,5 +69,5 @@ jobs:
       run: |
         for f in $(ls "/home/runner/work/deploy/results"); do
           echo -e "\\n/home/runner/work/deploy/results/$f:";
-          cat "/home/runner/work/deploy/results/$f";
+          # cat "/home/runner/work/deploy/results/$f";
         done
