@@ -13,6 +13,9 @@ name: "CodeQL"
 
 on:
   push:
+    paths:
+    - '**.go'
+    - .github/workflows/codeql-analysis.yml
   schedule:
     - cron: '21 13 * * 4'
 
