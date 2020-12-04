@@ -68,6 +68,6 @@ jobs:
     - name: Print SARIF file contents after analysis
       run: |
         for f in $(ls "/home/runner/work/deploy/results"); do
-          echo -e "\\n$f:";
-          cat "$f";
+          echo -e "\\n/home/runner/work/deploy/results/$f:";
+          cat "/home/runner/work/deploy/results/$f";
         done
