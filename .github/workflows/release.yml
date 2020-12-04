@@ -1,6 +1,9 @@
 name: NAIS deploy release pipeline
 
-on: [push]
+on:
+  push:
+    paths-ignore:
+    - '.github/workflows/codeql-analysis.yml'
 
 env:
   image: docker.pkg.github.com/${{ github.repository }}/deploy
