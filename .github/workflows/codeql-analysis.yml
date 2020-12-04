@@ -61,3 +61,10 @@ jobs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
+      
+    - name: Print SARIF file contents after analysis
+      run: |
+        for f in "/home/runner/work/deploy/results/*"; do
+          echo -e "\\n$f:";
+          cat "$f";
+        done
