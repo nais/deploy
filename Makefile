@@ -20,6 +20,9 @@ deployd:
 deploy:
 	go build -o bin/deploy cmd/deploy/main.go
 
+crypt:
+	go build -o bin/crypt cmd/crypt/main.go
+
 deploy-release-linux:
 	GOOS=linux \
 	GOARCH=amd64 \

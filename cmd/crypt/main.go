@@ -12,11 +12,24 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+const (
+	defaultEncryptionKey = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+)
+
 var (
 	shouldEncrypt = flag.Bool("encrypt", false, "try encrypting input data")
 	shouldDecrypt = flag.Bool("decrypt", false, "try decrypting input data")
-	encryptionKey = flag.String("key", os.Getenv("ENCRYPTION_KEY"), "encryption key")
+	encryptionKey = flag.String("key", getEnvDefault("ENCRYPTION_KEY", defaultEncryptionKey), "encryption key")
+	useHex        = flag.Bool("hex", true, "output data as hex string")
 )
+
+func getEnvDefault(env string, def string) string {
+	val, found := os.LookupEnv(env)
+	if !found {
+		return def
+	}
+	return val
+}
 
 func decrypt(s string, key []byte) (string, error) {
 	decoded, err := hex.DecodeString(s)
@@ -26,6 +39,9 @@ func decrypt(s string, key []byte) (string, error) {
 	decrypted, err := crypto.Decrypt(decoded, key)
 	if err != nil {
 		return "", err
+	}
+	if *useHex {
+		return hex.EncodeToString(decrypted), nil
 	}
 	return string(decrypted), nil
 }
