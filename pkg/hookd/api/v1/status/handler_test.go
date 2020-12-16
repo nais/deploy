@@ -68,6 +68,10 @@ func (s *deploymentStorage) Deployment(ctx context.Context, id string) (*databas
 	return nil, nil
 }
 
+func (s *deploymentStorage) Deployments(ctx context.Context, team string, limit int) ([]*database.Deployment, error) {
+	return nil, nil
+}
+
 func (s *deploymentStorage) WriteDeployment(ctx context.Context, deployment database.Deployment) error {
 	return nil
 }

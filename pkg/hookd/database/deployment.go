@@ -3,25 +3,28 @@ package database
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v4"
 )
 
 type Deployment struct {
-	ID               string
-	Team             string
-	Created          time.Time
-	GitHubID         *int
-	GitHubRepository *string
+	ID               string    `json:"id"`
+	Team             string    `json:"team"`
+	Created          time.Time `json:"created"`
+	GitHubID         *int      `json:"githubID"`
+	GitHubRepository *string   `json:"githubRepository"`
 }
 
 type DeploymentStatus struct {
-	ID           string
-	DeploymentID string
-	Status       string
-	Message      string
-	Created      time.Time
+	ID           string    `json:"id"`
+	DeploymentID string    `json:"deploymentID"`
+	Status       string    `json:"status"`
+	Message      string    `json:"message"`
+	Created      time.Time `json:"created"`
 }
 
 type DeploymentStore interface {
+	Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error)
 	Deployment(ctx context.Context, id string) (*Deployment, error)
 	WriteDeployment(ctx context.Context, deployment Deployment) error
 	DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error)
@@ -29,6 +32,49 @@ type DeploymentStore interface {
 }
 
 var _ DeploymentStore = &database{}
+
+func scanDeployment(rows pgx.Rows) (*Deployment, error) {
+	deployment := &Deployment{}
+
+	err := rows.Scan(
+		&deployment.ID,
+		&deployment.Team,
+		&deployment.Created,
+		&deployment.GitHubID,
+		&deployment.GitHubRepository,
+	)
+
+	return deployment, err
+}
+
+func (db *database) Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error) {
+	query := `
+SELECT id, team, created, github_id, github_repository
+FROM deployment
+WHERE ($1 = '' OR team = $1)
+ORDER BY created DESC
+LIMIT $2;
+`
+	rows, err := db.timedQuery(ctx, query, team, limit)
+
+	if err != nil {
+		return nil, err
+	}
+
+	deployments := make([]*Deployment, 0)
+	defer rows.Close()
+	for rows.Next() {
+		deployment, err := scanDeployment(rows)
+
+		if err != nil {
+			return nil, err
+		}
+
+		deployments = append(deployments, deployment)
+	}
+
+	return deployments, nil
+}
 
 func (db *database) Deployment(ctx context.Context, id string) (*Deployment, error) {
 	query := `SELECT id, team, created, github_id, github_repository FROM deployment WHERE id = $1;`
@@ -40,15 +86,7 @@ func (db *database) Deployment(ctx context.Context, id string) (*Deployment, err
 
 	defer rows.Close()
 	for rows.Next() {
-		deployment := &Deployment{}
-
-		err := rows.Scan(
-			&deployment.ID,
-			&deployment.Team,
-			&deployment.Created,
-			&deployment.GitHubID,
-			&deployment.GitHubRepository,
-		)
+		deployment, err := scanDeployment(rows)
 
 		if err != nil {
 			return nil, err

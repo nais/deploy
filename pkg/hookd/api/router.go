@@ -12,6 +12,7 @@ import (
 	"github.com/navikt/deployment/pkg/azure/discovery"
 	"github.com/navikt/deployment/pkg/azure/graphapi"
 	api_v1_apikey "github.com/navikt/deployment/pkg/hookd/api/v1/apikey"
+	"github.com/navikt/deployment/pkg/hookd/api/v1/dashboard"
 	api_v1_deploy "github.com/navikt/deployment/pkg/hookd/api/v1/deploy"
 	api_v1_provision "github.com/navikt/deployment/pkg/hookd/api/v1/provision"
 	api_v1_status "github.com/navikt/deployment/pkg/hookd/api/v1/status"
@@ -77,6 +78,10 @@ func New(cfg Config) chi.Router {
 		SecretKey:     cfg.ProvisionKey,
 	}
 
+	dashboardHandler := &api_v1_dashboard.Handler{
+		DeploymentStore: cfg.DeploymentStore,
+	}
+
 	// Pre-populate request metrics
 	for _, code := range api_v1_deploy.StatusCodes {
 		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
@@ -114,6 +119,11 @@ func New(cfg Config) chi.Router {
 			chi_middleware.Timeout(requestTimeout),
 		)
 		if cfg.OAuthKeyValidatorMiddleware != nil {
+			r.Route("/dashboard", func(r chi.Router) {
+				r.Use(cfg.OAuthKeyValidatorMiddleware)
+				r.Get("/deployments", dashboardHandler.Deployments)
+				r.Get("/deployments/{id}", dashboardHandler.Deployments)
+			})
 			r.Route("/apikey", func(r chi.Router) {
 				r.Use(cfg.OAuthKeyValidatorMiddleware)
 				r.Get("/", apikeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
@@ -127,6 +137,7 @@ func New(cfg Config) chi.Router {
 		} else {
 			log.Error("Refusing to set up team API key retrieval without OAuth middleware; try configuring --azure-*")
 			log.Error("Note: /api/v1/apikey will be unavailable")
+			log.Error("Note: /api/v1/dashboard will be unavailable")
 			log.Error("Note: /api/v1/teams will be unavailable")
 		}
 		r.Post("/deploy", deploymentHandler.ServeHTTP)

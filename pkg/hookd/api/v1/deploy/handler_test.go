@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/navikt/deployment/pkg/pb"
 	"github.com/navikt/deployment/pkg/hookd/api"
 	"github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/api/v1/deploy"
 	"github.com/navikt/deployment/pkg/hookd/database"
+	"github.com/navikt/deployment/pkg/pb"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,6 +74,10 @@ func (db *db) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error
 
 func (db *db) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
 	return nil
+}
+
+func (db *db) Deployments(ctx context.Context, team string, limit int) ([]*database.Deployment, error) {
+	return nil, nil
 }
 
 func (db *db) Deployment(ctx context.Context, id string) (*database.Deployment, error) {
