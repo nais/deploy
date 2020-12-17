@@ -20,6 +20,8 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
+	logger.Tracef("Request API keys")
+
 	groups, err := api_v1.GroupClaims(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -32,7 +34,7 @@ func (h *ApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
 	for _, group := range groups {
 		groupKeys, err := h.APIKeyStorage.ApiKeys(r.Context(), group)
 		if err != nil {
-			logger.Error(err)
+			logger.Tracef("Group claim: %s: %s", group, err)
 		}
 		if len(groupKeys) > 0 {
 			for _, groupKey := range groupKeys {
