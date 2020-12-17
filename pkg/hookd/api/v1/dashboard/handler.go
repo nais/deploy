@@ -15,7 +15,7 @@ const (
 )
 
 type DeploymentsResponse struct {
-	Deployments []*database.Deployment `json:"deployments"`
+	Deployments []FullDeployment `json:"deployments"`
 }
 
 type FullDeployment struct {
@@ -38,8 +38,23 @@ func (h *Handler) Deployments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fullDeploys := make([]FullDeployment, len(deployments))
+
+	for i := range deployments {
+		statuses, err := h.DeploymentStore.DeploymentStatus(r.Context(), deployments[i].ID)
+		if err != nil && err != database.ErrNotFound {
+			w.WriteHeader(http.StatusInternalServerError)
+			logger.Error(err)
+			return
+		}
+		fullDeploys[i] = FullDeployment{
+			Deployment: *deployments[i],
+			Statuses:   statuses,
+		}
+	}
+
 	render.JSON(w, r, DeploymentsResponse{
-		Deployments: deployments,
+		Deployments: fullDeploys,
 	})
 }
 
