@@ -1,15 +1,15 @@
 package deployd
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/navikt/deployment/pkg/pb"
 	"github.com/navikt/deployment/pkg/deployd/config"
 	"github.com/navikt/deployment/pkg/deployd/kubeclient"
 	"github.com/navikt/deployment/pkg/deployd/metrics"
+	"github.com/navikt/deployment/pkg/k8sutils"
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -39,17 +39,6 @@ func meetsDeadline(req pb.DeploymentRequest) error {
 		return ErrDeadlineExceeded
 	}
 	return nil
-}
-
-func jsonToResources(json []json.RawMessage) ([]unstructured.Unstructured, error) {
-	resources := make([]unstructured.Unstructured, len(json))
-	for i := range resources {
-		err := resources[i].UnmarshalJSON(json[i])
-		if err != nil {
-			return nil, fmt.Errorf("resource %d: decoding payload: %s", i+1, err)
-		}
-	}
-	return resources, nil
 }
 
 // Annotate a resource with the deployment correlation ID.
@@ -126,7 +115,7 @@ func Run(logger *log.Entry, req *pb.DeploymentRequest, cfg config.Config, kube k
 		return
 	}
 
-	resources, err := jsonToResources(rawResources)
+	resources, err := k8sutils.ResourcesFromJSON(rawResources)
 	if err != nil {
 		deployStatus <- pb.NewErrorStatus(*req, err)
 		return
@@ -139,14 +128,12 @@ func Run(logger *log.Entry, req *pb.DeploymentRequest, cfg config.Config, kube k
 
 	for index, resource := range resources {
 		addCorrelationID(&resource, req.GetDeliveryID())
+		identifier := k8sutils.ResourceIdentifier(resource)
 
-		gvk := resource.GroupVersionKind().String()
-		ns := resource.GetNamespace()
-		n := resource.GetName()
 		logger = logger.WithFields(log.Fields{
-			"name":      n,
-			"namespace": ns,
-			"gvk":       gvk,
+			"name":      identifier.Name,
+			"namespace": identifier.Namespace,
+			"gvk":       identifier.GroupVersionKind,
 		})
 
 		deployed, err := teamClient.DeployUnstructured(resource)
@@ -163,13 +150,13 @@ func Run(logger *log.Entry, req *pb.DeploymentRequest, cfg config.Config, kube k
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
 			wait.Add(1)
-			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", gvk, n, ns, deploymentTimeout.String())
+			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deploymentTimeout.String())
 			err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
 			if err != nil {
 				logger.Error(err)
 				errors <- err
 			}
-			logger.Infof("Finished monitoring rollout status of '%s/%s' in namespace '%s'", gvk, n, ns)
+			logger.Infof("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
 			wait.Done()
 		}(logger, resource)
 	}
