@@ -23,12 +23,25 @@ type DeploymentStatus struct {
 	Created      time.Time `json:"created"`
 }
 
+type DeploymentResource struct {
+	ID           string `json:"id"`
+	DeploymentID string `json:"deploymentID"`
+	Index        int    `json:"index"`
+	Group        string `json:"group"`
+	Version      string `json:"version"`
+	Kind         string `json:"kind"`
+	Name         string `json:"name"`
+	Namespace    string `json:"namespace"`
+}
+
 type DeploymentStore interface {
 	Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error)
 	Deployment(ctx context.Context, id string) (*Deployment, error)
 	WriteDeployment(ctx context.Context, deployment Deployment) error
 	DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error)
 	WriteDeploymentStatus(ctx context.Context, status DeploymentStatus) error
+	DeploymentResources(ctx context.Context, deploymentID string) ([]DeploymentResource, error)
+	WriteDeploymentResource(ctx context.Context, resource DeploymentResource) error
 }
 
 var _ DeploymentStore = &database{}
@@ -168,6 +181,63 @@ VALUES ($1, $2, $3, $4, $5);
 		status.Status,
 		status.Message,
 		status.Created,
+	)
+
+	return err
+}
+
+func (db *database) DeploymentResources(ctx context.Context, deploymentID string) ([]DeploymentResource, error) {
+	query := `SELECT id, deployment_id, index, "group", version, kind, name, namespace FROM deployment_resource WHERE deployment_id = $1 ORDER BY index ASC;`
+	rows, err := db.timedQuery(ctx, query, deploymentID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	resources := make([]DeploymentResource, 0)
+
+	defer rows.Close()
+	for rows.Next() {
+		resource := DeploymentResource{}
+
+		// see selectApiKeyFields
+		err := rows.Scan(
+			&resource.ID,
+			&resource.DeploymentID,
+			&resource.Index,
+			&resource.Group,
+			&resource.Version,
+			&resource.Kind,
+			&resource.Name,
+			&resource.Namespace,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		resources = append(resources, resource)
+	}
+
+	return resources, nil
+}
+
+func (db *database) WriteDeploymentResource(ctx context.Context, resource DeploymentResource) error {
+	var query string
+
+	query = `
+INSERT INTO deployment_resource (id, deployment_id, index, "group", version, kind, name, namespace)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+`
+	_, err := db.conn.Exec(ctx, query,
+		resource.ID,
+		resource.DeploymentID,
+		resource.Index,
+		resource.Group,
+		resource.Version,
+		resource.Kind,
+		resource.Name,
+		resource.Namespace,
 	)
 
 	return err

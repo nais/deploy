@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/navikt/deployment/pkg/grpc/deployserver"
-
 	"github.com/google/uuid"
+	"github.com/navikt/deployment/pkg/grpc/deployserver"
 	"github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/database"
 	"github.com/navikt/deployment/pkg/hookd/logproxy"
 	"github.com/navikt/deployment/pkg/hookd/middleware"
+	"github.com/navikt/deployment/pkg/k8sutils"
 
 	gh "github.com/google/go-github/v27/github"
 	types "github.com/navikt/deployment/pkg/pb"
@@ -207,12 +207,28 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resources, err := k8sutils.ResourcesFromDeploymentRequest(deployMsg)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		deploymentResponse.Message = fmt.Sprintf("invalid Kubernetes resources in request: %s", err)
+		deploymentResponse.render(w)
+		logger.Error(deploymentResponse.Message)
+		return
+	}
+
+	// Identify resources
+	identifiers := k8sutils.Identifiers(resources)
+	for i := range identifiers {
+		logger.Infof("Resource %d: %s", i+1, identifiers[i])
+	}
+
 	deployment := database.Deployment{
 		ID:      requestID.String(),
 		Team:    deploymentRequest.Team,
 		Created: time.Now(),
 	}
 
+	// Write deployment request to database
 	err = h.DeploymentStore.WriteDeployment(r.Context(), deployment)
 
 	if err != nil {
@@ -221,6 +237,30 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		deploymentResponse.render(w)
 		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return
+	}
+
+	// Write metadata of Kubernetes resources to database
+	for i, id := range identifiers {
+		uuidstr, err := uuid.NewRandom()
+		if err == nil {
+			err = h.DeploymentStore.WriteDeploymentResource(r.Context(), database.DeploymentResource{
+				ID:           uuidstr.String(),
+				DeploymentID: deployment.ID,
+				Index:        i,
+				Group:        id.Group,
+				Version:      id.Version,
+				Kind:         id.Kind,
+				Name:         id.Name,
+				Namespace:    id.Namespace,
+			})
+		}
+		if err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			deploymentResponse.Message = fmt.Sprintf("deploy unavailable; try again later")
+			deploymentResponse.render(w)
+			logger.Errorf("%s: %s", deploymentResponse.Message, err)
+			return
+		}
 	}
 
 	logger.Tracef("Deployment committed to database")
