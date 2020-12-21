@@ -19,8 +19,9 @@ import (
 )
 
 type request struct {
-	Headers map[string]string
-	Body    json.RawMessage
+	Timestamp *time.Time
+	Headers   map[string]string
+	Body      json.RawMessage
 }
 
 type response struct {
@@ -33,6 +34,10 @@ type testCase struct {
 	Request  request
 	Response response
 	Setup    func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
+}
+
+func timep(t time.Time) *time.Time {
+	return &t
 }
 
 func errorResponse(code int, message string) response {
@@ -79,7 +84,8 @@ var tests = []testCase{
 	{
 		Name: "Empty request body",
 		Request: request{
-			Body: []byte(``),
+			Timestamp: timep(time.Now()),
+			Body:      []byte(``),
 		},
 		Response: response{
 			StatusCode: 400,
@@ -92,7 +98,8 @@ var tests = []testCase{
 	{
 		Name: "Invalid HMAC digest format",
 		Request: request{
-			Body: validPayload,
+			Timestamp: timep(time.Now()),
+			Body:      validPayload,
 			Headers: map[string]string{
 				"x-nais-signature": "foobar",
 			},
@@ -108,7 +115,8 @@ var tests = []testCase{
 	{
 		Name: "Wrong HMAC signature",
 		Request: request{
-			Body: validPayload,
+			Timestamp: timep(time.Now()),
+			Body:      validPayload,
 			Headers: map[string]string{
 				"x-nais-signature": "abcdef",
 			},
@@ -125,9 +133,33 @@ var tests = []testCase{
 	},
 
 	{
-		Name: "API key not found",
+		Name: "Valid deployment request, but not timestamp signed",
 		Request: request{
 			Body: validPayload,
+		},
+		Response: errorResponse(403, "failed authentication"),
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
+		},
+	},
+
+	{
+		Name: "Valid deployment request, but timestamp is too old",
+		Request: request{
+			Timestamp: timep(time.Now().AddDate(0, 0, -1)),
+			Body:      validPayload,
+		},
+		Response: errorResponse(403, "failed authentication"),
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
+		},
+	},
+
+	{
+		Name: "API key not found",
+		Request: request{
+			Timestamp: timep(time.Now()),
+			Body:      validPayload,
 		},
 		Response: response{
 			StatusCode: 403,
@@ -143,7 +175,8 @@ var tests = []testCase{
 	{
 		Name: "API key service unavailable",
 		Request: request{
-			Body: validPayload,
+			Timestamp: timep(time.Now()),
+			Body:      validPayload,
 		},
 		Response: errorResponse(502, "something wrong happened when communicating with api key service"),
 		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
@@ -154,7 +187,8 @@ var tests = []testCase{
 	{
 		Name: "Database unavailable",
 		Request: request{
-			Body: validPayload,
+			Timestamp: timep(time.Now()),
+			Body:      validPayload,
 		},
 		Response: errorResponse(503, "database is unavailable; try again later"),
 		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
@@ -166,7 +200,8 @@ var tests = []testCase{
 	{
 		Name: "Write deployment resource failed",
 		Request: request{
-			Body: validPayload,
+			Timestamp: timep(time.Now()),
+			Body:      validPayload,
 		},
 		Response: errorResponse(503, "database is unavailable; try again later"),
 		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
@@ -179,7 +214,8 @@ var tests = []testCase{
 	{
 		Name: "Deployd unavailable",
 		Request: request{
-			Body: validPayload,
+			Timestamp: timep(time.Now()),
+			Body:      validPayload,
 		},
 		Response: errorResponse(503, "deploy unavailable; try again later"),
 		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
@@ -193,7 +229,8 @@ var tests = []testCase{
 	{
 		Name: "Valid deployment request",
 		Request: request{
-			Body: validPayload,
+			Timestamp: timep(time.Now()),
+			Body:      validPayload,
 		},
 		Response: errorResponse(201, "deployment request accepted and dispatched"),
 		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
