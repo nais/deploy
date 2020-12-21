@@ -225,6 +225,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deployment := database.Deployment{
 		ID:      requestID.String(),
 		Team:    deploymentRequest.Team,
+		Cluster: &deploymentRequest.Cluster,
 		Created: time.Now(),
 	}
 

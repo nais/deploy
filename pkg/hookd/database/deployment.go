@@ -13,6 +13,7 @@ type Deployment struct {
 	Created          time.Time `json:"created"`
 	GitHubID         *int      `json:"githubID"`
 	GitHubRepository *string   `json:"githubRepository"`
+	Cluster          *string   `json:"cluster"`
 }
 
 type DeploymentStatus struct {
@@ -55,6 +56,7 @@ func scanDeployment(rows pgx.Rows) (*Deployment, error) {
 		&deployment.Created,
 		&deployment.GitHubID,
 		&deployment.GitHubRepository,
+		&deployment.Cluster,
 	)
 
 	return deployment, err
@@ -62,7 +64,7 @@ func scanDeployment(rows pgx.Rows) (*Deployment, error) {
 
 func (db *database) Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error) {
 	query := `
-SELECT id, team, created, github_id, github_repository
+SELECT id, team, created, github_id, github_repository, cluster
 FROM deployment
 WHERE ($1 = '' OR team = $1)
 ORDER BY created DESC
@@ -90,7 +92,7 @@ LIMIT $2;
 }
 
 func (db *database) Deployment(ctx context.Context, id string) (*Deployment, error) {
-	query := `SELECT id, team, created, github_id, github_repository FROM deployment WHERE id = $1;`
+	query := `SELECT id, team, created, github_id, github_repository, cluster FROM deployment WHERE id = $1;`
 	rows, err := db.timedQuery(ctx, query, id)
 
 	if err != nil {
@@ -115,8 +117,8 @@ func (db *database) WriteDeployment(ctx context.Context, deployment Deployment) 
 	var query string
 
 	query = `
-INSERT INTO deployment (id, team, created, github_id, github_repository)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO deployment (id, team, created, github_id, github_repository, cluster)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (id) DO UPDATE
 SET github_id = EXCLUDED.github_id, github_repository = EXCLUDED.github_repository;
 `
@@ -126,6 +128,7 @@ SET github_id = EXCLUDED.github_id, github_repository = EXCLUDED.github_reposito
 		deployment.Created,
 		deployment.GitHubID,
 		deployment.GitHubRepository,
+		deployment.Cluster,
 	)
 
 	return err
