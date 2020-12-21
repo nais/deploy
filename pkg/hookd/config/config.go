@@ -36,7 +36,6 @@ type Config struct {
 	Github                Github   `json:"github"`
 	DatabaseURL           string   `json:"database-url"`
 	MetricsPath           string   `json:"metrics-path"`
-	Clusters              []string `json:"clusters"`
 	ProvisionKey          string   `json:"provision-key"`
 	DatabaseEncryptionKey string   `json:"database-encryption-key"`
 }
@@ -57,7 +56,6 @@ const (
 	AzureTenant              = "azure.app-tenant-id"
 	AzureWellKnownUrl        = "azure.app-well-known-url"
 	BaseUrl                  = "base-url"
-	Cluster                  = "clusters"
 	DatabaseEncryptionKey    = "database-encryption-key"
 	DatabaseUrl              = "database-url"
 	GithubAppId              = "github.app-id"
@@ -99,7 +97,6 @@ func Initialize() *Config {
 	flag.String(ListenAddress, "127.0.0.1:8080", "IP:PORT")
 	flag.String(LogFormat, "text", "Log format, either 'json' or 'text'.")
 	flag.String(LogLevel, "debug", "Logging verbosity level.")
-	flag.StringSlice(Cluster, []string{"local"}, "Comma-separated list of valid clusters that can be deployed to.")
 	flag.String(ProvisionKey, "", "Pre-shared key for /api/v1/provision endpoint.")
 	flag.String(MetricsPath, "/metrics", "HTTP endpoint for exposed metrics.")
 

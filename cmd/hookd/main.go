@@ -18,13 +18,13 @@ import (
 	"github.com/navikt/deployment/pkg/azure/graphapi"
 	"github.com/navikt/deployment/pkg/grpc/deployserver"
 	"github.com/navikt/deployment/pkg/grpc/interceptor"
-	"github.com/navikt/deployment/pkg/logging"
-	"github.com/navikt/deployment/pkg/pb"
 	"github.com/navikt/deployment/pkg/hookd/api"
 	"github.com/navikt/deployment/pkg/hookd/config"
 	"github.com/navikt/deployment/pkg/hookd/database"
 	"github.com/navikt/deployment/pkg/hookd/github"
 	"github.com/navikt/deployment/pkg/hookd/middleware"
+	"github.com/navikt/deployment/pkg/logging"
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -114,7 +114,6 @@ func run() error {
 		ApiKeyStore:                 db,
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
-		Clusters:                    cfg.Clusters,
 		DeploymentStore:             db,
 		DeployServer:                deployServer,
 		GithubConfig:                cfg.Github,
