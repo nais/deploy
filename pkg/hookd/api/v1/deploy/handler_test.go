@@ -207,6 +207,8 @@ var tests = []testCase{
 }
 
 func subTest(t *testing.T, test testCase) {
+	test.Request.Body = addTimestampToBody(test.Request.Body, 0)
+
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "/api/v1/deploy", bytes.NewReader(test.Request.Body))
 	request.Header.Set("content-type", "application/json")
@@ -250,6 +252,29 @@ func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response re
 	assert.NotEmpty(t, decodedBody.CorrelationID)
 }
 
+// Inject timestamp in request payload
+func addTimestampToBody(in []byte, timeshift int64) []byte {
+	tmp := make(map[string]interface{})
+	err := json.Unmarshal(in, &tmp)
+
+	if err != nil {
+		return in
+	}
+
+	if _, ok := tmp["timestamp"]; ok {
+		// timestamp already provided in test fixture
+		return in
+	}
+	tmp["timestamp"] = time.Now().Unix() + timeshift
+	out, err := json.Marshal(tmp)
+
+	if err != nil {
+		return in
+	}
+
+	return out
+}
+
 // Deployment server integration tests using mocks; see table tests definitions above.
 func TestDeploymentHandler_ServeHTTP(t *testing.T) {
 	for _, test := range tests {
@@ -282,6 +307,7 @@ func TestDeploymentRequest_Validate(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
+		req.Timestamp = api_v1.Timestamp(time.Now().Unix())
 	}
 
 	for _, setupFunc := range errorTests {
@@ -289,6 +315,7 @@ func TestDeploymentRequest_Validate(t *testing.T) {
 		setupFunc()
 		assert.Error(t, req.Validate())
 	}
+
 	for _, setupFunc := range successTests {
 		setup()
 		setupFunc()

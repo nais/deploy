@@ -30,14 +30,14 @@ type DeploymentHandler struct {
 }
 
 type DeploymentRequest struct {
-	Resources   json.RawMessage `json:"resources,omitempty"`
-	Team        string          `json:"team,omitempty"`
-	Cluster     string          `json:"cluster,omitempty"`
-	Environment string          `json:"environment,omitempty"`
-	Owner       string          `json:"owner,omitempty"`
-	Repository  string          `json:"repository,omitempty"`
-	Ref         string          `json:"ref,omitempty"`
-	Timestamp   int64           `json:"timestamp"`
+	Resources   json.RawMessage  `json:"resources,omitempty"`
+	Team        string           `json:"team,omitempty"`
+	Cluster     string           `json:"cluster,omitempty"`
+	Environment string           `json:"environment,omitempty"`
+	Owner       string           `json:"owner,omitempty"`
+	Repository  string           `json:"repository,omitempty"`
+	Ref         string           `json:"ref,omitempty"`
+	Timestamp   api_v1.Timestamp `json:"timestamp"`
 }
 
 type DeploymentResponse struct {
@@ -74,6 +74,10 @@ func (r *DeploymentRequest) Validate() error {
 		return fmt.Errorf("resources field must be a list")
 	} else if len(list) == 0 {
 		return fmt.Errorf("resources must contain at least one Kubernetes resource")
+	}
+
+	if err := r.Timestamp.Validate(); err != nil {
+		return err
 	}
 
 	return nil

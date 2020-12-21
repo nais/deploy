@@ -40,11 +40,11 @@ const (
 	DefaultDeployServer  = "https://deploy.nais.io"
 	DefaultDeployTimeout = time.Minute * 10
 
-	ResourceRequiredMsg   = "at least one Kubernetes resource is required to make sense of the deployment"
-	APIKeyRequiredMsg     = "API key required"
-	MalformedURLMsg       = "wrong format of deployment server URL"
-	ClusterRequiredMsg    = "cluster required; see https://doc.nais.io/clusters"
-	MalformedAPIKeyMsg    = "API key must be a hex encoded string"
+	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
+	APIKeyRequiredMsg   = "API key required"
+	MalformedURLMsg     = "wrong format of deployment server URL"
+	ClusterRequiredMsg  = "cluster required; see https://doc.nais.io/clusters"
+	MalformedAPIKeyMsg  = "API key must be a hex encoded string"
 )
 
 // Kept separate to avoid skewing exit codes
@@ -369,7 +369,7 @@ func mkpayload(w io.Writer, resources json.RawMessage, cfg Config) error {
 		Ref:         cfg.Ref,
 		Owner:       cfg.Owner,
 		Repository:  cfg.Repository,
-		Timestamp:   time.Now().Unix(),
+		Timestamp:   api_v1.Timestamp(time.Now().Unix()),
 	}
 
 	enc := json.NewEncoder(w)
