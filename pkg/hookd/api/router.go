@@ -36,7 +36,6 @@ type Config struct {
 	BaseURL                     string
 	DeployServer                deployserver.DeployServer
 	Certificates                map[string]discovery.CertificateList
-	Clusters                    []string
 	DeploymentStore             database.DeploymentStore
 	GithubConfig                config.Github
 	InstallationClient          *gh.Client
@@ -55,7 +54,6 @@ func New(cfg Config) chi.Router {
 		APIKeyStorage:   cfg.ApiKeyStore,
 		BaseURL:         cfg.BaseURL,
 		DeployServer:    cfg.DeployServer,
-		Clusters:        cfg.Clusters,
 		DeploymentStore: cfg.DeploymentStore,
 	}
 

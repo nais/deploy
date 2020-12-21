@@ -2,30 +2,21 @@ package api_v1_deploy_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
-	"io"
-	"io/ioutil"
+	"errors"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
+	"github.com/navikt/deployment/pkg/grpc/deployserver"
 	"github.com/navikt/deployment/pkg/hookd/api"
 	"github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/api/v1/deploy"
 	"github.com/navikt/deployment/pkg/hookd/database"
-	"github.com/navikt/deployment/pkg/pb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
-
-var secretKey = api_v1.Key{0xab, 0xcd, 0xef} // abcdef
-
-var validClusters = []string{
-	"local",
-}
 
 type request struct {
 	Headers map[string]string
@@ -33,126 +24,189 @@ type request struct {
 }
 
 type response struct {
-	StatusCode int                              `json:"statusCode"`
-	Body       api_v1_deploy.DeploymentResponse `json:"body"`
+	StatusCode int
+	Body       api_v1_deploy.DeploymentResponse
 }
 
 type testCase struct {
-	Request  request  `json:"request"`
-	Response response `json:"response"`
+	Name     string
+	Request  request
+	Response response
+	Setup    func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
 }
 
-type borker struct{}
-
-func (b *borker) SendDeploymentRequest(ctx context.Context, deployment pb.DeploymentRequest) error {
-	switch deployment.GetPayloadSpec().GetTeam() {
-	case "deployd_unavailable":
-		return fmt.Errorf("deploy queue is unavailable; try again later")
-	}
-	return nil
-}
-
-func (b *borker) HandleDeploymentStatus(ctx context.Context, status pb.DeploymentStatus) error {
-	return nil
-}
-
-type db struct{}
-
-func (db *db) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
-	switch team {
-	case "notfound":
-		return nil, database.ErrNotFound
-	case "unavailable":
-		return nil, fmt.Errorf("service unavailable")
-	default:
-		return []database.ApiKey{{
-			Key:     secretKey,
-			Expires: time.Now().Add(1 * time.Hour),
-		}}, nil
-	}
-}
-
-func (db *db) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
-	return nil
-}
-
-func (db *db) Deployments(ctx context.Context, team string, limit int) ([]*database.Deployment, error) {
-	return nil, nil
-}
-
-func (db *db) Deployment(ctx context.Context, id string) (*database.Deployment, error) {
-	return nil, nil
-}
-
-func (db *db) WriteDeployment(ctx context.Context, deployment database.Deployment) error {
-	switch deployment.Team {
-	case "database_unavailable":
-		return fmt.Errorf("oops")
-	}
-	return nil
-}
-
-func (db *db) DeploymentStatus(ctx context.Context, deploymentID string) ([]database.DeploymentStatus, error) {
-	return []database.DeploymentStatus{
-		{
-			ID:           "foo",
-			DeploymentID: "123",
-			Status:       "success",
-			Message:      "all resources deployed",
+func errorResponse(code int, message string) response {
+	return response{
+		StatusCode: code,
+		Body: api_v1_deploy.DeploymentResponse{
+			Message: message,
 		},
-	}, nil
-}
-
-func (db *db) WriteDeploymentStatus(ctx context.Context, status database.DeploymentStatus) error {
-	return nil
-}
-
-func (b *borker) Deployments(deploymentOpts *pb.GetDeploymentOpts, deploymentsServer pb.Deploy_DeploymentsServer) error {
-	return nil
-}
-
-func (b *borker) ReportStatus(ctx context.Context, status *pb.DeploymentStatus) (*pb.ReportStatusOpts, error) {
-	return nil, nil
-}
-
-func (b *borker) Queue(request *pb.DeploymentRequest) error {
-	return nil
-}
-
-func fileReader(file string) io.Reader {
-	f, err := os.Open(file)
-	if err != nil {
-		panic(err)
 	}
-	return f
 }
 
-func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
-	decodedBody := api_v1_deploy.DeploymentResponse{}
-	err := json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
-	assert.NoError(t, err)
-	assert.Equal(t, response.StatusCode, recorder.Code)
-	assert.Equal(t, response.Body.Message, decodedBody.Message)
-	assert.NotEmpty(t, decodedBody.CorrelationID)
+var genericError = errors.New("oops")
+
+var secretKey = api_v1.Key{0xab, 0xcd, 0xef} // abcdef
+
+var validApiKeys = database.ApiKeys{
+	database.ApiKey{
+		Key:     secretKey,
+		Expires: time.Now().Add(time.Hour * 1),
+	},
 }
 
-func subTest(t *testing.T, name string) {
-	inFile := fmt.Sprintf("testdata/%s", name)
+var validPayload = []byte(`
+{
+	"resources": [ {
+		"kind": "ConfigMap",
+		"version": "v1",
+		"metadata": {
+			"name": "foo",
+			"namespace": "bar"
+		}
+	} ],
+	"team": "myteam",
+	"cluster": "local",
+	"owner": "foo",
+	"repository": "bar",
+	"ref": "master",
+	"environment": "baz"
+}
+`)
 
-	fixture := fileReader(inFile)
-	data, err := ioutil.ReadAll(fixture)
-	if err != nil {
-		t.Error(data)
-		t.Fail()
-	}
+// Test case definitions
+var tests = []testCase{
+	{
+		Name: "Empty request body",
+		Request: request{
+			Body: []byte(``),
+		},
+		Response: response{
+			StatusCode: 400,
+			Body: api_v1_deploy.DeploymentResponse{
+				Message: "unable to unmarshal request body: unexpected end of JSON input",
+			},
+		},
+	},
 
-	test := testCase{}
-	err = json.Unmarshal(data, &test)
-	if err != nil {
-		t.Error(data)
-		t.Fail()
-	}
+	{
+		Name: "Invalid HMAC digest format",
+		Request: request{
+			Body: validPayload,
+			Headers: map[string]string{
+				"x-nais-signature": "foobar",
+			},
+		},
+		Response: response{
+			StatusCode: 400,
+			Body: api_v1_deploy.DeploymentResponse{
+				Message: "HMAC digest must be hex encoded",
+			},
+		},
+	},
 
+	{
+		Name: "Wrong HMAC signature",
+		Request: request{
+			Body: validPayload,
+			Headers: map[string]string{
+				"x-nais-signature": "abcdef",
+			},
+		},
+		Response: response{
+			StatusCode: 403,
+			Body: api_v1_deploy.DeploymentResponse{
+				Message: "failed authentication",
+			},
+		},
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
+		},
+	},
+
+	{
+		Name: "API key not found",
+		Request: request{
+			Body: validPayload,
+		},
+		Response: response{
+			StatusCode: 403,
+			Body: api_v1_deploy.DeploymentResponse{
+				Message: "failed authentication",
+			},
+		},
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
+		},
+	},
+
+	{
+		Name: "API key service unavailable",
+		Request: request{
+			Body: validPayload,
+		},
+		Response: errorResponse(502, "something wrong happened when communicating with api key service"),
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, genericError).Once()
+		},
+	},
+
+	{
+		Name: "Database unavailable",
+		Request: request{
+			Body: validPayload,
+		},
+		Response: errorResponse(503, "database is unavailable; try again later"),
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
+			deployStore.On("WriteDeployment", mock.Anything, mock.Anything).Return(genericError).Once()
+		},
+	},
+
+	{
+		Name: "Write deployment resource failed",
+		Request: request{
+			Body: validPayload,
+		},
+		Response: errorResponse(503, "database is unavailable; try again later"),
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
+			deployStore.On("WriteDeployment", mock.Anything, mock.Anything).Return(genericError).Once()
+			deployStore.On("WriteDeploymentResource", mock.Anything, mock.Anything, mock.Anything).Return(genericError).Once()
+		},
+	},
+
+	{
+		Name: "Deployd unavailable",
+		Request: request{
+			Body: validPayload,
+		},
+		Response: errorResponse(503, "deploy unavailable; try again later"),
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
+			deployStore.On("WriteDeployment", mock.Anything, mock.Anything).Return(nil).Once()
+			deployStore.On("WriteDeploymentResource", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+			server.On("SendDeploymentRequest", mock.Anything, mock.Anything).Return(genericError).Once()
+		},
+	},
+
+	{
+		Name: "Valid deployment request",
+		Request: request{
+			Body: validPayload,
+		},
+		Response: errorResponse(201, "deployment request accepted and dispatched"),
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
+			deployStore.On("WriteDeployment", mock.Anything, mock.Anything).Return(nil).Once()
+			deployStore.On("WriteDeploymentResource", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+			server.On("SendDeploymentRequest", mock.Anything, mock.Anything).Return(nil).Once()
+			server.On("HandleDeploymentStatus", mock.Anything, mock.Anything).Return(nil).Once()
+		},
+	},
+}
+
+func subTest(t *testing.T, test testCase) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "/api/v1/deploy", bytes.NewReader(test.Request.Body))
 	request.Header.Set("content-type", "application/json")
@@ -167,14 +221,18 @@ func subTest(t *testing.T, name string) {
 		request.Header.Set(api_v1.SignatureHeader, hex.EncodeToString(mac))
 	}
 
-	apiKeyStore := &db{}
-	brok := &borker{}
+	apiKeyStore := &database.MockApiKeyStore{}
+	deployServer := &deployserver.MockDeployServer{}
+	deployStore := &database.MockDeploymentStore{}
+
+	if test.Setup != nil {
+		test.Setup(deployServer, apiKeyStore, deployStore)
+	}
 
 	handler := api.New(api.Config{
 		ApiKeyStore:     apiKeyStore,
-		DeployServer:    brok,
-		DeploymentStore: apiKeyStore,
-		Clusters:        validClusters,
+		DeployServer:    deployServer,
+		DeploymentStore: deployStore,
 		MetricsPath:     "/metrics",
 	})
 
@@ -183,19 +241,57 @@ func subTest(t *testing.T, name string) {
 	testResponse(t, recorder, test.Response)
 }
 
-func TestHandler(t *testing.T) {
-	files, err := ioutil.ReadDir("testdata")
-	if err != nil {
-		t.Error(err)
-		t.Fail()
+func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
+	decodedBody := api_v1_deploy.DeploymentResponse{}
+	err := json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
+	assert.NoError(t, err)
+	assert.Equal(t, response.StatusCode, recorder.Code)
+	assert.Equal(t, response.Body.Message, decodedBody.Message)
+	assert.NotEmpty(t, decodedBody.CorrelationID)
+}
+
+// Deployment server integration tests using mocks; see table tests definitions above.
+func TestDeploymentHandler_ServeHTTP(t *testing.T) {
+	for _, test := range tests {
+		t.Logf("Running test: %s", test.Name)
+		subTest(t, test)
 	}
-	for _, file := range files {
-		if file.IsDir() {
-			continue
+}
+
+// Test that certain fields missing from deployment request either errors out or validates.
+func TestDeploymentRequest_Validate(t *testing.T) {
+	req := &api_v1_deploy.DeploymentRequest{}
+
+	errorTests := []func(){
+		func() { req.Cluster = "" },
+		func() { req.Ref = "" },
+		func() { req.Team = "" },
+		func() { req.Cluster = "" },
+		func() { req.Resources = []byte(``) },
+		func() { req.Resources = []byte(`"not a list"`) },
+		func() { req.Resources = []byte(`{}`) },
+	}
+	successTests := []func(){
+		func() { req.Owner = "" },
+		func() { req.Repository = "" },
+		func() { req.Owner = ""; req.Repository = "" },
+	}
+
+	setup := func() {
+		err := json.Unmarshal(validPayload, req)
+		if err != nil {
+			panic(err)
 		}
-		name := file.Name()
-		t.Run(name, func(t *testing.T) {
-			subTest(t, name)
-		})
+	}
+
+	for _, setupFunc := range errorTests {
+		setup()
+		setupFunc()
+		assert.Error(t, req.Validate())
+	}
+	for _, setupFunc := range successTests {
+		setup()
+		setupFunc()
+		assert.NoError(t, req.Validate())
 	}
 }

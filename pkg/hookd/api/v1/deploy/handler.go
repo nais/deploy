@@ -27,7 +27,6 @@ type DeploymentHandler struct {
 	DeployServer    deployserver.DeployServer
 	DeploymentStore database.DeploymentStore
 	BaseURL         string
-	Clusters        api_v1.ClusterList
 }
 
 type DeploymentRequest struct {
@@ -51,7 +50,7 @@ func (r *DeploymentResponse) render(w io.Writer) {
 	json.NewEncoder(w).Encode(r)
 }
 
-func (r *DeploymentRequest) validate() error {
+func (r *DeploymentRequest) Validate() error {
 
 	if len(r.Cluster) == 0 {
 		return fmt.Errorf("no cluster specified")
@@ -154,10 +153,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Request has valid JSON")
 
-	err = deploymentRequest.validate()
-	if err == nil {
-		err = h.Clusters.Contains(deploymentRequest.Cluster)
-	}
+	err = deploymentRequest.Validate()
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -231,36 +227,34 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Write deployment request to database
 	err = h.DeploymentStore.WriteDeployment(r.Context(), deployment)
 
+	if err == nil {
+		// Write metadata of Kubernetes resources to database
+		for i, id := range identifiers {
+			uuidstr, err := uuid.NewRandom()
+			if err == nil {
+				err = h.DeploymentStore.WriteDeploymentResource(r.Context(), database.DeploymentResource{
+					ID:           uuidstr.String(),
+					DeploymentID: deployment.ID,
+					Index:        i,
+					Group:        id.Group,
+					Version:      id.Version,
+					Kind:         id.Kind,
+					Name:         id.Name,
+					Namespace:    id.Namespace,
+				})
+			}
+			if err != nil {
+				break
+			}
+		}
+	}
+
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		deploymentResponse.Message = fmt.Sprintf("database is unavailable; try again later")
 		deploymentResponse.render(w)
 		logger.Errorf("%s: %s", deploymentResponse.Message, err)
 		return
-	}
-
-	// Write metadata of Kubernetes resources to database
-	for i, id := range identifiers {
-		uuidstr, err := uuid.NewRandom()
-		if err == nil {
-			err = h.DeploymentStore.WriteDeploymentResource(r.Context(), database.DeploymentResource{
-				ID:           uuidstr.String(),
-				DeploymentID: deployment.ID,
-				Index:        i,
-				Group:        id.Group,
-				Version:      id.Version,
-				Kind:         id.Kind,
-				Name:         id.Name,
-				Namespace:    id.Namespace,
-			})
-		}
-		if err != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			deploymentResponse.Message = fmt.Sprintf("deploy unavailable; try again later")
-			deploymentResponse.render(w)
-			logger.Errorf("%s: %s", deploymentResponse.Message, err)
-			return
-		}
 	}
 
 	logger.Tracef("Deployment committed to database")

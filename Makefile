@@ -23,6 +23,10 @@ deploy:
 crypt:
 	go build -o bin/crypt cmd/crypt/main.go
 
+mocks:
+	cd pkg/hookd/database && mockery -inpkg -all -case snake
+	cd pkg/grpc/deployserver && mockery -inpkg -all -case snake
+
 deploy-release-linux:
 	GOOS=linux \
 	GOARCH=amd64 \
