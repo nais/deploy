@@ -99,6 +99,52 @@ var tests = []testCase{
 			},
 		},
 	},
+
+	{
+		Name: "Database failing on first query",
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			deployStore.On("Deployments", mock.Anything, "", 30).Return(nil, genericError)
+		},
+		Response: response{
+			StatusCode: 500,
+		},
+	},
+
+	{
+		Name: "Database failing on deployment query",
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			deployStore.On("Deployments", mock.Anything, "", 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
+			deployStore.On("Deployment", mock.Anything, "1").Return(nil, genericError)
+		},
+		Response: response{
+			StatusCode: 500,
+		},
+	},
+
+	{
+		Name: "Database failing on status query",
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			deployStore.On("Deployments", mock.Anything, "", 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
+			deployStore.On("Deployment", mock.Anything, "1").Return(&database.Deployment{ID: "1", Created: timestamp}, nil).Once()
+			deployStore.On("DeploymentStatus", mock.Anything, "1").Return(nil, genericError)
+		},
+		Response: response{
+			StatusCode: 500,
+		},
+	},
+
+	{
+		Name: "Database failing on deployment query",
+		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+			deployStore.On("Deployments", mock.Anything, "", 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
+			deployStore.On("Deployment", mock.Anything, "1").Return(&database.Deployment{ID: "1", Created: timestamp}, nil).Once()
+			deployStore.On("DeploymentStatus", mock.Anything, "1").Return([]database.DeploymentStatus{{ID: "1.1", Created: timestamp}}, nil).Once()
+			deployStore.On("DeploymentResources", mock.Anything, "1").Return(nil, genericError).Once()
+		},
+		Response: response{
+			StatusCode: 500,
+		},
+	},
 }
 
 func subTest(t *testing.T, test testCase) {
@@ -129,8 +175,7 @@ func subTest(t *testing.T, test testCase) {
 
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
 	decodedBody := api_v1_dashboard.DeploymentsResponse{}
-	err := json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
-	assert.NoError(t, err)
+	_ = json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
 	assert.Equal(t, response.StatusCode, recorder.Code)
 	assert.Equal(t, response.Body.Deployments, decodedBody.Deployments)
 }
