@@ -19,8 +19,9 @@ type DeploymentsResponse struct {
 }
 
 type FullDeployment struct {
-	Deployment database.Deployment         `json:"deployment"`
-	Statuses   []database.DeploymentStatus `json:"statuses"`
+	Deployment database.Deployment           `json:"deployment"`
+	Statuses   []database.DeploymentStatus   `json:"statuses"`
+	Resources  []database.DeploymentResource `json:"resources"`
 }
 
 type Handler struct {
@@ -77,8 +78,16 @@ func (h *Handler) Deployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resources, err := h.DeploymentStore.DeploymentResources(r.Context(), deploymentID)
+	if err != nil && err != database.ErrNotFound {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.Error(err)
+		return
+	}
+
 	render.JSON(w, r, FullDeployment{
 		Deployment: *deployment,
 		Statuses:   statuses,
+		Resources:  resources,
 	})
 }
