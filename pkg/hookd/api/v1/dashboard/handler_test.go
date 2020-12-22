@@ -33,7 +33,7 @@ type testCase struct {
 
 var genericError = errors.New("oops")
 
-var timestamp = time.Now().Truncate(time.Microsecond)
+var timestamp = time.Now().UTC().Truncate(time.Microsecond)
 
 // Test case definitions
 var tests = []testCase{
