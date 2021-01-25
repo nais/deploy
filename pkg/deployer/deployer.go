@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -495,26 +494,22 @@ func errorContext(content string, line int, around int) []string {
 	return ctx
 }
 
-func templateYAMLtoJSON(data []byte, ctx TemplateVariables) (json.RawMessage, error) {
-	templated, err := templatedFile(data, ctx)
-	if err != nil {
-		errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
-		return nil, errors.New(errMsg)
-	}
-
-	return yaml.YAMLToJSON(templated)
-}
-
 func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMessage, error) {
-	file, err := os.Open(path)
+	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: open file: %s", path, err)
+	}
+
+	templated, err := templatedFile(file, ctx)
+	if err != nil {
+		errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
+		return nil, fmt.Errorf("%s: %s", path, errMsg)
 	}
 
 	var content interface{}
 	messages := make([]json.RawMessage, 0)
 
-	decoder := yamlv2.NewDecoder(file)
+	decoder := yamlv2.NewDecoder(bytes.NewReader(templated))
 	for {
 		err = decoder.Decode(&content)
 		if err == io.EOF {
@@ -529,7 +524,7 @@ func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMess
 			return nil, err
 		}
 
-		data, err := templateYAMLtoJSON(rawdocument, ctx)
+		data, err := yaml.YAMLToJSON(rawdocument)
 		if err != nil {
 			errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
 			return nil, fmt.Errorf("%s: %s", path, errMsg)

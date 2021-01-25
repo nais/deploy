@@ -190,6 +190,20 @@ func TestMultiDocumentParsing(t *testing.T) {
 	assert.Equal(t, `{"document":2}`, string(docs[1]))
 }
 
+func TestMultiDocumentTemplating(t *testing.T) {
+	ctx := deployer.TemplateVariables{
+		"ingresses": []string{
+			"https://foo",
+			"https://bar",
+		},
+	}
+	docs, err := deployer.MultiDocumentFileAsJSON("testdata/templating.yaml", ctx)
+	assert.Len(t, docs, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, `{"ingresses":["https://foo","https://bar"]}`, string(docs[0]))
+	assert.Equal(t, `{"ungresses":["https://foo","https://bar"]}`, string(docs[1]))
+}
+
 func TestExitCodeZero(t *testing.T) {
 	assert.Equal(t, deployer.ExitCode(0), deployer.ExitSuccess)
 }

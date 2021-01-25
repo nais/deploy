@@ -1,0 +1,11 @@
+---
+ingresses:
+  {{#each ingresses as |url|}}
+    - {{url}}
+  {{/each}}
+
+---
+ungresses:
+  {{#each ingresses as |url|}}
+     - {{url}}
+    {{/each}}
