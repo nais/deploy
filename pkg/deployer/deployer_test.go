@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/navikt/deployment/pkg/deployer"
-	"github.com/navikt/deployment/pkg/pb"
 	"github.com/navikt/deployment/pkg/hookd/api/v1/deploy"
 	"github.com/navikt/deployment/pkg/hookd/api/v1/status"
+	"github.com/navikt/deployment/pkg/pb"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -180,6 +180,14 @@ func TestValidationFailures(t *testing.T) {
 		assert.Equal(t, exitCode, deployer.ExitInvocationFailure)
 		assert.Contains(t, err.Error(), testCase.errorMsg)
 	}
+}
+
+func TestMultiDocumentParsing(t *testing.T) {
+	docs, err := deployer.MultiDocumentFileAsJSON("testdata/multi_document.yaml", deployer.TemplateVariables{})
+	assert.Len(t, docs, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, `{"document":1}`, string(docs[0]))
+	assert.Equal(t, `{"document":2}`, string(docs[1]))
 }
 
 func TestExitCodeZero(t *testing.T) {

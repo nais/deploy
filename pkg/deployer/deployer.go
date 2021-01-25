@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,6 +24,8 @@ import (
 	"github.com/navikt/deployment/pkg/hookd/api/v1/status"
 	types "github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
+
+	yamlv2 "gopkg.in/yaml.v2"
 )
 
 type TemplateVariables map[string]interface{}
@@ -102,10 +105,10 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		}
 	}
 
-	resources := make([]json.RawMessage, len(cfg.Resource))
+	resources := make([]json.RawMessage, 0)
 
 	for i, path := range cfg.Resource {
-		resources[i], err = fileAsJSON(path, templateVariables)
+		parsed, err := MultiDocumentFileAsJSON(path, templateVariables)
 		if err != nil {
 			if cfg.PrintPayload {
 				errStr := err.Error()[len(path)+2:]
@@ -119,6 +122,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 			}
 			return ExitTemplateError, err
 		}
+		resources = append(resources, parsed...)
 	}
 
 	if len(cfg.Team) == 0 {
@@ -478,38 +482,63 @@ func detectErrorLine(e string) (int, error) {
 }
 
 func errorContext(content string, line int, around int) []string {
-	context := make([]string, 0)
+	ctx := make([]string, 0)
 	lines := strings.Split(content, "\n")
 	format := "%03d: %s"
 	for l := range lines {
-		context = append(context, fmt.Sprintf(format, l+1, lines[l]))
+		ctx = append(ctx, fmt.Sprintf(format, l+1, lines[l]))
 		if l+1 == line {
 			helper := "     " + strings.Repeat("^", len(lines[l])) + " <--- error near this line"
-			context = append(context, helper)
+			ctx = append(ctx, helper)
 		}
 	}
-	return context
+	return ctx
 }
 
-func fileAsJSON(path string, ctx TemplateVariables) (json.RawMessage, error) {
-	file, err := ioutil.ReadFile(path)
+func templateYAMLtoJSON(data []byte, ctx TemplateVariables) (json.RawMessage, error) {
+	templated, err := templatedFile(data, ctx)
+	if err != nil {
+		errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
+		return nil, errors.New(errMsg)
+	}
+
+	return yaml.YAMLToJSON(templated)
+}
+
+func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMessage, error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: open file: %s", path, err)
 	}
 
-	templated, err := templatedFile(file, ctx)
-	if err != nil {
-		errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
-		return nil, fmt.Errorf("%s: %s", path, errMsg)
+	var content interface{}
+	messages := make([]json.RawMessage, 0)
+
+	decoder := yamlv2.NewDecoder(file)
+	for {
+		err = decoder.Decode(&content)
+		if err == io.EOF {
+			err = nil
+			break
+		} else if err != nil {
+			return nil, err
+		}
+
+		rawdocument, err := yamlv2.Marshal(content)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err := templateYAMLtoJSON(rawdocument, ctx)
+		if err != nil {
+			errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
+			return nil, fmt.Errorf("%s: %s", path, errMsg)
+		}
+
+		messages = append(messages, data)
 	}
 
-	// Since JSON is a subset of YAML, passing JSON through this method is a no-op.
-	data, err := yaml.YAMLToJSON(templated)
-	if err != nil {
-		return templated, fmt.Errorf("%s: %s", path, err)
-	}
-
-	return data, nil
+	return messages, err
 }
 
 func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
