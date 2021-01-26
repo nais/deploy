@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/nais/liberator/pkg/conftools"
 	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 type Azure struct {
@@ -71,8 +72,20 @@ const (
 	ProvisionKey             = "provision-key"
 )
 
+// Bind environment variables provided by the NAIS platform
+func bindNAIS() {
+	viper.BindEnv(AzureClientId, "AZURE_APP_CLIENT_ID")
+	viper.BindEnv(AzureClientSecret, "AZURE_APP_CLIENT_SECRET")
+	viper.BindEnv(AzurePreAuthorizedApps, "AZURE_APP_PRE_AUTHORIZED_APPS")
+	viper.BindEnv(AzureTenant, "AZURE_APP_TENANT_ID")
+	viper.BindEnv(AzureWellKnownUrl, "AZURE_APP_WELL_KNOWN_URL")
+
+	viper.BindEnv(DatabaseUrl, "DATABASE_URL")
+}
+
 func Initialize() *Config {
 	conftools.Initialize("hookd")
+	bindNAIS()
 
 	// Provide command-line flags
 	flag.Bool(GithubEnabled, false, "Enable connections to Github.")
