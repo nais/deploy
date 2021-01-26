@@ -1,10 +1,8 @@
 package config
 
 import (
-	"strings"
-
+	"github.com/nais/liberator/pkg/conftools"
 	flag "github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -46,16 +44,7 @@ const (
 )
 
 func Initialize() *Config {
-	// Automatically read configuration options from environment variables.
-	// i.e. --proxy.address will be configurable using PROXY_ADDRESS.
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
-
-	// Read configuration file from working directory and/or /etc.
-	// File formats supported include JSON, TOML, YAML, HCL, envfile and Java properties config files
-	viper.SetConfigName("hookd")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/etc")
+	conftools.Initialize("deployd")
 
 	flag.String(LogFormat, "text", "Log format, either 'json' or 'text'.")
 	flag.String(LogLevel, "debug", "Logging verbosity level.")

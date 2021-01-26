@@ -1,10 +1,8 @@
 package config
 
 import (
-	"strings"
-
+	"github.com/nais/liberator/pkg/conftools"
 	flag "github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 type Azure struct {
@@ -26,18 +24,18 @@ type Github struct {
 }
 
 type Config struct {
-	GrpcAddress           string   `json:"grpc-address"`
-	GrpcAuthentication    bool     `json:"grpc-authentication"`
-	ListenAddress         string   `json:"listen-address"`
-	LogFormat             string   `json:"log-format"`
-	LogLevel              string   `json:"log-level"`
-	BaseURL               string   `json:"base-url"`
-	Azure                 Azure    `json:"azure"`
-	Github                Github   `json:"github"`
-	DatabaseURL           string   `json:"database-url"`
-	MetricsPath           string   `json:"metrics-path"`
-	ProvisionKey          string   `json:"provision-key"`
-	DatabaseEncryptionKey string   `json:"database-encryption-key"`
+	GrpcAddress           string `json:"grpc-address"`
+	GrpcAuthentication    bool   `json:"grpc-authentication"`
+	ListenAddress         string `json:"listen-address"`
+	LogFormat             string `json:"log-format"`
+	LogLevel              string `json:"log-level"`
+	BaseURL               string `json:"base-url"`
+	Azure                 Azure  `json:"azure"`
+	Github                Github `json:"github"`
+	DatabaseURL           string `json:"database-url"`
+	MetricsPath           string `json:"metrics-path"`
+	ProvisionKey          string `json:"provision-key"`
+	DatabaseEncryptionKey string `json:"database-encryption-key"`
 }
 
 func (a *Azure) HasConfig() bool {
@@ -74,16 +72,7 @@ const (
 )
 
 func Initialize() *Config {
-	// Automatically read configuration options from environment variables.
-	// i.e. --proxy.address will be configurable using PROXY_ADDRESS.
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
-
-	// Read configuration file from working directory and/or /etc.
-	// File formats supported include JSON, TOML, YAML, HCL, envfile and Java properties config files
-	viper.SetConfigName("hookd")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/etc")
+	conftools.Initialize("hookd")
 
 	// Provide command-line flags
 	flag.Bool(GithubEnabled, false, "Enable connections to Github.")

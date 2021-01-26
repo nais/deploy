@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
-	"github.com/navikt/deployment/pkg/conftools"
 	"github.com/navikt/deployment/pkg/grpc/interceptor"
 
 	"github.com/navikt/deployment/pkg/logging"

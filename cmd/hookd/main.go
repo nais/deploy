@@ -10,8 +10,8 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
-	"github.com/navikt/deployment/pkg/conftools"
 
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/pkg/azure/discovery"
