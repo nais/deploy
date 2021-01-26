@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/nais/liberator/pkg/conftools"
 	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -43,8 +44,15 @@ const (
 	AzureTenant              = "azure.app-tenant-id"
 )
 
+func bindNAIS() {
+	viper.BindEnv(AzureClientID, "AZURE_APP_CLIENT_ID")
+	viper.BindEnv(AzureClientSecret, "AZURE_APP_CLIENT_SECRET")
+	viper.BindEnv(AzureTenant, "AZURE_APP_TENANT_ID")
+}
+
 func Initialize() *Config {
 	conftools.Initialize("deployd")
+	bindNAIS()
 
 	flag.String(LogFormat, "text", "Log format, either 'json' or 'text'.")
 	flag.String(LogLevel, "debug", "Logging verbosity level.")
