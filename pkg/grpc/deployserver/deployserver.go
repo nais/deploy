@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/navikt/deployment/pkg/hookd/database"
 	"github.com/navikt/deployment/pkg/hookd/github"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/navikt/deployment/pkg/pb"
 )
+
+var maplock sync.Mutex
 
 type DeployServer interface {
 	pb.DeployServer
@@ -62,15 +65,19 @@ func (s *deployServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Deploy_
 		log.Warnf("Rejected connection from cluster '%s': already connected", opts.Cluster)
 		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
 	}
+	maplock.Lock()
 	s.streams[opts.Cluster] = stream
 	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
+	maplock.Unlock()
 	s.reportOnlineClusters()
 
 	// wait for disconnect
 	<-stream.Context().Done()
 
+	maplock.Lock()
 	delete(s.streams, opts.Cluster)
 	log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
+	maplock.Unlock()
 	s.reportOnlineClusters()
 
 	return nil
