@@ -49,6 +49,9 @@ func Encrypt(plaintext, key []byte) ([]byte, error) {
 		return nil, err
 	}
 	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
 
 	nonce, err := iv()
 	if err != nil {
@@ -70,6 +73,9 @@ func Decrypt(ciphertext, key []byte) ([]byte, error) {
 		return nil, err
 	}
 	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
 
 	return aesgcm.Open(nil, ciphertext[:12], ciphertext[12:], nil)
 }
