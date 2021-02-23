@@ -126,7 +126,9 @@ Check out the repository and run `make`. Dependencies will download automaticall
 ### Postgres
 Start the database by running `docker-compose up`. This will start an empty local database.
 When you start `hookd`, the schema will be patched to current version.
-If this is the first time running this database, you have to add a dummy deployment key for deploy to work:
+If this is the first time running this database, you have to add a dummy deployment key for deploy to work.
+In this case, the deployment key is `20cefcd6bd0e8b8860c4ea90e75d7123019ed7866c61bd09e23821948878a11d`.
+
 ```bash
 psql -U postgres -h localhost -p 5432 hookd <<< EOF
 insert into
