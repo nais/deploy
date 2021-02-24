@@ -7,9 +7,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/events/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
@@ -92,21 +92,40 @@ func (a application) getApplicationEvent(resource unstructured.Unstructured, rea
 }
 
 func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error {
-	var updated *unstructured.Unstructured
+	//var updated *unstructured.Unstructured
 	var err error
-	var status *appStatus
-	var pickedup bool
+	//var status *appStatus
+	//var pickedup bool
 
-	correlationID, _ := resource.GetAnnotations()[CorrelationIDAnnotation]
+	//correlationID, _ := resource.GetAnnotations()[CorrelationIDAnnotation]
 
-	gvk := resource.GroupVersionKind()
-	appcli := a.unstructuredClient.Resource(schema.GroupVersionResource{
+	//gvk := resource.GroupVersionKind()
+	/*appcli := a.unstructuredClient.Resource(schema.GroupVersionResource{
 		Resource: "applications",
 		Version:  gvk.Version,
 		Group:    gvk.Group,
 	}).Namespace(resource.GetNamespace())
+    */
+	eventsClient := a.structuredClient.EventsV1beta1().Events(resource.GetNamespace())
+	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
+	events, err := eventsClient.Watch(metav1.ListOptions{
+		TimeoutSeconds: &timeoutSecs,
+	})
 
-	for deadline.After(time.Now()) {
+	if err != nil {
+		return fmt.Errorf("not able to fetch events, %w", err)
+	}
+
+	for {
+		select {
+			case event := <- events.ResultChan():
+				parsedEvent := event.Object.(*v1beta1.Event)
+				json, _ := parsedEvent.Marshal()
+				logger.Infof("Event: %s", string(json))
+		}
+	}
+
+    /*for deadline.After(time.Now()) {
 		updated, err = appcli.Get(resource.GetName(), metav1.GetOptions{})
 
 		if err != nil {
@@ -142,6 +161,6 @@ func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured
 	NEXT:
 		time.Sleep(requestInterval)
 		continue
-	}
+	}*/
 	return ErrDeploymentTimeout
 }
