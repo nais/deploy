@@ -90,7 +90,9 @@ func (a application) getApplicationEvent(resource unstructured.Unstructured, rea
 
 	return event, nil
 }
-
+func ParseEvent(event *v1beta1.Event) string {
+	return fmt.Sprintf("%v: %v", event.Regarding.Kind, event.Note)
+}
 func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error {
 	//var updated *unstructured.Unstructured
 	var err error
@@ -105,27 +107,26 @@ func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured
 		Version:  gvk.Version,
 		Group:    gvk.Group,
 	}).Namespace(resource.GetNamespace())
-    */
+	*/
 	eventsClient := a.structuredClient.EventsV1beta1().Events(resource.GetNamespace())
 	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
 	events, err := eventsClient.Watch(metav1.ListOptions{
+		FieldSelector:  fmt.Sprintf("regarding.name=%s", resource.GetName()),
 		TimeoutSeconds: &timeoutSecs,
 	})
 
 	if err != nil {
 		return fmt.Errorf("not able to fetch events, %w", err)
 	}
-
 	for {
 		select {
-			case event := <- events.ResultChan():
-				parsedEvent := event.Object.(*v1beta1.Event)
-				json, _ := parsedEvent.Marshal()
-				logger.Infof("Event: %s", string(json))
+		case event := <-events.ResultChan():
+			parsedEvent := event.Object.(*v1beta1.Event)
+			logger.Infof("Event: %s", ParseEvent(parsedEvent))
 		}
 	}
 
-    /*for deadline.After(time.Now()) {
+	/*for deadline.After(time.Now()) {
 		updated, err = appcli.Get(resource.GetName(), metav1.GetOptions{})
 
 		if err != nil {
