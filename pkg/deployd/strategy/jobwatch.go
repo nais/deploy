@@ -1,9 +1,11 @@
 package strategy
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,11 +17,12 @@ type job struct {
 	client kubernetes.Interface
 }
 
-func (j job) Watch(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error {
+func (j job) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error {
 	var job *v1.Job
 	var err error
 
 	client := j.client.BatchV1().Jobs(resource.GetNamespace())
+	deadline, _ := ctx.Deadline()
 
 	// Wait until the new job object is present in the cluster.
 	for deadline.After(time.Now()) {

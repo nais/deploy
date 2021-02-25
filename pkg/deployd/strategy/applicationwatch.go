@@ -1,13 +1,16 @@
 package strategy
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	"github.com/nais/liberator/pkg/events"
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/events/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -90,39 +93,92 @@ func (a application) getApplicationEvent(resource unstructured.Unstructured, rea
 
 	return event, nil
 }
-func ParseEvent(event *v1beta1.Event) string {
-	return fmt.Sprintf("%v: %v", event.Regarding.Kind, event.Note)
+
+func EventString(event *v1.Event) string {
+	return fmt.Sprintf("%v: %v", event.InvolvedObject.Kind, event.Message)
 }
-func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error {
-	//var updated *unstructured.Unstructured
+
+func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentStatus {
+	status := &pb.DeploymentStatus{
+		Cluster:     req.GetCluster(),
+		DeliveryID:  req.GetDeliveryID(),
+		Deployment:  req.Deployment,
+		Description: EventString(event),
+		State:       pb.GithubDeploymentState_in_progress,
+		Team:        req.GetPayloadSpec().GetTeam(),
+		Time:        pb.TimeAsTimestamp(time.Now()),
+	}
+
+	if event.ReportingController == "naiserator" {
+		correlationID, _ := event.GetAnnotations()[nais_io_v1alpha1.DeploymentCorrelationIDAnnotation]
+		if correlationID != req.DeliveryID {
+			return nil
+		}
+
+		switch event.Reason {
+		case events.FailedPrepare:
+			fallthrough
+		case events.FailedSynchronization:
+			status.State = pb.GithubDeploymentState_failure
+		case events.RolloutComplete:
+			status.State = pb.GithubDeploymentState_success
+		}
+	}
+
+	return status
+}
+
+func (a application) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, statusChan chan<- *pb.DeploymentStatus) error {
+	// var updated *unstructured.Unstructured
 	var err error
-	//var status *appStatus
-	//var pickedup bool
+	// var status *appStatus
+	// var pickedup bool
 
-	//correlationID, _ := resource.GetAnnotations()[CorrelationIDAnnotation]
-
-	//gvk := resource.GroupVersionKind()
+	// gvk := resource.GroupVersionKind()
 	/*appcli := a.unstructuredClient.Resource(schema.GroupVersionResource{
 		Resource: "applications",
 		Version:  gvk.Version,
 		Group:    gvk.Group,
 	}).Namespace(resource.GetNamespace())
 	*/
-	eventsClient := a.structuredClient.EventsV1beta1().Events(resource.GetNamespace())
+	eventsClient := a.structuredClient.CoreV1().Events(resource.GetNamespace())
+	deadline, _ := ctx.Deadline()
 	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
-	events, err := eventsClient.Watch(metav1.ListOptions{
-		FieldSelector:  fmt.Sprintf("regarding.name=%s", resource.GetName()),
+	eventWatcher, err := eventsClient.Watch(metav1.ListOptions{
+		FieldSelector:  fmt.Sprintf("involvedObject.name=%s", resource.GetName()),
 		TimeoutSeconds: &timeoutSecs,
 	})
 
 	if err != nil {
 		return fmt.Errorf("not able to fetch events, %w", err)
 	}
+
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+
 	for {
 		select {
-		case event := <-events.ResultChan():
-			parsedEvent := event.Object.(*v1beta1.Event)
-			logger.Infof("Event: %s", ParseEvent(parsedEvent))
+		case watchEvent := <-eventWatcher.ResultChan():
+			event, ok := watchEvent.Object.(*v1.Event)
+			if !ok {
+				// failed cast
+				continue
+			}
+			status := StatusFromEvent(event, request)
+			if status == nil {
+				continue
+			}
+			switch status.State {
+			case pb.GithubDeploymentState_success:
+				return nil
+			case pb.GithubDeploymentState_failure:
+				return fmt.Errorf(status.Description)
+			}
+			statusChan <- status
+			logger.Infof("Event: %v", event)
+
+		case <-ctx.Done():
+			return ErrDeploymentTimeout
 		}
 	}
 
@@ -163,5 +219,4 @@ func (a application) Watch(logger *log.Entry, resource unstructured.Unstructured
 		time.Sleep(requestInterval)
 		continue
 	}*/
-	return ErrDeploymentTimeout
 }

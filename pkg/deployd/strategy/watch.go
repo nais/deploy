@@ -1,9 +1,11 @@
 package strategy
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,13 +19,13 @@ var (
 )
 
 type WatchStrategy interface {
-	Watch(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error
+	Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error
 }
 
 type NoOp struct {
 }
 
-func (c NoOp) Watch(logger *log.Entry, resource unstructured.Unstructured, _ time.Time) error {
+func (c NoOp) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error {
 	logger.Infof("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
 	return nil
 }
