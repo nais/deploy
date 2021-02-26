@@ -3,7 +3,6 @@ package strategy
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
@@ -29,69 +28,6 @@ type application struct {
 type appStatus struct {
 	CorrelationID        string
 	SynchronizationState string
-}
-
-const (
-	EventRolloutComplete       = "RolloutComplete"
-	EventFailedPrepare         = "FailedPrepare"
-	EventFailedSynchronization = "FailedSynchronization"
-)
-
-func parseAppStatus(resource unstructured.Unstructured) *appStatus {
-	data, ok := resource.Object["status"]
-	if !ok {
-		return nil
-	}
-	datamap, ok := data.(map[string]interface{})
-	if !ok {
-		return nil
-	}
-
-	st := &appStatus{}
-	st.SynchronizationState, _ = datamap["synchronizationState"].(string)
-	st.CorrelationID, _ = datamap["correlationID"].(string)
-	return st
-}
-
-// Retrieve the most recent application deployment event.
-//
-// Events are re-used by Naiserator, having their Count field incremented by one every time.
-// This function retrieves the event with the specified Reason, and checks if the correlation ID
-// annotation is set to the same value as the original resource.
-func (a application) getApplicationEvent(resource unstructured.Unstructured, reason string) (*v1.Event, error) {
-	eventClient := a.structuredClient.CoreV1().Events(resource.GetNamespace())
-
-	selectors := []string{
-		fmt.Sprintf("involvedObject.name=%s", resource.GetName()),
-		fmt.Sprintf("involvedObject.namespace=%s", resource.GetNamespace()),
-		fmt.Sprintf("reason=%s", reason),
-		"involvedObject.kind=Application",
-	}
-
-	events, err := eventClient.List(metav1.ListOptions{
-		FieldSelector: strings.Join(selectors, ","),
-		Limit:         1,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if events == nil || len(events.Items) == 0 {
-		return nil, fmt.Errorf("no events found")
-	}
-
-	event := &events.Items[0]
-
-	if event.Annotations == nil {
-		return nil, fmt.Errorf("event annotation list is empty")
-	}
-
-	if event.Annotations[CorrelationIDAnnotation] == resource.GetAnnotations()[CorrelationIDAnnotation] {
-		return nil, fmt.Errorf("event correlation ID does not match")
-	}
-
-	return event, nil
 }
 
 func EventString(event *v1.Event) string {
@@ -130,13 +66,6 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 	// var status *appStatus
 	// var pickedup bool
 
-	// gvk := resource.GroupVersionKind()
-	/*appcli := a.unstructuredClient.Resource(schema.GroupVersionResource{
-		Resource: "applications",
-		Version:  gvk.Version,
-		Group:    gvk.Group,
-	}).Namespace(resource.GetNamespace())
-	*/
 	eventsClient := a.structuredClient.CoreV1().Events(resource.GetNamespace())
 	deadline, _ := ctx.Deadline()
 	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
@@ -146,9 +75,10 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 	})
 
 	if err != nil {
-		return fmt.Errorf("not able to fetch events, %w", err)
+		return fmt.Errorf("unable to set up event watcher: %w", err)
 	}
 
+	watchStart := time.Now().Truncate(time.Second)
 	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 
@@ -159,6 +89,11 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 			if !ok {
 				// failed cast
 				logger.Errorf("Event is of wrong type: %T", watchEvent)
+				continue
+			}
+
+			if event.LastTimestamp.Time.Before(watchStart) {
+				logger.Tracef("Ignoring old event %s", event.Name)
 				continue
 			}
 
@@ -179,32 +114,4 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 			return ErrDeploymentTimeout
 		}
 	}
-
-	/*for deadline.After(time.Now()) {
-		updated, err = appcli.Get(resource.GetName(), metav1.GetOptions{})
-
-		if err != nil {
-			logger.Tracef("Retrieving updated Application resource %s: %s", resource.GetSelfLink(), err)
-			goto NEXT
-		}
-
-
-
-		switch status.SynchronizationState {
-		case EventRolloutComplete:
-			return nil
-
-		case EventFailedSynchronization, EventFailedPrepare:
-			event, err := a.getApplicationEvent(*updated, status.SynchronizationState)
-			if err != nil {
-				logger.Errorf("Get application event: %s", err)
-				return fmt.Errorf(status.SynchronizationState)
-			}
-			return fmt.Errorf("%s", event.Message)
-		}
-
-	NEXT:
-		time.Sleep(requestInterval)
-		continue
-	}*/
 }
