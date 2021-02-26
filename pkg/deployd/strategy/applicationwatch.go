@@ -17,18 +17,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	CorrelationIDAnnotation = "nais.io/deploymentCorrelationID"
-)
-
 type application struct {
 	structuredClient   kubernetes.Interface
 	unstructuredClient dynamic.Interface
-}
-
-type appStatus struct {
-	CorrelationID        string
-	SynchronizationState string
 }
 
 func EventString(event *v1.Event) string {
@@ -68,10 +59,7 @@ func EventStreamMatch(event *v1.Event, resourceName string) bool {
 }
 
 func (a application) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, statusChan chan<- *pb.DeploymentStatus) error {
-	// var updated *unstructured.Unstructured
 	var err error
-	// var status *appStatus
-	// var pickedup bool
 
 	eventsClient := a.structuredClient.CoreV1().Events(resource.GetNamespace())
 	deadline, _ := ctx.Deadline()
