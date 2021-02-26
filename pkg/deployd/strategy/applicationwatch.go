@@ -110,11 +110,7 @@ func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentS
 	}
 
 	if event.ReportingController == "naiserator" {
-		correlationID, _ := event.GetAnnotations()[nais_io_v1alpha1.DeploymentCorrelationIDAnnotation]
-		if correlationID != req.DeliveryID {
-			return nil
-		}
-
+		status.DeliveryID, _ = event.GetAnnotations()[nais_io_v1alpha1.DeploymentCorrelationIDAnnotation]
 		switch event.Reason {
 		case events.FailedPrepare:
 			fallthrough
@@ -162,12 +158,15 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 			event, ok := watchEvent.Object.(*v1.Event)
 			if !ok {
 				// failed cast
+				logger.Errorf("Event is of wrong type: %T", watchEvent)
 				continue
 			}
+
 			status := StatusFromEvent(event, request)
-			if status == nil {
-				continue
+			if status.DeliveryID != request.DeliveryID {
+				return fmt.Errorf("this application has been redeployed, aborting monitoring")
 			}
+
 			switch status.State {
 			case pb.GithubDeploymentState_success:
 				return nil
@@ -189,17 +188,7 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 			goto NEXT
 		}
 
-		status = parseAppStatus(*updated)
-		if status == nil || status.CorrelationID != correlationID {
-			if pickedup {
-				return fmt.Errorf("Application resource has been overwritten, aborting monitoring.")
-			}
-			logger.Tracef("Application correlation ID mismatch; not picked up by Naiserator yet.")
-			goto NEXT
-		}
 
-		pickedup = true
-		logger.Tracef("Application synchronization state: '%s'", status.SynchronizationState)
 
 		switch status.SynchronizationState {
 		case EventRolloutComplete:
