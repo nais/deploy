@@ -95,7 +95,7 @@ func (a application) getApplicationEvent(resource unstructured.Unstructured, rea
 }
 
 func EventString(event *v1.Event) string {
-	return fmt.Sprintf("%v: %v", event.InvolvedObject.Kind, event.Message)
+	return fmt.Sprintf("%s (%s): %s", event.InvolvedObject.Kind, event.Reason, event.Message)
 }
 
 func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentStatus {
@@ -175,7 +175,6 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 				return fmt.Errorf(status.Description)
 			}
 			statusChan <- status
-			logger.Infof("Event: %v", event)
 
 		case <-ctx.Done():
 			return ErrDeploymentTimeout
