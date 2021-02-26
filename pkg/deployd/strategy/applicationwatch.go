@@ -53,7 +53,15 @@ func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentS
 }
 
 func EventStreamMatch(event *v1.Event, resourceName string) bool {
-	re := fmt.Sprintf(`^%s(-[a-z0-9]{10}(-[a-z0-9]{5})?)?`, resourceName)
+	var re string
+	switch event.InvolvedObject.Kind {
+	case "Pod":
+		re = fmt.Sprintf(`^%s-[a-z0-9]{10}-[a-z0-9]{5}$`, resourceName)
+	case "ReplicaSet":
+		re = fmt.Sprintf(`^%s-[a-z0-9]{10}$`, resourceName)
+	default:
+		re = fmt.Sprintf(`^%s$`, resourceName)
+	}
 	matched, _ := regexp.MatchString(re, event.InvolvedObject.Name)
 	return matched
 }
