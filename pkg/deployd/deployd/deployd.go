@@ -1,6 +1,7 @@
 package deployd
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -149,9 +150,12 @@ func Run(logger *log.Entry, req *pb.DeploymentRequest, cfg config.Config, kube k
 		logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
+			ctx,cancel := context.WithTimeout(context.Background(), deploymentTimeout)
+			defer cancel()
+
 			wait.Add(1)
 			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deploymentTimeout.String())
-			err := teamClient.WaitForDeployment(logger, resource, time.Now().Add(deploymentTimeout))
+			err := teamClient.WaitForDeployment(ctx, logger, resource, req, deployStatus)
 			if err != nil {
 				logger.Error(err)
 				errors <- err

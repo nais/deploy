@@ -1,10 +1,12 @@
 package strategy
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +19,7 @@ type deployment struct {
 	client kubernetes.Interface
 }
 
-func (d deployment) Watch(logger *log.Entry, resource unstructured.Unstructured, deadline time.Time) error {
+func (d deployment) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error {
 	var cur *apps.Deployment
 	var nova *apps.Deployment
 	var err error
@@ -25,6 +27,7 @@ func (d deployment) Watch(logger *log.Entry, resource unstructured.Unstructured,
 	var updated bool
 
 	client := d.client.AppsV1().Deployments(resource.GetNamespace())
+	deadline, _ := ctx.Deadline()
 
 	// For native Kubernetes deployment objects, get the current deployment object.
 	for deadline.After(time.Now()) {
