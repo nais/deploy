@@ -3,6 +3,7 @@ package strategy
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
@@ -60,6 +61,12 @@ func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentS
 	return status
 }
 
+func EventStreamMatch(event *v1.Event, resourceName string) bool {
+	re := fmt.Sprintf(`^%s(-[a-z0-9]{10}(-[a-z0-9]{5})?)?`, resourceName)
+	matched, _ := regexp.MatchString(re, event.InvolvedObject.Name)
+	return matched
+}
+
 func (a application) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, statusChan chan<- *pb.DeploymentStatus) error {
 	// var updated *unstructured.Unstructured
 	var err error
@@ -70,8 +77,8 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 	deadline, _ := ctx.Deadline()
 	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
 	eventWatcher, err := eventsClient.Watch(metav1.ListOptions{
-		FieldSelector:  fmt.Sprintf("involvedObject.name=%s", resource.GetName()),
-		TimeoutSeconds: &timeoutSecs,
+		TimeoutSeconds:  &timeoutSecs,
+		ResourceVersion: "0",
 	})
 
 	if err != nil {
@@ -89,6 +96,11 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 			if !ok {
 				// failed cast
 				logger.Errorf("Event is of wrong type: %T", watchEvent)
+				continue
+			}
+
+			if !EventStreamMatch(event, resource.GetName()) {
+				logger.Tracef("Ignoring unrelated event %s", event.Name)
 				continue
 			}
 
