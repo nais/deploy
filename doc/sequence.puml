@@ -14,18 +14,7 @@ developer -> github: git push
 github -> ci: Start build
 ci -> registry: Push image
 
-==NAIS deploy v1==
-ci -> github: Start deployment
-note right: Authenticate with GitHub token
-github -> hookd: Send webhook to NAIS deploy
-hookd -> db: Create deployment
-
-loop until timeout or success
-	ci -> github: Poll for final deployment status
-	github --> ci
-end
-
-==NAIS deploy v2==
+==/api/v1/deploy==
 ci -> hookd: Start deployment
 note right: Authenticate with team API key
 hookd -> db: Create deployment
