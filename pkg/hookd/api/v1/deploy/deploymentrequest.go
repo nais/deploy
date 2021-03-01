@@ -8,7 +8,7 @@ import (
 
 var (
 	// Deployment request's time to live before it is considered too old.
-	ttl = time.Minute * 1
+	ttl = time.Minute * 30
 
 	// Payload API version
 	payloadVersion = []int32{1, 0, 0}
