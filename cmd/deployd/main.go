@@ -11,14 +11,15 @@ import (
 
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
+	"github.com/navikt/deployment/pkg/deployd/deployd"
+	"github.com/navikt/deployment/pkg/deployd/operation"
 	"github.com/navikt/deployment/pkg/grpc/interceptor"
 
-	"github.com/navikt/deployment/pkg/logging"
-	"github.com/navikt/deployment/pkg/pb"
 	"github.com/navikt/deployment/pkg/deployd/config"
-	"github.com/navikt/deployment/pkg/deployd/deployd"
 	"github.com/navikt/deployment/pkg/deployd/kubeclient"
 	"github.com/navikt/deployment/pkg/deployd/metrics"
+	"github.com/navikt/deployment/pkg/logging"
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -58,8 +59,6 @@ func run() error {
 		return fmt.Errorf("cannot configure Kubernetes client: %s", err)
 	}
 	log.Infof("kubernetes..............: %s", kube.Config.Host)
-
-	statusChan := make(chan *pb.DeploymentStatus, 1024)
 
 	metricsServer := http.NewServeMux()
 	metricsServer.Handle(cfg.MetricsPath, metrics.Handler())
@@ -105,6 +104,11 @@ func run() error {
 	// Trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
+
+	statusChan := make(chan *pb.DeploymentStatus, 1024)
+	requestChan := make(chan *pb.DeploymentRequest, 1024)
+
+	// Keep deployment requests coming in on the request channel.
 	go func() {
 		for {
 			time.Sleep(requestBackoff)
@@ -125,25 +129,48 @@ func run() error {
 				if err != nil {
 					log.Errorf("Receive deployment request: %v", err)
 					break
-				} else {
-					logger := log.WithFields(req.LogFields())
-					deployd.Run(logger, req, *cfg, kube, statusChan)
 				}
+				requestChan <- req
 			}
 
 			log.Errorf("Disconnected from hookd")
 		}
 	}()
 
+	deploy := func(req *pb.DeploymentRequest) {
+		ctx, cancel := req.Context()
+		defer cancel()
+
+		client, err := kube.TeamClient(req.GetPayloadSpec().GetTeam())
+		if err != nil {
+			statusChan <- pb.NewErrorStatus(*req, err)
+			return
+		}
+
+		logger := log.WithFields(req.LogFields())
+
+		op := &operation.Operation{
+			Context:    ctx,
+			Logger:     logger,
+			Request:    req,
+			StatusChan: statusChan,
+			TeamClient: client,
+		}
+
+		deployd.Run(op)
+	}
+
 	for {
-	SEL:
 		select {
+		case req := <-requestChan:
+			go deploy(req)
+
 		case status := <-statusChan:
 			logger := log.WithFields(status.LogFields())
 			switch {
 			case status == nil:
 				metrics.DeployIgnored.Inc()
-				break SEL
+				break
 			case status.GetState() == pb.GithubDeploymentState_error:
 				fallthrough
 			case status.GetState() == pb.GithubDeploymentState_failure:
