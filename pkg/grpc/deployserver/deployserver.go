@@ -23,6 +23,7 @@ type DeployServer interface {
 }
 
 type deployServer struct {
+	pb.UnimplementedDeployServer
 	streams      map[string]pb.Deploy_DeploymentsServer
 	db           database.DeploymentStore
 	githubClient github.Client

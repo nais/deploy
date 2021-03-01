@@ -4,6 +4,8 @@ import "google/protobuf/timestamp.proto";
 
 package pb;
 
+option go_package = "github.com/nais/deploy/pkg/pb";
+
 option java_package = "no.nav.protos.deployment";
 
 import "google/protobuf/struct.proto";
