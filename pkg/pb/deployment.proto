@@ -43,9 +43,10 @@ message DeploymentRequest {
 
 message DeploymentStatus {
     string ID = 1;
-    google.protobuf.Timestamp time = 2;
-    DeploymentState state = 3;
-    string message = 4;
+    DeploymentRequest request = 2;
+    google.protobuf.Timestamp time = 3;
+    DeploymentState state = 4;
+    string message = 5;
 }
 
 message GetDeploymentOpts {

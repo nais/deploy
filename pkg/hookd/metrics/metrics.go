@@ -1,13 +1,11 @@
 package metrics
 
 import (
-	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/navikt/deployment/pkg/pb"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -70,37 +68,33 @@ func DatabaseQuery(t time.Time, err error) {
 	}).Observe(elapsed.Seconds())
 }
 
-func UpdateQueue(status pb.DeploymentStatus) {
-	stateTransitions.With(prometheus.Labels{
+func UpdateQueue(status *pb.DeploymentStatus) {
+	labels := prometheus.Labels{
 		LabelDeploymentState: status.GetState().String(),
-		Repository:           status.GetDeployment().GetRepository().FullName(),
-		Team:                 status.GetTeam(),
-		Cluster:              status.GetCluster(),
-	}).Inc()
+		Repository:           status.GetRequest().GetRepository().FullName(),
+		Team:                 status.GetRequest().GetTeam(),
+		Cluster:              status.GetRequest().GetCluster(),
+	}
+	stateTransitions.With(labels).Inc()
 
 	switch status.GetState() {
 
 	// These three states are definite and signify the end of a deployment.
-	case pb.GithubDeploymentState_success:
+	case pb.DeploymentState_success:
 
 		// In case of successful deployment, report the lead time.
 		ttd := float64(time.Now().Sub(status.Timestamp()))
-		leadTime.With(prometheus.Labels{
-			LabelDeploymentState: status.GetState().String(),
-			Repository:           status.GetDeployment().GetRepository().FullName(),
-			Team:                 status.GetTeam(),
-			Cluster:              status.GetCluster(),
-		}).Observe(ttd)
+		leadTime.With(labels).Observe(ttd)
 
 		fallthrough
-	case pb.GithubDeploymentState_error:
+	case pb.DeploymentState_error:
 		fallthrough
-	case pb.GithubDeploymentState_failure:
-		delete(deployQueue, status.GetDeliveryID())
+	case pb.DeploymentState_failure:
+		delete(deployQueue, status.GetID())
 
 	// Other states mean the deployment is still being processed.
 	default:
-		deployQueue[status.GetDeliveryID()] = new(interface{})
+		deployQueue[status.GetID()] = new(interface{})
 	}
 
 	queueSize.Set(float64(len(deployQueue)))
@@ -186,8 +180,4 @@ func init() {
 	prometheus.MustRegister(queueSize)
 	prometheus.MustRegister(leadTime)
 	prometheus.MustRegister(clusterStatus)
-}
-
-func Handler() http.Handler {
-	return promhttp.Handler()
 }

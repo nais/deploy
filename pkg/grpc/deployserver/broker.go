@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/navikt/deployment/pkg/pb"
 	database_mapper "github.com/navikt/deployment/pkg/hookd/database/mapper"
 	"github.com/navikt/deployment/pkg/hookd/github"
 	"github.com/navikt/deployment/pkg/hookd/metrics"
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,13 +29,13 @@ func (s *deployServer) githubLoop() {
 			case github.ErrTeamNotExist:
 				logger.Errorf(
 					"Not syncing deployment to GitHub: team %s does not exist on GitHub",
-					request.GetPayloadSpec().GetTeam(),
+					request.GetTeam(),
 				)
 			case github.ErrTeamNoAccess:
 				logger.Errorf(
 					"Not syncing deployment to GitHub: team %s does not have admin rights to repository %s",
-					request.GetPayloadSpec().GetTeam(),
-					request.GetDeployment().GetRepository().FullName(),
+					request.GetTeam(),
+					request.GetRepository().FullName(),
 				)
 			case nil:
 				logger.Tracef("Synchronized deployment to GitHub")
@@ -58,16 +58,16 @@ func (s *deployServer) githubLoop() {
 	}
 }
 
-func (s *deployServer) createGithubDeployment(request pb.DeploymentRequest) error {
+func (s *deployServer) createGithubDeployment(request *pb.DeploymentRequest) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	repo := request.GetDeployment().GetRepository()
+	repo := request.GetRepository()
 	if !repo.Valid() {
 		return errNoRepository
 	}
 
-	err := s.githubClient.TeamAllowed(ctx, repo.GetOwner(), repo.GetName(), request.GetPayloadSpec().GetTeam())
+	err := s.githubClient.TeamAllowed(ctx, repo.GetOwner(), repo.GetName(), request.GetTeam())
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (s *deployServer) createGithubDeployment(request pb.DeploymentRequest) erro
 		return fmt.Errorf("create GitHub deployment: %s", err)
 	}
 
-	deploy, err := s.db.Deployment(ctx, request.GetDeliveryID())
+	deploy, err := s.db.Deployment(ctx, request.GetID())
 	if err != nil {
 		return fmt.Errorf("get deployment from database: %s", err)
 	}
@@ -99,11 +99,11 @@ func (s *deployServer) createGithubDeployment(request pb.DeploymentRequest) erro
 	return nil
 }
 
-func (s *deployServer) createGithubDeploymentStatus(status pb.DeploymentStatus) error {
+func (s *deployServer) createGithubDeploymentStatus(status *pb.DeploymentStatus) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	deploy, err := s.db.Deployment(ctx, status.GetDeliveryID())
+	deploy, err := s.db.Deployment(ctx, status.GetID())
 	if err != nil {
 		return fmt.Errorf("get deployment from database: %s", err)
 	}
@@ -112,8 +112,8 @@ func (s *deployServer) createGithubDeploymentStatus(status pb.DeploymentStatus) 
 		return fmt.Errorf("GitHub deployment ID not recorded in database")
 	}
 
-	status.Deployment.DeploymentID = int64(*deploy.GitHubID)
-	_, err = s.githubClient.CreateDeploymentStatus(ctx, status)
+	deploymentID := int64(*deploy.GitHubID)
+	_, err = s.githubClient.CreateDeploymentStatus(ctx, status, deploymentID)
 	if err != nil {
 		return fmt.Errorf("create GitHub deployment status: %s", err)
 	}
@@ -121,12 +121,12 @@ func (s *deployServer) createGithubDeploymentStatus(status pb.DeploymentStatus) 
 	return nil
 }
 
-func (s *deployServer) SendDeploymentRequest(ctx context.Context, request pb.DeploymentRequest) error {
+func (s *deployServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
 	err := s.clusterOnline(request.Cluster)
 	if err != nil {
 		return err
 	}
-	err = s.streams[request.Cluster].Send(&request)
+	err = s.streams[request.Cluster].Send(request)
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (s *deployServer) clusterOnline(clusterName string) error {
 	return nil
 }
 
-func (s *deployServer) HandleDeploymentStatus(ctx context.Context, status pb.DeploymentStatus) error {
+func (s *deployServer) HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error {
 	dbStatus := database_mapper.DeploymentStatus(status)
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)
 	if err != nil {

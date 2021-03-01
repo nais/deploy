@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func NewErrorStatus(req DeploymentRequest, err error) *DeploymentStatus {
+func NewErrorStatus(req *DeploymentRequest, err error) *DeploymentStatus {
 	return &DeploymentStatus{
 		Message: fmt.Sprintf("Error: %s", err),
 		State:   DeploymentState_error,
@@ -14,7 +14,7 @@ func NewErrorStatus(req DeploymentRequest, err error) *DeploymentStatus {
 	}
 }
 
-func NewFailureStatus(req DeploymentRequest, err error) *DeploymentStatus {
+func NewFailureStatus(req *DeploymentRequest, err error) *DeploymentStatus {
 	return &DeploymentStatus{
 		Message: fmt.Sprintf("Deployment failed: %s", err),
 		State:   DeploymentState_error,
@@ -23,7 +23,7 @@ func NewFailureStatus(req DeploymentRequest, err error) *DeploymentStatus {
 	}
 }
 
-func NewInProgressStatus(req DeploymentRequest) *DeploymentStatus {
+func NewInProgressStatus(req *DeploymentRequest) *DeploymentStatus {
 	return &DeploymentStatus{
 		Message: "Resources have been applied to Kubernetes; waiting for new pods to report healthy status",
 		State:   DeploymentState_in_progress,
@@ -32,7 +32,7 @@ func NewInProgressStatus(req DeploymentRequest) *DeploymentStatus {
 	}
 }
 
-func NewQueuedStatus(req DeploymentRequest) *DeploymentStatus {
+func NewQueuedStatus(req *DeploymentRequest) *DeploymentStatus {
 	return &DeploymentStatus{
 		ID:      req.GetID(),
 		State:   DeploymentState_queued,
@@ -41,7 +41,7 @@ func NewQueuedStatus(req DeploymentRequest) *DeploymentStatus {
 	}
 }
 
-func NewSuccessStatus(req DeploymentRequest) *DeploymentStatus {
+func NewSuccessStatus(req *DeploymentRequest) *DeploymentStatus {
 	return &DeploymentStatus{
 		Message: fmt.Sprintf("All resources are applied to Kubernetes and reports healthy status."),
 		State:   DeploymentState_success,

@@ -264,7 +264,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Deployment committed to database")
 
-	err = h.DeployServer.SendDeploymentRequest(r.Context(), *deployMsg)
+	err = h.DeployServer.SendDeploymentRequest(r.Context(), deployMsg)
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		deploymentResponse.Message = fmt.Sprintf("deploy unavailable; try again later")
@@ -274,7 +274,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := types.NewQueuedStatus(*deployMsg)
-	err = h.DeployServer.HandleDeploymentStatus(r.Context(), *status)
+	err = h.DeployServer.HandleDeploymentStatus(r.Context(), status)
 
 	if err != nil {
 		logger.Errorf("unable to store deployment status in database: %s", err)

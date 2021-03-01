@@ -42,7 +42,7 @@ func ResourcesFromJSON(json []json.RawMessage) ([]unstructured.Unstructured, err
 }
 
 func ResourcesFromDeploymentRequest(request *pb.DeploymentRequest) ([]unstructured.Unstructured, error) {
-	js, err := request.GetPayloadSpec().JSONResources()
+	js, err := request.GetKubernetes().JSONResources()
 	if err != nil {
 		return nil, err
 	}
