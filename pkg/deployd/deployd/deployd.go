@@ -1,46 +1,17 @@
 package deployd
 
 import (
-	"context"
 	"fmt"
 	"sync"
-	"time"
 
-	"github.com/navikt/deployment/pkg/deployd/config"
 	"github.com/navikt/deployment/pkg/deployd/kubeclient"
 	"github.com/navikt/deployment/pkg/deployd/metrics"
+	"github.com/navikt/deployment/pkg/deployd/operation"
 	"github.com/navikt/deployment/pkg/k8sutils"
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-var (
-	ErrNotMyCluster     = fmt.Errorf("your message belongs in another cluster")
-	ErrDeadlineExceeded = fmt.Errorf("deadline exceeded")
-
-	deploymentTimeout = time.Minute * 30
-)
-
-const (
-	DefaultTeamclientNamespace = "default"
-)
-
-func matchesCluster(req pb.DeploymentRequest, cluster string) error {
-	if req.GetCluster() != cluster {
-		return ErrNotMyCluster
-	}
-	return nil
-}
-
-func meetsDeadline(req pb.DeploymentRequest) error {
-	deadline := time.Unix(req.GetDeadline(), 0)
-	late := time.Since(deadline)
-	if late > 0 {
-		return ErrDeadlineExceeded
-	}
-	return nil
-}
 
 // Annotate a resource with the deployment correlation ID.
 func addCorrelationID(resource *unstructured.Unstructured, correlationID string) {
@@ -52,132 +23,77 @@ func addCorrelationID(resource *unstructured.Unstructured, correlationID string)
 	resource.SetAnnotations(anno)
 }
 
-// Prepare decodes a string of bytes into a deployment request,
-// and decides whether or not to allow a deployment.
-//
-// If everything is okay, returns a deployment request. Otherwise, an error.
-func Prepare(req *pb.DeploymentRequest, cluster string) error {
-	// Check if we are the authoritative handler for this message
-	if err := matchesCluster(*req, cluster); err != nil {
-		return err
+func Run(op *operation.Operation) {
+	op.Logger.Infof("Starting deployment")
+
+	failure := func(err error) {
+		op.StatusChan <- pb.NewFailureStatus(*op.Request, err)
 	}
 
-	// Messages that are too old are discarded
-	if err := meetsDeadline(*req); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func Run(logger *log.Entry, req *pb.DeploymentRequest, cfg config.Config, kube kubeclient.TeamClientProvider, deployStatus chan *pb.DeploymentStatus) {
-	var namespace string
-
-	logger.Infof("Starting deployment")
-
-	// Check the validity of the message.
-	err := Prepare(req, cfg.Cluster)
-	nl := logger.WithFields(req.LogFields())
-	logger.Data = nl.Data // propagate changes down to caller
-
+	err := op.Context.Err()
 	if err != nil {
-		if err != ErrNotMyCluster {
-			logger.Tracef("Drop message: %s", err)
-			deployStatus <- pb.NewFailureStatus(*req, err)
-		} else {
-			logger.Tracef("Drop message: running in %s, but deployment is addressed to %s", cfg.Cluster, req.GetCluster())
-		}
+		failure(err)
 		return
 	}
 
-	p := req.GetPayloadSpec()
-	logger.Data["team"] = p.Team
-
-	if cfg.TeamNamespaces {
-		namespace = p.Team
-	} else {
-		namespace = DefaultTeamclientNamespace
-	}
-
-	teamClient, err := kube.TeamClient(p.Team, namespace, cfg.AutoCreateServiceAccount)
+	resources, err := op.ExtractResources()
 	if err != nil {
-		deployStatus <- pb.NewErrorStatus(*req, err)
+		failure(err)
 		return
 	}
-
-	rawResources, err := p.JSONResources()
-	if err != nil {
-		deployStatus <- pb.NewErrorStatus(*req, fmt.Errorf("unserializing kubernetes resources: %s", err))
-		return
-	}
-
-	if len(rawResources) == 0 {
-		deployStatus <- pb.NewErrorStatus(*req, fmt.Errorf("no resources to deploy"))
-		return
-	}
-
-	resources, err := k8sutils.ResourcesFromJSON(rawResources)
-	if err != nil {
-		deployStatus <- pb.NewErrorStatus(*req, err)
-		return
-	}
-
-	logger.Infof("Accepting incoming deployment request")
 
 	wait := sync.WaitGroup{}
 	errors := make(chan error, len(resources))
 
 	for index, resource := range resources {
-		addCorrelationID(&resource, req.GetDeliveryID())
+		addCorrelationID(&resource, op.Request.GetDeliveryID())
 		identifier := k8sutils.ResourceIdentifier(resource)
 
-		logger = logger.WithFields(log.Fields{
+		op.Logger = op.Logger.WithFields(log.Fields{
 			"name":      identifier.Name,
 			"namespace": identifier.Namespace,
 			"gvk":       identifier.GroupVersionKind,
 		})
 
-		deployed, err := teamClient.DeployUnstructured(resource)
+		deployed, err := op.TeamClient.DeployUnstructured(resource)
 		if err != nil {
 			err = fmt.Errorf("resource %d: %s", index+1, err)
-			logger.Error(err)
+			op.Logger.Error(err)
 			errors <- err
 			break
 		}
 
 		metrics.KubernetesResources.Inc()
 
-		logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
+		op.Logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
-			ctx,cancel := context.WithTimeout(context.Background(), deploymentTimeout)
-			defer cancel()
-
 			wait.Add(1)
-			logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s' for %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deploymentTimeout.String())
-			err := teamClient.WaitForDeployment(ctx, logger, resource, req, deployStatus)
+			deadline, _ := op.Context.Deadline()
+			op.Logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
+			err := op.TeamClient.WaitForDeployment(op.Context, op.Logger, resource, op.Request, op.StatusChan)
 			if err != nil {
-				logger.Error(err)
+				op.Logger.Error(err)
 				errors <- err
 			}
-			logger.Infof("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
+			op.Logger.Infof("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
 			wait.Done()
-		}(logger, resource)
+		}(op.Logger, resource)
 	}
 
-	deployStatus <- pb.NewInProgressStatus(*req)
+	op.StatusChan <- pb.NewInProgressStatus(*op.Request)
 
 	go func() {
-		logger.Infof("Waiting for resources to be successfully rolled out")
+		op.Logger.Infof("Waiting for resources to be successfully rolled out")
 		wait.Wait()
-		logger.Infof("Finished monitoring all resources")
+		op.Logger.Infof("Finished monitoring all resources")
 
 		errCount := len(errors)
 		if errCount == 0 {
-			deployStatus <- pb.NewSuccessStatus(*req)
+			op.StatusChan <- pb.NewSuccessStatus(*op.Request)
 		} else {
 			err := <-errors
-			deployStatus <- pb.NewFailureStatus(*req, fmt.Errorf("%s (total of %d errors)", err, errCount))
+			op.StatusChan <- pb.NewFailureStatus(*op.Request, fmt.Errorf("%s (total of %d errors)", err, errCount))
 		}
 	}()
 }

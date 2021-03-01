@@ -3,10 +3,8 @@ package kubeclient
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -24,17 +22,13 @@ const (
 	ClusterName         = "kubernetes"
 )
 
-var (
-	tokenGenerationTimeout = 200 * time.Millisecond
-)
-
 type Client struct {
 	Base   kubernetes.Interface
 	Config *rest.Config
 }
 
 type TeamClientProvider interface {
-	TeamClient(team, namespace string, autoCreateServiceAccount bool) (TeamClient, error)
+	TeamClient(team string) (TeamClient, error)
 }
 
 func New() (*Client, error) {
@@ -54,25 +48,11 @@ func New() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) teamConfig(team, namespace string, autoCreateServiceAccount bool) (*clientcmdapi.Config, error) {
+func (c *Client) teamConfig(team string) (*clientcmdapi.Config, error) {
 	serviceAccountName := serviceAccountName(team)
 
-	// Get service account for this team. If it does not exist, create it.
-	// The creation is attempted first because we need to get the object
-	// from the API server after the service account token is generated.
-	//
-	// Kubernetes needs some time to generate the service account token,
-	// so we insert a small pause to wait for it.
-	if autoCreateServiceAccount {
-		_, err := createServiceAccount(c.Base, serviceAccountName, namespace)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return nil, fmt.Errorf("while generating service account: %s", err)
-		} else if err == nil {
-			time.Sleep(tokenGenerationTimeout)
-		}
-	}
-
-	serviceAccount, err := serviceAccount(c.Base, serviceAccountName, namespace)
+	// Get service account for this team.
+	serviceAccount, err := serviceAccount(c.Base, serviceAccountName, team)
 	if err != nil {
 		return nil, fmt.Errorf("while retrieving service account: %s", err)
 	}
@@ -94,7 +74,7 @@ func (c *Client) teamConfig(team, namespace string, autoCreateServiceAccount boo
 		CertificateAuthorityData: c.Config.CAData,
 	}
 	teamConfig.Contexts[ClusterName] = &clientcmdapi.Context{
-		Namespace: namespace,
+		Namespace: team,
 		AuthInfo:  serviceAccountName,
 		Cluster:   ClusterName,
 	}
@@ -104,9 +84,9 @@ func (c *Client) teamConfig(team, namespace string, autoCreateServiceAccount boo
 }
 
 // TeamClient returns a Kubernetes REST client tailored for a specific team.
-// The user is the `serviceuser-TEAM` in the `default` namespace.
-func (c *Client) TeamClient(team, namespace string, autoCreateServiceAccount bool) (TeamClient, error) {
-	config, err := c.teamConfig(team, namespace, autoCreateServiceAccount)
+// The user is the `serviceuser-TEAM` in the team's self-named namespace.
+func (c *Client) TeamClient(team string) (TeamClient, error) {
+	config, err := c.teamConfig(team)
 	if err != nil {
 		return nil, err
 	}
