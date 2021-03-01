@@ -55,6 +55,7 @@ message DeploymentRequest {
     google.protobuf.Timestamp time = 8;
     DeploymentStatus status = 9;
     string gitRefSha = 10;
+    string team = 11;
 }
 
 message DeploymentStatus {
