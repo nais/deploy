@@ -2,10 +2,9 @@ package pb
 
 import (
 	"context"
-	"time"
 )
 
 func (m *DeploymentRequest) Context() (context.Context, context.CancelFunc) {
-	deadline := time.Unix(m.GetDeadline(), 0)
+	deadline := TimestampAsTime(m.Deadline)
 	return context.WithDeadline(context.Background(), deadline)
 }

@@ -22,22 +22,17 @@ func DeploymentRequestMessage(r *DeploymentRequest, deliveryID string) (*types.D
 	}
 	now := time.Now()
 	return &types.DeploymentRequest{
-		Deployment: &types.DeploymentSpec{
-			Repository: &types.GithubRepository{
-				Name:  r.Repository,
-				Owner: r.Owner,
-			},
-			Environment: r.Environment,
-			Ref:         r.Ref,
+		ID:                deliveryID,
+		Time:              types.TimeAsTimestamp(now),
+		Deadline:          types.TimeAsTimestamp(now.Add(ttl)),
+		Cluster:           r.Cluster,
+		Team:              r.Team,
+		GitRefSha:         r.Ref,
+		Kubernetes:        kube,
+		Repository:        &types.GithubRepository{
+			Owner: r.Owner,
+			Name:  r.Repository,
 		},
-		PayloadSpec: &types.Payload{
-			Team:       r.Team,
-			Version:    payloadVersion,
-			Kubernetes: kube,
-		},
-		DeliveryID: deliveryID,
-		Cluster:    r.Cluster,
-		Time:       types.TimeAsTimestamp(now),
-		Deadline:   now.Add(ttl).Unix(),
+		GithubEnvironment: r.Environment,
 	}, nil
 }

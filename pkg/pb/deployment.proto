@@ -15,7 +15,7 @@ message GithubRepository {
     string name = 2;
 }
 
-enum GithubDeploymentState {
+enum DeploymentState {
     success = 0;
     error = 1;
     failure = 2;
@@ -25,55 +25,27 @@ enum GithubDeploymentState {
     pending = 6;
 }
 
-message DeploymentSpec {
-    GithubRepository repository = 1;
-    int64 deploymentID = 2;
-    string environment = 3;
-    string ref = 4;
-}
-
 message Kubernetes {
     repeated google.protobuf.Struct resources = 1;
 }
 
-message Payload {
-    repeated int32 version = 1;
-    string team = 2;
-    Kubernetes kubernetes = 3;
-}
-
 message DeploymentRequest {
-    DeploymentSpec deployment = 1;
-    reserved "timestamp";
-    reserved 2;
-    int64 deadline = 3;
-    reserved "payload";
-    reserved 4;
-    string cluster = 5;
-    string deliveryID = 6;
-    Payload payloadSpec = 7;
-    google.protobuf.Timestamp time = 8;
-    DeploymentStatus status = 9;
-    string gitRefSha = 10;
-    string team = 11;
+    string ID = 1;
+    google.protobuf.Timestamp time = 2;
+    google.protobuf.Timestamp deadline = 3;
+    string cluster = 4;
+    string team = 5;
+    string gitRefSha = 6;
+    Kubernetes kubernetes = 7;
+    GithubRepository repository = 8;
+    string GithubEnvironment = 9;
 }
 
 message DeploymentStatus {
-    DeploymentSpec deployment = 1;
-    GithubDeploymentState state = 2;
-    string description = 3;
-    string deliveryID = 4;
-    string team = 5;
-    string cluster = 6;
-    reserved "timestamp";
-    reserved 7;
-    google.protobuf.Timestamp time = 8;
-    string id = 9;
-}
-
-message SignedMessage {
-    bytes message = 1;
-    bytes signature = 2;
+    string ID = 1;
+    google.protobuf.Timestamp time = 2;
+    DeploymentState state = 3;
+    string message = 4;
 }
 
 message GetDeploymentOpts {
@@ -87,5 +59,9 @@ service Deploy {
     rpc Deployments (GetDeploymentOpts) returns (stream DeploymentRequest) {
     }
     rpc ReportStatus (DeploymentStatus) returns (ReportStatusOpts) {
+    }
+    rpc Deploy (DeploymentRequest) returns (DeploymentStatus) {
+    }
+    rpc Status (DeploymentRequest) returns (stream DeploymentStatus) {
     }
 }

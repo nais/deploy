@@ -20,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 type DeployClient interface {
 	Deployments(ctx context.Context, in *GetDeploymentOpts, opts ...grpc.CallOption) (Deploy_DeploymentsClient, error)
 	ReportStatus(ctx context.Context, in *DeploymentStatus, opts ...grpc.CallOption) (*ReportStatusOpts, error)
+	Deploy(ctx context.Context, in *DeploymentRequest, opts ...grpc.CallOption) (*DeploymentStatus, error)
+	Status(ctx context.Context, in *DeploymentRequest, opts ...grpc.CallOption) (Deploy_StatusClient, error)
 }
 
 type deployClient struct {
@@ -71,12 +73,55 @@ func (c *deployClient) ReportStatus(ctx context.Context, in *DeploymentStatus, o
 	return out, nil
 }
 
+func (c *deployClient) Deploy(ctx context.Context, in *DeploymentRequest, opts ...grpc.CallOption) (*DeploymentStatus, error) {
+	out := new(DeploymentStatus)
+	err := c.cc.Invoke(ctx, "/pb.Deploy/Deploy", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deployClient) Status(ctx context.Context, in *DeploymentRequest, opts ...grpc.CallOption) (Deploy_StatusClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Deploy_ServiceDesc.Streams[1], "/pb.Deploy/Status", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &deployStatusClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Deploy_StatusClient interface {
+	Recv() (*DeploymentStatus, error)
+	grpc.ClientStream
+}
+
+type deployStatusClient struct {
+	grpc.ClientStream
+}
+
+func (x *deployStatusClient) Recv() (*DeploymentStatus, error) {
+	m := new(DeploymentStatus)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DeployServer is the server API for Deploy service.
 // All implementations must embed UnimplementedDeployServer
 // for forward compatibility
 type DeployServer interface {
 	Deployments(*GetDeploymentOpts, Deploy_DeploymentsServer) error
 	ReportStatus(context.Context, *DeploymentStatus) (*ReportStatusOpts, error)
+	Deploy(context.Context, *DeploymentRequest) (*DeploymentStatus, error)
+	Status(*DeploymentRequest, Deploy_StatusServer) error
 	mustEmbedUnimplementedDeployServer()
 }
 
@@ -89,6 +134,12 @@ func (UnimplementedDeployServer) Deployments(*GetDeploymentOpts, Deploy_Deployme
 }
 func (UnimplementedDeployServer) ReportStatus(context.Context, *DeploymentStatus) (*ReportStatusOpts, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportStatus not implemented")
+}
+func (UnimplementedDeployServer) Deploy(context.Context, *DeploymentRequest) (*DeploymentStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Deploy not implemented")
+}
+func (UnimplementedDeployServer) Status(*DeploymentRequest, Deploy_StatusServer) error {
+	return status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
 func (UnimplementedDeployServer) mustEmbedUnimplementedDeployServer() {}
 
@@ -142,6 +193,45 @@ func _Deploy_ReportStatus_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Deploy_Deploy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeploymentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeployServer).Deploy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.Deploy/Deploy",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeployServer).Deploy(ctx, req.(*DeploymentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Deploy_Status_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(DeploymentRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DeployServer).Status(m, &deployStatusServer{stream})
+}
+
+type Deploy_StatusServer interface {
+	Send(*DeploymentStatus) error
+	grpc.ServerStream
+}
+
+type deployStatusServer struct {
+	grpc.ServerStream
+}
+
+func (x *deployStatusServer) Send(m *DeploymentStatus) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Deploy_ServiceDesc is the grpc.ServiceDesc for Deploy service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -153,11 +243,20 @@ var Deploy_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ReportStatus",
 			Handler:    _Deploy_ReportStatus_Handler,
 		},
+		{
+			MethodName: "Deploy",
+			Handler:    _Deploy_Deploy_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Deployments",
 			Handler:       _Deploy_Deployments_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Status",
+			Handler:       _Deploy_Status_Handler,
 			ServerStreams: true,
 		},
 	},
