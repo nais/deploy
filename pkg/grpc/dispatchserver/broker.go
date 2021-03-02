@@ -126,7 +126,7 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 	if err != nil {
 		return err
 	}
-	err = s.streams[request.Cluster].Send(request)
+	err = s.dispatchStreams[request.Cluster].Send(request)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 }
 
 func (s *dispatchServer) clusterOnline(clusterName string) error {
-	_, ok := s.streams[clusterName]
+	_, ok := s.dispatchStreams[clusterName]
 	if !ok {
 		return fmt.Errorf("cluster '%s' is offline", clusterName)
 	}
@@ -147,6 +147,12 @@ func (s *dispatchServer) clusterOnline(clusterName string) error {
 }
 
 func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error {
+	maplock.Lock()
+	for _, ch := range s.statusStreams {
+		ch <- status
+	}
+	maplock.Unlock()
+
 	dbStatus := database_mapper.DeploymentStatus(status)
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)
 	if err != nil {

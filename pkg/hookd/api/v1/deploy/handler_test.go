@@ -33,7 +33,7 @@ type testCase struct {
 	Name     string
 	Request  request
 	Response response
-	Setup    func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
+	Setup    func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
 }
 
 func timep(t time.Time) *time.Time {
@@ -127,7 +127,7 @@ var tests = []testCase{
 				Message: "failed authentication",
 			},
 		},
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 		},
 	},
@@ -138,7 +138,7 @@ var tests = []testCase{
 			Body: validPayload,
 		},
 		Response: errorResponse(403, "failed authentication"),
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
 		},
 	},
@@ -150,7 +150,7 @@ var tests = []testCase{
 			Body:      validPayload,
 		},
 		Response: errorResponse(403, "failed authentication"),
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
 		},
 	},
@@ -167,7 +167,7 @@ var tests = []testCase{
 				Message: "failed authentication",
 			},
 		},
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
 		},
 	},
@@ -179,7 +179,7 @@ var tests = []testCase{
 			Body:      validPayload,
 		},
 		Response: errorResponse(502, "something wrong happened when communicating with api key service"),
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, genericError).Once()
 		},
 	},
@@ -191,7 +191,7 @@ var tests = []testCase{
 			Body:      validPayload,
 		},
 		Response: errorResponse(503, "database is unavailable; try again later"),
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 			deployStore.On("WriteDeployment", mock.Anything, mock.Anything).Return(genericError).Once()
 		},
@@ -204,7 +204,7 @@ var tests = []testCase{
 			Body:      validPayload,
 		},
 		Response: errorResponse(503, "database is unavailable; try again later"),
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 			deployStore.On("WriteDeployment", mock.Anything, mock.Anything).Return(genericError).Once()
 			deployStore.On("WriteDeploymentResource", mock.Anything, mock.Anything, mock.Anything).Return(genericError).Once()
@@ -218,7 +218,7 @@ var tests = []testCase{
 			Body:      validPayload,
 		},
 		Response: errorResponse(503, "deploy unavailable; try again later"),
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 			deployStore.On("WriteDeployment", mock.Anything, mock.Anything).Return(nil).Once()
 			deployStore.On("WriteDeploymentResource", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
@@ -233,7 +233,7 @@ var tests = []testCase{
 			Body:      validPayload,
 		},
 		Response: errorResponse(201, "deployment request accepted and dispatched"),
-		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 			deployStore.On("WriteDeployment", mock.Anything, mock.Anything).Return(nil).Once()
 			deployStore.On("WriteDeploymentResource", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
@@ -261,16 +261,16 @@ func subTest(t *testing.T, test testCase) {
 	}
 
 	apiKeyStore := &database.MockApiKeyStore{}
-	deployServer := &dispatchserver.MockDeployServer{}
+	dispatchServer := &dispatchserver.MockDispatchServer{}
 	deployStore := &database.MockDeploymentStore{}
 
 	if test.Setup != nil {
-		test.Setup(deployServer, apiKeyStore, deployStore)
+		test.Setup(dispatchServer, apiKeyStore, deployStore)
 	}
 
 	handler := api.New(api.Config{
 		ApiKeyStore:     apiKeyStore,
-		DeployServer:    deployServer,
+		DispatchServer:  dispatchServer,
 		DeploymentStore: deployStore,
 		MetricsPath:     "/metrics",
 	})

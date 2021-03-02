@@ -34,7 +34,7 @@ type Middleware func(http.Handler) http.Handler
 type Config struct {
 	ApiKeyStore                 database.ApiKeyStore
 	BaseURL                     string
-	DeployServer                dispatchserver.DispatchServer
+	DispatchServer              dispatchserver.DispatchServer
 	Certificates                map[string]discovery.CertificateList
 	DeploymentStore             database.DeploymentStore
 	GithubConfig                config.Github
@@ -53,7 +53,7 @@ func New(cfg Config) chi.Router {
 	deploymentHandler := &api_v1_deploy.DeploymentHandler{
 		APIKeyStorage:   cfg.ApiKeyStore,
 		BaseURL:         cfg.BaseURL,
-		DispatchServer:  cfg.DeployServer,
+		DispatchServer:  cfg.DispatchServer,
 		DeploymentStore: cfg.DeploymentStore,
 	}
 

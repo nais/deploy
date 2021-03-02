@@ -262,7 +262,7 @@ func subTest(t *testing.T, test testCase) {
 
 	handler := api.New(api.Config{
 		ApiKeyStore:     apiKeyStore,
-		DeployServer:    deployServer,
+		DispatchServer:  deployServer,
 		DeploymentStore: deployStore,
 		MetricsPath:     "/metrics",
 	})

@@ -117,3 +117,21 @@ func (ds *deployServer) Deploy(ctx context.Context, request *pb.DeploymentReques
 
 	return st, nil
 }
+
+func (ds *deployServer) Status(request *pb.DeploymentRequest, server pb.Deploy_StatusServer) error {
+	ch := make(chan *pb.DeploymentStatus, 16)
+
+	// Listen for status updates until context is closed
+	go ds.dispatchServer.StreamStatus(server.Context(), ch)
+
+	for st := range ch {
+		if st.GetRequest().GetID() != request.GetID() {
+			continue
+		}
+		err := server.Send(st)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

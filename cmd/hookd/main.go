@@ -116,7 +116,7 @@ func run() error {
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
 		DeploymentStore:             db,
-		DeployServer:                deployServer,
+		DispatchServer:              deployServer,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,

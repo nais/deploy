@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/navikt/deployment/pkg/hookd/database"
 	"github.com/navikt/deployment/pkg/hookd/github"
 	"github.com/navikt/deployment/pkg/hookd/metrics"
@@ -20,24 +21,27 @@ type DispatchServer interface {
 	pb.DispatchServer
 	SendDeploymentRequest(ctx context.Context, deployment *pb.DeploymentRequest) error
 	HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error
+	StreamStatus(context.Context, chan<- *pb.DeploymentStatus)
 }
 
 type dispatchServer struct {
 	pb.UnimplementedDispatchServer
-	streams      map[string]pb.Dispatch_DeploymentsServer
-	db           database.DeploymentStore
-	githubClient github.Client
-	requests     chan *pb.DeploymentRequest
-	statuses     chan *pb.DeploymentStatus
+	dispatchStreams map[string]pb.Dispatch_DeploymentsServer
+	statusStreams   map[context.Context]chan<- *pb.DeploymentStatus
+	db              database.DeploymentStore
+	githubClient    github.Client
+	requests        chan *pb.DeploymentRequest
+	statuses        chan *pb.DeploymentStatus
 }
 
 func New(db database.DeploymentStore, githubClient github.Client) DispatchServer {
 	server := &dispatchServer{
-		streams:      make(map[string]pb.Dispatch_DeploymentsServer),
-		db:           db,
-		githubClient: githubClient,
-		requests:     make(chan *pb.DeploymentRequest, 4096),
-		statuses:     make(chan *pb.DeploymentStatus, 4096),
+		dispatchStreams: make(map[string]pb.Dispatch_DeploymentsServer),
+		statusStreams:   make(map[context.Context]chan<- *pb.DeploymentStatus),
+		db:              db,
+		githubClient:    githubClient,
+		requests:        make(chan *pb.DeploymentRequest, 4096),
+		statuses:        make(chan *pb.DeploymentStatus, 4096),
 	}
 
 	go server.githubLoop()
@@ -48,8 +52,8 @@ func New(db database.DeploymentStore, githubClient github.Client) DispatchServer
 var _ DispatchServer = &dispatchServer{}
 
 func (s *dispatchServer) onlineClusters() []string {
-	clusters := make([]string, 0, len(s.streams))
-	for k := range s.streams {
+	clusters := make([]string, 0, len(s.dispatchStreams))
+	for k := range s.dispatchStreams {
 		clusters = append(clusters, k)
 	}
 	return clusters
@@ -67,7 +71,7 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
 	}
 	maplock.Lock()
-	s.streams[opts.Cluster] = stream
+	s.dispatchStreams[opts.Cluster] = stream
 	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
 	maplock.Unlock()
 	s.reportOnlineClusters()
@@ -76,7 +80,7 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 	<-stream.Context().Done()
 
 	maplock.Lock()
-	delete(s.streams, opts.Cluster)
+	delete(s.dispatchStreams, opts.Cluster)
 	log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
 	maplock.Unlock()
 	s.reportOnlineClusters()
@@ -86,4 +90,21 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 
 func (s *dispatchServer) ReportStatus(ctx context.Context, status *pb.DeploymentStatus) (*pb.ReportStatusOpts, error) {
 	return &pb.ReportStatusOpts{}, s.HandleDeploymentStatus(ctx, status)
+}
+
+// Send all status updates belonging to a specific request
+func (s *dispatchServer) StreamStatus(ctx context.Context, channel chan<- *pb.DeploymentStatus) {
+	id := uuid.New()
+	log.Debugf("Setting up new status stream %s", id.String())
+	maplock.Lock()
+	s.statusStreams[ctx] = channel
+	maplock.Unlock()
+
+	<-ctx.Done()
+
+	maplock.Lock()
+	delete(s.statusStreams, ctx)
+	close(channel)
+	maplock.Unlock()
+	log.Debugf("Closed status stream %s", id.String())
 }
