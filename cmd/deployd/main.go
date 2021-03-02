@@ -13,7 +13,7 @@ import (
 	"github.com/navikt/deployment/pkg/azure/oauth2"
 	"github.com/navikt/deployment/pkg/deployd/deployd"
 	"github.com/navikt/deployment/pkg/deployd/operation"
-	"github.com/navikt/deployment/pkg/grpc/interceptor"
+	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
 
 	"github.com/navikt/deployment/pkg/deployd/config"
 	"github.com/navikt/deployment/pkg/deployd/kubeclient"
@@ -84,7 +84,7 @@ func run() error {
 			TenantID:     cfg.Azure.Tenant,
 			Scopes:       []string{fmt.Sprintf("api://%s/.default", cfg.HookdApplicationID)},
 		})
-		intercept := &interceptor.ClientInterceptor{
+		intercept := &token_interceptor.ClientInterceptor{
 			Config:     tokenConfig,
 			RequireTLS: cfg.GrpcUseTLS,
 		}

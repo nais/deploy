@@ -12,12 +12,12 @@ import (
 
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
+	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
 
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/pkg/azure/discovery"
 	"github.com/navikt/deployment/pkg/azure/graphapi"
 	"github.com/navikt/deployment/pkg/grpc/deployserver"
-	"github.com/navikt/deployment/pkg/grpc/interceptor"
 	"github.com/navikt/deployment/pkg/hookd/api"
 	"github.com/navikt/deployment/pkg/hookd/config"
 	"github.com/navikt/deployment/pkg/hookd/database"
@@ -151,7 +151,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClien
 			return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
 		}
 
-		intercept := &interceptor.ServerInterceptor{
+		intercept := &token_interceptor.ServerInterceptor{
 			Audience:     cfg.Azure.ClientID,
 			Certificates: certificates,
 			PreAuthApps:  preAuthApps,

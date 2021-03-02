@@ -113,7 +113,7 @@ func Initialize() *Config {
 	flag.String(AzureWellKnownUrl, "", "URL to Azure configuration.")
 	flag.String(AzureTenant, "", "Azure Tenant")
 	flag.String(AzureTeamMembershipAppId, "", "Application ID of canonical team list")
-	flag.String(AzurePreAuthorizedApps, "", "Preauthorized Applications as Json")
+	flag.String(AzurePreAuthorizedApps, "[]", "Preauthorized Applications as Json")
 
 	return &Config{}
 }
