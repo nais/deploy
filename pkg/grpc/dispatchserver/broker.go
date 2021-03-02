@@ -1,6 +1,6 @@
 // package deployServer provides message streams between hookd and deployd
 
-package deployserver
+package dispatchserver
 
 import (
 	"context"
@@ -19,7 +19,7 @@ var (
 	errNoRepository = fmt.Errorf("no repository specified")
 )
 
-func (s *deployServer) githubLoop() {
+func (s *dispatchServer) githubLoop() {
 	for {
 		select {
 		case request := <-s.requests:
@@ -58,7 +58,7 @@ func (s *deployServer) githubLoop() {
 	}
 }
 
-func (s *deployServer) createGithubDeployment(request *pb.DeploymentRequest) error {
+func (s *dispatchServer) createGithubDeployment(request *pb.DeploymentRequest) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
@@ -99,7 +99,7 @@ func (s *deployServer) createGithubDeployment(request *pb.DeploymentRequest) err
 	return nil
 }
 
-func (s *deployServer) createGithubDeploymentStatus(status *pb.DeploymentStatus) error {
+func (s *dispatchServer) createGithubDeploymentStatus(status *pb.DeploymentStatus) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
@@ -121,7 +121,7 @@ func (s *deployServer) createGithubDeploymentStatus(status *pb.DeploymentStatus)
 	return nil
 }
 
-func (s *deployServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
+func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
 	err := s.clusterOnline(request.Cluster)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func (s *deployServer) SendDeploymentRequest(ctx context.Context, request *pb.De
 	return nil
 }
 
-func (s *deployServer) clusterOnline(clusterName string) error {
+func (s *dispatchServer) clusterOnline(clusterName string) error {
 	_, ok := s.streams[clusterName]
 	if !ok {
 		return fmt.Errorf("cluster '%s' is offline", clusterName)
@@ -146,7 +146,7 @@ func (s *deployServer) clusterOnline(clusterName string) error {
 	return nil
 }
 
-func (s *deployServer) HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error {
+func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error {
 	dbStatus := database_mapper.DeploymentStatus(status)
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)
 	if err != nil {

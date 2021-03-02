@@ -11,25 +11,27 @@ import (
 )
 
 type Config struct {
-	Actions         bool
-	APIKey          string
-	DeployServerURL string
-	Cluster         string
-	Environment     string
-	PrintPayload    bool
-	DryRun          bool
-	Owner           string
-	PollInterval    time.Duration
-	Quiet           bool
-	Ref             string
-	Repository      string
-	Resource        []string
-	Retry           bool
-	Team            string
-	Timeout         time.Duration
-	Variables       []string
-	VariablesFile   string
-	Wait            bool
+	APIKey             string
+	Actions            bool
+	Cluster            string
+	DeployServerURL    string
+	DryRun             bool
+	Environment        string
+	GrpcAuthentication bool
+	GrpcUseTLS         bool
+	Owner              string
+	PollInterval       time.Duration
+	PrintPayload       bool
+	Quiet              bool
+	Ref                string
+	Repository         string
+	Resource           []string
+	Retry              bool
+	Team               string
+	Timeout            time.Duration
+	Variables          []string
+	VariablesFile      string
+	Wait               bool
 }
 
 var cfg Config
@@ -43,6 +45,8 @@ func init() {
 	flag.StringVar(&cfg.DeployServerURL, "deploy-server", getEnv("DEPLOY_SERVER", DefaultDeployServer), "URL to API server. (env DEPLOY_SERVER)")
 	flag.BoolVar(&cfg.DryRun, "dry-run", getEnvBool("DRY_RUN", false), "Run templating, but don't actually make any requests. (env DRY_RUN)")
 	flag.StringVar(&cfg.Environment, "environment", os.Getenv("ENVIRONMENT"), "Environment for GitHub deployment. Autodetected from nais.yaml if not specified. (env ENVIRONMENT)")
+	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", getEnvBool("GRPC_AUTHENTICATION", true), "Use team API key to authenticate requests. (env GRPC_AUTHENTICATION)")
+	flag.BoolVar(&cfg.GrpcUseTLS, "grpc-use-tls", getEnvBool("GRPC_USE_TLS", true), "Use encrypted connection for gRPC calls. (env GRPC_USE_TLS)")
 	flag.StringVar(&cfg.Owner, "owner", getEnv("OWNER", DefaultOwner), "Owner of GitHub repository. (env OWNER)")
 	flag.BoolVar(&cfg.PrintPayload, "print-payload", getEnvBool("PRINT_PAYLOAD", false), "Print templated resources to standard output. (env PRINT_PAYLOAD)")
 	flag.BoolVar(&cfg.Quiet, "quiet", getEnvBool("QUIET", false), "Suppress printing of informational messages except errors. (env QUIET)")

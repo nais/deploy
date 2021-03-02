@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -18,11 +19,15 @@ import (
 
 	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
+	"github.com/golang/protobuf/jsonpb"
+	apikey_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
 	"github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/api/v1/deploy"
 	"github.com/navikt/deployment/pkg/hookd/api/v1/status"
-	types "github.com/navikt/deployment/pkg/pb"
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	yamlv2 "gopkg.in/yaml.v2"
 )
@@ -39,7 +44,7 @@ const (
 	DefaultPollInterval  = time.Second * 5
 	DefaultRef           = "master"
 	DefaultOwner         = "navikt"
-	DefaultDeployServer  = "https://deploy.nais.io"
+	DefaultDeployServer  = "deploy-grpc.nais.io:9090"
 	DefaultDeployTimeout = time.Minute * 10
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
@@ -72,6 +77,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	setupLogging(cfg.Actions, cfg.Quiet)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
+
 	if err := validate(cfg); err != nil {
 		if !cfg.DryRun {
 			return ExitInvocationFailure, err
@@ -164,11 +170,71 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	data := make([]byte, 0)
 	buf := bytes.NewBuffer(data)
-	allResources, err := wrapResources(resources)
 
+	// ///////////
+
+	dialOptions := make([]grpc.DialOption, 0)
+	if !cfg.GrpcUseTLS {
+		dialOptions = append(dialOptions, grpc.WithInsecure())
+	} else {
+		tlsOpts := &tls.Config{}
+		cred := credentials.NewTLS(tlsOpts)
+		if err != nil {
+			return ExitInvocationFailure, fmt.Errorf("gRPC configured to use TLS, but system-wide CA certificate bundle cannot be loaded")
+		}
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
+	}
+
+	if cfg.GrpcAuthentication {
+		intercept := &apikey_interceptor.ClientInterceptor{
+			APIKey:     cfg.APIKey,
+			RequireTLS: cfg.GrpcUseTLS,
+		}
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
+	}
+
+	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
+	if err != nil {
+		return ExitUnavailable, fmt.Errorf("connecting to NAIS deploy: %s", err)
+	}
+	defer grpcConnection.Close()
+
+	allResources, err := wrapResources(resources)
 	if err != nil {
 		return ExitInvocationFailure, err
 	}
+
+	kube, err := pb.KubernetesFromJSONResources(allResources)
+	if err != nil {
+		return ExitInvocationFailure, err
+	}
+
+	deadline, _ := ctx.Deadline()
+	deployRequest := &pb.DeploymentRequest{
+		Cluster:           cfg.Cluster,
+		Deadline:          pb.TimeAsTimestamp(deadline),
+		GitRefSha:         cfg.Ref,
+		GithubEnvironment: cfg.Environment,
+		Kubernetes:        kube,
+		Repository: &pb.GithubRepository{
+			Owner: cfg.Owner,
+			Name:  cfg.Repository,
+		},
+		Team: cfg.Team,
+		Time: pb.TimeAsTimestamp(time.Now()),
+	}
+
+	grpcClient := pb.NewDeployClient(grpcConnection)
+	status, err := grpcClient.Deploy(ctx, deployRequest)
+	if err != nil {
+		return ExitUnavailable, err
+	}
+
+	marsh := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+	marsh.Marshal(os.Stdout, status)
+	return ExitSuccess, nil
 
 	err = mkpayload(buf, allResources, cfg)
 
@@ -348,15 +414,15 @@ func check(deploymentID string, key []byte, targetURL url.URL, cfg Config) (bool
 
 	log.Infof("deployment: %s: %s", *response.Status, response.Message)
 
-	status := types.DeploymentState(types.DeploymentState_value[*response.Status])
+	status := pb.DeploymentState(pb.DeploymentState_value[*response.Status])
 	switch status {
-	case types.DeploymentState_success:
+	case pb.DeploymentState_success:
 		return false, ExitSuccess, nil
-	case types.DeploymentState_error:
+	case pb.DeploymentState_error:
 		return false, ExitDeploymentError, nil
-	case types.DeploymentState_failure:
+	case pb.DeploymentState_failure:
 		return false, ExitDeploymentFailure, nil
-	case types.DeploymentState_inactive:
+	case pb.DeploymentState_inactive:
 		return false, ExitDeploymentInactive, nil
 	}
 

@@ -97,7 +97,7 @@ func run() error {
 		return fmt.Errorf("connecting to hookd gRPC server: %s", err)
 	}
 
-	grpcClient := pb.NewDeployClient(grpcConnection)
+	grpcClient := pb.NewDispatchClient(grpcConnection)
 
 	defer grpcConnection.Close()
 

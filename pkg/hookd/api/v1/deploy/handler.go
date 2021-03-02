@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/navikt/deployment/pkg/grpc/deployserver"
+	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
 	"github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/database"
 	"github.com/navikt/deployment/pkg/hookd/logproxy"
@@ -24,7 +24,7 @@ import (
 
 type DeploymentHandler struct {
 	APIKeyStorage   database.ApiKeyStore
-	DeployServer    deployserver.DeployServer
+	DispatchServer  dispatchserver.DispatchServer
 	DeploymentStore database.DeploymentStore
 	BaseURL         string
 }
@@ -264,7 +264,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Deployment committed to database")
 
-	err = h.DeployServer.SendDeploymentRequest(r.Context(), deployMsg)
+	err = h.DispatchServer.SendDeploymentRequest(r.Context(), deployMsg)
 	if err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		deploymentResponse.Message = fmt.Sprintf("deploy unavailable; try again later")
@@ -274,7 +274,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	status := types.NewQueuedStatus(deployMsg)
-	err = h.DeployServer.HandleDeploymentStatus(r.Context(), status)
+	err = h.DispatchServer.HandleDeploymentStatus(r.Context(), status)
 
 	if err != nil {
 		logger.Errorf("unable to store deployment status in database: %s", err)

@@ -2,88 +2,118 @@ package deployserver
 
 import (
 	"context"
-	"fmt"
-	"strings"
-	"sync"
 
+	"github.com/google/uuid"
+	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
 	"github.com/navikt/deployment/pkg/hookd/database"
-	"github.com/navikt/deployment/pkg/hookd/github"
-	"github.com/navikt/deployment/pkg/hookd/metrics"
-	log "github.com/sirupsen/logrus"
-
+	"github.com/navikt/deployment/pkg/k8sutils"
 	"github.com/navikt/deployment/pkg/pb"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
-
-var maplock sync.Mutex
-
-type DeployServer interface {
-	pb.DeployServer
-	SendDeploymentRequest(ctx context.Context, deployment *pb.DeploymentRequest) error
-	HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error
-}
 
 type deployServer struct {
 	pb.UnimplementedDeployServer
-	streams      map[string]pb.Deploy_DeploymentsServer
-	db           database.DeploymentStore
-	githubClient github.Client
-	requests     chan *pb.DeploymentRequest
-	statuses     chan *pb.DeploymentStatus
+	dispatchServer  dispatchserver.DispatchServer
+	deploymentStore database.DeploymentStore
 }
 
-func New(db database.DeploymentStore, githubClient github.Client) DeployServer {
-	server := &deployServer{
-		streams:      make(map[string]pb.Deploy_DeploymentsServer),
-		db:           db,
-		githubClient: githubClient,
-		requests:     make(chan *pb.DeploymentRequest, 4096),
-		statuses:     make(chan *pb.DeploymentStatus, 4096),
+func New(dispatchServer dispatchserver.DispatchServer, deploymentStore database.DeploymentStore) pb.DeployServer {
+	return &deployServer{
+		deploymentStore: deploymentStore,
+		dispatchServer:  dispatchServer,
+	}
+}
+
+func (ds *deployServer) uuidgen() (string, error) {
+	uuidstr, err := uuid.NewRandom()
+	if err != nil {
+		return "", status.Errorf(codes.Unavailable, err.Error())
+	}
+	return uuidstr.String(), nil
+}
+
+func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.DeploymentRequest) error {
+
+	logger := log.WithFields(request.LogFields())
+
+	resources, err := k8sutils.ResourcesFromDeploymentRequest(request)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "invalid Kubernetes resources in request: %s", err)
 	}
 
-	go server.githubLoop()
+	logger.Tracef("Writing deployment to database")
 
-	return server
-}
-
-var _ DeployServer = &deployServer{}
-
-func (s *deployServer) onlineClusters() []string {
-	clusters := make([]string, 0, len(s.streams))
-	for k := range s.streams {
-		clusters = append(clusters, k)
+	// Identify resources
+	identifiers := k8sutils.Identifiers(resources)
+	for i := range identifiers {
+		logger.Infof("Resource %d: %s", i+1, identifiers[i])
 	}
-	return clusters
-}
 
-func (s *deployServer) reportOnlineClusters() {
-	metrics.SetConnectedClusters(s.onlineClusters())
-	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))
-}
+	cluster := request.GetCluster()
+	deployment := database.Deployment{
+		ID:      request.GetID(),
+		Team:    request.GetTeam(),
+		Cluster: &cluster,
+		Created: pb.TimestampAsTime(request.GetTime()),
+	}
 
-func (s *deployServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Deploy_DeploymentsServer) error {
-	err := s.clusterOnline(opts.Cluster)
+	// Write deployment request to database
+	err = ds.deploymentStore.WriteDeployment(ctx, deployment)
+
 	if err == nil {
-		log.Warnf("Rejected connection from cluster '%s': already connected", opts.Cluster)
-		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
+		// Write metadata of Kubernetes resources to database
+		for i, id := range identifiers {
+			uuidstr, err := ds.uuidgen()
+			if err != nil {
+				return err
+			}
+
+			err = ds.deploymentStore.WriteDeploymentResource(ctx, database.DeploymentResource{
+				ID:           uuidstr,
+				DeploymentID: deployment.ID,
+				Index:        i,
+				Group:        id.Group,
+				Version:      id.Version,
+				Kind:         id.Kind,
+				Name:         id.Name,
+				Namespace:    id.Namespace,
+			})
+
+			if err != nil {
+				return status.Errorf(codes.Unavailable, "database is unavailable; try again later")
+			}
+		}
 	}
-	maplock.Lock()
-	s.streams[opts.Cluster] = stream
-	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
-	maplock.Unlock()
-	s.reportOnlineClusters()
 
-	// wait for disconnect
-	<-stream.Context().Done()
-
-	maplock.Lock()
-	delete(s.streams, opts.Cluster)
-	log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
-	maplock.Unlock()
-	s.reportOnlineClusters()
+	logger.Tracef("Deployment committed to database")
 
 	return nil
 }
 
-func (s *deployServer) ReportStatus(ctx context.Context, status *pb.DeploymentStatus) (*pb.ReportStatusOpts, error) {
-	return &pb.ReportStatusOpts{}, s.HandleDeploymentStatus(ctx, status)
+func (ds *deployServer) Deploy(ctx context.Context, request *pb.DeploymentRequest) (*pb.DeploymentStatus, error) {
+	uuidstr, err := ds.uuidgen()
+	if err != nil {
+		return nil, err
+	}
+	request.ID = uuidstr
+
+	err = ds.addToDatabase(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ds.dispatchServer.SendDeploymentRequest(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	st := pb.NewQueuedStatus(request)
+	err = ds.dispatchServer.HandleDeploymentStatus(ctx, st)
+	if err != nil {
+		log.WithFields(request.LogFields()).Errorf("unable to store deployment status in database: %s", err)
+	}
+
+	return st, nil
 }

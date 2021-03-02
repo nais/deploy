@@ -12,12 +12,13 @@ import (
 
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
+	"github.com/navikt/deployment/pkg/grpc/deployserver"
 	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
 
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/pkg/azure/discovery"
 	"github.com/navikt/deployment/pkg/azure/graphapi"
-	"github.com/navikt/deployment/pkg/grpc/deployserver"
+	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
 	"github.com/navikt/deployment/pkg/hookd/api"
 	"github.com/navikt/deployment/pkg/hookd/config"
 	"github.com/navikt/deployment/pkg/hookd/database"
@@ -141,9 +142,12 @@ func run() error {
 	return nil
 }
 
-func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (deployserver.DeployServer, error) {
-	deployServer := deployserver.New(db, githubClient)
+func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (dispatchserver.DispatchServer, error) {
+	dispatchServer := dispatchserver.New(db, githubClient)
+	deployServer := deployserver.New(dispatchServer, db)
+
 	serverOpts := make([]grpc.ServerOption, 0)
+
 	if cfg.GrpcAuthentication {
 		preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
 		err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
@@ -162,8 +166,12 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClien
 			grpc.StreamInterceptor(intercept.StreamServerInterceptor),
 		)
 	}
+
 	grpcServer := grpc.NewServer(serverOpts...)
+
+	pb.RegisterDispatchServer(grpcServer, dispatchServer)
 	pb.RegisterDeployServer(grpcServer, deployServer)
+
 	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
 	if err != nil {
 		return nil, fmt.Errorf("unable to set up gRPC server: %w", err)
@@ -176,7 +184,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClien
 		}
 	}()
 
-	return deployServer, nil
+	return dispatchServer, nil
 }
 
 func main() {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/middleware"
-	"github.com/navikt/deployment/pkg/grpc/deployserver"
+	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
 	"github.com/navikt/deployment/pkg/hookd/api"
 	api_v1_dashboard "github.com/navikt/deployment/pkg/hookd/api/v1/dashboard"
 	"github.com/navikt/deployment/pkg/hookd/database"
@@ -28,7 +28,7 @@ type testCase struct {
 	Name     string
 	Request  request
 	Response response
-	Setup    func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
+	Setup    func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
 }
 
 var genericError = errors.New("oops")
@@ -39,7 +39,7 @@ var timestamp = time.Now().UTC().Truncate(time.Microsecond)
 var tests = []testCase{
 	{
 		Name: "Get all deployments",
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			deployStore.On("Deployments", mock.Anything, "", 30).Return([]*database.Deployment{
 				{ID: "1", Created: timestamp},
 				{ID: "2", Created: timestamp},
@@ -102,7 +102,7 @@ var tests = []testCase{
 
 	{
 		Name: "Database failing on first query",
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			deployStore.On("Deployments", mock.Anything, "", 30).Return(nil, genericError)
 		},
 		Response: response{
@@ -112,7 +112,7 @@ var tests = []testCase{
 
 	{
 		Name: "Database failing on deployment query",
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			deployStore.On("Deployments", mock.Anything, "", 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
 			deployStore.On("Deployment", mock.Anything, "1").Return(nil, genericError)
 		},
@@ -123,7 +123,7 @@ var tests = []testCase{
 
 	{
 		Name: "Database failing on status query",
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			deployStore.On("Deployments", mock.Anything, "", 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
 			deployStore.On("Deployment", mock.Anything, "1").Return(&database.Deployment{ID: "1", Created: timestamp}, nil).Once()
 			deployStore.On("DeploymentStatus", mock.Anything, "1").Return(nil, genericError)
@@ -135,7 +135,7 @@ var tests = []testCase{
 
 	{
 		Name: "Database failing on deployment query",
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			deployStore.On("Deployments", mock.Anything, "", 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
 			deployStore.On("Deployment", mock.Anything, "1").Return(&database.Deployment{ID: "1", Created: timestamp}, nil).Once()
 			deployStore.On("DeploymentStatus", mock.Anything, "1").Return([]database.DeploymentStatus{{ID: "1.1", Created: timestamp}}, nil).Once()
@@ -153,7 +153,7 @@ func subTest(t *testing.T, test testCase) {
 	request.Header.Set("content-type", "application/json")
 
 	apiKeyStore := &database.MockApiKeyStore{}
-	deployServer := &deployserver.MockDeployServer{}
+	deployServer := &dispatchserver.MockDeployServer{}
 	deployStore := &database.MockDeploymentStore{}
 
 	if test.Setup != nil {
