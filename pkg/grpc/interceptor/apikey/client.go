@@ -5,11 +5,13 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"time"
 )
 
 type ClientInterceptor struct {
 	RequireTLS bool
 	APIKey     []byte
+	Team       string
 }
 
 func sign(data, key []byte) string {
@@ -21,9 +23,12 @@ func sign(data, key []byte) string {
 }
 
 func (t *ClientInterceptor) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	// signature:=sign(data, t.APIKey)
-	// return map[string]string{"authorization": t.token.AccessToken}, nil
-	return map[string]string{}, nil
+	timestamp := time.Now().Format(time.RFC3339Nano)
+	return map[string]string{
+		"authorization": sign([]byte(timestamp), t.APIKey),
+		"timestamp":     timestamp,
+		"team":          t.Team,
+	}, nil
 }
 
 func (t *ClientInterceptor) RequireTransportSecurity() bool {

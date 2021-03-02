@@ -2,14 +2,54 @@ package apikey_interceptor
 
 import (
 	"context"
-
+	api_v1 "github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/database"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type ServerInterceptor struct {
 	APIKeyStore database.ApiKeyStore
+}
+
+func (t *ServerInterceptor) authenticate(ctx context.Context) error {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return status.Errorf(codes.Unauthenticated, "metadata is not provided")
+	}
+
+	signature := md["authorization"]
+	if len(signature) == 0 {
+		return status.Errorf(codes.Unauthenticated, "authorization is not provided")
+	}
+
+	timestamp := md["timestamp"]
+	if len(timestamp) == 0 {
+		return status.Errorf(codes.Unauthenticated, "timestamp is not provided")
+	}
+
+	team := md["team"]
+	if len(team) == 0 {
+		return status.Errorf(codes.Unauthenticated, "team is not provided")
+	}
+
+	apiKeys, err := t.APIKeyStore.ApiKeys(ctx, team[0])
+	if err != nil {
+		if database.IsErrNotFound(err) {
+			return status.Errorf(codes.Unauthenticated, "failed authentication")
+		}
+		return status.Errorf(codes.Unavailable, "something wrong happened when communicating with api key service")
+	}
+
+	err = api_v1.ValidateAnyMAC([]byte(timestamp[0]), []byte(signature[0]), apiKeys.Valid().Keys())
+	if err != nil {
+		return status.Errorf(codes.PermissionDenied, "failed authentication")
+	}
+
+	return nil
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {

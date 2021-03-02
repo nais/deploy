@@ -104,7 +104,7 @@ func run() error {
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
-	deployServer, err := startGrpcServer(*cfg, db, githubClient, certificates)
+	dispatchServer, err := startGrpcServer(*cfg, db, githubClient, certificates)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func run() error {
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
 		DeploymentStore:             db,
-		DispatchServer:              deployServer,
+		DispatchServer:              dispatchServer,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,

@@ -216,6 +216,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		intercept := &apikey_interceptor.ClientInterceptor{
 			APIKey:     decoded,
 			RequireTLS: cfg.GrpcUseTLS,
+			Team: cfg.Team,
 		}
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 	}
