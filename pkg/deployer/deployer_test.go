@@ -106,11 +106,11 @@ func TestWaitForComplete(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			switch requests {
 			case 0:
-				status = pb.GithubDeploymentState_pending.String()
+				status = pb.DeploymentState_pending.String()
 			case 1:
-				status = pb.GithubDeploymentState_in_progress.String()
+				status = pb.DeploymentState_in_progress.String()
 			case 2:
-				status = pb.GithubDeploymentState_success.String()
+				status = pb.DeploymentState_success.String()
 			}
 			requests++
 			marshaler.Encode(&api_v1_status.StatusResponse{
@@ -143,11 +143,11 @@ func TestWaitForTheInevitableEventualFailure(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			switch requests {
 			case 0:
-				status = pb.GithubDeploymentState_pending.String()
+				status = pb.DeploymentState_pending.String()
 			case 1:
-				status = pb.GithubDeploymentState_in_progress.String()
+				status = pb.DeploymentState_in_progress.String()
 			case 2:
-				status = pb.GithubDeploymentState_failure.String()
+				status = pb.DeploymentState_failure.String()
 			}
 			requests++
 			marshaler.Encode(&api_v1_status.StatusResponse{

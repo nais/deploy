@@ -18,16 +18,17 @@ var maplock sync.Mutex
 
 type DeployServer interface {
 	pb.DeployServer
-	SendDeploymentRequest(ctx context.Context, deployment pb.DeploymentRequest) error
-	HandleDeploymentStatus(ctx context.Context, status pb.DeploymentStatus) error
+	SendDeploymentRequest(ctx context.Context, deployment *pb.DeploymentRequest) error
+	HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error
 }
 
 type deployServer struct {
+	pb.UnimplementedDeployServer
 	streams      map[string]pb.Deploy_DeploymentsServer
 	db           database.DeploymentStore
 	githubClient github.Client
-	requests     chan pb.DeploymentRequest
-	statuses     chan pb.DeploymentStatus
+	requests     chan *pb.DeploymentRequest
+	statuses     chan *pb.DeploymentStatus
 }
 
 func New(db database.DeploymentStore, githubClient github.Client) DeployServer {
@@ -35,8 +36,8 @@ func New(db database.DeploymentStore, githubClient github.Client) DeployServer {
 		streams:      make(map[string]pb.Deploy_DeploymentsServer),
 		db:           db,
 		githubClient: githubClient,
-		requests:     make(chan pb.DeploymentRequest, 4096),
-		statuses:     make(chan pb.DeploymentStatus, 4096),
+		requests:     make(chan *pb.DeploymentRequest, 4096),
+		statuses:     make(chan *pb.DeploymentStatus, 4096),
 	}
 
 	go server.githubLoop()
@@ -84,5 +85,5 @@ func (s *deployServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Deploy_
 }
 
 func (s *deployServer) ReportStatus(ctx context.Context, status *pb.DeploymentStatus) (*pb.ReportStatusOpts, error) {
-	return &pb.ReportStatusOpts{}, s.HandleDeploymentStatus(ctx, *status)
+	return &pb.ReportStatusOpts{}, s.HandleDeploymentStatus(ctx, status)
 }

@@ -34,18 +34,18 @@ func KubernetesFromJSONResources(resources json.RawMessage) (*Kubernetes, error)
 	return kube, nil
 }
 
-func PayloadFromJSON(data []byte) (*Payload, error) {
+func KubernetesFromJSON(data []byte) (*Kubernetes, error) {
 	r := bytes.NewReader(data)
-	p := &Payload{}
-	err := jsonpb.Unmarshal(r, p)
+	k := &Kubernetes{}
+	err := jsonpb.Unmarshal(r, k)
 	if err != nil {
 		return nil, err
 	}
-	return p, nil
+	return k, nil
 }
 
-func (m *Payload) JSONResources() ([]json.RawMessage, error) {
-	resources := m.GetKubernetes().GetResources()
+func (m *Kubernetes) JSONResources() ([]json.RawMessage, error) {
+	resources := m.GetResources()
 	msgs := make([]json.RawMessage, len(resources))
 	mar := jsonpb.Marshaler{}
 

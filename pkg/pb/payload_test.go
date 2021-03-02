@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var payload = []byte(`{ "team": "foo", "kubernetes": { "resources": [ { "foo": "bar", "baz": [564] } ] } }`)
+var resources = []byte(`[ { "foo": "bar", "baz": [564] } ]`)
 
 type foostruct struct {
 	Foo string `json:"foo"`
@@ -16,9 +16,8 @@ type foostruct struct {
 }
 
 func TestJSONPayload(t *testing.T) {
-	p, err := pb.PayloadFromJSON(payload)
+	p, err := pb.KubernetesFromJSONResources(resources)
 	assert.NoError(t, err)
-	assert.Equal(t, "foo", p.GetTeam())
 
 	js, err := p.JSONResources()
 	assert.NoError(t, err)

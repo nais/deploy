@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package pb;
+
+option go_package = "github.com/nais/deploy/pkg/pb";
+
+option java_package = "no.nav.protos.deployment";
+
+import "google/protobuf/struct.proto";
+
+message GithubRepository {
+    string owner = 1;
+    string name = 2;
+}
+
+enum DeploymentState {
+    success = 0;
+    error = 1;
+    failure = 2;
+    inactive = 3;
+    in_progress = 4;
+    queued = 5;
+    pending = 6;
+}
+
+message Kubernetes {
+    repeated google.protobuf.Struct resources = 1;
+}
+
+message DeploymentRequest {
+    string ID = 1;
+    google.protobuf.Timestamp time = 2;
+    google.protobuf.Timestamp deadline = 3;
+    string cluster = 4;
+    string team = 5;
+    string gitRefSha = 6;
+    Kubernetes kubernetes = 7;
+    GithubRepository repository = 8;
+    string GithubEnvironment = 9;
+}
+
+message DeploymentStatus {
+    DeploymentRequest request = 1;
+    google.protobuf.Timestamp time = 2;
+    DeploymentState state = 3;
+    string message = 4;
+}
+
+message GetDeploymentOpts {
+    string cluster = 1;
+}
+
+message ReportStatusOpts {
+}
+
+service Deploy {
+    rpc Deployments (GetDeploymentOpts) returns (stream DeploymentRequest) {
+    }
+    rpc ReportStatus (DeploymentStatus) returns (ReportStatusOpts) {
+    }
+    rpc Deploy (DeploymentRequest) returns (DeploymentStatus) {
+    }
+    rpc Status (DeploymentRequest) returns (stream DeploymentStatus) {
+    }
+}

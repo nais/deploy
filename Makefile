@@ -5,11 +5,12 @@ PROTOC_GEN_GO = $(shell which protoc-gen-go)
 
 all: hookd deployd deploy provision
 
+install-protobuf-go:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
 proto:
-	wget -O deployment.proto https://raw.githubusercontent.com/navikt/protos/master/deployment/deployment.proto
-	$(PROTOC) --plugin=$(PROTOC_GEN_GO) --go_out=plugins=grpc:. deployment.proto
-	mv deployment.pb.go pkg/pb/
-	rm -f deployment.proto
+	$(PROTOC) --go-grpc_opt=paths=source_relative --go_opt=paths=source_relative --go_out=. --go-grpc_out=. pkg/pb/deployment.proto
 
 hookd:
 	go build -o bin/hookd cmd/hookd/main.go
@@ -24,8 +25,8 @@ crypt:
 	go build -o bin/crypt cmd/crypt/main.go
 
 mocks:
-	cd pkg/hookd/database && mockery -inpkg -all -case snake
-	cd pkg/grpc/deployserver && mockery -inpkg -all -case snake
+	cd pkg/hookd/database && mockery --inpackage --all --case snake
+	cd pkg/grpc/deployserver && mockery --inpackage --all --case snake
 
 deploy-release-linux:
 	GOOS=linux \
