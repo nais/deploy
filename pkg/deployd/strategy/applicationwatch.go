@@ -28,7 +28,6 @@ func EventString(event *v1.Event) string {
 
 func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentStatus {
 	status := &pb.DeploymentStatus{
-		ID:      req.GetID(),
 		Request: req,
 		Message: EventString(event),
 		State:   pb.DeploymentState_in_progress,
@@ -36,7 +35,10 @@ func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentS
 	}
 
 	if event.ReportingController == "naiserator" {
-		status.ID, _ = event.GetAnnotations()[nais_io_v1alpha1.DeploymentCorrelationIDAnnotation]
+		id, _ := event.GetAnnotations()[nais_io_v1alpha1.DeploymentCorrelationIDAnnotation]
+		if id != status.GetRequest().GetID() {
+			return nil // not a status that applies to our request id
+		}
 		switch event.Reason {
 		case events.FailedPrepare:
 			fallthrough
@@ -104,7 +106,7 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 			}
 
 			status := StatusFromEvent(event, request)
-			if status.ID != request.ID {
+			if status == nil {
 				return fmt.Errorf("this application has been redeployed, aborting monitoring")
 			}
 

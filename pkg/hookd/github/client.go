@@ -89,7 +89,7 @@ func (c *client) CreateDeploymentStatus(ctx context.Context, status *pb.Deployme
 		description = description[:maxDescriptionLength]
 	}
 
-	url := logproxy.MakeURL(c.baseurl, status.GetID(), time.Now())
+	url := logproxy.MakeURL(c.baseurl, status.GetRequest().GetID(), time.Now())
 
 	st, resp, err := c.client.Repositories.CreateDeploymentStatus(
 		ctx,

@@ -103,7 +103,7 @@ func (s *deployServer) createGithubDeploymentStatus(status *pb.DeploymentStatus)
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	deploy, err := s.db.Deployment(ctx, status.GetID())
+	deploy, err := s.db.Deployment(ctx, status.GetRequest().GetID())
 	if err != nil {
 		return fmt.Errorf("get deployment from database: %s", err)
 	}

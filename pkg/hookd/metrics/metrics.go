@@ -90,11 +90,11 @@ func UpdateQueue(status *pb.DeploymentStatus) {
 	case pb.DeploymentState_error:
 		fallthrough
 	case pb.DeploymentState_failure:
-		delete(deployQueue, status.GetID())
+		delete(deployQueue, status.GetRequest().GetID())
 
 	// Other states mean the deployment is still being processed.
 	default:
-		deployQueue[status.GetID()] = new(interface{})
+		deployQueue[status.GetRequest().GetID()] = new(interface{})
 	}
 
 	queueSize.Set(float64(len(deployQueue)))

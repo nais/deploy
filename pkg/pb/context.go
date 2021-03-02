@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-func (m *DeploymentRequest) Context() (context.Context, context.CancelFunc) {
-	deadline := TimestampAsTime(m.Deadline)
+func (x *DeploymentRequest) Context() (context.Context, context.CancelFunc) {
+	deadline := TimestampAsTime(x.Deadline)
 	return context.WithDeadline(context.Background(), deadline)
 }

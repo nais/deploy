@@ -11,23 +11,21 @@ const (
 	LogFieldDeploymentID         = "deployment_id"
 	LogFieldCluster              = "deployment_cluster"
 	LogFieldTeam                 = "team"
-	LogFieldEventType            = "event_type"
-	LogFieldDeploymentStatusID   = "deployment_status_id"
 	LogFieldDeploymentStatusType = "deployment_status"
 )
 
-func (m *DeploymentStatus) LogFields() log.Fields {
+func (x *DeploymentStatus) LogFields() log.Fields {
 	return log.Fields{
-		LogFieldCorrelationID:        m.GetID(),
-		LogFieldDeploymentStatusType: m.GetState().String(),
+		LogFieldCorrelationID:        x.GetRequest().GetID(),
+		LogFieldDeploymentStatusType: x.GetState().String(),
 	}
 }
 
-func (m *DeploymentRequest) LogFields() log.Fields {
+func (x *DeploymentRequest) LogFields() log.Fields {
 	return log.Fields{
-		LogFieldCorrelationID: m.GetID(),
-		LogFieldTeam:          m.GetTeam(),
-		LogFieldCluster:       m.GetCluster(),
-		LogFieldRepository:    m.GetRepository().FullName(),
+		LogFieldCorrelationID: x.GetID(),
+		LogFieldTeam:          x.GetTeam(),
+		LogFieldCluster:       x.GetCluster(),
+		LogFieldRepository:    x.GetRepository().FullName(),
 	}
 }

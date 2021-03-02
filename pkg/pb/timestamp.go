@@ -17,10 +17,10 @@ func TimeAsTimestamp(t time.Time) *timestamp.Timestamp {
 	}
 }
 
-func (m *DeploymentRequest) Timestamp() time.Time {
-	return TimestampAsTime(m.GetTime())
+func (x *DeploymentRequest) Timestamp() time.Time {
+	return TimestampAsTime(x.GetTime())
 }
 
-func (m *DeploymentStatus) Timestamp() time.Time {
-	return TimestampAsTime(m.GetTime())
+func (x *DeploymentStatus) Timestamp() time.Time {
+	return TimestampAsTime(x.GetTime())
 }

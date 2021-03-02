@@ -9,7 +9,7 @@ import (
 func DeploymentStatus(status *pb.DeploymentStatus) database.DeploymentStatus {
 	return database.DeploymentStatus{
 		ID:           uuid.New().String(),
-		DeploymentID: status.GetID(),
+		DeploymentID: status.GetRequest().GetID(),
 		Status:       status.GetState().String(),
 		Message:      status.GetMessage(),
 		Created:      status.Timestamp(),
