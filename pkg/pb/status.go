@@ -5,6 +5,17 @@ import (
 	"time"
 )
 
+func (x DeploymentState) Finished() bool {
+	switch x {
+	case DeploymentState_success:
+	case DeploymentState_error:
+	case DeploymentState_failure:
+	default:
+		return false
+	}
+	return true
+}
+
 func NewErrorStatus(req *DeploymentRequest, err error) *DeploymentStatus {
 	return &DeploymentStatus{
 		Request: req,

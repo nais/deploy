@@ -9,7 +9,7 @@ import (
 
 type ClientInterceptor struct {
 	RequireTLS bool
-	APIKey     string
+	APIKey     []byte
 }
 
 func sign(data, key []byte) string {

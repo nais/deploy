@@ -60,9 +60,6 @@ func init() {
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT", false), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
 
-	// Purposely do not expose the PollInterval variable
-	cfg.PollInterval = DefaultPollInterval
-
 	flag.Parse()
 
 	// Both owner and repository must be set in a valid request, but they are not required

@@ -3,8 +3,6 @@ package deployer
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
@@ -20,10 +18,7 @@ import (
 	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
-	apikey_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
-	"github.com/navikt/deployment/pkg/hookd/api/v1"
-	"github.com/navikt/deployment/pkg/hookd/api/v1/deploy"
-	"github.com/navikt/deployment/pkg/hookd/api/v1/status"
+	"github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -39,9 +34,6 @@ type ActionsFormatter struct{}
 type ExitCode int
 
 const (
-	DeployAPIPath        = "/api/v1/deploy"
-	StatusAPIPath        = "/api/v1/status"
-	DefaultPollInterval  = time.Second * 5
 	DefaultRef           = "master"
 	DefaultOwner         = "navikt"
 	DefaultDeployServer  = "deploy-grpc.nais.io:9090"
@@ -88,9 +80,6 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	var err error
 	var templateVariables = make(TemplateVariables)
-
-	targetURL, _ := url.Parse(d.DeployServer)
-	targetURL.Path = DeployAPIPath
 
 	if len(cfg.VariablesFile) > 0 {
 		templateVariables, err = templateVariablesFromFile(cfg.VariablesFile)
@@ -168,36 +157,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		log.Infof("Detected environment '%s'", cfg.Environment)
 	}
 
-	data := make([]byte, 0)
-	buf := bytes.NewBuffer(data)
-
 	// ///////////
-
-	dialOptions := make([]grpc.DialOption, 0)
-	if !cfg.GrpcUseTLS {
-		dialOptions = append(dialOptions, grpc.WithInsecure())
-	} else {
-		tlsOpts := &tls.Config{}
-		cred := credentials.NewTLS(tlsOpts)
-		if err != nil {
-			return ExitInvocationFailure, fmt.Errorf("gRPC configured to use TLS, but system-wide CA certificate bundle cannot be loaded")
-		}
-		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
-	}
-
-	if cfg.GrpcAuthentication {
-		intercept := &apikey_interceptor.ClientInterceptor{
-			APIKey:     cfg.APIKey,
-			RequireTLS: cfg.GrpcUseTLS,
-		}
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
-	}
-
-	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
-	if err != nil {
-		return ExitUnavailable, fmt.Errorf("connecting to NAIS deploy: %s", err)
-	}
-	defer grpcConnection.Close()
 
 	allResources, err := wrapResources(resources)
 	if err != nil {
@@ -224,120 +184,94 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		Time: pb.TimeAsTimestamp(time.Now()),
 	}
 
-	grpcClient := pb.NewDeployClient(grpcConnection)
-	status, err := grpcClient.Deploy(ctx, deployRequest)
-	if err != nil {
-		return ExitUnavailable, err
-	}
-
-	marsh := jsonpb.Marshaler{
-		Indent: "  ",
-	}
-	marsh.Marshal(os.Stdout, status)
-	return ExitSuccess, nil
-
-	err = mkpayload(buf, allResources, cfg)
-
-	if err != nil {
-		return ExitInvocationFailure, err
-	}
-
 	if cfg.PrintPayload {
-		fmt.Printf(buf.String())
+		marsh := jsonpb.Marshaler{Indent: "  "}
+		err = marsh.Marshal(os.Stdout, deployRequest)
+		if err != nil {
+			log.Errorf("print payload: %s", err)
+		}
 	}
 
 	if cfg.DryRun {
 		return ExitSuccess, nil
 	}
 
-	decoded, err := hex.DecodeString(cfg.APIKey)
+	dialOptions := make([]grpc.DialOption, 0)
+	if !cfg.GrpcUseTLS {
+		dialOptions = append(dialOptions, grpc.WithInsecure())
+	} else {
+		tlsOpts := &tls.Config{}
+		cred := credentials.NewTLS(tlsOpts)
+		if err != nil {
+			return ExitInvocationFailure, fmt.Errorf("gRPC configured to use TLS, but system-wide CA certificate bundle cannot be loaded")
+		}
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
+	}
 
+	if cfg.GrpcAuthentication {
+		decoded, err := hex.DecodeString(cfg.APIKey)
+		if err != nil {
+			return ExitInvocationFailure, fmt.Errorf("%s: %s", MalformedAPIKeyMsg, err)
+		}
+		intercept := &apikey_interceptor.ClientInterceptor{
+			APIKey:     decoded,
+			RequireTLS: cfg.GrpcUseTLS,
+		}
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
+	}
+
+	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
 	if err != nil {
-		return ExitInvocationFailure, fmt.Errorf("%s: %s", MalformedAPIKeyMsg, err)
+		return ExitUnavailable, fmt.Errorf("connecting to NAIS deploy: %s", err)
+	}
+	defer grpcConnection.Close()
+
+	grpcClient := pb.NewDeployClient(grpcConnection)
+	status, err := grpcClient.Deploy(ctx, deployRequest)
+	if err != nil {
+		return ExitUnavailable, err
 	}
 
-	sig := sign(buf.Bytes(), decoded)
+	log.Infof("deployment: %s: %s", status.GetState(), status.GetMessage())
 
-	var resp *http.Response
-	response := &api_v1_deploy.DeploymentResponse{}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
-		default:
-
-		}
-
-		req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
-
-		if err != nil {
-			return ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
-		}
-
-		req.Header.Add("content-type", "application/json")
-		req.Header.Add(api_v1.SignatureHeader, fmt.Sprintf("%s", sig))
-		log.Infof("Submitting deployment request to %s...", targetURL.String())
-		resp, err = d.Client.Do(req)
-
-		if err != nil {
-			return ExitUnavailable, err
-		}
-
-		log.Infof("status....: %s", resp.Status)
-		decoder := json.NewDecoder(resp.Body)
-		err = decoder.Decode(response)
-
-		if err != nil {
-			return ExitUnavailable, fmt.Errorf("received invalid response from server: %s", err)
-		}
-
-		log.Infof("message...: %s", response.Message)
-		log.Infof("logs......: %s", response.LogURL)
-
-		if resp.StatusCode == http.StatusServiceUnavailable && cfg.Retry {
-			log.Infof("retrying in %s...", cfg.PollInterval)
-			select {
-			case <-ctx.Done():
-				return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
-			case <-time.NewTimer(cfg.PollInterval).C:
-			}
-			buf.Reset()
-			err = mkpayload(buf, allResources, cfg)
-			if err != nil {
-				return ExitInvocationFailure, err
-			}
-			sig = sign(buf.Bytes(), decoded)
-			continue
-		}
-
-		break
-	}
-
-	if resp.StatusCode != http.StatusCreated {
-		return ExitNoDeployment, fmt.Errorf("deployment failed: %s", response.Message)
+	if status.GetState().Finished() {
+		return exitStatus(status), nil
 	}
 
 	if !cfg.Wait {
 		return ExitSuccess, nil
 	}
 
-	log.Infof("Polling deployment status until it has reached its final state...")
+	deployRequest.ID = status.GetRequest().GetID()
+	stream, err := grpcClient.Status(ctx, deployRequest)
+	if err != nil {
+		return ExitUnavailable, err
+	}
 
-	for {
-		cont, status, err := check(response.CorrelationID, decoded, *targetURL, cfg)
-
-		if !cont {
-			return status, err
-		}
+	for ctx.Err() == nil {
+		status, err = stream.Recv()
 		if err != nil {
-			log.Error(err)
+			return ExitUnavailable, err
 		}
-		select {
-		case <-ctx.Done():
-			return ExitTimeout, fmt.Errorf("timeout waiting for deploy to complete")
-		case <-time.NewTimer(cfg.PollInterval).C:
+		log.Infof("deployment: %s: %s", status.GetState(), status.GetMessage())
+		if status.GetState().Finished() {
+			return exitStatus(status), nil
 		}
+	}
+
+	return ExitTimeout, nil
+}
+
+func exitStatus(status *pb.DeploymentStatus) ExitCode {
+	switch status.GetState() {
+	default:
+		return ExitSuccess
+	case pb.DeploymentState_error:
+		return ExitDeploymentError
+	case pb.DeploymentState_failure:
+		return ExitDeploymentFailure
+	case pb.DeploymentState_inactive:
+		return ExitDeploymentInactive
 	}
 }
 
@@ -357,102 +291,6 @@ func setupLogging(actions, quiet bool) {
 	if quiet {
 		log.SetLevel(log.ErrorLevel)
 	}
-}
-
-// Check if a deployment has reached a terminal state.
-// The first return value is true if the state might change, false otherwise.
-// Additionally, returns an error if any error occurred.
-func check(deploymentID string, key []byte, targetURL url.URL, cfg Config) (bool, ExitCode, error) {
-	statusReq := &api_v1_status.StatusRequest{
-		DeploymentID: deploymentID,
-		Team:         cfg.Team,
-		Timestamp:    api_v1.Timestamp(time.Now().Unix()),
-	}
-
-	payload, err := json.Marshal(statusReq)
-	if err != nil {
-		return false, ExitInternalError, fmt.Errorf("unable to marshal status request: %s", err)
-	}
-
-	targetURL.Path = StatusAPIPath
-	buf := bytes.NewBuffer(payload)
-	req, err := http.NewRequest(http.MethodPost, targetURL.String(), buf)
-	if err != nil {
-		return false, ExitInternalError, fmt.Errorf("internal error creating http request: %v", err)
-	}
-
-	signature := sign(payload, key)
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add(api_v1.SignatureHeader, signature)
-
-	response := &api_v1_status.StatusResponse{}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return true, ExitInternalError, fmt.Errorf("error making request: %s", err)
-	}
-
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(response)
-	if err != nil {
-		return true, ExitInternalError, fmt.Errorf("received invalid response from server: %s: %s", resp.Status, err)
-	}
-
-	switch {
-	case resp == nil:
-		return false, ExitInternalError, fmt.Errorf("null reply from server")
-	case resp.StatusCode >= 400 && resp.StatusCode < 500:
-		return false, ExitInternalError, fmt.Errorf("bad request: %s", response.Message)
-	case resp.StatusCode != http.StatusOK:
-		log.Infof("status....: %s", resp.Status)
-		log.Infof("message...: %s", response.Message)
-		return true, ExitInternalError, nil
-	case response.Status == nil:
-		fallthrough
-	case resp.StatusCode == http.StatusNoContent:
-		return true, ExitSuccess, nil
-	}
-
-	log.Infof("deployment: %s: %s", *response.Status, response.Message)
-
-	status := pb.DeploymentState(pb.DeploymentState_value[*response.Status])
-	switch status {
-	case pb.DeploymentState_success:
-		return false, ExitSuccess, nil
-	case pb.DeploymentState_error:
-		return false, ExitDeploymentError, nil
-	case pb.DeploymentState_failure:
-		return false, ExitDeploymentFailure, nil
-	case pb.DeploymentState_inactive:
-		return false, ExitDeploymentInactive, nil
-	}
-
-	return true, ExitSuccess, nil
-}
-
-func mkpayload(w io.Writer, resources json.RawMessage, cfg Config) error {
-	req := api_v1_deploy.DeploymentRequest{
-		Resources:   resources,
-		Team:        cfg.Team,
-		Cluster:     cfg.Cluster,
-		Environment: cfg.Environment,
-		Ref:         cfg.Ref,
-		Owner:       cfg.Owner,
-		Repository:  cfg.Repository,
-		Timestamp:   api_v1.Timestamp(time.Now().Unix()),
-	}
-
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-
-	return enc.Encode(req)
-}
-
-func sign(data, key []byte) string {
-	hasher := hmac.New(sha256.New, key)
-	hasher.Write(data)
-	sum := hasher.Sum(nil)
-
-	return hex.EncodeToString(sum)
 }
 
 func detectTeam(resource json.RawMessage) string {
