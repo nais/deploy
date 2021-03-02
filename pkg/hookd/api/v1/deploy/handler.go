@@ -273,7 +273,7 @@ func (h *DeploymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := types.NewQueuedStatus(*deployMsg)
+	status := types.NewQueuedStatus(deployMsg)
 	err = h.DeployServer.HandleDeploymentStatus(r.Context(), status)
 
 	if err != nil {

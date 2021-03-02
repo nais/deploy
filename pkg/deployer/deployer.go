@@ -348,15 +348,15 @@ func check(deploymentID string, key []byte, targetURL url.URL, cfg Config) (bool
 
 	log.Infof("deployment: %s: %s", *response.Status, response.Message)
 
-	status := types.GithubDeploymentState(types.GithubDeploymentState_value[*response.Status])
+	status := types.DeploymentState(types.DeploymentState_value[*response.Status])
 	switch status {
-	case types.GithubDeploymentState_success:
+	case types.DeploymentState_success:
 		return false, ExitSuccess, nil
-	case types.GithubDeploymentState_error:
+	case types.DeploymentState_error:
 		return false, ExitDeploymentError, nil
-	case types.GithubDeploymentState_failure:
+	case types.DeploymentState_failure:
 		return false, ExitDeploymentFailure, nil
-	case types.GithubDeploymentState_inactive:
+	case types.DeploymentState_inactive:
 		return false, ExitDeploymentInactive, nil
 	}
 

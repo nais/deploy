@@ -24,7 +24,7 @@ func TestDeploymentRequest(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	resources := deployMsg.GetPayloadSpec().GetKubernetes().GetResources()
+	resources := deployMsg.GetKubernetes().GetResources()
 	val := resources[0].Fields["foo"]
 
 	assert.Len(t, resources, 1)

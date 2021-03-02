@@ -27,7 +27,7 @@ func Run(op *operation.Operation) {
 	op.Logger.Infof("Starting deployment")
 
 	failure := func(err error) {
-		op.StatusChan <- pb.NewFailureStatus(*op.Request, err)
+		op.StatusChan <- pb.NewFailureStatus(op.Request, err)
 	}
 
 	err := op.Context.Err()
@@ -46,7 +46,7 @@ func Run(op *operation.Operation) {
 	errors := make(chan error, len(resources))
 
 	for index, resource := range resources {
-		addCorrelationID(&resource, op.Request.GetDeliveryID())
+		addCorrelationID(&resource, op.Request.GetID())
 		identifier := k8sutils.ResourceIdentifier(resource)
 
 		op.Logger = op.Logger.WithFields(log.Fields{
@@ -81,7 +81,7 @@ func Run(op *operation.Operation) {
 		}(op.Logger, resource)
 	}
 
-	op.StatusChan <- pb.NewInProgressStatus(*op.Request)
+	op.StatusChan <- pb.NewInProgressStatus(op.Request)
 
 	go func() {
 		op.Logger.Infof("Waiting for resources to be successfully rolled out")
@@ -90,10 +90,10 @@ func Run(op *operation.Operation) {
 
 		errCount := len(errors)
 		if errCount == 0 {
-			op.StatusChan <- pb.NewSuccessStatus(*op.Request)
+			op.StatusChan <- pb.NewSuccessStatus(op.Request)
 		} else {
 			err := <-errors
-			op.StatusChan <- pb.NewFailureStatus(*op.Request, fmt.Errorf("%s (total of %d errors)", err, errCount))
+			op.StatusChan <- pb.NewFailureStatus(op.Request, fmt.Errorf("%s (total of %d errors)", err, errCount))
 		}
 	}()
 }

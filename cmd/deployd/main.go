@@ -141,9 +141,9 @@ func run() error {
 		ctx, cancel := req.Context()
 		defer cancel()
 
-		client, err := kube.TeamClient(req.GetPayloadSpec().GetTeam())
+		client, err := kube.TeamClient(req.GetTeam())
 		if err != nil {
-			statusChan <- pb.NewErrorStatus(*req, err)
+			statusChan <- pb.NewErrorStatus(req, err)
 			return
 		}
 
@@ -171,14 +171,14 @@ func run() error {
 			case status == nil:
 				metrics.DeployIgnored.Inc()
 				break
-			case status.GetState() == pb.GithubDeploymentState_error:
+			case status.GetState() == pb.DeploymentState_error:
 				fallthrough
-			case status.GetState() == pb.GithubDeploymentState_failure:
+			case status.GetState() == pb.DeploymentState_failure:
 				metrics.DeployFailed.Inc()
-				logger.Errorf(status.GetDescription())
+				logger.Errorf(status.GetMessage())
 			default:
 				metrics.DeploySuccessful.Inc()
-				logger.Infof(status.GetDescription())
+				logger.Infof(status.GetMessage())
 			}
 
 			_, err = grpcClient.ReportStatus(context.Background(), status)
