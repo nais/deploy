@@ -23,7 +23,7 @@ type application struct {
 }
 
 func EventString(event *v1.Event) string {
-	return fmt.Sprintf("%s (%s): %s", event.InvolvedObject.Kind, event.Reason, event.Message)
+	return fmt.Sprintf("%s/%s (%s): %s", event.InvolvedObject.Kind, event.InvolvedObject.Name, event.Reason, event.Message)
 }
 
 func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentStatus {
