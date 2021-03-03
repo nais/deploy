@@ -2,9 +2,10 @@ package apikey_interceptor
 
 import (
 	"context"
+	"encoding/hex"
+
 	api_v1 "github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/database"
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -36,6 +37,11 @@ func (t *ServerInterceptor) authenticate(ctx context.Context) error {
 		return status.Errorf(codes.Unauthenticated, "team is not provided")
 	}
 
+	mac, err := hex.DecodeString(signature[0])
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "wrong signature format")
+	}
+
 	apiKeys, err := t.APIKeyStore.ApiKeys(ctx, team[0])
 	if err != nil {
 		if database.IsErrNotFound(err) {
@@ -44,7 +50,7 @@ func (t *ServerInterceptor) authenticate(ctx context.Context) error {
 		return status.Errorf(codes.Unavailable, "something wrong happened when communicating with api key service")
 	}
 
-	err = api_v1.ValidateAnyMAC([]byte(timestamp[0]), []byte(signature[0]), apiKeys.Valid().Keys())
+	err = api_v1.ValidateAnyMAC([]byte(timestamp[0]), mac, apiKeys.Valid().Keys())
 	if err != nil {
 		return status.Errorf(codes.PermissionDenied, "failed authentication")
 	}
@@ -53,8 +59,10 @@ func (t *ServerInterceptor) authenticate(ctx context.Context) error {
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	log.Errorf(info.FullMethod)
-	// t.APIKeyStore.ApiKeys()
+	err = t.authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return handler(ctx, req)
 }
 
@@ -63,8 +71,10 @@ func (t *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 }
 
 func (t *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	log.Errorf(info.FullMethod)
-	// t.APIKeyStore.ApiKeys()
+	err := t.authenticate(ss.Context())
+	if err != nil {
+		return err
+	}
 	return handler(srv, ss)
 }
 

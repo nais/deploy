@@ -13,6 +13,8 @@ import (
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
 	"github.com/navikt/deployment/pkg/grpc/deployserver"
+	apikey_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
+	switch_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/switch"
 	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
 
 	gh "github.com/google/go-github/v27/github"
@@ -104,7 +106,7 @@ func run() error {
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
-	dispatchServer, err := startGrpcServer(*cfg, db, githubClient, certificates)
+	dispatchServer, err := startGrpcServer(*cfg, db, db, githubClient, certificates)
 	if err != nil {
 		return err
 	}
@@ -142,7 +144,7 @@ func run() error {
 	return nil
 }
 
-func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (dispatchserver.DispatchServer, error) {
+func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (dispatchserver.DispatchServer, error) {
 	dispatchServer := dispatchserver.New(db, githubClient)
 	deployServer := deployserver.New(dispatchServer, db)
 
@@ -155,15 +157,23 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClien
 			return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
 		}
 
-		intercept := &token_interceptor.ServerInterceptor{
+		tokenInterceptor := &token_interceptor.ServerInterceptor{
 			Audience:     cfg.Azure.ClientID,
 			Certificates: certificates,
 			PreAuthApps:  preAuthApps,
 		}
+		apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
+			APIKeyStore: apikeys,
+		}
+
+		interceptor := switch_interceptor.NewServerInterceptor()
+		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
+		interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)
+
 		serverOpts = append(
 			serverOpts,
-			grpc.UnaryInterceptor(intercept.UnaryServerInterceptor),
-			grpc.StreamInterceptor(intercept.StreamServerInterceptor),
+			grpc.UnaryInterceptor(interceptor.UnaryServerInterceptor),
+			grpc.StreamInterceptor(interceptor.StreamServerInterceptor),
 		)
 	}
 
