@@ -25,18 +25,19 @@ type Github struct {
 }
 
 type Config struct {
+	Azure                 Azure  `json:"azure"`
+	BaseURL               string `json:"base-url"`
+	CliAuthentication     bool   `json:"cli-authentication"`
+	DatabaseEncryptionKey string `json:"database-encryption-key"`
+	DatabaseURL           string `json:"database-url"`
+	DeploydAuthentication bool   `json:"deployd-authentication"`
+	Github                Github `json:"github"`
 	GrpcAddress           string `json:"grpc-address"`
-	GrpcAuthentication    bool   `json:"grpc-authentication"`
 	ListenAddress         string `json:"listen-address"`
 	LogFormat             string `json:"log-format"`
 	LogLevel              string `json:"log-level"`
-	BaseURL               string `json:"base-url"`
-	Azure                 Azure  `json:"azure"`
-	Github                Github `json:"github"`
-	DatabaseURL           string `json:"database-url"`
 	MetricsPath           string `json:"metrics-path"`
 	ProvisionKey          string `json:"provision-key"`
-	DatabaseEncryptionKey string `json:"database-encryption-key"`
 }
 
 func (a *Azure) HasConfig() bool {
@@ -55,8 +56,10 @@ const (
 	AzureTenant              = "azure.app-tenant-id"
 	AzureWellKnownUrl        = "azure.app-well-known-url"
 	BaseUrl                  = "base-url"
+	CliAuthentication        = "cli-authentication"
 	DatabaseEncryptionKey    = "database-encryption-key"
 	DatabaseUrl              = "database-url"
+	DeploydAuthentication    = "deployd-authentication"
 	GithubAppId              = "github.app-id"
 	GithubClientId           = "github.client-id"
 	GithubClientSecret       = "github.client-secret"
@@ -64,7 +67,6 @@ const (
 	GithubInstallId          = "github.install-id"
 	GithubKeyFile            = "github.key-file"
 	GrpcAddress              = "grpc-address"
-	GrpcAuthentication       = "grpc-authentication"
 	ListenAddress            = "listen-address"
 	LogFormat                = "log-format"
 	LogLevel                 = "log-level"
@@ -103,7 +105,8 @@ func Initialize() *Config {
 	flag.String(MetricsPath, "/metrics", "HTTP endpoint for exposed metrics.")
 
 	flag.String(GrpcAddress, "127.0.0.1:9090", "Listen address of gRPC server.")
-	flag.Bool(GrpcAuthentication, false, "Validate tokens on gRPC connection.")
+	flag.Bool(DeploydAuthentication, false, "Validate tokens on gRPC connections from deployd.")
+	flag.Bool(CliAuthentication, false, "Validate apikey on gRPC connections from CLI.")
 
 	flag.String(DatabaseEncryptionKey, "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff", "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.String(DatabaseUrl, "postgresql://postgres:root@127.0.0.1:5432/hookd", "PostgreSQL connection information.")

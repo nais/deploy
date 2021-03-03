@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	unauthenticated_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/unauthenticated"
 	"net"
 	"net/http"
 	"os"
@@ -149,8 +150,20 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 	deployServer := deployserver.New(dispatchServer, db)
 
 	serverOpts := make([]grpc.ServerOption, 0)
+	interceptor := switch_interceptor.NewServerInterceptor()
 
-	if cfg.GrpcAuthentication {
+	unauthenticatedInterceptor := &unauthenticated_interceptor.ServerInterceptor{}
+	interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, unauthenticatedInterceptor)
+	interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, unauthenticatedInterceptor)
+
+	if cfg.CliAuthentication {
+		apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
+			APIKeyStore: apikeys,
+		}
+		interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)
+	}
+
+	if cfg.DeploydAuthentication {
 		preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
 		err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
 		if err != nil {
@@ -162,19 +175,17 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 			Certificates: certificates,
 			PreAuthApps:  preAuthApps,
 		}
-		apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
-			APIKeyStore: apikeys,
-		}
 
-		interceptor := switch_interceptor.NewServerInterceptor()
 		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
-		interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)
 
+	}
+	if cfg.CliAuthentication ||cfg.DeploydAuthentication {
 		serverOpts = append(
 			serverOpts,
 			grpc.UnaryInterceptor(interceptor.UnaryServerInterceptor),
 			grpc.StreamInterceptor(interceptor.StreamServerInterceptor),
 		)
+
 	}
 
 	grpcServer := grpc.NewServer(serverOpts...)
