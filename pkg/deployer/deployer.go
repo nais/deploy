@@ -245,12 +245,13 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	log.Infof("Deployment request sent.")
 
-	logDeployStatus(deployStatus)
 	if deployStatus.GetState().Finished() {
+		logDeployStatus(deployStatus)
 		return exitStatus(deployStatus), nil
 	}
 
 	if !cfg.Wait {
+		logDeployStatus(deployStatus)
 		return ExitSuccess, nil
 	}
 
