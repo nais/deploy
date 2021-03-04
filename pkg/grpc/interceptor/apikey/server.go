@@ -3,6 +3,7 @@ package apikey_interceptor
 import (
 	"context"
 	"encoding/hex"
+	"time"
 
 	api_v1 "github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/database"
@@ -73,6 +74,10 @@ func (t *ServerInterceptor) authenticate(ctx context.Context, auth authData) err
 	return nil
 }
 
+func withinTimeRange(t time.Time) bool {
+	return time.Now().Sub(t) < api_v1.MaxTimeSkew*time.Second
+}
+
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	request, ok := req.(*pb.DeploymentRequest)
 	if !ok {
@@ -83,7 +88,13 @@ func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 	if err != nil {
 		return nil, err
 	}
+
 	auth.team = request.GetTeam()
+
+	requestTime, _ := time.Parse(time.RFC3339Nano, auth.timestamp)
+	if !withinTimeRange(requestTime) {
+		return nil, status.Errorf(codes.DeadlineExceeded, "signature is too old")
+	}
 
 	err = t.authenticate(ctx, *auth)
 	if err != nil {
