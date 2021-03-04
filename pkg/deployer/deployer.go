@@ -157,8 +157,6 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		log.Infof("Detected environment '%s'", cfg.Environment)
 	}
 
-	// ///////////
-
 	allResources, err := wrapResources(resources)
 	if err != nil {
 		return ExitInvocationFailure, err
@@ -197,6 +195,8 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	}
 
 	dialOptions := make([]grpc.DialOption, 0)
+	dialOptions = append(dialOptions, grpc.WithBlock())
+
 	if !cfg.GrpcUseTLS {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
 	} else {
@@ -216,15 +216,17 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		intercept := &apikey_interceptor.ClientInterceptor{
 			APIKey:     decoded,
 			RequireTLS: cfg.GrpcUseTLS,
-			Team: cfg.Team,
+			Team:       cfg.Team,
 		}
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 	}
 
-	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
+	log.Infof("Connecting to NAIS deploy at %s...", cfg.DeployServerURL)
+	grpcConnection, err := grpc.DialContext(ctx, cfg.DeployServerURL, dialOptions...)
 	if err != nil {
 		return ExitUnavailable, fmt.Errorf("connecting to NAIS deploy: %s", err)
 	}
+	log.Infof("Connected to NAIS deploy; sending deployment request...")
 	defer grpcConnection.Close()
 
 	grpcClient := pb.NewDeployClient(grpcConnection)
@@ -233,6 +235,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		return ExitUnavailable, err
 	}
 
+	log.Infof("Deployment request sent.")
 	log.Infof("deployment: %s: %s", status.GetState(), status.GetMessage())
 
 	if status.GetState().Finished() {
