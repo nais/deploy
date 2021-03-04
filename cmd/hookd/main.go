@@ -153,14 +153,14 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 
 	serverOpts := make([]grpc.ServerOption, 0)
 
-	if cfg.CliAuthentication || cfg.DeploydAuthentication {
+	if cfg.GRPC.CliAuthentication || cfg.GRPC.DeploydAuthentication {
 		interceptor := switch_interceptor.NewServerInterceptor()
 
 		unauthenticatedInterceptor := &unauthenticated_interceptor.ServerInterceptor{}
 		interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, unauthenticatedInterceptor)
 		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, unauthenticatedInterceptor)
 
-		if cfg.CliAuthentication {
+		if cfg.GRPC.CliAuthentication {
 			apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
 				APIKeyStore: apikeys,
 			}
@@ -168,7 +168,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 			log.Infof("Authentication enabled for deployment requests")
 		}
 
-		if cfg.DeploydAuthentication {
+		if cfg.GRPC.DeploydAuthentication {
 			preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
 			err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
 			if err != nil {
@@ -197,7 +197,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 	pb.RegisterDispatchServer(grpcServer, dispatchServer)
 	pb.RegisterDeployServer(grpcServer, deployServer)
 
-	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
+	grpcListener, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
 		return nil, fmt.Errorf("unable to set up gRPC server: %w", err)
 	}

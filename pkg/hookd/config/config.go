@@ -24,15 +24,19 @@ type Github struct {
 	KeyFile       string `json:"key-file"`
 }
 
+type GRPC struct {
+	Address               string `json:"address"`
+	CliAuthentication     bool   `json:"cli-authentication"`
+	DeploydAuthentication bool   `json:"deployd-authentication"`
+}
+
 type Config struct {
 	Azure                 Azure  `json:"azure"`
 	BaseURL               string `json:"base-url"`
-	CliAuthentication     bool   `json:"cli-authentication"`
 	DatabaseEncryptionKey string `json:"database-encryption-key"`
 	DatabaseURL           string `json:"database-url"`
-	DeploydAuthentication bool   `json:"deployd-authentication"`
 	Github                Github `json:"github"`
-	GrpcAddress           string `json:"grpc-address"`
+	GRPC                  GRPC   `json:"grpc"`
 	ListenAddress         string `json:"listen-address"`
 	LogFormat             string `json:"log-format"`
 	LogLevel              string `json:"log-level"`
@@ -49,29 +53,29 @@ func (a *Azure) HasConfig() bool {
 }
 
 const (
-	AzureClientId            = "azure.app-client-id"
-	AzureClientSecret        = "azure.app-client-secret"
-	AzurePreAuthorizedApps   = "azure.app-pre-authorized-apps"
-	AzureTeamMembershipAppId = "azure.team-membership-app-id"
-	AzureTenant              = "azure.app-tenant-id"
-	AzureWellKnownUrl        = "azure.app-well-known-url"
-	BaseUrl                  = "base-url"
-	CliAuthentication        = "cli-authentication"
-	DatabaseEncryptionKey    = "database-encryption-key"
-	DatabaseUrl              = "database-url"
-	DeploydAuthentication    = "deployd-authentication"
-	GithubAppId              = "github.app-id"
-	GithubClientId           = "github.client-id"
-	GithubClientSecret       = "github.client-secret"
-	GithubEnabled            = "github.enabled"
-	GithubInstallId          = "github.install-id"
-	GithubKeyFile            = "github.key-file"
-	GrpcAddress              = "grpc-address"
-	ListenAddress            = "listen-address"
-	LogFormat                = "log-format"
-	LogLevel                 = "log-level"
-	MetricsPath              = "metrics-path"
-	ProvisionKey             = "provision-key"
+	AzureClientId             = "azure.app-client-id"
+	AzureClientSecret         = "azure.app-client-secret"
+	AzurePreAuthorizedApps    = "azure.app-pre-authorized-apps"
+	AzureTeamMembershipAppId  = "azure.team-membership-app-id"
+	AzureTenant               = "azure.app-tenant-id"
+	AzureWellKnownUrl         = "azure.app-well-known-url"
+	BaseUrl                   = "base-url"
+	DatabaseEncryptionKey     = "database-encryption-key"
+	DatabaseUrl               = "database-url"
+	GithubAppId               = "github.app-id"
+	GithubClientId            = "github.client-id"
+	GithubClientSecret        = "github.client-secret"
+	GithubEnabled             = "github.enabled"
+	GithubInstallId           = "github.install-id"
+	GithubKeyFile             = "github.key-file"
+	GrpcAddress               = "grpc.address"
+	GrpcCliAuthentication     = "grpc.cli-authentication"
+	GrpcDeploydAuthentication = "grpc.deployd-authentication"
+	ListenAddress             = "listen-address"
+	LogFormat                 = "log-format"
+	LogLevel                  = "log-level"
+	MetricsPath               = "metrics-path"
+	ProvisionKey              = "provision-key"
 )
 
 // Bind environment variables provided by the NAIS platform
@@ -105,8 +109,8 @@ func Initialize() *Config {
 	flag.String(MetricsPath, "/metrics", "HTTP endpoint for exposed metrics.")
 
 	flag.String(GrpcAddress, "127.0.0.1:9090", "Listen address of gRPC server.")
-	flag.Bool(DeploydAuthentication, false, "Validate tokens on gRPC connections from deployd.")
-	flag.Bool(CliAuthentication, false, "Validate apikey on gRPC connections from CLI.")
+	flag.Bool(GrpcDeploydAuthentication, false, "Validate tokens on gRPC connections from deployd.")
+	flag.Bool(GrpcCliAuthentication, false, "Validate apikey on gRPC connections from CLI.")
 
 	flag.String(DatabaseEncryptionKey, "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff", "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.String(DatabaseUrl, "postgresql://postgres:root@127.0.0.1:5432/hookd", "PostgreSQL connection information.")
