@@ -1,11 +1,11 @@
 package strategy
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/navikt/deployment/pkg/deployd/operation"
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
@@ -19,7 +19,7 @@ type deployment struct {
 	client kubernetes.Interface
 }
 
-func (d deployment) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error {
+func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
 	var cur *apps.Deployment
 	var nova *apps.Deployment
 	var err error
@@ -27,18 +27,18 @@ func (d deployment) Watch(ctx context.Context, logger *log.Entry, resource unstr
 	var updated bool
 
 	client := d.client.AppsV1().Deployments(resource.GetNamespace())
-	deadline, _ := ctx.Deadline()
+	deadline, _ := op.Context.Deadline()
 
 	// For native Kubernetes deployment objects, get the current deployment object.
 	for deadline.After(time.Now()) {
 		cur, err = client.Get(resource.GetName(), metav1.GetOptions{})
 		if err == nil {
 			resourceVersion, _ = strconv.Atoi(cur.GetResourceVersion())
-			logger.Tracef("Found current deployment at version %d: %s", resourceVersion, cur.GetSelfLink())
+			op.Logger.Debugf("Found current deployment at version %d: %s", resourceVersion, cur.GetSelfLink())
 		} else if errors.IsNotFound(err) {
-			logger.Tracef("Deployment '%s' in namespace '%s' is not currently present in the cluster.", resource.GetName(), resource.GetNamespace())
+			op.Logger.Debugf("Deployment '%s' in namespace '%s' is not currently present in the cluster.", resource.GetName(), resource.GetNamespace())
 		} else {
-			logger.Tracef("Recoverable error while polling for deployment object: %s", err)
+			op.Logger.Debugf("Recoverable error while polling for deployment object: %s", err)
 			time.Sleep(requestInterval)
 			continue
 		}
@@ -55,30 +55,30 @@ func (d deployment) Watch(ctx context.Context, logger *log.Entry, resource unstr
 
 		rv, _ := strconv.Atoi(nova.GetResourceVersion())
 		if rv > resourceVersion {
-			logger.Tracef("New deployment appeared at version %d: %s", rv, cur.GetSelfLink())
+			op.Logger.Tracef("New deployment appeared at version %d: %s", rv, cur.GetSelfLink())
 			resourceVersion = rv
 			updated = true
 		}
 
 		if updated && deploymentComplete(nova, &nova.Status) {
-			return nil
+			return pb.NewSuccessStatus(op.Request)
 		}
 
-		logger.WithFields(log.Fields{
+		op.Logger.WithFields(log.Fields{
 			"deployment_replicas":            nova.Status.Replicas,
 			"deployment_updated_replicas":    nova.Status.UpdatedReplicas,
 			"deployment_available_replicas":  nova.Status.AvailableReplicas,
 			"deployment_observed_generation": nova.Status.ObservedGeneration,
-		}).Tracef("Still waiting for deployment to finish rollout...")
+		}).Debugf("Still waiting for deployment to finish rollout...")
 
 		time.Sleep(requestInterval)
 	}
 
 	if err != nil {
-		return fmt.Errorf("%s; last error was: %s", ErrDeploymentTimeout, err)
+		return pb.NewErrorStatus(op.Request, fmt.Errorf("%s; last error was: %s", ErrDeploymentTimeout, err))
 	}
 
-	return ErrDeploymentTimeout
+	return pb.NewErrorStatus(op.Request, ErrDeploymentTimeout)
 }
 
 // deploymentComplete considers a deployment to be complete once all of its desired replicas

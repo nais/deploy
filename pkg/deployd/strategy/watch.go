@@ -1,12 +1,11 @@
 package strategy
 
 import (
-	"context"
 	"fmt"
 	"time"
 
+	"github.com/navikt/deployment/pkg/deployd/operation"
 	"github.com/navikt/deployment/pkg/pb"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -19,14 +18,14 @@ var (
 )
 
 type WatchStrategy interface {
-	Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error
+	Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus
 }
 
 type NoOp struct {
 }
 
-func (c NoOp) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error {
-	logger.Infof("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
+func (c NoOp) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
+	op.Logger.Debugf("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
 	return nil
 }
 

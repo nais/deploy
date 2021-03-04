@@ -154,10 +154,9 @@ func run() error {
 			Logger:     logger,
 			Request:    req,
 			StatusChan: statusChan,
-			TeamClient: client,
 		}
 
-		deployd.Run(op)
+		deployd.Run(op, client)
 	}
 
 	for {
@@ -188,7 +187,7 @@ func run() error {
 				time.Sleep(5 * time.Second)
 				break
 			} else {
-				logger.Infof("Deployment response sent successfully")
+				logger.Debugf("Deployment response sent successfully")
 			}
 
 		case <-signals:

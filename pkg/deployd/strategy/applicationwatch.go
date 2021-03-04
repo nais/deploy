@@ -8,8 +8,8 @@ import (
 
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"github.com/nais/liberator/pkg/events"
+	"github.com/navikt/deployment/pkg/deployd/operation"
 	"github.com/navikt/deployment/pkg/pb"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -66,11 +66,11 @@ func EventStreamMatch(event *v1.Event, resourceName string) bool {
 	return matched
 }
 
-func (a application) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, statusChan chan<- *pb.DeploymentStatus) error {
+func (a application) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
 	var err error
 
 	eventsClient := a.structuredClient.CoreV1().Events(resource.GetNamespace())
-	deadline, _ := ctx.Deadline()
+	deadline, _ := op.Context.Deadline()
 	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
 	eventWatcher, err := eventsClient.Watch(metav1.ListOptions{
 		TimeoutSeconds:  &timeoutSecs,
@@ -78,7 +78,7 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 	})
 
 	if err != nil {
-		return fmt.Errorf("unable to set up event watcher: %w", err)
+		return pb.NewErrorStatus(op.Request, fmt.Errorf("unable to set up event watcher: %w", err))
 	}
 
 	watchStart := time.Now().Truncate(time.Second)
@@ -91,35 +91,33 @@ func (a application) Watch(ctx context.Context, logger *log.Entry, resource unst
 			event, ok := watchEvent.Object.(*v1.Event)
 			if !ok {
 				// failed cast
-				logger.Errorf("Event is of wrong type: %T", watchEvent)
+				op.Logger.Errorf("Event is of wrong type: %T", watchEvent)
 				continue
 			}
 
 			if !EventStreamMatch(event, resource.GetName()) {
-				logger.Tracef("Ignoring unrelated event %s", event.Name)
+				op.Logger.Tracef("Ignoring unrelated event %s", event.Name)
 				continue
 			}
 
 			if event.LastTimestamp.Time.Before(watchStart) {
-				logger.Tracef("Ignoring old event %s", event.Name)
+				op.Logger.Tracef("Ignoring old event %s", event.Name)
 				continue
 			}
 
-			status := StatusFromEvent(event, request)
+			status := StatusFromEvent(event, op.Request)
 			if status == nil {
-				return fmt.Errorf("this application has been redeployed, aborting monitoring")
+				return pb.NewFailureStatus(op.Request, fmt.Errorf("this application has been redeployed, aborting monitoring"))
 			}
 
-			switch status.State {
-			case pb.DeploymentState_success:
-				return nil
-			case pb.DeploymentState_failure:
-				return fmt.Errorf(status.Message)
+			if status.GetState().Finished() {
+				return status
 			}
-			statusChan <- status
+
+			op.StatusChan <- status
 
 		case <-ctx.Done():
-			return ErrDeploymentTimeout
+			return pb.NewErrorStatus(op.Request, ErrDeploymentTimeout)
 		}
 	}
 }

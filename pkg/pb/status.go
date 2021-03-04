@@ -16,6 +16,16 @@ func (x DeploymentState) Finished() bool {
 	return true
 }
 
+func (x DeploymentState) IsError() bool {
+	switch x {
+	case DeploymentState_error:
+	case DeploymentState_failure:
+	default:
+		return false
+	}
+	return true
+}
+
 func NewErrorStatus(req *DeploymentRequest, err error) *DeploymentStatus {
 	return &DeploymentStatus{
 		Request: req,
@@ -34,10 +44,10 @@ func NewFailureStatus(req *DeploymentRequest, err error) *DeploymentStatus {
 	}
 }
 
-func NewInProgressStatus(req *DeploymentRequest) *DeploymentStatus {
+func NewInProgressStatus(req *DeploymentRequest, format string, args ...interface{}) *DeploymentStatus {
 	return &DeploymentStatus{
 		Request: req,
-		Message: "Resources have been applied to Kubernetes; waiting for new pods to report healthy status",
+		Message: fmt.Sprintf(format, args...),
 		State:   DeploymentState_in_progress,
 		Time:    TimeAsTimestamp(time.Now()),
 	}
