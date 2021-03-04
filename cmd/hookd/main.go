@@ -5,11 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	unauthenticated_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/unauthenticated"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+
+	unauthenticated_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/unauthenticated"
 
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
@@ -90,6 +91,7 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("cannot instantiate Github installation client: %s", err)
 		}
+		log.Infof("Posting deployment statuses to GitHub")
 		githubClient = github.New(installationClient, cfg.BaseURL)
 	} else {
 		githubClient = github.FakeClient()
@@ -150,42 +152,44 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 	deployServer := deployserver.New(dispatchServer, db)
 
 	serverOpts := make([]grpc.ServerOption, 0)
-	interceptor := switch_interceptor.NewServerInterceptor()
 
-	unauthenticatedInterceptor := &unauthenticated_interceptor.ServerInterceptor{}
-	interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, unauthenticatedInterceptor)
-	interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, unauthenticatedInterceptor)
+	if cfg.CliAuthentication || cfg.DeploydAuthentication {
+		interceptor := switch_interceptor.NewServerInterceptor()
 
-	if cfg.CliAuthentication {
-		apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
-			APIKeyStore: apikeys,
-		}
-		interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)
-	}
+		unauthenticatedInterceptor := &unauthenticated_interceptor.ServerInterceptor{}
+		interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, unauthenticatedInterceptor)
+		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, unauthenticatedInterceptor)
 
-	if cfg.DeploydAuthentication {
-		preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
-		err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
-		if err != nil {
-			return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
+		if cfg.CliAuthentication {
+			apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
+				APIKeyStore: apikeys,
+			}
+			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)
+			log.Infof("Authentication enabled for deployment requests")
 		}
 
-		tokenInterceptor := &token_interceptor.ServerInterceptor{
-			Audience:     cfg.Azure.ClientID,
-			Certificates: certificates,
-			PreAuthApps:  preAuthApps,
+		if cfg.DeploydAuthentication {
+			preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
+			err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
+			}
+
+			tokenInterceptor := &token_interceptor.ServerInterceptor{
+				Audience:     cfg.Azure.ClientID,
+				Certificates: certificates,
+				PreAuthApps:  preAuthApps,
+			}
+
+			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
+			log.Infof("Authentication enabled for deployd connections")
 		}
 
-		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
-
-	}
-	if cfg.CliAuthentication ||cfg.DeploydAuthentication {
 		serverOpts = append(
 			serverOpts,
 			grpc.UnaryInterceptor(interceptor.UnaryServerInterceptor),
 			grpc.StreamInterceptor(interceptor.StreamServerInterceptor),
 		)
-
 	}
 
 	grpcServer := grpc.NewServer(serverOpts...)
