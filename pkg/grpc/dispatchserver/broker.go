@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	requestTimeout  = time.Second * 5
-	errNoRepository = fmt.Errorf("no repository specified")
+	requestTimeout          = time.Second * 5
+	errNoRepository         = fmt.Errorf("no repository specified")
+	errNoGithubDeploymentID = fmt.Errorf("GitHub deployment ID not recorded in database")
 )
 
 func (s *dispatchServer) githubLoop() {
@@ -28,6 +29,8 @@ func (s *dispatchServer) githubLoop() {
 			logger := log.WithFields(request.LogFields())
 			err := s.createGithubDeployment(request)
 			switch err {
+			case errNoRepository:
+				logger.Debugf("Not syncing deployment to GitHub: %s", err)
 			case github.ErrTeamNotExist:
 				logger.Errorf(
 					"Not syncing deployment to GitHub: team %s does not exist on GitHub",
@@ -40,7 +43,7 @@ func (s *dispatchServer) githubLoop() {
 					request.GetRepository().FullName(),
 				)
 			case nil:
-				logger.Tracef("Synchronized deployment to GitHub")
+				logger.Debugf("Synchronized deployment to GitHub")
 			default:
 				logger.Errorf("Unable to sync deployment to GitHub: %s", err)
 			}
@@ -49,10 +52,10 @@ func (s *dispatchServer) githubLoop() {
 			logger := log.WithFields(status.LogFields())
 			err := s.createGithubDeploymentStatus(status)
 			switch err {
-			case errNoRepository:
-				logger.Tracef("Not syncing deployment to GitHub: %s", err)
+			case errNoRepository, errNoGithubDeploymentID:
+				logger.Debugf("Not syncing deployment to GitHub: %s", err)
 			case nil:
-				logger.Tracef("Synchronized deployment status to GitHub")
+				logger.Debugf("Synchronized deployment status to GitHub")
 			default:
 				logger.Errorf("Unable to sync deployment status to GitHub: %s", err)
 			}
@@ -111,7 +114,7 @@ func (s *dispatchServer) createGithubDeploymentStatus(status *pb.DeploymentStatu
 	}
 
 	if deploy.GitHubID == nil {
-		return fmt.Errorf("GitHub deployment ID not recorded in database")
+		return errNoGithubDeploymentID
 	}
 
 	deploymentID := int64(*deploy.GitHubID)
@@ -133,9 +136,8 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 		return err
 	}
 
-	log.WithFields(request.LogFields()).Infof("Sent deployment request")
-
 	s.requests <- request
+	log.WithFields(request.LogFields()).Debugf("Deployment request sent to deployd")
 
 	return nil
 }
@@ -158,12 +160,17 @@ func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.Depl
 	dbStatus := database_mapper.DeploymentStatus(st)
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)
 	if err != nil {
-		return status.Errorf(codes.Unavailable, "write to database: %s", err)
+		return status.Errorf(codes.Unavailable, "write deployment status to database: %s", err)
 	}
 
 	metrics.UpdateQueue(st)
 
-	log.WithFields(st.LogFields()).Infof("Saved deployment status")
+	logger := log.WithFields(st.LogFields())
+	logger.Debugf("Saved deployment status in database")
+
+	if st.GetState().Finished() {
+		logger.Infof("Deployment finished")
+	}
 
 	s.statuses <- st
 

@@ -44,8 +44,6 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 		return status.Errorf(codes.InvalidArgument, "invalid Kubernetes resources in request: %s", err)
 	}
 
-	logger.Tracef("Writing deployment to database")
-
 	// Identify resources
 	identifiers := k8sutils.Identifiers(resources)
 	for i := range identifiers {
@@ -88,8 +86,6 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 		}
 	}
 
-	logger.Tracef("Deployment committed to database")
-
 	return nil
 }
 
@@ -100,26 +96,37 @@ func (ds *deployServer) Deploy(ctx context.Context, request *pb.DeploymentReques
 	}
 	request.ID = uuidstr
 
+	logger := log.WithFields(request.LogFields())
+	logger.Infof("Received deployment request")
+
+	logger.Debugf("Writing deployment to database")
 	err = ds.addToDatabase(ctx, request)
 	if err != nil {
+		logger.Errorf("Write deployment to database: %s", err)
 		return nil, err
 	}
+	logger.Debugf("Deployment committed to database")
 
 	err = ds.dispatchServer.SendDeploymentRequest(ctx, request)
 	if err != nil {
+		logger.Errorf("Dispatch deployment: %s", err)
 		return nil, err
 	}
 
 	st := pb.NewQueuedStatus(request)
 	err = ds.dispatchServer.HandleDeploymentStatus(ctx, st)
 	if err != nil {
-		log.WithFields(request.LogFields()).Errorf("unable to store deployment status in database: %s", err)
+		logger.Errorf("Unable to store deployment status in database: %s", err)
 	}
 
 	return st, nil
 }
 
 func (ds *deployServer) Status(request *pb.DeploymentRequest, server pb.Deploy_StatusServer) error {
+	logger := log.WithFields(request.LogFields())
+	logger.Debugf("Status stream opened")
+	defer logger.Debugf("Status stream closed")
+
 	dbStatus, err := ds.deploymentStore.DeploymentStatus(server.Context(), request.GetID())
 	if err == nil && len(dbStatus) > 0 {
 		err = server.Send(database_mapper.PbStatus(dbStatus[0]))

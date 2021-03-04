@@ -3,11 +3,13 @@ package apikey_interceptor
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"time"
 
 	api_v1 "github.com/navikt/deployment/pkg/hookd/api/v1"
 	"github.com/navikt/deployment/pkg/hookd/database"
 	"github.com/navikt/deployment/pkg/pb"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -60,6 +62,7 @@ func extractAuthFromContext(ctx context.Context) (*authData, error) {
 func (t *ServerInterceptor) authenticate(ctx context.Context, auth authData) error {
 	apiKeys, err := t.APIKeyStore.ApiKeys(ctx, auth.team)
 	if err != nil {
+		log.Error(err)
 		if database.IsErrNotFound(err) {
 			return status.Errorf(codes.Unauthenticated, "failed authentication")
 		}
@@ -68,6 +71,7 @@ func (t *ServerInterceptor) authenticate(ctx context.Context, auth authData) err
 
 	err = api_v1.ValidateAnyMAC([]byte(auth.timestamp), auth.hmac, apiKeys.Valid().Keys())
 	if err != nil {
+		log.Error(err)
 		return status.Errorf(codes.PermissionDenied, "failed authentication")
 	}
 
@@ -75,7 +79,7 @@ func (t *ServerInterceptor) authenticate(ctx context.Context, auth authData) err
 }
 
 func withinTimeRange(t time.Time) bool {
-	return time.Now().Sub(t) < api_v1.MaxTimeSkew*time.Second
+	return math.Abs(time.Now().Sub(t).Seconds()) < api_v1.MaxTimeSkew
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {

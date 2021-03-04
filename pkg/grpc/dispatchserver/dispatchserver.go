@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/navikt/deployment/pkg/hookd/database"
 	"github.com/navikt/deployment/pkg/hookd/github"
 	"github.com/navikt/deployment/pkg/hookd/metrics"
@@ -94,8 +93,6 @@ func (s *dispatchServer) ReportStatus(ctx context.Context, status *pb.Deployment
 
 // Send all status updates belonging to a specific request
 func (s *dispatchServer) StreamStatus(ctx context.Context, channel chan<- *pb.DeploymentStatus) {
-	id := uuid.New()
-	log.Debugf("Setting up new status stream %s", id.String())
 	maplock.Lock()
 	s.statusStreams[ctx] = channel
 	maplock.Unlock()
@@ -106,5 +103,4 @@ func (s *dispatchServer) StreamStatus(ctx context.Context, channel chan<- *pb.De
 	delete(s.statusStreams, ctx)
 	close(channel)
 	maplock.Unlock()
-	log.Debugf("Closed status stream %s", id.String())
 }
