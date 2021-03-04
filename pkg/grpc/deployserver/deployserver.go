@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
 	"github.com/navikt/deployment/pkg/hookd/database"
+	database_mapper "github.com/navikt/deployment/pkg/hookd/database/mapper"
 	"github.com/navikt/deployment/pkg/k8sutils"
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
@@ -119,6 +120,14 @@ func (ds *deployServer) Deploy(ctx context.Context, request *pb.DeploymentReques
 }
 
 func (ds *deployServer) Status(request *pb.DeploymentRequest, server pb.Deploy_StatusServer) error {
+	dbStatus, err := ds.deploymentStore.DeploymentStatus(server.Context(), request.GetID())
+	if err == nil && len(dbStatus) > 0 {
+		err = server.Send(database_mapper.PbStatus(dbStatus[0]))
+	}
+	if err != nil {
+		return err
+	}
+
 	ch := make(chan *pb.DeploymentStatus, 16)
 
 	// Listen for status updates until context is closed

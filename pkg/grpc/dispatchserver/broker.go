@@ -12,6 +12,8 @@ import (
 	"github.com/navikt/deployment/pkg/hookd/metrics"
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -141,29 +143,29 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 func (s *dispatchServer) clusterOnline(clusterName string) error {
 	_, ok := s.dispatchStreams[clusterName]
 	if !ok {
-		return fmt.Errorf("cluster '%s' is offline", clusterName)
+		return status.Errorf(codes.Unavailable, "cluster '%s' is offline", clusterName)
 	}
 	return nil
 }
 
-func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error {
+func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.DeploymentStatus) error {
 	maplock.Lock()
 	for _, ch := range s.statusStreams {
-		ch <- status
+		ch <- st
 	}
 	maplock.Unlock()
 
-	dbStatus := database_mapper.DeploymentStatus(status)
+	dbStatus := database_mapper.DeploymentStatus(st)
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)
 	if err != nil {
-		return fmt.Errorf("write to database: %s", err)
+		return status.Errorf(codes.Unavailable, "write to database: %s", err)
 	}
 
-	metrics.UpdateQueue(status)
+	metrics.UpdateQueue(st)
 
-	log.WithFields(status.LogFields()).Infof("Saved deployment status")
+	log.WithFields(st.LogFields()).Infof("Saved deployment status")
 
-	s.statuses <- status
+	s.statuses <- st
 
 	return nil
 }

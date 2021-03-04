@@ -22,7 +22,9 @@ import (
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 
 	yamlv2 "gopkg.in/yaml.v2"
 )
@@ -38,6 +40,7 @@ const (
 	DefaultOwner         = "navikt"
 	DefaultDeployServer  = "deploy-grpc.nais.io:9090"
 	DefaultDeployTimeout = time.Minute * 10
+	RetryInterval        = time.Second * 5
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
 	APIKeyRequiredMsg   = "API key required"
@@ -80,6 +83,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	var err error
 	var templateVariables = make(TemplateVariables)
+	var deployStatus *pb.DeploymentStatus
 
 	if len(cfg.VariablesFile) > 0 {
 		templateVariables, err = templateVariablesFromFile(cfg.VariablesFile)
@@ -195,7 +199,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	}
 
 	dialOptions := make([]grpc.DialOption, 0)
-	dialOptions = append(dialOptions, grpc.WithBlock())
+	// dialOptions = append(dialOptions, grpc.WithBlock())
 
 	if !cfg.GrpcUseTLS {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
@@ -221,45 +225,67 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 	}
 
-	log.Infof("Connecting to NAIS deploy at %s...", cfg.DeployServerURL)
-	grpcConnection, err := grpc.DialContext(ctx, cfg.DeployServerURL, dialOptions...)
+	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
 	if err != nil {
 		return ExitUnavailable, fmt.Errorf("connecting to NAIS deploy: %s", err)
 	}
-	log.Infof("Connected to NAIS deploy; sending deployment request...")
 	defer grpcConnection.Close()
 
+	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
 	grpcClient := pb.NewDeployClient(grpcConnection)
-	status, err := grpcClient.Deploy(ctx, deployRequest)
+
+	err = retryUnavailable(RetryInterval, cfg.Retry, func() error {
+		deployStatus, err = grpcClient.Deploy(ctx, deployRequest)
+		return err
+	})
+
 	if err != nil {
-		return ExitUnavailable, err
+		return ExitNoDeployment, fmt.Errorf(formatGrpcError(err))
 	}
 
 	log.Infof("Deployment request sent.")
-	log.Infof("deployment: %s: %s", status.GetState(), status.GetMessage())
 
-	if status.GetState().Finished() {
-		return exitStatus(status), nil
+	logDeployStatus(deployStatus)
+	if deployStatus.GetState().Finished() {
+		return exitStatus(deployStatus), nil
 	}
 
 	if !cfg.Wait {
 		return ExitSuccess, nil
 	}
 
-	deployRequest.ID = status.GetRequest().GetID()
-	stream, err := grpcClient.Status(ctx, deployRequest)
-	if err != nil {
-		return ExitUnavailable, err
-	}
+	deployRequest.ID = deployStatus.GetRequest().GetID()
 
 	for ctx.Err() == nil {
-		status, err = stream.Recv()
+		var stream pb.Deploy_StatusClient
+		var connectionLost bool
+		err = retryUnavailable(RetryInterval, cfg.Retry, func() error {
+			stream, err = grpcClient.Status(ctx, deployRequest)
+			if err != nil {
+				connectionLost = true
+			} else if connectionLost {
+				log.Infof("Connection to NAIS deploy re-established.")
+			}
+			return err
+		})
 		if err != nil {
 			return ExitUnavailable, err
 		}
-		log.Infof("deployment: %s: %s", status.GetState(), status.GetMessage())
-		if status.GetState().Finished() {
-			return exitStatus(status), nil
+
+		for ctx.Err() == nil {
+			deployStatus, err = stream.Recv()
+			if err != nil {
+				if cfg.Retry {
+					log.Warnf(formatGrpcError(err))
+					break
+				} else {
+					return ExitUnavailable, fmt.Errorf(formatGrpcError(err))
+				}
+			}
+			logDeployStatus(deployStatus)
+			if deployStatus.GetState().Finished() {
+				return exitStatus(deployStatus), nil
+			}
 		}
 	}
 
@@ -480,4 +506,35 @@ func validate(cfg Config) error {
 	}
 
 	return nil
+}
+
+func retryUnavailable(interval time.Duration, retry bool, fn func() error) error {
+	for {
+		err := fn()
+		gerr := status.Convert(err)
+		if retry && gerr.Code() == codes.Unavailable {
+			log.Warnf("%s (retrying in %s...)", formatGrpcError(err), interval)
+			time.Sleep(interval)
+			continue
+		}
+		return err
+	}
+}
+
+func formatGrpcError(err error) string {
+	gerr, ok := status.FromError(err)
+	if !ok {
+		return err.Error()
+	}
+	return fmt.Sprintf("%s: %s", gerr.Code(), gerr.Message())
+}
+
+func logDeployStatus(status *pb.DeploymentStatus) {
+	fn := log.Infof
+	switch status.GetState() {
+	case pb.DeploymentState_failure, pb.DeploymentState_error:
+		fn = log.Errorf
+	}
+	fn("Deployment %s: %s", status.GetState(), status.GetMessage())
+
 }
