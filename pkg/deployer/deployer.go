@@ -65,7 +65,6 @@ const (
 
 type Deployer struct {
 	Client       pb.DeployClient
-	DeployServer string
 }
 
 func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
