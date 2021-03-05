@@ -1,38 +1,224 @@
 package deployer_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-
 	"github.com/navikt/deployment/pkg/deployer"
 	"github.com/navikt/deployment/pkg/pb"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
-/*
-	Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
-			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
-		},
-*/
-func TestHappyPath(t *testing.T) {
+
+func makeMockDeployRequest(cfg deployer.Config) *pb.DeploymentRequest {
+	tm := time.Now()
+	deadline := time.Now().Add(1 * time.Minute)
+	request := deployer.MakeDeploymentRequest(cfg, deadline, &pb.Kubernetes{})
+	request.Time = pb.TimeAsTimestamp(tm)
+	return request
+}
+
+func TestSimpleSuccessfulDeploy(t *testing.T) {
 	cfg := validConfig()
+	request := makeMockDeployRequest(*cfg)
+	ctx := context.Background()
 
 	client := &pb.MockDeployClient{}
-	client.On("Deploy", mock.Anything, mock.Anything).Return(&pb.DeploymentStatus{
-		Request: &pb.DeploymentRequest{
-			ID:                "1",
-		},
+	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
 		State:   pb.DeploymentState_success,
-		Message: "happy happy happy",
-	}, nil)
+		Message: "happy",
+	}, nil).Once()
+
 	d := deployer.Deployer{Client: client}
 
-	exitCode, err := d.Run(cfg)
+	exitCode, err := d.Deploy(ctx, request)
 	assert.NoError(t, err)
-	assert.Equal(t, exitCode, deployer.ExitSuccess)
+	assert.Equal(t, deployer.ExitSuccess, exitCode)
 }
+
+func TestSuccessfulDeploy(t *testing.T) {
+	cfg := validConfig()
+	cfg.Wait = true
+	request := makeMockDeployRequest(*cfg)
+	request.ID = "1"
+	ctx := context.Background()
+
+	client := &pb.MockDeployClient{}
+	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_queued,
+	}, nil).Once()
+
+	statusClient := &pb.MockDeploy_StatusClient{}
+	statusClient.On("Recv").Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_success,
+		Message: "happy",
+	}, nil).Once()
+
+	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+
+	d := deployer.Deployer{Client: client}
+
+	exitCode, err := d.Deploy(ctx, request)
+
+	assert.NoError(t, err)
+	assert.Equal(t, deployer.ExitSuccess, exitCode)
+}
+
+func TestDeployError(t *testing.T) {
+	cfg := validConfig()
+	cfg.Wait = true
+	request := makeMockDeployRequest(*cfg)
+	request.ID = "1"
+	ctx := context.Background()
+
+	client := &pb.MockDeployClient{}
+	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_queued,
+		Message: "queued",
+	}, nil).Once()
+
+	statusClient := &pb.MockDeploy_StatusClient{}
+	statusClient.On("Recv").Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_error,
+		Message: "oops, we errored out",
+	}, nil).Once()
+
+	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+
+	d := deployer.Deployer{Client: client}
+
+	exitCode, err := d.Deploy(ctx, request)
+
+	assert.NoError(t, err)
+	assert.Equal(t, deployer.ExitDeploymentError, exitCode)
+}
+
+func TestDeployPolling(t *testing.T) {
+	cfg := validConfig()
+	cfg.Wait = true
+	request := makeMockDeployRequest(*cfg)
+	request.ID = "1"
+	ctx := context.Background()
+
+	client := &pb.MockDeployClient{}
+	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_queued,
+		Message: "queued",
+	}, nil).Once()
+
+	statusClient := &pb.MockDeploy_StatusClient{}
+	statusClient.On("Recv").Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_in_progress,
+		Message: "working...",
+	}, nil).Times(5)
+	statusClient.On("Recv").Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_success,
+		Message: "finally over",
+	}, nil).Once()
+
+	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+
+	d := deployer.Deployer{Client: client}
+
+	exitCode, err := d.Deploy(ctx, request)
+
+	assert.NoError(t, err)
+	assert.Equal(t, deployer.ExitSuccess, exitCode)
+}
+
+func TestDeployWithStatusRetry(t *testing.T) {
+	cfg := validConfig()
+	cfg.Wait = true
+	cfg.RetryInterval = time.Millisecond * 50
+	request := makeMockDeployRequest(*cfg)
+	request.ID = "1"
+	ctx := context.Background()
+
+	client := &pb.MockDeployClient{}
+
+	client.On("Deploy", ctx, request).Return(nil, status.Errorf(codes.Unavailable, "we are suffering from instability")).Times(3)
+	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_queued,
+		Message: "queued",
+	}, nil).Once()
+
+	statusClient := &pb.MockDeploy_StatusClient{}
+
+	// set up status stream
+	client.On("Status", ctx, request).Return(nil, status.Errorf(codes.Unavailable, "oops, more errors")).Times(2)
+	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+
+	// poll a few times
+	statusClient.On("Recv").Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_in_progress,
+		Message: "working...",
+	}, nil).Times(2)
+
+	// server goes down
+	statusClient.On("Recv").Return(nil, status.Errorf(codes.Unavailable, "not so fast, young man")).Once()
+
+	// re-establish status stream
+	client.On("Status", ctx, request).Return(nil, status.Errorf(codes.Unavailable, "still down")).Times(3)
+	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+
+	// come back to discover a successful deployment
+	statusClient.On("Recv").Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_success,
+		Message: "finally over",
+	}, nil).Once()
+
+	d := deployer.Deployer{Client: client}
+	exitCode, err := d.Deploy(ctx, request)
+
+	assert.NoError(t, err)
+	assert.Equal(t, deployer.ExitSuccess, exitCode)
+}
+
+func TestImmediateTimeout(t *testing.T) {
+	cfg := validConfig()
+	cfg.Wait = true
+	request := makeMockDeployRequest(*cfg)
+	request.ID = "1"
+
+	// time out the request
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	client := &pb.MockDeployClient{}
+
+	client.On("Deploy", ctx, request).Return(nil, status.Errorf(codes.DeadlineExceeded, "too slow, mofo")).Once()
+
+	d := deployer.Deployer{Client: client}
+	exitCode, err := d.Deploy(ctx, request)
+
+	assert.Error(t, err)
+	assert.Equal(t, deployer.ExitTimeout, exitCode)
+}
+
 /*
 func TestHappyPathForAlert(t *testing.T) {
 	cfg := validConfig()
@@ -76,81 +262,6 @@ func TestHappyPathForAlert(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, exitCode, deployer.ExitSuccess)
 }
-*/
-/*
-func TestWaitForComplete(t *testing.T) {
-	requests := 0
-	cfg := validConfig()
-	cfg.Wait = true
-	cfg.PollInterval = time.Millisecond * 1
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		marshaler := json.NewEncoder(w)
-		switch r.RequestURI {
-		case "/api/v1/deploy":
-			w.WriteHeader(http.StatusCreated)
-			marshaler.Encode(&api_v1_deploy.DeploymentResponse{})
-		case "/api/v1/status":
-			var status string
-			w.WriteHeader(http.StatusOK)
-			switch requests {
-			case 0:
-				status = pb.DeploymentState_pending.String()
-			case 1:
-				status = pb.DeploymentState_in_progress.String()
-			case 2:
-				status = pb.DeploymentState_success.String()
-			}
-			requests++
-			marshaler.Encode(&api_v1_status.StatusResponse{
-				Status: &status,
-			})
-		}
-	}))
-
-	d := deployer.Deployer{Client: server.Client(), DeployServer: server.URL}
-
-	exitCode, err := d.Run(cfg)
-	assert.NoError(t, err)
-	assert.Equal(t, exitCode, deployer.ExitSuccess)
-}
-
-func TestWaitForTheInevitableEventualFailure(t *testing.T) {
-	requests := 0
-	cfg := validConfig()
-	cfg.Wait = true
-	cfg.PollInterval = time.Millisecond * 1
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		marshaler := json.NewEncoder(w)
-		switch r.RequestURI {
-		case "/api/v1/deploy":
-			w.WriteHeader(http.StatusCreated)
-			marshaler.Encode(&api_v1_deploy.DeploymentResponse{})
-		case "/api/v1/status":
-			var status string
-			w.WriteHeader(http.StatusOK)
-			switch requests {
-			case 0:
-				status = pb.DeploymentState_pending.String()
-			case 1:
-				status = pb.DeploymentState_in_progress.String()
-			case 2:
-				status = pb.DeploymentState_failure.String()
-			}
-			requests++
-			marshaler.Encode(&api_v1_status.StatusResponse{
-				Status: &status,
-			})
-		}
-	}))
-
-	d := deployer.Deployer{Client: server.Client(), DeployServer: server.URL}
-
-	exitCode, err := d.Run(cfg)
-	assert.NoError(t, err)
-	assert.Equal(t, exitCode, deployer.ExitDeploymentFailure)
-}
 
 func TestValidationFailures(t *testing.T) {
 	for _, testCase := range []struct {
@@ -176,7 +287,7 @@ func TestExitCodeZero(t *testing.T) {
 	assert.Equal(t, deployer.ExitCode(0), deployer.ExitSuccess)
 }
 
-func validConfig() deployer.Config {
+func validConfig() *deployer.Config {
 	cfg := deployer.NewConfig()
 	cfg.Resource = []string{"testdata/nais.yaml"}
 	cfg.Cluster = "dev-fss"

@@ -28,6 +28,7 @@ type Config struct {
 	Repository         string
 	Resource           []string
 	Retry              bool
+	RetryInterval      time.Duration
 	Team               string
 	Timeout            time.Duration
 	Variables          []string
@@ -35,7 +36,9 @@ type Config struct {
 	Wait               bool
 }
 
-var cfg Config
+var cfg = Config{
+	RetryInterval: time.Second * 5,
+}
 
 func init() {
 	flag.ErrHelp = fmt.Errorf("\ndeploy prepares and submits Kubernetes resources to a NAIS cluster.\n")
@@ -72,8 +75,8 @@ func init() {
 
 // config return user input and default values as Config.
 // Values will be resolved with the following precedence: flags > environment variables > default values.
-func NewConfig() Config {
-	return cfg
+func NewConfig() *Config {
+	return &cfg
 }
 
 func getEnv(key, fallback string) string {

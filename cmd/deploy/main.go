@@ -13,9 +13,9 @@ import (
 func main() {
 	cfg := deployer.NewConfig()
 
-	deployer.SetupLogging(cfg)
+	deployer.SetupLogging(*cfg)
 
-	grpcConnection, err := deployer.NewGrpcConnection(cfg)
+	grpcConnection, err := deployer.NewGrpcConnection(*cfg)
 	if err != nil {
 		log.Errorf("fatal: %s", err)
 		os.Exit(int(deployer.ExitUnavailable))
@@ -26,7 +26,7 @@ func main() {
 
 	d := deployer.Deployer{Client: grpcClient}
 
-	code, err := d.Run(cfg)
+	code, err := d.Run(*cfg)
 
 	if err != nil {
 		if code == deployer.ExitInvocationFailure {

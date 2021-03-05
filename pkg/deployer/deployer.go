@@ -39,7 +39,6 @@ const (
 	DefaultOwner         = "navikt"
 	DefaultDeployServer  = "deploy-grpc.nais.io:9090"
 	DefaultDeployTimeout = time.Minute * 10
-	RetryInterval        = time.Second * 5
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
 	APIKeyRequiredMsg   = "API key required"
@@ -223,13 +222,17 @@ func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentReque
 
 	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
 
-	err = retryUnavailable(RetryInterval, cfg.Retry, func() error {
+	err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {
 		deployStatus, err = d.Client.Deploy(ctx, deployRequest)
 		return err
 	})
 
 	if err != nil {
-		return ExitNoDeployment, fmt.Errorf(formatGrpcError(err))
+		err = fmt.Errorf(formatGrpcError(err))
+		if ctx.Err() != nil {
+			return ExitTimeout, err
+		}
+		return ExitNoDeployment, err
 	}
 
 	log.Infof("Deployment request sent.")
@@ -246,10 +249,11 @@ func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentReque
 
 	deployRequest.ID = deployStatus.GetRequest().GetID()
 
+	var stream pb.Deploy_StatusClient
+	var connectionLost bool
+
 	for ctx.Err() == nil {
-		var stream pb.Deploy_StatusClient
-		var connectionLost bool
-		err = retryUnavailable(RetryInterval, cfg.Retry, func() error {
+		err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {
 			stream, err = d.Client.Status(ctx, deployRequest)
 			if err != nil {
 				connectionLost = true
@@ -265,6 +269,7 @@ func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentReque
 		for ctx.Err() == nil {
 			deployStatus, err = stream.Recv()
 			if err != nil {
+				connectionLost = true
 				if cfg.Retry {
 					log.Warnf(formatGrpcError(err))
 					break
