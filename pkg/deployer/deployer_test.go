@@ -216,51 +216,42 @@ func TestImmediateTimeout(t *testing.T) {
 	assert.Equal(t, deployer.ExitTimeout, deployer.ErrorExitCode(err))
 }
 
-/*
-func TestHappyPathForAlert(t *testing.T) {
+func TestPrepareJSON(t *testing.T) {
 	cfg := validConfig()
 	cfg.Resource = []string{"testdata/alert.json"}
-	expectedOutput, err := ioutil.ReadFile(cfg.Resource[0])
-	if err != nil {
-		assert.NoError(t, err)
-	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusCreated)
 
-		deployRequest := api_v1_deploy.DeploymentRequest{}
+	d := deployer.Deployer{}
 
-		if err := json.NewDecoder(r.Body).Decode(&deployRequest); err != nil {
-			t.Error(err)
-		}
+	request, err := d.Prepare(context.Background(), *cfg)
 
-		assert.Equal(t, deployRequest.Team, "aura", "auto-detection of team works")
-		assert.Equal(t, deployRequest.Ref, "master", "defaulting works")
-		assert.Equal(t, deployRequest.Environment, "dev-fss", "auto-detection of environment works")
-
-		resources := make([]json.RawMessage, len(cfg.Resource))
-		resources[0] = expectedOutput
-		expectedBytes, err := json.MarshalIndent(resources, "  ", "  ")
-
-		assert.NoError(t, err)
-		assert.Equal(t, string(expectedBytes), string(deployRequest.Resources))
-
-		b, err := json.Marshal(&api_v1_deploy.DeploymentResponse{})
-
-		if err != nil {
-			t.Error(err)
-		}
-
-		w.Write(b)
-	}))
-
-	d := deployer.Deployer{Client: server.Client(), DeployServer: server.URL}
-
-	exitCode, err := d.Run(cfg)
 	assert.NoError(t, err)
-	assert.Equal(t, exitCode, deployer.ExitSuccess)
+
+	assert.Equal(t, "aura", request.Team, "auto-detection of team works")
+	assert.Equal(t, "master", request.GitRefSha, "defaulting works")
+	assert.Equal(t, "dev-fss", request.GithubEnvironment, "auto-detection of environment works")
+	assert.Equal(t, cfg.Cluster, request.Cluster, "cluster is set")
+}
+
+func TestPrepareYAML(t *testing.T) {
+	cfg := validConfig()
+	cfg.Resource = []string{"testdata/nais.yaml"}
+
+	d := deployer.Deployer{}
+
+	request, err := d.Prepare(context.Background(), *cfg)
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, "aura", request.Team, "auto-detection of team works")
+	assert.Equal(t, "master", request.GitRefSha, "defaulting works")
+	assert.Equal(t, "dev-fss:nais", request.GithubEnvironment, "auto-detection of environment works")
+	assert.Equal(t, cfg.Cluster, request.Cluster, "cluster is set")
 }
 
 func TestValidationFailures(t *testing.T) {
+	valid := validConfig()
+	d := deployer.Deployer{}
+
 	for _, testCase := range []struct {
 		errorMsg  string
 		transform func(cfg deployer.Config) deployer.Config
@@ -270,15 +261,14 @@ func TestValidationFailures(t *testing.T) {
 		{deployer.ResourceRequiredMsg, func(cfg deployer.Config) deployer.Config { cfg.Resource = nil; return cfg }},
 		{deployer.MalformedAPIKeyMsg, func(cfg deployer.Config) deployer.Config { cfg.APIKey = "malformed"; return cfg }},
 	} {
-		cfg := validConfig()
-		cfg = testCase.transform(cfg)
-		d := deployer.Deployer{}
-		exitCode, err := d.Run(cfg)
-		assert.Equal(t, exitCode, deployer.ExitInvocationFailure)
+		cfg := testCase.transform(*valid)
+		request, err := d.Prepare(context.Background(), cfg)
+		assert.Error(t, err)
+		assert.Nil(t, request)
+		assert.Equal(t, deployer.ExitInvocationFailure, deployer.ErrorExitCode(err))
 		assert.Contains(t, err.Error(), testCase.errorMsg)
 	}
 }
-*/
 
 func TestExitCodeZero(t *testing.T) {
 	assert.Equal(t, deployer.ExitCode(0), deployer.ExitSuccess)

@@ -1,6 +1,7 @@
 package deployer
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"os"
@@ -129,6 +130,11 @@ func (cfg *Config) Validate() error {
 
 	if len(cfg.APIKey) == 0 {
 		return fmt.Errorf(APIKeyRequiredMsg)
+	}
+
+	_, err = hex.DecodeString(cfg.APIKey)
+	if err != nil {
+		return fmt.Errorf(MalformedAPIKeyMsg)
 	}
 
 	return nil
