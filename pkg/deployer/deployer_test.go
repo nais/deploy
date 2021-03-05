@@ -2,6 +2,7 @@ package deployer_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -268,6 +269,39 @@ func TestValidationFailures(t *testing.T) {
 		assert.Equal(t, deployer.ExitInvocationFailure, deployer.ErrorExitCode(err))
 		assert.Contains(t, err.Error(), testCase.errorMsg)
 	}
+}
+
+func TestTemplateVariableFromCommandLine(t *testing.T) {
+	type Vars struct {
+		One   string
+		Two   string
+		Three string
+		Four  string
+	}
+	cfg := validConfig()
+	cfg.Team = "foo"
+	cfg.Resource = []string{"testdata/templated.yaml"}
+	cfg.VariablesFile = "testdata/vars.yaml"
+	cfg.Variables = []string{
+		"one=ONE",
+		"two=TWO",
+	}
+
+	d := deployer.Deployer{}
+	request, err := d.Prepare(context.Background(), *cfg)
+	assert.NoError(t, err)
+
+	resources, err := request.Kubernetes.JSONResources()
+	assert.NoError(t, err)
+
+	vars := &Vars{}
+	err = json.Unmarshal(resources[0], vars)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "ONE", vars.One)
+	assert.Equal(t, "TWO", vars.Two)
+	assert.Equal(t, "THREE", vars.Three)
+	assert.Equal(t, "FOUR", vars.Four)
 }
 
 func TestExitCodeZero(t *testing.T) {
