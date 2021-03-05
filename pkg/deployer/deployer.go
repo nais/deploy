@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -64,7 +63,7 @@ const (
 )
 
 type Deployer struct {
-	Client       pb.DeployClient
+	Client pb.DeployClient
 }
 
 func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
@@ -99,21 +98,20 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 }
 
 func (d *Deployer) Run(cfg Config) (ExitCode, error) {
-	setupLogging(cfg.Actions, cfg.Quiet)
+	var err error
+	var templateVariables = make(TemplateVariables)
+
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
-	if err := validate(cfg); err != nil {
+	err = cfg.Validate()
+	if err != nil {
 		if !cfg.DryRun {
 			return ExitInvocationFailure, err
 		}
 
 		log.Warnf("Config did not pass validation: %s", err)
 	}
-
-	var err error
-	var templateVariables = make(TemplateVariables)
-	var deployStatus *pb.DeploymentStatus
 
 	if len(cfg.VariablesFile) > 0 {
 		templateVariables, err = templateVariablesFromFile(cfg.VariablesFile)
@@ -202,19 +200,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	}
 
 	deadline, _ := ctx.Deadline()
-	deployRequest := &pb.DeploymentRequest{
-		Cluster:           cfg.Cluster,
-		Deadline:          pb.TimeAsTimestamp(deadline),
-		GitRefSha:         cfg.Ref,
-		GithubEnvironment: cfg.Environment,
-		Kubernetes:        kube,
-		Repository: &pb.GithubRepository{
-			Owner: cfg.Owner,
-			Name:  cfg.Repository,
-		},
-		Team: cfg.Team,
-		Time: pb.TimeAsTimestamp(time.Now()),
-	}
+	deployRequest := MakeDeploymentRequest(cfg, deadline, kube)
 
 	if cfg.PrintPayload {
 		marsh := jsonpb.Marshaler{Indent: "  "}
@@ -227,6 +213,13 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	if cfg.DryRun {
 		return ExitSuccess, nil
 	}
+
+	return d.Deploy(ctx, deployRequest)
+}
+
+func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentRequest) (ExitCode, error) {
+	var deployStatus *pb.DeploymentStatus
+	var err error
 
 	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
 
@@ -299,24 +292,6 @@ func exitStatus(status *pb.DeploymentStatus) ExitCode {
 		return ExitDeploymentFailure
 	case pb.DeploymentState_inactive:
 		return ExitDeploymentInactive
-	}
-}
-
-func setupLogging(actions, quiet bool) {
-	log.SetOutput(os.Stderr)
-
-	if actions {
-		log.SetFormatter(&ActionsFormatter{})
-	} else {
-		log.SetFormatter(&log.TextFormatter{
-			FullTimestamp:          true,
-			TimestampFormat:        time.RFC3339Nano,
-			DisableLevelTruncation: true,
-		})
-	}
-
-	if quiet {
-		log.SetLevel(log.ErrorLevel)
 	}
 }
 
@@ -482,27 +457,6 @@ func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
 	buf.WriteString(e.Message)
 	buf.WriteRune('\n')
 	return buf.Bytes(), nil
-}
-
-func validate(cfg Config) error {
-	if len(cfg.Resource) == 0 {
-		return fmt.Errorf(ResourceRequiredMsg)
-	}
-
-	_, err := url.Parse(cfg.DeployServerURL)
-	if err != nil {
-		return fmt.Errorf("%s: %s", MalformedURLMsg, err)
-	}
-
-	if len(cfg.Cluster) == 0 {
-		return fmt.Errorf(ClusterRequiredMsg)
-	}
-
-	if len(cfg.APIKey) == 0 {
-		return fmt.Errorf(APIKeyRequiredMsg)
-	}
-
-	return nil
 }
 
 func retryUnavailable(interval time.Duration, retry bool, fn func() error) error {

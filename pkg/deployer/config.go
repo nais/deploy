@@ -2,6 +2,7 @@ package deployer
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -107,4 +108,25 @@ func getEnvBool(key string, def bool) bool {
 	}
 
 	return b
+}
+
+func (cfg *Config) Validate() error {
+	if len(cfg.Resource) == 0 {
+		return fmt.Errorf(ResourceRequiredMsg)
+	}
+
+	_, err := url.Parse(cfg.DeployServerURL)
+	if err != nil {
+		return fmt.Errorf("%s: %s", MalformedURLMsg, err)
+	}
+
+	if len(cfg.Cluster) == 0 {
+		return fmt.Errorf(ClusterRequiredMsg)
+	}
+
+	if len(cfg.APIKey) == 0 {
+		return fmt.Errorf(APIKeyRequiredMsg)
+	}
+
+	return nil
 }
