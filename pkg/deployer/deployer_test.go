@@ -34,10 +34,10 @@ func TestSimpleSuccessfulDeploy(t *testing.T) {
 	}, nil).Once()
 
 	d := deployer.Deployer{Client: client}
+	err := d.Deploy(ctx, request)
 
-	exitCode, err := d.Deploy(ctx, request)
 	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitSuccess, exitCode)
+	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
 }
 
 func TestSuccessfulDeploy(t *testing.T) {
@@ -65,11 +65,10 @@ func TestSuccessfulDeploy(t *testing.T) {
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
 	d := deployer.Deployer{Client: client}
-
-	exitCode, err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, request)
 
 	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitSuccess, exitCode)
+	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
 }
 
 func TestDeployError(t *testing.T) {
@@ -98,11 +97,10 @@ func TestDeployError(t *testing.T) {
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
 	d := deployer.Deployer{Client: client}
+	err := d.Deploy(ctx, request)
 
-	exitCode, err := d.Deploy(ctx, request)
-
-	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitDeploymentError, exitCode)
+	assert.Error(t, err)
+	assert.Equal(t, deployer.ExitDeploymentError, deployer.ErrorExitCode(err))
 }
 
 func TestDeployPolling(t *testing.T) {
@@ -137,11 +135,10 @@ func TestDeployPolling(t *testing.T) {
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
 	d := deployer.Deployer{Client: client}
-
-	exitCode, err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, request)
 
 	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitSuccess, exitCode)
+	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
 }
 
 func TestDeployWithStatusRetry(t *testing.T) {
@@ -192,10 +189,10 @@ func TestDeployWithStatusRetry(t *testing.T) {
 	}, nil).Once()
 
 	d := deployer.Deployer{Client: client}
-	exitCode, err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, request)
 
 	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitSuccess, exitCode)
+	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
 }
 
 func TestImmediateTimeout(t *testing.T) {
@@ -213,10 +210,10 @@ func TestImmediateTimeout(t *testing.T) {
 	client.On("Deploy", ctx, request).Return(nil, status.Errorf(codes.DeadlineExceeded, "too slow, mofo")).Once()
 
 	d := deployer.Deployer{Client: client}
-	exitCode, err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, request)
 
 	assert.Error(t, err)
-	assert.Equal(t, deployer.ExitTimeout, exitCode)
+	assert.Equal(t, deployer.ExitTimeout, deployer.ErrorExitCode(err))
 }
 
 /*

@@ -1,38 +1,19 @@
 package deployer
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
-	"strings"
 	"time"
 
-	"github.com/aymerick/raymond"
-	"github.com/ghodss/yaml"
-	"github.com/golang/protobuf/jsonpb"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
-	"github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
 	"github.com/navikt/deployment/pkg/pb"
-
-	yamlv2 "gopkg.in/yaml.v2"
 )
 
 type TemplateVariables map[string]interface{}
-
-type ActionsFormatter struct{}
-
-type ExitCode int
 
 const (
 	DefaultRef           = "master"
@@ -47,66 +28,18 @@ const (
 	MalformedAPIKeyMsg  = "API key must be a hex encoded string"
 )
 
-// Kept separate to avoid skewing exit codes
-const (
-	ExitSuccess ExitCode = iota
-	ExitDeploymentFailure
-	ExitDeploymentError
-	ExitDeploymentInactive
-	ExitNoDeployment
-	ExitUnavailable
-	ExitInvocationFailure
-	ExitInternalError
-	ExitTemplateError
-	ExitTimeout
-)
-
 type Deployer struct {
 	Client pb.DeployClient
 }
 
-func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
-	dialOptions := make([]grpc.DialOption, 0)
-
-	if !cfg.GrpcUseTLS {
-		dialOptions = append(dialOptions, grpc.WithInsecure())
-	} else {
-		tlsOpts := &tls.Config{}
-		cred := credentials.NewTLS(tlsOpts)
-		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
-	}
-
-	if cfg.GrpcAuthentication {
-		decoded, err := hex.DecodeString(cfg.APIKey)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %s", MalformedAPIKeyMsg, err)
-		}
-		intercept := &apikey_interceptor.ClientInterceptor{
-			APIKey:     decoded,
-			RequireTLS: cfg.GrpcUseTLS,
-			Team:       cfg.Team,
-		}
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
-	}
-
-	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
-	if err != nil {
-		return nil, fmt.Errorf("connecting to NAIS deploy: %s", err)
-	}
-	return grpcConnection, nil
-}
-
-func (d *Deployer) Run(cfg Config) (ExitCode, error) {
+func (d *Deployer) Prepare(ctx context.Context, cfg Config) (*pb.DeploymentRequest, error) {
 	var err error
 	var templateVariables = make(TemplateVariables)
-
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
-	defer cancel()
 
 	err = cfg.Validate()
 	if err != nil {
 		if !cfg.DryRun {
-			return ExitInvocationFailure, err
+			return nil, ErrorWrap(ExitInvocationFailure, err)
 		}
 
 		log.Warnf("Config did not pass validation: %s", err)
@@ -115,7 +48,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 	if len(cfg.VariablesFile) > 0 {
 		templateVariables, err = templateVariablesFromFile(cfg.VariablesFile)
 		if err != nil {
-			return ExitInvocationFailure, fmt.Errorf("load template variables: %s", err)
+			return nil, Errorf(ExitInvocationFailure, "load template variables: %s", err)
 		}
 	}
 
@@ -145,7 +78,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 					}
 				}
 			}
-			return ExitTemplateError, err
+			return nil, ErrorWrap(ExitTemplateError, err)
 		}
 		resources = append(resources, parsed...)
 	}
@@ -162,7 +95,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		}
 
 		if len(cfg.Team) == 0 {
-			return ExitInvocationFailure, fmt.Errorf("no team specified, and unable to auto-detect from nais.yaml")
+			return nil, Errorf(ExitInvocationFailure, "no team specified, and unable to auto-detect from nais.yaml")
 		}
 	}
 
@@ -190,33 +123,20 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 
 	allResources, err := wrapResources(resources)
 	if err != nil {
-		return ExitInvocationFailure, err
+		return nil, ErrorWrap(ExitInvocationFailure, err)
 	}
 
 	kube, err := pb.KubernetesFromJSONResources(allResources)
 	if err != nil {
-		return ExitInvocationFailure, err
+		return nil, ErrorWrap(ExitInvocationFailure, err)
 	}
 
 	deadline, _ := ctx.Deadline()
-	deployRequest := MakeDeploymentRequest(cfg, deadline, kube)
 
-	if cfg.PrintPayload {
-		marsh := jsonpb.Marshaler{Indent: "  "}
-		err = marsh.Marshal(os.Stdout, deployRequest)
-		if err != nil {
-			log.Errorf("print payload: %s", err)
-		}
-	}
-
-	if cfg.DryRun {
-		return ExitSuccess, nil
-	}
-
-	return d.Deploy(ctx, deployRequest)
+	return MakeDeploymentRequest(cfg, deadline, kube), nil
 }
 
-func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentRequest) (ExitCode, error) {
+func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentRequest) error {
 	var deployStatus *pb.DeploymentStatus
 	var err error
 
@@ -230,21 +150,21 @@ func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentReque
 	if err != nil {
 		err = fmt.Errorf(formatGrpcError(err))
 		if ctx.Err() != nil {
-			return ExitTimeout, err
+			return Errorf(ExitTimeout, "deployment timed out: %w", ctx.Err())
 		}
-		return ExitNoDeployment, err
+		return ErrorWrap(ExitNoDeployment, err)
 	}
 
 	log.Infof("Deployment request sent.")
 
 	if deployStatus.GetState().Finished() {
 		logDeployStatus(deployStatus)
-		return exitStatus(deployStatus), nil
+		return ErrorStatus(deployStatus)
 	}
 
 	if !cfg.Wait {
 		logDeployStatus(deployStatus)
-		return ExitSuccess, nil
+		return nil
 	}
 
 	deployRequest.ID = deployStatus.GetRequest().GetID()
@@ -263,7 +183,7 @@ func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentReque
 			return err
 		})
 		if err != nil {
-			return ExitUnavailable, err
+			return ErrorWrap(ExitUnavailable, err)
 		}
 
 		for ctx.Err() == nil {
@@ -274,194 +194,17 @@ func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentReque
 					log.Warnf(formatGrpcError(err))
 					break
 				} else {
-					return ExitUnavailable, fmt.Errorf(formatGrpcError(err))
+					return Errorf(ExitUnavailable, formatGrpcError(err))
 				}
 			}
 			logDeployStatus(deployStatus)
 			if deployStatus.GetState().Finished() {
-				return exitStatus(deployStatus), nil
+				return ErrorStatus(deployStatus)
 			}
 		}
 	}
 
-	return ExitTimeout, nil
-}
-
-func exitStatus(status *pb.DeploymentStatus) ExitCode {
-	switch status.GetState() {
-	default:
-		return ExitSuccess
-	case pb.DeploymentState_error:
-		return ExitDeploymentError
-	case pb.DeploymentState_failure:
-		return ExitDeploymentFailure
-	case pb.DeploymentState_inactive:
-		return ExitDeploymentInactive
-	}
-}
-
-func detectTeam(resource json.RawMessage) string {
-	type teamMeta struct {
-		Metadata struct {
-			Labels struct {
-				Team string `json:"team"`
-			} `json:"labels"`
-		} `json:"metadata"`
-	}
-	buf := &teamMeta{}
-	err := json.Unmarshal(resource, buf)
-
-	if err != nil {
-		return ""
-	}
-
-	return buf.Metadata.Labels.Team
-}
-
-func detectNamespace(resource json.RawMessage) string {
-	type namespaceMeta struct {
-		Metadata struct {
-			Namespace string `json:"namespace"`
-		} `json:"metadata"`
-	}
-	buf := &namespaceMeta{}
-	err := json.Unmarshal(resource, buf)
-
-	if err != nil {
-		return ""
-	}
-
-	return buf.Metadata.Namespace
-}
-
-// Wrap JSON resources in a JSON array.
-func wrapResources(resources []json.RawMessage) (json.RawMessage, error) {
-	return json.Marshal(resources)
-}
-
-func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
-	if len(ctx) == 0 {
-		return data, nil
-	}
-	template, err := raymond.Parse(string(data))
-	if err != nil {
-		return nil, fmt.Errorf("parse template file: %s", err)
-	}
-
-	output, err := template.Exec(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("execute template: %s", err)
-	}
-
-	return []byte(output), nil
-}
-
-func templateVariablesFromFile(path string) (TemplateVariables, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("%s: open file: %s", path, err)
-	}
-
-	vars := TemplateVariables{}
-	err = yaml.Unmarshal(file, &vars)
-
-	return vars, err
-}
-
-func templateVariablesFromSlice(vars []string) TemplateVariables {
-	tv := TemplateVariables{}
-	for _, keyval := range vars {
-		tokens := strings.SplitN(keyval, "=", 2)
-		switch len(tokens) {
-		case 2: // KEY=VAL
-			tv[tokens[0]] = tokens[1]
-		case 1: // KEY
-			tv[tokens[0]] = true
-		default:
-			continue
-		}
-	}
-
-	return tv
-}
-
-func detectErrorLine(e string) (int, error) {
-	var line int
-	_, err := fmt.Sscanf(e, "yaml: line %d:", &line)
-	return line, err
-}
-
-func errorContext(content string, line int) []string {
-	ctx := make([]string, 0)
-	lines := strings.Split(content, "\n")
-	format := "%03d: %s"
-	for l := range lines {
-		ctx = append(ctx, fmt.Sprintf(format, l+1, lines[l]))
-		if l+1 == line {
-			helper := "     " + strings.Repeat("^", len(lines[l])) + " <--- error near this line"
-			ctx = append(ctx, helper)
-		}
-	}
-	return ctx
-}
-
-func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMessage, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("%s: open file: %s", path, err)
-	}
-
-	templated, err := templatedFile(file, ctx)
-	if err != nil {
-		errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
-		return nil, fmt.Errorf("%s: %s", path, errMsg)
-	}
-
-	var content interface{}
-	messages := make([]json.RawMessage, 0)
-
-	decoder := yamlv2.NewDecoder(bytes.NewReader(templated))
-	for {
-		err = decoder.Decode(&content)
-		if err == io.EOF {
-			err = nil
-			break
-		} else if err != nil {
-			return nil, err
-		}
-
-		rawdocument, err := yamlv2.Marshal(content)
-		if err != nil {
-			return nil, err
-		}
-
-		data, err := yaml.YAMLToJSON(rawdocument)
-		if err != nil {
-			errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
-			return nil, fmt.Errorf("%s: %s", path, errMsg)
-		}
-
-		messages = append(messages, data)
-	}
-
-	return messages, err
-}
-
-func (a *ActionsFormatter) Format(e *log.Entry) ([]byte, error) {
-	buf := &bytes.Buffer{}
-	switch e.Level {
-	case log.ErrorLevel:
-		buf.WriteString("::error::")
-	case log.WarnLevel:
-		buf.WriteString("::warn::")
-	default:
-		buf.WriteString("[")
-		buf.WriteString(e.Time.Format(time.RFC3339Nano))
-		buf.WriteString("] ")
-	}
-	buf.WriteString(e.Message)
-	buf.WriteRune('\n')
-	return buf.Bytes(), nil
+	return Errorf(ExitTimeout, "deployment timed out: %w", ctx.Err())
 }
 
 func retryUnavailable(interval time.Duration, retry bool, fn func() error) error {
@@ -475,22 +218,4 @@ func retryUnavailable(interval time.Duration, retry bool, fn func() error) error
 		}
 		return err
 	}
-}
-
-func formatGrpcError(err error) string {
-	gerr, ok := status.FromError(err)
-	if !ok {
-		return err.Error()
-	}
-	return fmt.Sprintf("%s: %s", gerr.Code(), gerr.Message())
-}
-
-func logDeployStatus(status *pb.DeploymentStatus) {
-	fn := log.Infof
-	switch status.GetState() {
-	case pb.DeploymentState_failure, pb.DeploymentState_error:
-		fn = log.Errorf
-	}
-	fn("Deployment %s: %s", status.GetState(), status.GetMessage())
-
 }
