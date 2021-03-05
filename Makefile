@@ -28,6 +28,7 @@ mocks:
 	cd pkg/hookd/database && mockery --inpackage --all --case snake
 	cd pkg/grpc/deployserver && mockery --inpackage --all --case snake
 	cd pkg/grpc/dispatchserver && mockery --inpackage --all --case snake
+	cd pkg/pb && mockery --inpackage --all --case snake
 
 deploy-release-linux:
 	GOOS=linux \

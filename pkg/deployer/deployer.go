@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -18,13 +17,14 @@ import (
 	"github.com/aymerick/raymond"
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
-	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
+
+	"github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
+	"github.com/navikt/deployment/pkg/pb"
 
 	yamlv2 "gopkg.in/yaml.v2"
 )
@@ -64,8 +64,39 @@ const (
 )
 
 type Deployer struct {
-	Client       *http.Client
+	Client       pb.DeployClient
 	DeployServer string
+}
+
+func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
+	dialOptions := make([]grpc.DialOption, 0)
+
+	if !cfg.GrpcUseTLS {
+		dialOptions = append(dialOptions, grpc.WithInsecure())
+	} else {
+		tlsOpts := &tls.Config{}
+		cred := credentials.NewTLS(tlsOpts)
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
+	}
+
+	if cfg.GrpcAuthentication {
+		decoded, err := hex.DecodeString(cfg.APIKey)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %s", MalformedAPIKeyMsg, err)
+		}
+		intercept := &apikey_interceptor.ClientInterceptor{
+			APIKey:     decoded,
+			RequireTLS: cfg.GrpcUseTLS,
+			Team:       cfg.Team,
+		}
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
+	}
+
+	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("connecting to NAIS deploy: %s", err)
+	}
+	return grpcConnection, nil
 }
 
 func (d *Deployer) Run(cfg Config) (ExitCode, error) {
@@ -112,7 +143,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 				errStr := err.Error()[len(path)+2:]
 				line, er := detectErrorLine(errStr)
 				if er == nil {
-					ctx := errorContext(string(resources[i]), line, 7)
+					ctx := errorContext(string(resources[i]), line)
 					for _, l := range ctx {
 						fmt.Println(l)
 					}
@@ -198,44 +229,10 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		return ExitSuccess, nil
 	}
 
-	dialOptions := make([]grpc.DialOption, 0)
-	// dialOptions = append(dialOptions, grpc.WithBlock())
-
-	if !cfg.GrpcUseTLS {
-		dialOptions = append(dialOptions, grpc.WithInsecure())
-	} else {
-		tlsOpts := &tls.Config{}
-		cred := credentials.NewTLS(tlsOpts)
-		if err != nil {
-			return ExitInvocationFailure, fmt.Errorf("gRPC configured to use TLS, but system-wide CA certificate bundle cannot be loaded")
-		}
-		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
-	}
-
-	if cfg.GrpcAuthentication {
-		decoded, err := hex.DecodeString(cfg.APIKey)
-		if err != nil {
-			return ExitInvocationFailure, fmt.Errorf("%s: %s", MalformedAPIKeyMsg, err)
-		}
-		intercept := &apikey_interceptor.ClientInterceptor{
-			APIKey:     decoded,
-			RequireTLS: cfg.GrpcUseTLS,
-			Team:       cfg.Team,
-		}
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
-	}
-
-	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
-	if err != nil {
-		return ExitUnavailable, fmt.Errorf("connecting to NAIS deploy: %s", err)
-	}
-	defer grpcConnection.Close()
-
 	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
-	grpcClient := pb.NewDeployClient(grpcConnection)
 
 	err = retryUnavailable(RetryInterval, cfg.Retry, func() error {
-		deployStatus, err = grpcClient.Deploy(ctx, deployRequest)
+		deployStatus, err = d.Client.Deploy(ctx, deployRequest)
 		return err
 	})
 
@@ -261,7 +258,7 @@ func (d *Deployer) Run(cfg Config) (ExitCode, error) {
 		var stream pb.Deploy_StatusClient
 		var connectionLost bool
 		err = retryUnavailable(RetryInterval, cfg.Retry, func() error {
-			stream, err = grpcClient.Status(ctx, deployRequest)
+			stream, err = d.Client.Status(ctx, deployRequest)
 			if err != nil {
 				connectionLost = true
 			} else if connectionLost {
@@ -415,7 +412,7 @@ func detectErrorLine(e string) (int, error) {
 	return line, err
 }
 
-func errorContext(content string, line int, around int) []string {
+func errorContext(content string, line int) []string {
 	ctx := make([]string, 0)
 	lines := strings.Split(content, "\n")
 	format := "%03d: %s"
