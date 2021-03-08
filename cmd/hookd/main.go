@@ -11,6 +11,7 @@ import (
 	"os/signal"
 
 	unauthenticated_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/unauthenticated"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
@@ -191,6 +192,10 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 			grpc.StreamInterceptor(interceptor.StreamServerInterceptor),
 		)
 	}
+
+	serverOpts = append(serverOpts, grpc.KeepaliveParams(keepalive.ServerParameters{
+		Time: cfg.GRPC.KeepaliveInterval,
+	}))
 
 	grpcServer := grpc.NewServer(serverOpts...)
 

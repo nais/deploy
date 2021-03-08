@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/nais/liberator/pkg/conftools"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -25,9 +27,10 @@ type Github struct {
 }
 
 type GRPC struct {
-	Address               string `json:"address"`
-	CliAuthentication     bool   `json:"cli-authentication"`
-	DeploydAuthentication bool   `json:"deployd-authentication"`
+	Address               string        `json:"address"`
+	CliAuthentication     bool          `json:"cli-authentication"`
+	DeploydAuthentication bool          `json:"deployd-authentication"`
+	KeepaliveInterval     time.Duration `json:"keepalive-interval"`
 }
 
 type Config struct {
@@ -71,6 +74,7 @@ const (
 	GrpcAddress               = "grpc.address"
 	GrpcCliAuthentication     = "grpc.cli-authentication"
 	GrpcDeploydAuthentication = "grpc.deployd-authentication"
+	GrpcKeepaliveInterval     = "grpc.keepalive-interval"
 	ListenAddress             = "listen-address"
 	LogFormat                 = "log-format"
 	LogLevel                  = "log-level"
@@ -111,6 +115,7 @@ func Initialize() *Config {
 	flag.String(GrpcAddress, "127.0.0.1:9090", "Listen address of gRPC server.")
 	flag.Bool(GrpcDeploydAuthentication, false, "Validate tokens on gRPC connections from deployd.")
 	flag.Bool(GrpcCliAuthentication, false, "Validate apikey on gRPC connections from CLI.")
+	flag.Duration(GrpcKeepaliveInterval, time.Second*15, "Ping inactive clients every interval to determine if they are alive.")
 
 	flag.String(DatabaseEncryptionKey, "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff", "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.String(DatabaseUrl, "postgresql://postgres:root@127.0.0.1:5432/hookd", "PostgreSQL connection information.")
