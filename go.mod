@@ -16,7 +16,7 @@ require (
 	github.com/gophercloud/gophercloud v0.4.0 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jackc/pgx/v4 v4.5.0
-	github.com/nais/liberator v0.0.0-20210225122953-48fc806f7cf0
+	github.com/nais/liberator v0.0.0-20210308144942-80d0899e683d
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/sirupsen/logrus v1.4.2
