@@ -7,18 +7,22 @@ import (
 )
 
 type Config struct {
-	LogFormat                string `json:"log-format"`
-	LogLevel                 string `json:"log-level"`
-	Cluster                  string `json:"cluster"`
-	MetricsListenAddr        string `json:"metrics-listen-address"`
-	GrpcAuthentication       bool   `json:"grpc-authentication"`
-	GrpcUseTLS               bool   `json:"grpc-use-tls"`
-	GrpcServer               string `json:"grpc-server"`
-	HookdApplicationID       string `json:"hookd-application-id"`
-	MetricsPath              string `json:"metrics-path"`
-	TeamNamespaces           bool   `json:"team-namespaces"`
 	AutoCreateServiceAccount bool   `json:"auto-create-service-account"`
 	Azure                    Azure  `json:"azure"`
+	Cluster                  string `json:"cluster"`
+	GRPC                     GRPC   `json:"grpc"`
+	HookdApplicationID       string `json:"hookd-application-id"`
+	LogFormat                string `json:"log-format"`
+	LogLevel                 string `json:"log-level"`
+	MetricsListenAddr        string `json:"metrics-listen-address"`
+	MetricsPath              string `json:"metrics-path"`
+	TeamNamespaces           bool   `json:"team-namespaces"`
+}
+
+type GRPC struct {
+	Authentication bool   `json:"authentication"`
+	UseTLS         bool   `json:"use-tls"`
+	Server         string `json:"server"`
 }
 
 type Azure struct {
@@ -32,9 +36,9 @@ const (
 	LogLevel                 = "log-level"
 	Cluster                  = "cluster"
 	MetricsListenAddr        = "metrics-listen-address"
-	GrpcAuthentication       = "grpc-authentication"
-	GrpcUseTLS               = "grpc-use-tls"
-	GrpcServer               = "grpc-server"
+	GrpcAuthentication       = "grpc.authentication"
+	GrpcUseTLS               = "grpc.use-tls"
+	GrpcServer               = "grpc.server"
 	HookdApplicationID       = "hookd-application-id"
 	MetricsPath              = "metrics-path"
 	TeamNamespaces           = "team-namespaces"
@@ -58,7 +62,7 @@ func Initialize() *Config {
 	flag.String(LogLevel, "debug", "Logging verbosity level.")
 	flag.String(Cluster, "local", "Apply changes only within this cluster.")
 	flag.String(MetricsListenAddr, "127.0.0.1:8081", "Serve metrics on this address.")
-	flag.Bool(GrpcUseTLS, false, "Use secure connection when connecting to gRPC server.")
+	flag.Bool(GrpcUseTLS, false, "Use TLS when connecting to gRPC server.")
 	flag.String(GrpcServer, "127.0.0.1:9090", "gRPC server endpoint on hookd.")
 	flag.Bool(GrpcAuthentication, false, "Use token authentication on gRPC connection.")
 	flag.String(HookdApplicationID, "", "Azure application ID of hookd, used for token authentication.")

@@ -50,7 +50,7 @@ func run() error {
 		log.Info(line)
 	}
 
-	if cfg.GrpcAuthentication && len(cfg.HookdApplicationID) == 0 {
+	if cfg.GRPC.Authentication && len(cfg.HookdApplicationID) == 0 {
 		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-application-id is not specified")
 	}
 
@@ -66,7 +66,7 @@ func run() error {
 	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
 
 	dialOptions := make([]grpc.DialOption, 0)
-	if !cfg.GrpcUseTLS {
+	if !cfg.GRPC.UseTLS {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
 	} else {
 		tlsOpts := &tls.Config{}
@@ -77,7 +77,7 @@ func run() error {
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
 	}
 
-	if cfg.GrpcAuthentication {
+	if cfg.GRPC.Authentication {
 		tokenConfig := oauth2.Config(oauth2.ClientConfig{
 			ClientID:     cfg.Azure.ClientID,
 			ClientSecret: cfg.Azure.ClientSecret,
@@ -86,13 +86,13 @@ func run() error {
 		})
 		intercept := &token_interceptor.ClientInterceptor{
 			Config:     tokenConfig,
-			RequireTLS: cfg.GrpcUseTLS,
+			RequireTLS: cfg.GRPC.UseTLS,
 		}
 		go intercept.TokenLoop()
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 	}
 
-	grpcConnection, err := grpc.Dial(cfg.GrpcServer, dialOptions...)
+	grpcConnection, err := grpc.Dial(cfg.GRPC.Server, dialOptions...)
 	if err != nil {
 		return fmt.Errorf("connecting to hookd gRPC server: %s", err)
 	}
