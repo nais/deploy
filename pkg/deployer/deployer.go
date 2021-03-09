@@ -18,7 +18,7 @@ type TemplateVariables map[string]interface{}
 const (
 	DefaultRef           = "master"
 	DefaultOwner         = "navikt"
-	DefaultDeployServer  = "deploy-grpc.nais.io:9090"
+	DefaultDeployServer  = "deploy.nais.io:443"
 	DefaultDeployTimeout = time.Minute * 10
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"

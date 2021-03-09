@@ -3,7 +3,6 @@ package deployer
 import (
 	"encoding/hex"
 	"fmt"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -119,11 +118,6 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf(ResourceRequiredMsg)
 	}
 
-	_, err := url.Parse(cfg.DeployServerURL)
-	if err != nil {
-		return fmt.Errorf("%s: %s", MalformedURLMsg, err)
-	}
-
 	if len(cfg.Cluster) == 0 {
 		return fmt.Errorf(ClusterRequiredMsg)
 	}
@@ -132,7 +126,7 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf(APIKeyRequiredMsg)
 	}
 
-	_, err = hex.DecodeString(cfg.APIKey)
+	_, err := hex.DecodeString(cfg.APIKey)
 	if err != nil {
 		return fmt.Errorf(MalformedAPIKeyMsg)
 	}
