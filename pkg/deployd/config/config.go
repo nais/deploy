@@ -32,20 +32,18 @@ type Azure struct {
 }
 
 const (
-	LogFormat                = "log-format"
-	LogLevel                 = "log-level"
-	Cluster                  = "cluster"
-	MetricsListenAddr        = "metrics-listen-address"
-	GrpcAuthentication       = "grpc.authentication"
-	GrpcUseTLS               = "grpc.use-tls"
-	GrpcServer               = "grpc.server"
-	HookdApplicationID       = "hookd-application-id"
-	MetricsPath              = "metrics-path"
-	TeamNamespaces           = "team-namespaces"
-	AutoCreateServiceAccount = "auto-create-service-account"
-	AzureClientID            = "azure.app-client-id"
-	AzureClientSecret        = "azure.app-client-secret"
-	AzureTenant              = "azure.app-tenant-id"
+	LogFormat          = "log-format"
+	LogLevel           = "log-level"
+	Cluster            = "cluster"
+	MetricsListenAddr  = "metrics-listen-address"
+	GrpcAuthentication = "grpc.authentication"
+	GrpcUseTLS         = "grpc.use-tls"
+	GrpcServer         = "grpc.server"
+	HookdApplicationID = "hookd-application-id"
+	MetricsPath        = "metrics-path"
+	AzureClientID      = "azure.app-client-id"
+	AzureClientSecret  = "azure.app-client-secret"
+	AzureTenant        = "azure.app-tenant-id"
 )
 
 func bindNAIS() {
@@ -67,8 +65,6 @@ func Initialize() *Config {
 	flag.Bool(GrpcAuthentication, false, "Use token authentication on gRPC connection.")
 	flag.String(HookdApplicationID, "", "Azure application ID of hookd, used for token authentication.")
 	flag.String(MetricsPath, "/metrics", "Serve metrics on this endpoint.")
-	flag.Bool(TeamNamespaces, false, "Set to true if team service accounts live in team's own namespace.")
-	flag.Bool(AutoCreateServiceAccount, true, "Set to true to automatically create service accounts.")
 	flag.String(AzureClientID, "", "Azure ClientId.")
 	flag.String(AzureClientSecret, "", "Azure ClientSecret")
 	flag.String(AzureTenant, "", "Azure Tenant")
