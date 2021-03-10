@@ -66,9 +66,9 @@ func Run(op *operation.Operation) {
 		metrics.KubernetesResources.Inc()
 
 		op.Logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
+		wait.Add(1)
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
-			wait.Add(1)
 			deadline, _ := op.Context.Deadline()
 			op.Logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
 			err := op.TeamClient.WaitForDeployment(op.Context, op.Logger, resource, op.Request, op.StatusChan)
