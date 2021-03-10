@@ -35,7 +35,7 @@ func TestSimpleSuccessfulDeploy(t *testing.T) {
 	}, nil).Once()
 
 	d := deployer.Deployer{Client: client}
-	err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, cfg, request)
 
 	assert.NoError(t, err)
 	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
@@ -66,7 +66,7 @@ func TestSuccessfulDeploy(t *testing.T) {
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
 	d := deployer.Deployer{Client: client}
-	err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, cfg, request)
 
 	assert.NoError(t, err)
 	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
@@ -98,7 +98,7 @@ func TestDeployError(t *testing.T) {
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
 	d := deployer.Deployer{Client: client}
-	err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, cfg, request)
 
 	assert.Error(t, err)
 	assert.Equal(t, deployer.ExitDeploymentError, deployer.ErrorExitCode(err))
@@ -136,7 +136,7 @@ func TestDeployPolling(t *testing.T) {
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
 	d := deployer.Deployer{Client: client}
-	err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, cfg, request)
 
 	assert.NoError(t, err)
 	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
@@ -144,6 +144,7 @@ func TestDeployPolling(t *testing.T) {
 
 func TestDeployWithStatusRetry(t *testing.T) {
 	cfg := validConfig()
+	cfg.Retry = true
 	cfg.Wait = true
 	cfg.RetryInterval = time.Millisecond * 50
 	request := makeMockDeployRequest(*cfg)
@@ -190,7 +191,7 @@ func TestDeployWithStatusRetry(t *testing.T) {
 	}, nil).Once()
 
 	d := deployer.Deployer{Client: client}
-	err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, cfg, request)
 
 	assert.NoError(t, err)
 	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
@@ -211,7 +212,7 @@ func TestImmediateTimeout(t *testing.T) {
 	client.On("Deploy", ctx, request).Return(nil, status.Errorf(codes.DeadlineExceeded, "too slow, mofo")).Once()
 
 	d := deployer.Deployer{Client: client}
-	err := d.Deploy(ctx, request)
+	err := d.Deploy(ctx, cfg, request)
 
 	assert.Error(t, err)
 	assert.Equal(t, deployer.ExitTimeout, deployer.ErrorExitCode(err))
@@ -221,14 +222,11 @@ func TestPrepareJSON(t *testing.T) {
 	cfg := validConfig()
 	cfg.Resource = []string{"testdata/alert.json"}
 
-	d := deployer.Deployer{}
-
-	request, err := d.Prepare(context.Background(), *cfg)
+	request, err := deployer.Prepare(context.Background(), cfg)
 
 	assert.NoError(t, err)
 
 	assert.Equal(t, "aura", request.Team, "auto-detection of team works")
-	assert.Equal(t, "master", request.GitRefSha, "defaulting works")
 	assert.Equal(t, "dev-fss", request.GithubEnvironment, "auto-detection of environment works")
 	assert.Equal(t, cfg.Cluster, request.Cluster, "cluster is set")
 }
@@ -237,21 +235,17 @@ func TestPrepareYAML(t *testing.T) {
 	cfg := validConfig()
 	cfg.Resource = []string{"testdata/nais.yaml"}
 
-	d := deployer.Deployer{}
-
-	request, err := d.Prepare(context.Background(), *cfg)
+	request, err := deployer.Prepare(context.Background(), cfg)
 
 	assert.NoError(t, err)
 
 	assert.Equal(t, "aura", request.Team, "auto-detection of team works")
-	assert.Equal(t, "master", request.GitRefSha, "defaulting works")
 	assert.Equal(t, "dev-fss:nais", request.GithubEnvironment, "auto-detection of environment works")
 	assert.Equal(t, cfg.Cluster, request.Cluster, "cluster is set")
 }
 
 func TestValidationFailures(t *testing.T) {
 	valid := validConfig()
-	d := deployer.Deployer{}
 
 	for _, testCase := range []struct {
 		errorMsg  string
@@ -263,7 +257,7 @@ func TestValidationFailures(t *testing.T) {
 		{deployer.MalformedAPIKeyMsg, func(cfg deployer.Config) deployer.Config { cfg.APIKey = "malformed"; return cfg }},
 	} {
 		cfg := testCase.transform(*valid)
-		request, err := d.Prepare(context.Background(), cfg)
+		request, err := deployer.Prepare(context.Background(), &cfg)
 		assert.Error(t, err)
 		assert.Nil(t, request)
 		assert.Equal(t, deployer.ExitInvocationFailure, deployer.ErrorExitCode(err))
@@ -287,8 +281,7 @@ func TestTemplateVariableFromCommandLine(t *testing.T) {
 		"two=TWO",
 	}
 
-	d := deployer.Deployer{}
-	request, err := d.Prepare(context.Background(), *cfg)
+	request, err := deployer.Prepare(context.Background(), cfg)
 	assert.NoError(t, err)
 
 	resources, err := request.Kubernetes.JSONResources()

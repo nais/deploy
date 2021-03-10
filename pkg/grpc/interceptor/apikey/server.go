@@ -62,7 +62,7 @@ func extractAuthFromContext(ctx context.Context) (*authData, error) {
 func (t *ServerInterceptor) authenticate(ctx context.Context, auth authData) error {
 	apiKeys, err := t.APIKeyStore.ApiKeys(ctx, auth.team)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Fetch API keys for team %s: %s", auth.team, err)
 		if database.IsErrNotFound(err) {
 			return status.Errorf(codes.Unauthenticated, "failed authentication")
 		}
@@ -71,7 +71,7 @@ func (t *ServerInterceptor) authenticate(ctx context.Context, auth authData) err
 
 	err = api_v1.ValidateAnyMAC([]byte(auth.timestamp), auth.hmac, apiKeys.Valid().Keys())
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Validate HMAC signature of team %s: %s", auth.team, err)
 		return status.Errorf(codes.PermissionDenied, "failed authentication")
 	}
 
@@ -116,6 +116,7 @@ func (t *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 	if err != nil {
 		return err
 	}
+
 	err = t.authenticate(ss.Context(), *auth)
 	if err != nil {
 		return err

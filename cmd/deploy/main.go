@@ -28,11 +28,18 @@ func main() {
 func run() error {
 	// Configuration and context
 	cfg := deployer.NewConfig()
+	deployer.InitConfig(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
 	// Logging
 	deployer.SetupLogging(*cfg)
+
+	// Prepare request
+	request, err := deployer.Prepare(ctx, cfg)
+	if err != nil {
+		return err
+	}
 
 	// Set up asynchronous gRPC connection
 	grpcConnection, err := deployer.NewGrpcConnection(*cfg)
@@ -50,11 +57,6 @@ func run() error {
 		Client: pb.NewDeployClient(grpcConnection),
 	}
 
-	request, err := d.Prepare(ctx, *cfg)
-	if err != nil {
-		return err
-	}
-
 	if cfg.PrintPayload {
 		marsh := jsonpb.Marshaler{Indent: "  "}
 		err = marsh.Marshal(os.Stdout, request)
@@ -67,5 +69,5 @@ func run() error {
 		return nil
 	}
 
-	return d.Deploy(ctx, request)
+	return d.Deploy(ctx, cfg, request)
 }

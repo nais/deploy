@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
-	"github.com/navikt/deployment/pkg/pb"
 )
 
 type TemplateVariables map[string]interface{}
@@ -23,7 +21,6 @@ const (
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
 	APIKeyRequiredMsg   = "API key required"
-	MalformedURLMsg     = "wrong format of deployment server URL"
 	ClusterRequiredMsg  = "cluster required; see https://doc.nais.io/clusters"
 	MalformedAPIKeyMsg  = "API key must be a hex encoded string"
 )
@@ -32,7 +29,7 @@ type Deployer struct {
 	Client pb.DeployClient
 }
 
-func (d *Deployer) Prepare(ctx context.Context, cfg Config) (*pb.DeploymentRequest, error) {
+func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 	var err error
 	var templateVariables = make(TemplateVariables)
 
@@ -133,10 +130,10 @@ func (d *Deployer) Prepare(ctx context.Context, cfg Config) (*pb.DeploymentReque
 
 	deadline, _ := ctx.Deadline()
 
-	return MakeDeploymentRequest(cfg, deadline, kube), nil
+	return MakeDeploymentRequest(*cfg, deadline, kube), nil
 }
 
-func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentRequest) error {
+func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.DeploymentRequest) error {
 	var deployStatus *pb.DeploymentStatus
 	var err error
 
@@ -190,7 +187,7 @@ func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentReque
 			deployStatus, err = stream.Recv()
 			if err != nil {
 				connectionLost = true
-				if cfg.Retry {
+				if cfg.Retry && grpcErrorCode(err) == codes.Unavailable {
 					log.Warnf(formatGrpcError(err))
 					break
 				} else {
@@ -210,8 +207,7 @@ func (d *Deployer) Deploy(ctx context.Context, deployRequest *pb.DeploymentReque
 func retryUnavailable(interval time.Duration, retry bool, fn func() error) error {
 	for {
 		err := fn()
-		gerr := status.Convert(err)
-		if retry && gerr.Code() == codes.Unavailable {
+		if retry && grpcErrorCode(err) == codes.Unavailable {
 			log.Warnf("%s (retrying in %s...)", formatGrpcError(err), interval)
 			time.Sleep(interval)
 			continue

@@ -36,11 +36,7 @@ type Config struct {
 	Wait               bool
 }
 
-var cfg = Config{
-	RetryInterval: time.Second * 5,
-}
-
-func init() {
+func InitConfig(cfg *Config) {
 	flag.ErrHelp = fmt.Errorf("\ndeploy prepares and submits Kubernetes resources to a NAIS cluster.\n")
 
 	flag.BoolVar(&cfg.Actions, "actions", getEnvBool("ACTIONS", false), "Use GitHub Actions compatible error and warning messages. (env ACTIONS)")
@@ -76,7 +72,9 @@ func init() {
 // config return user input and default values as Config.
 // Values will be resolved with the following precedence: flags > environment variables > default values.
 func NewConfig() *Config {
-	return &cfg
+	return &Config{
+		RetryInterval: time.Second * 5,
+	}
 }
 
 func getEnv(key, fallback string) string {

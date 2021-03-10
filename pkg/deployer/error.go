@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/navikt/deployment/pkg/pb"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -76,4 +77,12 @@ func formatGrpcError(err error) string {
 		return err.Error()
 	}
 	return fmt.Sprintf("%s: %s", gerr.Code(), gerr.Message())
+}
+
+func grpcErrorCode(err error) codes.Code {
+	gerr := status.Convert(err)
+	if gerr == nil {
+		return codes.OK
+	}
+	return gerr.Code()
 }
