@@ -7,7 +7,6 @@ import (
 	"github.com/navikt/deployment/pkg/azure/discovery"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
 	"github.com/navikt/deployment/pkg/azure/validate"
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -21,7 +20,6 @@ type ServerInterceptor struct {
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	log.Errorf(info.FullMethod)
 	err = t.authenticate(ctx)
 	if err != nil {
 		return nil, err
