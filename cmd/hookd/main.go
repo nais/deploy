@@ -12,6 +12,7 @@ import (
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	unauthenticated_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/unauthenticated"
+	"github.com/navikt/deployment/pkg/version"
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/nais/liberator/pkg/conftools"
@@ -55,7 +56,12 @@ func run() error {
 		return err
 	}
 
-	log.Info("hookd starting up")
+	// Welcome
+	log.Infof("hookd %s", version.Version())
+	ts, err := version.BuildTime()
+	if err == nil {
+		log.Infof("This version was built %s", ts.Local())
+	}
 
 	for _, line := range conftools.Format(maskedConfig) {
 		log.Info(line)

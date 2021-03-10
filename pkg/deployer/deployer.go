@@ -156,6 +156,16 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 	log.Infof("Deployment request accepted by NAIS deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
 
+	deployRequest.ID = deployStatus.GetRequest().GetID()
+
+	urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
+	log.Infof("Deployment information:")
+	log.Infof("---")
+	log.Infof("id...........: %s", deployRequest.GetID())
+	log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime()))
+	log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
+	log.Infof("---")
+
 	if deployStatus.GetState().Finished() {
 		logDeployStatus(deployStatus)
 		return ErrorStatus(deployStatus)
@@ -166,19 +176,10 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		return nil
 	}
 
-	deployRequest.ID = deployStatus.GetRequest().GetID()
-
-	urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
-	log.Infof("Deployment information")
-	log.Infof("---")
-	log.Infof("id...........: %s", deployRequest.GetID())
-	log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime()))
-	log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
-	log.Infof("---")
-	log.Infof("Waiting for deployment to complete...", deployRequest.GetDeadline().AsTime().Sub(time.Now()))
-
 	var stream pb.Deploy_StatusClient
 	var connectionLost bool
+
+	log.Infof("Waiting for deployment to complete...")
 
 	for ctx.Err() == nil {
 		err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {

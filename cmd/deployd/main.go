@@ -14,6 +14,7 @@ import (
 	"github.com/navikt/deployment/pkg/deployd/deployd"
 	"github.com/navikt/deployment/pkg/deployd/operation"
 	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
+	"github.com/navikt/deployment/pkg/version"
 
 	"github.com/navikt/deployment/pkg/deployd/config"
 	"github.com/navikt/deployment/pkg/deployd/kubeclient"
@@ -44,7 +45,12 @@ func run() error {
 		return err
 	}
 
-	log.Infof("deployd starting up")
+	// Welcome
+	log.Infof("deployd %s", version.Version())
+	ts, err := version.BuildTime()
+	if err == nil {
+		log.Infof("This version was built %s", ts.Local())
+	}
 
 	for _, line := range conftools.Format(maskedConfig) {
 		log.Info(line)
