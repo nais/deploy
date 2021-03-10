@@ -66,7 +66,6 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 		metrics.KubernetesResources.Inc()
 
 		op.StatusChan <- pb.NewInProgressStatus(op.Request, "Successfully applied %s", deployed.GetSelfLink())
-		op.Logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
 		wait.Add(1)
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
