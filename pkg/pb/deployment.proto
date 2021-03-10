@@ -55,11 +55,14 @@ message GetDeploymentOpts {
 message ReportStatusOpts {
 }
 
-service Deploy {
+service Dispatch {
     rpc Deployments (GetDeploymentOpts) returns (stream DeploymentRequest) {
     }
     rpc ReportStatus (DeploymentStatus) returns (ReportStatusOpts) {
     }
+}
+
+service Deploy {
     rpc Deploy (DeploymentRequest) returns (DeploymentStatus) {
     }
     rpc Status (DeploymentRequest) returns (stream DeploymentStatus) {

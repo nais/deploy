@@ -1,4 +1,4 @@
-package interceptor
+package token_interceptor
 
 import (
 	"context"

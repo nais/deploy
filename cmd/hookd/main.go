@@ -10,14 +10,22 @@ import (
 	"os"
 	"os/signal"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	unauthenticated_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/unauthenticated"
+	"github.com/navikt/deployment/pkg/version"
+	"google.golang.org/grpc/keepalive"
+
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
+	"github.com/navikt/deployment/pkg/grpc/deployserver"
+	apikey_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
+	switch_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/switch"
+	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
 
 	gh "github.com/google/go-github/v27/github"
 	"github.com/navikt/deployment/pkg/azure/discovery"
 	"github.com/navikt/deployment/pkg/azure/graphapi"
-	"github.com/navikt/deployment/pkg/grpc/deployserver"
-	"github.com/navikt/deployment/pkg/grpc/interceptor"
+	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
 	"github.com/navikt/deployment/pkg/hookd/api"
 	"github.com/navikt/deployment/pkg/hookd/config"
 	"github.com/navikt/deployment/pkg/hookd/database"
@@ -48,7 +56,12 @@ func run() error {
 		return err
 	}
 
-	log.Info("hookd starting up")
+	// Welcome
+	log.Infof("hookd %s", version.Version())
+	ts, err := version.BuildTime()
+	if err == nil {
+		log.Infof("This version was built %s", ts.Local())
+	}
 
 	for _, line := range conftools.Format(maskedConfig) {
 		log.Info(line)
@@ -86,6 +99,7 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("cannot instantiate Github installation client: %s", err)
 		}
+		log.Infof("Posting deployment statuses to GitHub")
 		githubClient = github.New(installationClient, cfg.BaseURL)
 	} else {
 		githubClient = github.FakeClient()
@@ -103,7 +117,7 @@ func run() error {
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
-	deployServer, err := startGrpcServer(*cfg, db, githubClient, certificates)
+	dispatchServer, err := startGrpcServer(*cfg, db, db, githubClient, certificates)
 	if err != nil {
 		return err
 	}
@@ -115,7 +129,7 @@ func run() error {
 		BaseURL:                     cfg.BaseURL,
 		Certificates:                certificates,
 		DeploymentStore:             db,
-		DeployServer:                deployServer,
+		DispatchServer:              dispatchServer,
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,
@@ -141,30 +155,71 @@ func run() error {
 	return nil
 }
 
-func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (deployserver.DeployServer, error) {
-	deployServer := deployserver.New(db, githubClient)
+func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (dispatchserver.DispatchServer, error) {
+	dispatchServer := dispatchserver.New(db, githubClient)
+	deployServer := deployserver.New(dispatchServer, db)
+	unaryInterceptors := make([]grpc.UnaryServerInterceptor, 0)
+	streamInterceptors := make([]grpc.StreamServerInterceptor, 0)
+
 	serverOpts := make([]grpc.ServerOption, 0)
-	if cfg.GrpcAuthentication {
-		preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
-		err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
-		if err != nil {
-			return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
+	unaryInterceptors = append(unaryInterceptors, grpc_prometheus.UnaryServerInterceptor)
+	streamInterceptors = append(streamInterceptors, grpc_prometheus.StreamServerInterceptor)
+
+	if cfg.GRPC.CliAuthentication || cfg.GRPC.DeploydAuthentication {
+		interceptor := switch_interceptor.NewServerInterceptor()
+
+		unauthenticatedInterceptor := &unauthenticated_interceptor.ServerInterceptor{}
+		interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, unauthenticatedInterceptor)
+		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, unauthenticatedInterceptor)
+
+		if cfg.GRPC.CliAuthentication {
+			apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
+				APIKeyStore: apikeys,
+			}
+			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)
+			log.Infof("Authentication enabled for deployment requests")
 		}
 
-		intercept := &interceptor.ServerInterceptor{
-			Audience:     cfg.Azure.ClientID,
-			Certificates: certificates,
-			PreAuthApps:  preAuthApps,
+		if cfg.GRPC.DeploydAuthentication {
+			preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
+			err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
+			if err != nil {
+				return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
+			}
+
+			tokenInterceptor := &token_interceptor.ServerInterceptor{
+				Audience:     cfg.Azure.ClientID,
+				Certificates: certificates,
+				PreAuthApps:  preAuthApps,
+			}
+
+			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
+			log.Infof("Authentication enabled for deployd connections")
 		}
-		serverOpts = append(
-			serverOpts,
-			grpc.UnaryInterceptor(intercept.UnaryServerInterceptor),
-			grpc.StreamInterceptor(intercept.StreamServerInterceptor),
-		)
+
+		unaryInterceptors = append(unaryInterceptors, interceptor.UnaryServerInterceptor)
+		streamInterceptors = append(streamInterceptors, interceptor.StreamServerInterceptor)
 	}
+
+	serverOpts = append(
+		serverOpts,
+		grpc.ChainUnaryInterceptor(unaryInterceptors...),
+		grpc.ChainStreamInterceptor(streamInterceptors...),
+	)
+
+	serverOpts = append(serverOpts, grpc.KeepaliveParams(keepalive.ServerParameters{
+		Time: cfg.GRPC.KeepaliveInterval,
+	}))
+
 	grpcServer := grpc.NewServer(serverOpts...)
+
+	pb.RegisterDispatchServer(grpcServer, dispatchServer)
 	pb.RegisterDeployServer(grpcServer, deployServer)
-	grpcListener, err := net.Listen("tcp", cfg.GrpcAddress)
+
+	grpc_prometheus.Register(grpcServer)
+	grpc_prometheus.EnableHandlingTimeHistogram()
+
+	grpcListener, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
 		return nil, fmt.Errorf("unable to set up gRPC server: %w", err)
 	}
@@ -176,7 +231,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, githubClien
 		}
 	}()
 
-	return deployServer, nil
+	return dispatchServer, nil
 }
 
 func main() {

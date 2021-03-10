@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/navikt/deployment/pkg/deployd/kubeclient"
 	"github.com/navikt/deployment/pkg/k8sutils"
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
@@ -16,7 +15,6 @@ type Operation struct {
 	Logger     *log.Entry
 	Request    *pb.DeploymentRequest
 	StatusChan chan<- *pb.DeploymentStatus
-	TeamClient kubeclient.TeamClient
 }
 
 func (op *Operation) ExtractResources() ([]unstructured.Unstructured, error) {

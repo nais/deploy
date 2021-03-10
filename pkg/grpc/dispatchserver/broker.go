@@ -1,6 +1,6 @@
 // package deployServer provides message streams between hookd and deployd
 
-package deployserver
+package dispatchserver
 
 import (
 	"context"
@@ -12,20 +12,25 @@ import (
 	"github.com/navikt/deployment/pkg/hookd/metrics"
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
-	requestTimeout  = time.Second * 5
-	errNoRepository = fmt.Errorf("no repository specified")
+	requestTimeout          = time.Second * 5
+	errNoRepository         = fmt.Errorf("no repository specified")
+	errNoGithubDeploymentID = fmt.Errorf("GitHub deployment ID not recorded in database")
 )
 
-func (s *deployServer) githubLoop() {
+func (s *dispatchServer) githubLoop() {
 	for {
 		select {
 		case request := <-s.requests:
 			logger := log.WithFields(request.LogFields())
 			err := s.createGithubDeployment(request)
 			switch err {
+			case errNoRepository:
+				logger.Debugf("Not syncing deployment to GitHub: %s", err)
 			case github.ErrTeamNotExist:
 				logger.Errorf(
 					"Not syncing deployment to GitHub: team %s does not exist on GitHub",
@@ -38,7 +43,7 @@ func (s *deployServer) githubLoop() {
 					request.GetRepository().FullName(),
 				)
 			case nil:
-				logger.Tracef("Synchronized deployment to GitHub")
+				logger.Debugf("Synchronized deployment to GitHub")
 			default:
 				logger.Errorf("Unable to sync deployment to GitHub: %s", err)
 			}
@@ -47,10 +52,10 @@ func (s *deployServer) githubLoop() {
 			logger := log.WithFields(status.LogFields())
 			err := s.createGithubDeploymentStatus(status)
 			switch err {
-			case errNoRepository:
-				logger.Tracef("Not syncing deployment to GitHub: %s", err)
+			case errNoRepository, errNoGithubDeploymentID:
+				logger.Debugf("Not syncing deployment to GitHub: %s", err)
 			case nil:
-				logger.Tracef("Synchronized deployment status to GitHub")
+				logger.Debugf("Synchronized deployment status to GitHub")
 			default:
 				logger.Errorf("Unable to sync deployment status to GitHub: %s", err)
 			}
@@ -58,7 +63,7 @@ func (s *deployServer) githubLoop() {
 	}
 }
 
-func (s *deployServer) createGithubDeployment(request *pb.DeploymentRequest) error {
+func (s *dispatchServer) createGithubDeployment(request *pb.DeploymentRequest) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
@@ -99,7 +104,7 @@ func (s *deployServer) createGithubDeployment(request *pb.DeploymentRequest) err
 	return nil
 }
 
-func (s *deployServer) createGithubDeploymentStatus(status *pb.DeploymentStatus) error {
+func (s *dispatchServer) createGithubDeploymentStatus(status *pb.DeploymentStatus) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
@@ -109,7 +114,7 @@ func (s *deployServer) createGithubDeploymentStatus(status *pb.DeploymentStatus)
 	}
 
 	if deploy.GitHubID == nil {
-		return fmt.Errorf("GitHub deployment ID not recorded in database")
+		return errNoGithubDeploymentID
 	}
 
 	deploymentID := int64(*deploy.GitHubID)
@@ -121,43 +126,53 @@ func (s *deployServer) createGithubDeploymentStatus(status *pb.DeploymentStatus)
 	return nil
 }
 
-func (s *deployServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
+func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
 	err := s.clusterOnline(request.Cluster)
 	if err != nil {
 		return err
 	}
-	err = s.streams[request.Cluster].Send(request)
+	err = s.dispatchStreams[request.Cluster].Send(request)
 	if err != nil {
 		return err
 	}
 
-	log.WithFields(request.LogFields()).Infof("Sent deployment request")
-
 	s.requests <- request
+	log.WithFields(request.LogFields()).Debugf("Deployment request sent to deployd")
 
 	return nil
 }
 
-func (s *deployServer) clusterOnline(clusterName string) error {
-	_, ok := s.streams[clusterName]
+func (s *dispatchServer) clusterOnline(clusterName string) error {
+	_, ok := s.dispatchStreams[clusterName]
 	if !ok {
-		return fmt.Errorf("cluster '%s' is offline", clusterName)
+		return status.Errorf(codes.Unavailable, "cluster '%s' is offline", clusterName)
 	}
 	return nil
 }
 
-func (s *deployServer) HandleDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus) error {
-	dbStatus := database_mapper.DeploymentStatus(status)
+func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.DeploymentStatus) error {
+	maplock.Lock()
+	for _, ch := range s.statusStreams {
+		ch <- st
+	}
+	maplock.Unlock()
+
+	dbStatus := database_mapper.DeploymentStatus(st)
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)
 	if err != nil {
-		return fmt.Errorf("write to database: %s", err)
+		return status.Errorf(codes.Unavailable, "write deployment status to database: %s", err)
 	}
 
-	metrics.UpdateQueue(status)
+	metrics.UpdateQueue(st)
 
-	log.WithFields(status.LogFields()).Infof("Saved deployment status")
+	logger := log.WithFields(st.LogFields())
+	logger.Debugf("Saved deployment status in database")
 
-	s.statuses <- status
+	if st.GetState().Finished() {
+		logger.Infof("Deployment finished")
+	}
+
+	s.statuses <- st
 
 	return nil
 }

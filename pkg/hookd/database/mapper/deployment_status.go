@@ -15,3 +15,14 @@ func DeploymentStatus(status *pb.DeploymentStatus) database.DeploymentStatus {
 		Created:      status.Timestamp(),
 	}
 }
+
+func PbStatus(status database.DeploymentStatus) *pb.DeploymentStatus {
+	return &pb.DeploymentStatus{
+		Request: &pb.DeploymentRequest{
+			ID: status.DeploymentID,
+		},
+		Time:    pb.TimeAsTimestamp(status.Created),
+		State:   pb.DeploymentState(pb.DeploymentState_value[status.Status]),
+		Message: status.Message,
+	}
+}

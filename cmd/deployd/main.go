@@ -13,7 +13,8 @@ import (
 	"github.com/navikt/deployment/pkg/azure/oauth2"
 	"github.com/navikt/deployment/pkg/deployd/deployd"
 	"github.com/navikt/deployment/pkg/deployd/operation"
-	"github.com/navikt/deployment/pkg/grpc/interceptor"
+	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
+	"github.com/navikt/deployment/pkg/version"
 
 	"github.com/navikt/deployment/pkg/deployd/config"
 	"github.com/navikt/deployment/pkg/deployd/kubeclient"
@@ -44,13 +45,18 @@ func run() error {
 		return err
 	}
 
-	log.Infof("deployd starting up")
+	// Welcome
+	log.Infof("deployd %s", version.Version())
+	ts, err := version.BuildTime()
+	if err == nil {
+		log.Infof("This version was built %s", ts.Local())
+	}
 
 	for _, line := range conftools.Format(maskedConfig) {
 		log.Info(line)
 	}
 
-	if cfg.GrpcAuthentication && len(cfg.HookdApplicationID) == 0 {
+	if cfg.GRPC.Authentication && len(cfg.HookdApplicationID) == 0 {
 		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-application-id is not specified")
 	}
 
@@ -66,7 +72,7 @@ func run() error {
 	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
 
 	dialOptions := make([]grpc.DialOption, 0)
-	if !cfg.GrpcUseTLS {
+	if !cfg.GRPC.UseTLS {
 		dialOptions = append(dialOptions, grpc.WithInsecure())
 	} else {
 		tlsOpts := &tls.Config{}
@@ -77,27 +83,27 @@ func run() error {
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
 	}
 
-	if cfg.GrpcAuthentication {
+	if cfg.GRPC.Authentication {
 		tokenConfig := oauth2.Config(oauth2.ClientConfig{
 			ClientID:     cfg.Azure.ClientID,
 			ClientSecret: cfg.Azure.ClientSecret,
 			TenantID:     cfg.Azure.Tenant,
 			Scopes:       []string{fmt.Sprintf("api://%s/.default", cfg.HookdApplicationID)},
 		})
-		intercept := &interceptor.ClientInterceptor{
+		intercept := &token_interceptor.ClientInterceptor{
 			Config:     tokenConfig,
-			RequireTLS: cfg.GrpcUseTLS,
+			RequireTLS: cfg.GRPC.UseTLS,
 		}
 		go intercept.TokenLoop()
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 	}
 
-	grpcConnection, err := grpc.Dial(cfg.GrpcServer, dialOptions...)
+	grpcConnection, err := grpc.Dial(cfg.GRPC.Server, dialOptions...)
 	if err != nil {
 		return fmt.Errorf("connecting to hookd gRPC server: %s", err)
 	}
 
-	grpcClient := pb.NewDeployClient(grpcConnection)
+	grpcClient := pb.NewDispatchClient(grpcConnection)
 
 	defer grpcConnection.Close()
 
@@ -154,10 +160,9 @@ func run() error {
 			Logger:     logger,
 			Request:    req,
 			StatusChan: statusChan,
-			TeamClient: client,
 		}
 
-		deployd.Run(op)
+		deployd.Run(op, client)
 	}
 
 	for {
@@ -188,7 +193,7 @@ func run() error {
 				time.Sleep(5 * time.Second)
 				break
 			} else {
-				logger.Infof("Deployment response sent successfully")
+				logger.Debugf("Deployment response sent successfully")
 			}
 
 		case <-signals:

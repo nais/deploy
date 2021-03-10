@@ -1,12 +1,11 @@
 package strategy
 
 import (
-	"context"
 	"fmt"
 	"time"
 
+	"github.com/navikt/deployment/pkg/deployd/operation"
 	"github.com/navikt/deployment/pkg/pb"
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,12 +16,12 @@ type job struct {
 	client kubernetes.Interface
 }
 
-func (j job) Watch(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error {
+func (j job) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
 	var job *v1.Job
 	var err error
 
 	client := j.client.BatchV1().Jobs(resource.GetNamespace())
-	deadline, _ := ctx.Deadline()
+	deadline, _ := op.Context.Deadline()
 
 	// Wait until the new job object is present in the cluster.
 	for deadline.After(time.Now()) {
@@ -38,17 +37,19 @@ func (j job) Watch(ctx context.Context, logger *log.Entry, resource unstructured
 		}
 
 		if status, condition := jobFailed(job); status {
-			return fmt.Errorf("job failed: %s", condition.String())
+			return pb.NewFailureStatus(op.Request, fmt.Errorf("job failed: %s", condition.String()))
 		}
 
-		logger.Tracef("Still waiting for job to complete...")
+		op.Logger.Debugf("Still waiting for job to complete...")
+
 		time.Sleep(requestInterval)
 	}
 
 	if err != nil {
-		return fmt.Errorf("%s; last error was: %s", ErrDeploymentTimeout, err)
+		return pb.NewErrorStatus(op.Request, fmt.Errorf("%s; last error was: %s", ErrDeploymentTimeout, err))
 	}
-	return ErrDeploymentTimeout
+
+	return pb.NewErrorStatus(op.Request, ErrDeploymentTimeout)
 }
 
 func jobComplete(job *v1.Job) bool {

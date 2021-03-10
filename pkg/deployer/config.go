@@ -1,6 +1,7 @@
 package deployer
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
@@ -11,30 +12,31 @@ import (
 )
 
 type Config struct {
-	Actions         bool
-	APIKey          string
-	DeployServerURL string
-	Cluster         string
-	Environment     string
-	PrintPayload    bool
-	DryRun          bool
-	Owner           string
-	PollInterval    time.Duration
-	Quiet           bool
-	Ref             string
-	Repository      string
-	Resource        []string
-	Retry           bool
-	Team            string
-	Timeout         time.Duration
-	Variables       []string
-	VariablesFile   string
-	Wait            bool
+	APIKey             string
+	Actions            bool
+	Cluster            string
+	DeployServerURL    string
+	DryRun             bool
+	Environment        string
+	GrpcAuthentication bool
+	GrpcUseTLS         bool
+	Owner              string
+	PollInterval       time.Duration
+	PrintPayload       bool
+	Quiet              bool
+	Ref                string
+	Repository         string
+	Resource           []string
+	Retry              bool
+	RetryInterval      time.Duration
+	Team               string
+	Timeout            time.Duration
+	Variables          []string
+	VariablesFile      string
+	Wait               bool
 }
 
-var cfg Config
-
-func init() {
+func InitConfig(cfg *Config) {
 	flag.ErrHelp = fmt.Errorf("\ndeploy prepares and submits Kubernetes resources to a NAIS cluster.\n")
 
 	flag.BoolVar(&cfg.Actions, "actions", getEnvBool("ACTIONS", false), "Use GitHub Actions compatible error and warning messages. (env ACTIONS)")
@@ -43,6 +45,8 @@ func init() {
 	flag.StringVar(&cfg.DeployServerURL, "deploy-server", getEnv("DEPLOY_SERVER", DefaultDeployServer), "URL to API server. (env DEPLOY_SERVER)")
 	flag.BoolVar(&cfg.DryRun, "dry-run", getEnvBool("DRY_RUN", false), "Run templating, but don't actually make any requests. (env DRY_RUN)")
 	flag.StringVar(&cfg.Environment, "environment", os.Getenv("ENVIRONMENT"), "Environment for GitHub deployment. Autodetected from nais.yaml if not specified. (env ENVIRONMENT)")
+	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", getEnvBool("GRPC_AUTHENTICATION", true), "Use team API key to authenticate requests. (env GRPC_AUTHENTICATION)")
+	flag.BoolVar(&cfg.GrpcUseTLS, "grpc-use-tls", getEnvBool("GRPC_USE_TLS", true), "Use encrypted connection for gRPC calls. (env GRPC_USE_TLS)")
 	flag.StringVar(&cfg.Owner, "owner", getEnv("OWNER", DefaultOwner), "Owner of GitHub repository. (env OWNER)")
 	flag.BoolVar(&cfg.PrintPayload, "print-payload", getEnvBool("PRINT_PAYLOAD", false), "Print templated resources to standard output. (env PRINT_PAYLOAD)")
 	flag.BoolVar(&cfg.Quiet, "quiet", getEnvBool("QUIET", false), "Suppress printing of informational messages except errors. (env QUIET)")
@@ -56,9 +60,6 @@ func init() {
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT", false), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
 
-	// Purposely do not expose the PollInterval variable
-	cfg.PollInterval = DefaultPollInterval
-
 	flag.Parse()
 
 	// Both owner and repository must be set in a valid request, but they are not required
@@ -70,8 +71,10 @@ func init() {
 
 // config return user input and default values as Config.
 // Values will be resolved with the following precedence: flags > environment variables > default values.
-func NewConfig() Config {
-	return cfg
+func NewConfig() *Config {
+	return &Config{
+		RetryInterval: time.Second * 5,
+	}
 }
 
 func getEnv(key, fallback string) string {
@@ -106,4 +109,25 @@ func getEnvBool(key string, def bool) bool {
 	}
 
 	return b
+}
+
+func (cfg *Config) Validate() error {
+	if len(cfg.Resource) == 0 {
+		return fmt.Errorf(ResourceRequiredMsg)
+	}
+
+	if len(cfg.Cluster) == 0 {
+		return fmt.Errorf(ClusterRequiredMsg)
+	}
+
+	if len(cfg.APIKey) == 0 {
+		return fmt.Errorf(APIKeyRequiredMsg)
+	}
+
+	_, err := hex.DecodeString(cfg.APIKey)
+	if err != nil {
+		return fmt.Errorf(MalformedAPIKeyMsg)
+	}
+
+	return nil
 }

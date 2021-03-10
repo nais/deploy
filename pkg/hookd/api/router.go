@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/navikt/deployment/pkg/grpc/deployserver"
+	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
 
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
@@ -34,7 +34,7 @@ type Middleware func(http.Handler) http.Handler
 type Config struct {
 	ApiKeyStore                 database.ApiKeyStore
 	BaseURL                     string
-	DeployServer                deployserver.DeployServer
+	DispatchServer              dispatchserver.DispatchServer
 	Certificates                map[string]discovery.CertificateList
 	DeploymentStore             database.DeploymentStore
 	GithubConfig                config.Github
@@ -53,7 +53,7 @@ func New(cfg Config) chi.Router {
 	deploymentHandler := &api_v1_deploy.DeploymentHandler{
 		APIKeyStorage:   cfg.ApiKeyStore,
 		BaseURL:         cfg.BaseURL,
-		DeployServer:    cfg.DeployServer,
+		DispatchServer:  cfg.DispatchServer,
 		DeploymentStore: cfg.DeploymentStore,
 	}
 

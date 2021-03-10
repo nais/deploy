@@ -154,17 +154,6 @@ func serviceAccountSecret(client kubernetes.Interface, serviceAccount v1.Service
 	return client.CoreV1().Secrets(serviceAccount.Namespace).Get(secretRef.Name, metav1.GetOptions{})
 }
 
-func createServiceAccount(client kubernetes.Interface, serviceAccountName, namespace string) (*v1.ServiceAccount, error) {
-	log.Tracef("Attempting to create service account '%s' in namespace %s", serviceAccountName, namespace)
-	serviceAccount := v1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceAccountName,
-			Namespace: namespace,
-		},
-	}
-	return client.CoreV1().ServiceAccounts(namespace).Create(&serviceAccount)
-}
-
 func authInfo(secret v1.Secret) clientcmdapi.AuthInfo {
 	return clientcmdapi.AuthInfo{
 		Token: string(secret.Data["token"]),

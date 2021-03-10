@@ -1,26 +1,81 @@
 package main
 
 import (
-	"net/http"
+	"context"
 	"os"
 
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/navikt/deployment/pkg/deployer"
+	"github.com/navikt/deployment/pkg/pb"
+	"github.com/navikt/deployment/pkg/version"
+
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )
 
 func main() {
+	err := run()
+	if err == nil {
+		return
+	}
+	code := deployer.ErrorExitCode(err)
+	if code == deployer.ExitInvocationFailure {
+		flag.Usage()
+	}
+	log.Errorf("fatal: %s", err)
+	os.Exit(int(code))
+}
+
+func run() error {
+	// Configuration and context
 	cfg := deployer.NewConfig()
-	d := deployer.Deployer{Client: http.DefaultClient, DeployServer: cfg.DeployServerURL}
-	code, err := d.Run(cfg)
+	deployer.InitConfig(cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
 
-	if err != nil {
-		if code == deployer.ExitInvocationFailure {
-			flag.Usage()
-		}
+	// Logging
+	deployer.SetupLogging(*cfg)
 
-		log.Errorf("fatal: %s", err)
+	// Welcome
+	log.Infof("NAIS deploy %s", version.Version())
+	ts, err := version.BuildTime()
+	if err == nil {
+		log.Infof("This version was built %s", ts.Local())
 	}
 
-	os.Exit(int(code))
+	// Prepare request
+	request, err := deployer.Prepare(ctx, cfg)
+	if err != nil {
+		return err
+	}
+
+	// Set up asynchronous gRPC connection
+	grpcConnection, err := deployer.NewGrpcConnection(*cfg)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := grpcConnection.Close()
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	d := deployer.Deployer{
+		Client: pb.NewDeployClient(grpcConnection),
+	}
+
+	if cfg.PrintPayload {
+		marsh := jsonpb.Marshaler{Indent: "  "}
+		err = marsh.Marshal(os.Stdout, request)
+		if err != nil {
+			log.Errorf("print payload: %s", err)
+		}
+	}
+
+	if cfg.DryRun {
+		return nil
+	}
+
+	return d.Deploy(ctx, cfg, request)
 }

@@ -23,7 +23,7 @@ func addCorrelationID(resource *unstructured.Unstructured, correlationID string)
 	resource.SetAnnotations(anno)
 }
 
-func Run(op *operation.Operation) {
+func Run(op *operation.Operation, client kubeclient.TeamClient) {
 	op.Logger.Infof("Starting deployment")
 
 	failure := func(err error) {
@@ -45,7 +45,7 @@ func Run(op *operation.Operation) {
 	wait := sync.WaitGroup{}
 	errors := make(chan error, len(resources))
 
-	for index, resource := range resources {
+	for _, resource := range resources {
 		addCorrelationID(&resource, op.Request.GetID())
 		identifier := k8sutils.ResourceIdentifier(resource)
 
@@ -55,9 +55,9 @@ func Run(op *operation.Operation) {
 			"gvk":       identifier.GroupVersionKind,
 		})
 
-		deployed, err := op.TeamClient.DeployUnstructured(resource)
+		deployed, err := client.DeployUnstructured(resource)
 		if err != nil {
-			err = fmt.Errorf("resource %d: %s", index+1, err)
+			err = fmt.Errorf("%s: %s", resource.GetSelfLink(), err)
 			op.Logger.Error(err)
 			errors <- err
 			break
@@ -65,35 +65,43 @@ func Run(op *operation.Operation) {
 
 		metrics.KubernetesResources.Inc()
 
-		op.Logger.Infof("Resource %d: successfully deployed %s", index+1, deployed.GetSelfLink())
+		op.StatusChan <- pb.NewInProgressStatus(op.Request, "Successfully applied %s", deployed.GetSelfLink())
 		wait.Add(1)
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
 			deadline, _ := op.Context.Deadline()
-			op.Logger.Infof("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
-			err := op.TeamClient.WaitForDeployment(op.Context, op.Logger, resource, op.Request, op.StatusChan)
-			if err != nil {
-				op.Logger.Error(err)
-				errors <- err
+			op.Logger.Debugf("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
+			status := client.WaitForDeployment(op, resource)
+			if status != nil {
+				if status.GetState().IsError() {
+					errors <- fmt.Errorf(status.Message)
+					op.Logger.Error(err)
+				} else {
+					op.Logger.Infof(status.Message)
+				}
+				status.State = pb.DeploymentState_in_progress
+				op.StatusChan <- status
 			}
-			op.Logger.Infof("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
+
+			op.Logger.Debugf("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
 			wait.Done()
 		}(op.Logger, resource)
 	}
 
-	op.StatusChan <- pb.NewInProgressStatus(op.Request)
+	op.StatusChan <- pb.NewInProgressStatus(op.Request, "All resources saved to Kubernetes; waiting for completion")
 
 	go func() {
-		op.Logger.Infof("Waiting for resources to be successfully rolled out")
+		op.Logger.Debugf("Waiting for resources to be successfully rolled out")
 		wait.Wait()
-		op.Logger.Infof("Finished monitoring all resources")
+		op.Logger.Debugf("Finished monitoring all resources")
 
 		errCount := len(errors)
-		if errCount == 0 {
-			op.StatusChan <- pb.NewSuccessStatus(op.Request)
-		} else {
+		if errCount > 0 {
 			err := <-errors
+			close(errors)
 			op.StatusChan <- pb.NewFailureStatus(op.Request, fmt.Errorf("%s (total of %d errors)", err, errCount))
+		} else {
+			op.StatusChan <- pb.NewSuccessStatus(op.Request)
 		}
 	}()
 }

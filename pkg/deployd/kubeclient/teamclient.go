@@ -1,12 +1,11 @@
 package kubeclient
 
 import (
-	"context"
 	"fmt"
 
+	"github.com/navikt/deployment/pkg/deployd/operation"
 	"github.com/navikt/deployment/pkg/deployd/strategy"
 	"github.com/navikt/deployment/pkg/pb"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -25,7 +24,7 @@ type teamClient struct {
 
 type TeamClient interface {
 	DeployUnstructured(resource unstructured.Unstructured) (*unstructured.Unstructured, error)
-	WaitForDeployment(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error
+	WaitForDeployment(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus
 }
 
 // Implement TeamClient interface
@@ -59,7 +58,8 @@ func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*un
 
 // Returns nil after the next generation of the deployment is successfully rolled out,
 // or error if it has not succeeded within the specified deadline.
-func (c *teamClient) WaitForDeployment(ctx context.Context, logger *log.Entry, resource unstructured.Unstructured, request *pb.DeploymentRequest, status chan<- *pb.DeploymentStatus) error {
+func (c *teamClient) WaitForDeployment(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
 	gvk := resource.GroupVersionKind()
-	return strategy.NewWatchStrategy(gvk, c.structuredClient, c.unstructuredClient).Watch(ctx, logger, resource, request, status)
+	strat := strategy.NewWatchStrategy(gvk, c.structuredClient, c.unstructuredClient)
+	return strat.Watch(op, resource)
 }

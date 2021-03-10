@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/navikt/deployment/pkg/grpc/deployserver"
+	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
 	"github.com/navikt/deployment/pkg/hookd/api"
 	"github.com/navikt/deployment/pkg/hookd/api/v1"
 	api_v1_status "github.com/navikt/deployment/pkg/hookd/api/v1/status"
@@ -32,7 +32,7 @@ type testCase struct {
 	Name     string
 	Request  request
 	Response response
-	Setup    func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
+	Setup    func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
 }
 
 func responseData(code int, status *string, message string) response {
@@ -114,7 +114,7 @@ var tests = []testCase{
 				Message: "failed authentication",
 			},
 		},
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 		},
 	},
@@ -134,7 +134,7 @@ var tests = []testCase{
 				Message: "invalid status request: no deployment ID specified",
 			},
 		},
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
 		},
 	},
@@ -150,7 +150,7 @@ var tests = []testCase{
 				Message: "failed authentication",
 			},
 		},
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, nil).Once()
 		},
 	},
@@ -161,7 +161,7 @@ var tests = []testCase{
 			Body: validPayload,
 		},
 		Response: responseData(502, nil, "something wrong happened when communicating with api key service"),
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(database.ApiKeys{}, genericError).Once()
 		},
 	},
@@ -172,7 +172,7 @@ var tests = []testCase{
 			Body: validPayload,
 		},
 		Response: responseData(503, nil, "unable to determine deployment status; database is unavailable"),
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 			deployStore.On("DeploymentStatus", mock.Anything, deploymentID).Return(nil, genericError).Once()
 		},
@@ -184,7 +184,7 @@ var tests = []testCase{
 			Body: validPayload,
 		},
 		Response: responseData(404, nil, "deployment not found"),
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 			deployStore.On("DeploymentStatus", mock.Anything, deploymentID).Return(nil, database.ErrNotFound).Once()
 		},
@@ -196,7 +196,7 @@ var tests = []testCase{
 			Body: validPayload,
 		},
 		Response: responseData(200, stringp("success"), "all resources deployed"),
-		Setup: func(server *deployserver.MockDeployServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
+		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			apiKeyStore.On("ApiKeys", mock.Anything, "myteam").Return(validApiKeys, nil).Once()
 			deployStore.On("DeploymentStatus", mock.Anything, deploymentID).Return(
 				[]database.DeploymentStatus{
@@ -253,7 +253,7 @@ func subTest(t *testing.T, test testCase) {
 	}
 
 	apiKeyStore := &database.MockApiKeyStore{}
-	deployServer := &deployserver.MockDeployServer{}
+	deployServer := &dispatchserver.MockDispatchServer{}
 	deployStore := &database.MockDeploymentStore{}
 
 	if test.Setup != nil {
@@ -262,7 +262,7 @@ func subTest(t *testing.T, test testCase) {
 
 	handler := api.New(api.Config{
 		ApiKeyStore:     apiKeyStore,
-		DeployServer:    deployServer,
+		DispatchServer:  deployServer,
 		DeploymentStore: deployStore,
 		MetricsPath:     "/metrics",
 	})
