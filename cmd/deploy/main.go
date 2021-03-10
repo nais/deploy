@@ -35,6 +35,9 @@ func run() error {
 	// Logging
 	deployer.SetupLogging(*cfg)
 
+	// Welcome
+	log.Infof("Starting NAIS deploy")
+
 	// Prepare request
 	request, err := deployer.Prepare(ctx, cfg)
 	if err != nil {

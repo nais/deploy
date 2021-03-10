@@ -29,27 +29,27 @@ type authData struct {
 func extractAuthFromContext(ctx context.Context) (*authData, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "metadata is not provided")
+		return nil, status.Errorf(codes.Unauthenticated, "request is not signed with API key; metadata is missing from request headers")
 	}
 
 	hmac := md["authorization"]
 	if len(hmac) == 0 {
-		return nil, status.Errorf(codes.Unauthenticated, "authorization is not provided")
+		return nil, status.Errorf(codes.Unauthenticated, "request is not signed with API key")
 	}
 
 	timestamp := md["timestamp"]
 	if len(timestamp) == 0 {
-		return nil, status.Errorf(codes.Unauthenticated, "timestamp is not provided")
+		return nil, status.Errorf(codes.Unauthenticated, "API key signature timestamp is not provided")
 	}
 
 	team := md["team"]
 	if len(team) == 0 {
-		return nil, status.Errorf(codes.Unauthenticated, "team is not provided")
+		return nil, status.Errorf(codes.Unauthenticated, "team is not provided in API key signature metadata")
 	}
 
 	mac, err := hex.DecodeString(hmac[0])
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "wrong signature format")
+		return nil, status.Errorf(codes.InvalidArgument, "wrong API key signature format")
 	}
 
 	return &authData{

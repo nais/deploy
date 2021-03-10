@@ -52,5 +52,5 @@ func logDeployStatus(status *pb.DeploymentStatus) {
 	case pb.DeploymentState_failure, pb.DeploymentState_error:
 		fn = log.Errorf
 	}
-	fn("Deployment %s: %s", status.GetState(), status.GetMessage())
+	fn("Status: %s: %s", status.GetState(), status.GetMessage())
 }

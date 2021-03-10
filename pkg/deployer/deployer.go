@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/navikt/deployment/pkg/hookd/logproxy"
 	"github.com/navikt/deployment/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -152,7 +154,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		return ErrorWrap(ExitNoDeployment, err)
 	}
 
-	log.Infof("Deployment request sent.")
+	log.Infof("Deployment request accepted by NAIS deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
 
 	if deployStatus.GetState().Finished() {
 		logDeployStatus(deployStatus)
@@ -165,6 +167,15 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	}
 
 	deployRequest.ID = deployStatus.GetRequest().GetID()
+
+	urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
+	log.Infof("Deployment information")
+	log.Infof("---")
+	log.Infof("id...........: %s", deployRequest.GetID())
+	log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime()))
+	log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
+	log.Infof("---")
+	log.Infof("Waiting for deployment to complete...", deployRequest.GetDeadline().AsTime().Sub(time.Now()))
 
 	var stream pb.Deploy_StatusClient
 	var connectionLost bool
