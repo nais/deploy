@@ -56,8 +56,8 @@ jobs:
         DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
       run: |
         docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
-        docker tag ${image}:latest ${dockerhub_image}:${deploy_action_api_version}
-        docker push ${dockerhub_image}:${deploy_action_api_version}
+        docker tag ${image}:latest ${dockerhub_image}:${deploy_action_api_version}-grpc
+        docker push ${dockerhub_image}:${deploy_action_api_version}-grpc
 
   release:
     name: Release versioned GitHub Action
