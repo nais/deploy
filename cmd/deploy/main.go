@@ -7,6 +7,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/navikt/deployment/pkg/deployer"
 	"github.com/navikt/deployment/pkg/pb"
+	"github.com/navikt/deployment/pkg/version"
 
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -36,7 +37,11 @@ func run() error {
 	deployer.SetupLogging(*cfg)
 
 	// Welcome
-	log.Infof("Starting NAIS deploy")
+	log.Infof("NAIS deploy %s", version.Version())
+	ts, err := version.BuildTime()
+	if err == nil {
+		log.Infof("This version was built %s", ts.Local())
+	}
 
 	// Prepare request
 	request, err := deployer.Prepare(ctx, cfg)

@@ -1,5 +1,10 @@
 PROTOC = $(shell which protoc)
 PROTOC_GEN_GO = $(shell which protoc-gen-go)
+BUILDTIME = $(shell date "+%s")
+DATE = $(shell date "+%Y-%m-%d")
+LAST_COMMIT = $(shell git rev-parse --short HEAD)
+VERSION ?= $(DATE)-$(LAST_COMMIT)
+LDFLAGS := -X github.com/navikt/deployment/pkg/version.Revision=$(LAST_COMMIT) -X github.com/navikt/deployment/pkg/version.Date=$(DATE) -X github.com/navikt/deployment/pkg/version.BuildUnixTime=$(BUILDTIME)
 
 .PHONY: all proto hookd deployd token-generator deploy provision alpine test docker upload
 
@@ -13,16 +18,19 @@ proto:
 	$(PROTOC) --go-grpc_opt=paths=source_relative --go_opt=paths=source_relative --go_out=. --go-grpc_out=. pkg/pb/deployment.proto
 
 hookd:
-	go build -o bin/hookd cmd/hookd/main.go
+	go build -o bin/hookd -ldflags "-s $(LDFLAGS)" cmd/hookd/main.go
 
 deployd:
-	go build -o bin/deployd cmd/deployd/main.go
+	go build -o bin/deployd -ldflags "-s $(LDFLAGS)" cmd/deployd/main.go
 
 deploy:
-	go build -o bin/deploy cmd/deploy/main.go
+	go build -o bin/deploy -ldflags "-s $(LDFLAGS)" cmd/deploy/main.go
 
 crypt:
-	go build -o bin/crypt cmd/crypt/main.go
+	go build -o bin/crypt -ldflags "-s $(LDFLAGS)" cmd/crypt/main.go
+
+provision:
+	go build -o bin/provision -ldflags "-s $(LDFLAGS)" cmd/provision/main.go
 
 mocks:
 	cd pkg/hookd/database && mockery --inpackage --all --case snake
@@ -33,26 +41,23 @@ mocks:
 deploy-release-linux:
 	GOOS=linux \
 	GOARCH=amd64 \
-	go build -o deploy-linux -ldflags="-s -w" cmd/deploy/main.go
+	go build -o deploy-linux -ldflags="-s -w $(LDFLAGS)" cmd/deploy/main.go
 
 deploy-release-darwin:
 	GOOS=darwin \
 	GOARCH=amd64 \
-	go build -o deploy-darwin -ldflags="-s -w" cmd/deploy/main.go
+	go build -o deploy-darwin -ldflags="-s -w $(LDFLAGS)" cmd/deploy/main.go
 
 deploy-release-windows:
 	GOOS=windows \
 	GOARCH=amd64 \
-	go build -o deploy-windows -ldflags="-s -w" cmd/deploy/main.go
-
-provision:
-	go build -o bin/provision cmd/provision/*.go
+	go build -o deploy-windows -ldflags="-s -w $(LDFLAGS)" cmd/deploy/main.go
 
 alpine:
-	go build -a -installsuffix cgo -o bin/hookd cmd/hookd/main.go
-	go build -a -installsuffix cgo -o bin/deployd cmd/deployd/main.go
-	go build -a -installsuffix cgo -o bin/deploy cmd/deploy/main.go
-	go build -a -installsuffix cgo -o bin/provision cmd/provision/*.go
+	go build -a -installsuffix cgo -o bin/hookd -ldflags "-s $(LDFLAGS)" cmd/hookd/main.go
+	go build -a -installsuffix cgo -o bin/deployd -ldflags "-s $(LDFLAGS)" cmd/deployd/main.go
+	go build -a -installsuffix cgo -o bin/deploy -ldflags "-s $(LDFLAGS)" cmd/deploy/main.go
+	go build -a -installsuffix cgo -o bin/provision -ldflags "-s $(LDFLAGS)" cmd/provision/*.go
 
 test:
 	go test ./... -count=1
