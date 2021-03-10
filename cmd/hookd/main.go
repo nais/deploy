@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	unauthenticated_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/unauthenticated"
 	"google.golang.org/grpc/keepalive"
 
@@ -151,8 +152,12 @@ func run() error {
 func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (dispatchserver.DispatchServer, error) {
 	dispatchServer := dispatchserver.New(db, githubClient)
 	deployServer := deployserver.New(dispatchServer, db)
+	unaryInterceptors := make([]grpc.UnaryServerInterceptor, 0)
+	streamInterceptors := make([]grpc.StreamServerInterceptor, 0)
 
 	serverOpts := make([]grpc.ServerOption, 0)
+	unaryInterceptors = append(unaryInterceptors, grpc_prometheus.UnaryServerInterceptor)
+	streamInterceptors = append(streamInterceptors, grpc_prometheus.StreamServerInterceptor)
 
 	if cfg.GRPC.CliAuthentication || cfg.GRPC.DeploydAuthentication {
 		interceptor := switch_interceptor.NewServerInterceptor()
@@ -186,12 +191,15 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 			log.Infof("Authentication enabled for deployd connections")
 		}
 
-		serverOpts = append(
-			serverOpts,
-			grpc.UnaryInterceptor(interceptor.UnaryServerInterceptor),
-			grpc.StreamInterceptor(interceptor.StreamServerInterceptor),
-		)
+		unaryInterceptors = append(unaryInterceptors, interceptor.UnaryServerInterceptor)
+		streamInterceptors = append(streamInterceptors, interceptor.StreamServerInterceptor)
 	}
+
+	serverOpts = append(
+		serverOpts,
+		grpc.ChainUnaryInterceptor(unaryInterceptors...),
+		grpc.ChainStreamInterceptor(streamInterceptors...),
+	)
 
 	serverOpts = append(serverOpts, grpc.KeepaliveParams(keepalive.ServerParameters{
 		Time: cfg.GRPC.KeepaliveInterval,
@@ -201,6 +209,9 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 
 	pb.RegisterDispatchServer(grpcServer, dispatchServer)
 	pb.RegisterDeployServer(grpcServer, deployServer)
+
+	grpc_prometheus.Register(grpcServer)
+	grpc_prometheus.EnableHandlingTimeHistogram()
 
 	grpcListener, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
