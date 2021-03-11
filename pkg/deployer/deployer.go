@@ -159,6 +159,14 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 		deployRequest.ID = deployStatus.GetRequest().GetID()
 
+		urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
+		log.Infof("Deployment information:")
+		log.Infof("---")
+		log.Infof("id...........: %s", deployRequest.GetID())
+		log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime()))
+		log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
+		log.Infof("---")
+
 		return nil
 	}
 
@@ -166,14 +174,6 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	if err != nil {
 		return err
 	}
-
-	urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
-	log.Infof("Deployment information:")
-	log.Infof("---")
-	log.Infof("id...........: %s", deployRequest.GetID())
-	log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime()))
-	log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
-	log.Infof("---")
 
 	if deployStatus.GetState().Finished() {
 		logDeployStatus(deployStatus)
@@ -217,7 +217,6 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 			}
 			logDeployStatus(deployStatus)
 			if deployStatus.GetState() == pb.DeploymentState_inactive {
-				log.Warnf(deployStatus.Message)
 				log.Warnf("NAIS deploy has been restarted. Re-sending deployment request...")
 				err = sendDeploymentRequest()
 				if err != nil {
