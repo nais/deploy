@@ -87,7 +87,12 @@ func (a application) Watch(op *operation.Operation, resource unstructured.Unstru
 
 	for {
 		select {
-		case watchEvent := <-eventWatcher.ResultChan():
+		case watchEvent, ok := <-eventWatcher.ResultChan():
+			if !ok {
+				logger.Tracef("Event watcher channel closed")
+				return ErrDeploymentTimeout
+			}
+
 			event, ok := watchEvent.Object.(*v1.Event)
 			if !ok {
 				// failed cast
