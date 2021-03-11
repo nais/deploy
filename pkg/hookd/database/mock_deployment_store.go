@@ -4,6 +4,7 @@ package database
 
 import (
 	context "context"
+	time "time"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -98,6 +99,29 @@ func (_m *MockDeploymentStore) Deployments(ctx context.Context, team string, lim
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
 		r1 = rf(ctx, team, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// HistoricDeployments provides a mock function with given fields: ctx, cluster, timestamp
+func (_m *MockDeploymentStore) HistoricDeployments(ctx context.Context, cluster string, timestamp time.Time) ([]*Deployment, error) {
+	ret := _m.Called(ctx, cluster, timestamp)
+
+	var r0 []*Deployment
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time) []*Deployment); ok {
+		r0 = rf(ctx, cluster, timestamp)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*Deployment)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time) error); ok {
+		r1 = rf(ctx, cluster, timestamp)
 	} else {
 		r1 = ret.Error(1)
 	}

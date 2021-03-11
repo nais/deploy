@@ -111,6 +111,7 @@ func run() error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
+	startupTime := time.Now()
 	statusChan := make(chan *pb.DeploymentStatus, 1024)
 	requestChan := make(chan *pb.DeploymentRequest, 1024)
 
@@ -120,7 +121,8 @@ func run() error {
 			time.Sleep(requestBackoff)
 
 			deploymentStream, err := grpcClient.Deployments(context.Background(), &pb.GetDeploymentOpts{
-				Cluster: cfg.Cluster,
+				Cluster:     cfg.Cluster,
+				StartupTime: pb.TimeAsTimestamp(startupTime),
 			})
 
 			if err != nil {

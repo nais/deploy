@@ -14,6 +14,7 @@ type Deployment struct {
 	GitHubID         *int      `json:"githubID"`
 	GitHubRepository *string   `json:"githubRepository"`
 	Cluster          *string   `json:"cluster"`
+	State            *string   `json:"state"`
 }
 
 type DeploymentStatus struct {
@@ -38,6 +39,7 @@ type DeploymentResource struct {
 type DeploymentStore interface {
 	Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error)
 	Deployment(ctx context.Context, id string) (*Deployment, error)
+	HistoricDeployments(ctx context.Context, cluster string, timestamp time.Time) ([]*Deployment, error)
 	WriteDeployment(ctx context.Context, deployment Deployment) error
 	DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error)
 	WriteDeploymentStatus(ctx context.Context, status DeploymentStatus) error
@@ -60,6 +62,33 @@ func scanDeployment(rows pgx.Rows) (*Deployment, error) {
 	)
 
 	return deployment, err
+}
+
+func (db *database) HistoricDeployments(ctx context.Context, cluster string, timestamp time.Time) ([]*Deployment, error) {
+	query := `
+SELECT id, team, created, github_id, github_repository, cluster
+FROM deployment
+WHERE (cluster = $1 AND created < $2 AND (state = 'in_progress' OR state = 'queued'));
+`
+	rows, err := db.timedQuery(ctx, query, cluster, timestamp)
+
+	if err != nil {
+		return nil, err
+	}
+
+	deployments := make([]*Deployment, 0)
+	defer rows.Close()
+	for rows.Next() {
+		deployment, err := scanDeployment(rows)
+
+		if err != nil {
+			return nil, err
+		}
+
+		deployments = append(deployments, deployment)
+	}
+
+	return deployments, nil
 }
 
 func (db *database) Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error) {
@@ -184,6 +213,16 @@ VALUES ($1, $2, $3, $4, $5);
 		status.Status,
 		status.Message,
 		status.Created,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	query = `UPDATE deployment SET state = $1 WHERE id = $2;`
+	_, err = db.conn.Exec(ctx, query,
+		status.Status,
+		status.DeploymentID,
 	)
 
 	return err

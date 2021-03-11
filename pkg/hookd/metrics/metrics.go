@@ -87,6 +87,8 @@ func UpdateQueue(status *pb.DeploymentStatus) {
 		leadTime.With(labels).Observe(ttd)
 
 		fallthrough
+	case pb.DeploymentState_inactive:
+		fallthrough
 	case pb.DeploymentState_error:
 		fallthrough
 	case pb.DeploymentState_failure:

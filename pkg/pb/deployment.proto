@@ -50,6 +50,7 @@ message DeploymentStatus {
 
 message GetDeploymentOpts {
     string cluster = 1;
+    google.protobuf.Timestamp startupTime = 2;
 }
 
 message ReportStatusOpts {

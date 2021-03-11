@@ -26,3 +26,16 @@ func PbStatus(status database.DeploymentStatus) *pb.DeploymentStatus {
 		Message: status.Message,
 	}
 }
+
+func PbRequest(deploy database.Deployment) *pb.DeploymentRequest {
+	var cluster string
+	if deploy.Cluster != nil {
+		cluster = *deploy.Cluster
+	}
+	return &pb.DeploymentRequest{
+		ID:      deploy.ID,
+		Time:    pb.TimeAsTimestamp(deploy.Created),
+		Cluster: cluster,
+		Team:    deploy.Team,
+	}
+}

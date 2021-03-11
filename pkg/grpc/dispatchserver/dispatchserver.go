@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/navikt/deployment/pkg/hookd/database"
+	database_mapper "github.com/navikt/deployment/pkg/hookd/database/mapper"
 	"github.com/navikt/deployment/pkg/hookd/github"
 	"github.com/navikt/deployment/pkg/hookd/metrics"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/navikt/deployment/pkg/pb"
 )
@@ -63,6 +67,23 @@ func (s *dispatchServer) reportOnlineClusters() {
 	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))
 }
 
+func (s *dispatchServer) invalidateHistoric(ctx context.Context, cluster string, timestamp time.Time) error {
+	deploys, err := s.db.HistoricDeployments(ctx, cluster, timestamp)
+	if err != nil {
+		return err
+	}
+
+	for _, deploy := range deploys {
+		req := database_mapper.PbRequest(*deploy)
+		err = s.HandleDeploymentStatus(ctx, pb.NewInactiveStatus(req))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispatch_DeploymentsServer) error {
 	err := s.clusterOnline(opts.Cluster)
 	if err == nil {
@@ -74,6 +95,12 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
 	maplock.Unlock()
 	s.reportOnlineClusters()
+
+	// invalidate older deployments
+	err = s.invalidateHistoric(stream.Context(), opts.GetCluster(), opts.GetStartupTime().AsTime())
+	if err != nil {
+		return status.Errorf(codes.Unavailable, err.Error())
+	}
 
 	// wait for disconnect
 	<-stream.Context().Done()

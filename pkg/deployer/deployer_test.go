@@ -182,6 +182,22 @@ func TestDeployWithStatusRetry(t *testing.T) {
 	client.On("Status", ctx, request).Return(nil, status.Errorf(codes.Unavailable, "still down")).Times(3)
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
+	// come back to discover deployment is gone
+	statusClient.On("Recv").Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_inactive,
+		Message: "up again but lost",
+	}, nil).Once()
+
+	// re-send deployment request
+	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+		Request: request,
+		Time:    pb.TimeAsTimestamp(time.Now()),
+		State:   pb.DeploymentState_queued,
+		Message: "queued",
+	}, nil).Once()
+
 	// come back to discover a successful deployment
 	statusClient.On("Recv").Return(&pb.DeploymentStatus{
 		Request: request,

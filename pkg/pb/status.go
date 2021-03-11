@@ -10,6 +10,7 @@ func (x DeploymentState) Finished() bool {
 	case DeploymentState_success:
 	case DeploymentState_error:
 	case DeploymentState_failure:
+	case DeploymentState_inactive:
 	default:
 		return false
 	}
@@ -20,6 +21,7 @@ func (x DeploymentState) IsError() bool {
 	switch x {
 	case DeploymentState_error:
 	case DeploymentState_failure:
+	case DeploymentState_inactive:
 	default:
 		return false
 	}
@@ -49,6 +51,15 @@ func NewInProgressStatus(req *DeploymentRequest, format string, args ...interfac
 		Request: req,
 		Message: fmt.Sprintf(format, args...),
 		State:   DeploymentState_in_progress,
+		Time:    TimeAsTimestamp(time.Now()),
+	}
+}
+
+func NewInactiveStatus(req *DeploymentRequest) *DeploymentStatus {
+	return &DeploymentStatus{
+		Request: req,
+		Message: "Deployment has been lost.",
+		State:   DeploymentState_inactive,
 		Time:    TimeAsTimestamp(time.Now()),
 	}
 }

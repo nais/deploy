@@ -141,22 +141,31 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
 
-	err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {
-		deployStatus, err = d.Client.Deploy(ctx, deployRequest)
-		return err
-	})
+	sendDeploymentRequest := func() error {
+		err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {
+			deployStatus, err = d.Client.Deploy(ctx, deployRequest)
+			return err
+		})
 
-	if err != nil {
-		err = fmt.Errorf(formatGrpcError(err))
-		if ctx.Err() != nil {
-			return Errorf(ExitTimeout, "deployment timed out: %w", ctx.Err())
+		if err != nil {
+			err = fmt.Errorf(formatGrpcError(err))
+			if ctx.Err() != nil {
+				return Errorf(ExitTimeout, "deployment timed out: %w", ctx.Err())
+			}
+			return ErrorWrap(ExitNoDeployment, err)
 		}
-		return ErrorWrap(ExitNoDeployment, err)
+
+		log.Infof("Deployment request accepted by NAIS deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
+
+		deployRequest.ID = deployStatus.GetRequest().GetID()
+
+		return nil
 	}
 
-	log.Infof("Deployment request accepted by NAIS deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
-
-	deployRequest.ID = deployStatus.GetRequest().GetID()
+	err = sendDeploymentRequest()
+	if err != nil {
+		return err
+	}
 
 	urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
 	log.Infof("Deployment information:")
@@ -207,7 +216,14 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 				}
 			}
 			logDeployStatus(deployStatus)
-			if deployStatus.GetState().Finished() {
+			if deployStatus.GetState() == pb.DeploymentState_inactive {
+				log.Warnf(deployStatus.Message)
+				log.Warnf("NAIS deploy has been restarted. Re-sending deployment request...")
+				err = sendDeploymentRequest()
+				if err != nil {
+					return err
+				}
+			} else if deployStatus.GetState().Finished() {
 				return ErrorStatus(deployStatus)
 			}
 		}
