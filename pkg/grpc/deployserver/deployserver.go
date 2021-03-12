@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var ErrDatabaseUnavailable = status.Errorf(codes.Unavailable, "database is unavailable; try again later")
+
 type deployServer struct {
 	pb.UnimplementedDeployServer
 	dispatchServer  dispatchserver.DispatchServer
@@ -81,7 +83,7 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 			})
 
 			if err != nil {
-				return status.Errorf(codes.Unavailable, "database is unavailable; try again later")
+				return ErrDatabaseUnavailable
 			}
 		}
 	}
@@ -103,7 +105,7 @@ func (ds *deployServer) Deploy(ctx context.Context, request *pb.DeploymentReques
 	err = ds.addToDatabase(ctx, request)
 	if err != nil {
 		logger.Errorf("Write deployment to database: %s", err)
-		return nil, err
+		return nil, ErrDatabaseUnavailable
 	}
 	logger.Debugf("Deployment committed to database")
 

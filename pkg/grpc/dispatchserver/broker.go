@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/navikt/deployment/pkg/hookd/database"
 	database_mapper "github.com/navikt/deployment/pkg/hookd/database/mapper"
 	"github.com/navikt/deployment/pkg/hookd/github"
 	"github.com/navikt/deployment/pkg/hookd/metrics"
@@ -160,6 +161,9 @@ func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.Depl
 	dbStatus := database_mapper.DeploymentStatus(st)
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)
 	if err != nil {
+		if database.IsErrForeignKeyViolation(err) {
+			return status.Errorf(codes.FailedPrecondition, err.Error())
+		}
 		return status.Errorf(codes.Unavailable, "write deployment status to database: %s", err)
 	}
 
