@@ -79,9 +79,6 @@ func run() error {
 	} else {
 		tlsOpts := &tls.Config{}
 		cred := credentials.NewTLS(tlsOpts)
-		if err != nil {
-			return fmt.Errorf("gRPC configured to use TLS, but system-wide CA certificate bundle cannot be loaded")
-		}
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(cred))
 	}
 
