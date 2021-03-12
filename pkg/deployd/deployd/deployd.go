@@ -49,7 +49,7 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 		addCorrelationID(&resource, op.Request.GetID())
 		identifier := k8sutils.ResourceIdentifier(resource)
 
-		op.Logger = op.Logger.WithFields(log.Fields{
+		logger := op.Logger.WithFields(log.Fields{
 			"name":      identifier.Name,
 			"namespace": identifier.Namespace,
 			"gvk":       identifier.GroupVersionKind,
@@ -57,8 +57,8 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 
 		deployed, err := client.DeployUnstructured(resource)
 		if err != nil {
-			err = fmt.Errorf("%s: %s", resource.GetSelfLink(), err)
-			op.Logger.Error(err)
+			err = fmt.Errorf("%s: %s", identifier.String(), err)
+			logger.Error(err)
 			errors <- err
 			break
 		}
@@ -85,7 +85,7 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 
 			op.Logger.Debugf("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
 			wait.Done()
-		}(op.Logger, resource)
+		}(logger, resource)
 	}
 
 	op.StatusChan <- pb.NewInProgressStatus(op.Request, "All resources saved to Kubernetes; waiting for completion")
