@@ -83,9 +83,13 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 			})
 
 			if err != nil {
+				logger.Error(err)
 				return ErrDatabaseUnavailable
 			}
 		}
+	} else {
+		logger.Error(err)
+		return ErrDatabaseUnavailable
 	}
 
 	return nil
@@ -105,7 +109,7 @@ func (ds *deployServer) Deploy(ctx context.Context, request *pb.DeploymentReques
 	err = ds.addToDatabase(ctx, request)
 	if err != nil {
 		logger.Errorf("Write deployment to database: %s", err)
-		return nil, ErrDatabaseUnavailable
+		return nil, err
 	}
 	logger.Debugf("Deployment committed to database")
 
