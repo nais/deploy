@@ -117,10 +117,11 @@ func run() error {
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
-	dispatchServer, err := startGrpcServer(*cfg, db, db, githubClient, certificates)
+	grpcServer, dispatchServer, err := startGrpcServer(*cfg, db, db, githubClient, certificates)
 	if err != nil {
 		return err
 	}
+	defer grpcServer.Stop()
 
 	log.Infof("gRPC server started")
 
@@ -150,12 +151,14 @@ func run() error {
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
-	<-signals
+	sig := <-signals
+
+	log.Infof("Received signal %s (%d), exiting...", sig, sig)
 
 	return nil
 }
 
-func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (dispatchserver.DispatchServer, error) {
+func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (*grpc.Server, dispatchserver.DispatchServer, error) {
 	dispatchServer := dispatchserver.New(db, githubClient)
 	deployServer := deployserver.New(dispatchServer, db)
 	unaryInterceptors := make([]grpc.UnaryServerInterceptor, 0)
@@ -184,7 +187,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 			preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
 			err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
 			if err != nil {
-				return nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
+				return nil, nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
 			}
 
 			tokenInterceptor := &token_interceptor.ServerInterceptor{
@@ -221,7 +224,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 
 	grpcListener, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
-		return nil, fmt.Errorf("unable to set up gRPC server: %w", err)
+		return nil, nil, fmt.Errorf("unable to set up gRPC server: %w", err)
 	}
 	go func() {
 		err := grpcServer.Serve(grpcListener)
@@ -231,7 +234,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		}
 	}()
 
-	return dispatchServer, nil
+	return grpcServer, dispatchServer, nil
 }
 
 func main() {
