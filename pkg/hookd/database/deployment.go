@@ -47,7 +47,7 @@ type DeploymentStore interface {
 	WriteDeploymentResource(ctx context.Context, resource DeploymentResource) error
 }
 
-var _ DeploymentStore = &database{}
+var _ DeploymentStore = &Database{}
 
 func scanDeployment(rows pgx.Rows) (*Deployment, error) {
 	deployment := &Deployment{}
@@ -64,7 +64,7 @@ func scanDeployment(rows pgx.Rows) (*Deployment, error) {
 	return deployment, err
 }
 
-func (db *database) HistoricDeployments(ctx context.Context, cluster string, timestamp time.Time) ([]*Deployment, error) {
+func (db *Database) HistoricDeployments(ctx context.Context, cluster string, timestamp time.Time) ([]*Deployment, error) {
 	query := `
 SELECT id, team, created, github_id, github_repository, cluster
 FROM deployment
@@ -91,7 +91,7 @@ WHERE (cluster = $1 AND created < $2 AND (state = 'in_progress' OR state = 'queu
 	return deployments, nil
 }
 
-func (db *database) Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error) {
+func (db *Database) Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error) {
 	query := `
 SELECT id, team, created, github_id, github_repository, cluster
 FROM deployment
@@ -120,7 +120,7 @@ LIMIT $2;
 	return deployments, nil
 }
 
-func (db *database) Deployment(ctx context.Context, id string) (*Deployment, error) {
+func (db *Database) Deployment(ctx context.Context, id string) (*Deployment, error) {
 	query := `SELECT id, team, created, github_id, github_repository, cluster FROM deployment WHERE id = $1;`
 	rows, err := db.timedQuery(ctx, query, id)
 
@@ -142,7 +142,7 @@ func (db *database) Deployment(ctx context.Context, id string) (*Deployment, err
 	return nil, ErrNotFound
 }
 
-func (db *database) WriteDeployment(ctx context.Context, deployment Deployment) error {
+func (db *Database) WriteDeployment(ctx context.Context, deployment Deployment) error {
 	var query string
 
 	query = `
@@ -163,7 +163,7 @@ SET github_id = EXCLUDED.github_id, github_repository = EXCLUDED.github_reposito
 	return err
 }
 
-func (db *database) DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error) {
+func (db *Database) DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error) {
 	query := `SELECT id, deployment_id, status, message, created FROM deployment_status WHERE deployment_id = $1 ORDER BY created DESC;`
 	rows, err := db.timedQuery(ctx, query, deploymentID)
 
@@ -200,7 +200,7 @@ func (db *database) DeploymentStatus(ctx context.Context, deploymentID string) (
 	return statuses, nil
 }
 
-func (db *database) WriteDeploymentStatus(ctx context.Context, status DeploymentStatus) error {
+func (db *Database) WriteDeploymentStatus(ctx context.Context, status DeploymentStatus) error {
 	var query string
 
 	query = `
@@ -228,7 +228,7 @@ VALUES ($1, $2, $3, $4, $5);
 	return err
 }
 
-func (db *database) DeploymentResources(ctx context.Context, deploymentID string) ([]DeploymentResource, error) {
+func (db *Database) DeploymentResources(ctx context.Context, deploymentID string) ([]DeploymentResource, error) {
 	query := `SELECT id, deployment_id, index, "group", version, kind, name, namespace FROM deployment_resource WHERE deployment_id = $1 ORDER BY index ASC;`
 	rows, err := db.timedQuery(ctx, query, deploymentID)
 
@@ -264,7 +264,7 @@ func (db *database) DeploymentResources(ctx context.Context, deploymentID string
 	return resources, nil
 }
 
-func (db *database) WriteDeploymentResource(ctx context.Context, resource DeploymentResource) error {
+func (db *Database) WriteDeploymentResource(ctx context.Context, resource DeploymentResource) error {
 	var query string
 
 	query = `

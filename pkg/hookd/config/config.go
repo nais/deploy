@@ -34,17 +34,18 @@ type GRPC struct {
 }
 
 type Config struct {
-	Azure                 Azure  `json:"azure"`
-	BaseURL               string `json:"base-url"`
-	DatabaseEncryptionKey string `json:"database-encryption-key"`
-	DatabaseURL           string `json:"database-url"`
-	Github                Github `json:"github"`
-	GRPC                  GRPC   `json:"grpc"`
-	ListenAddress         string `json:"listen-address"`
-	LogFormat             string `json:"log-format"`
-	LogLevel              string `json:"log-level"`
-	MetricsPath           string `json:"metrics-path"`
-	ProvisionKey          string `json:"provision-key"`
+	Azure                  Azure         `json:"azure"`
+	BaseURL                string        `json:"base-url"`
+	DatabaseEncryptionKey  string        `json:"database-encryption-key"`
+	DatabaseURL            string        `json:"database-url"`
+	DatabaseConnectTimeout time.Duration `json:"database-connect-timeout"`
+	Github                 Github        `json:"github"`
+	GRPC                   GRPC          `json:"grpc"`
+	ListenAddress          string        `json:"listen-address"`
+	LogFormat              string        `json:"log-format"`
+	LogLevel               string        `json:"log-level"`
+	MetricsPath            string        `json:"metrics-path"`
+	ProvisionKey           string        `json:"provision-key"`
 }
 
 func (a *Azure) HasConfig() bool {
@@ -63,6 +64,7 @@ const (
 	AzureTenant               = "azure.app-tenant-id"
 	AzureWellKnownUrl         = "azure.app-well-known-url"
 	BaseUrl                   = "base-url"
+	DatabaseConnectTimeout    = "database-connect-timeout"
 	DatabaseEncryptionKey     = "database-encryption-key"
 	DatabaseUrl               = "database-url"
 	GithubAppId               = "github.app-id"
@@ -119,6 +121,7 @@ func Initialize() *Config {
 
 	flag.String(DatabaseEncryptionKey, "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff", "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.String(DatabaseUrl, "postgresql://postgres:root@127.0.0.1:5432/hookd", "PostgreSQL connection information.")
+	flag.Duration(DatabaseConnectTimeout, time.Minute*5, "How long to try the initial database connection.")
 
 	flag.String(AzureClientId, "", "Azure ClientId.")
 	flag.String(AzureClientSecret, "", "Azure ClientSecret")

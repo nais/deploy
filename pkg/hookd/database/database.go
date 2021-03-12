@@ -16,7 +16,7 @@ var (
 	ErrNotFound = fmt.Errorf("database row not found")
 )
 
-type database struct {
+type Database struct {
 	conn          *pgxpool.Pool
 	encryptionKey []byte
 }
@@ -30,28 +30,26 @@ func IsErrForeignKeyViolation(err error) bool {
 	return strings.Contains(err.Error(), "SQLSTATE 23503")
 }
 
-func New(dsn string, encryptionKey []byte) (*database, error) {
-	ctx := context.Background()
-
+func New(ctx context.Context, dsn string, encryptionKey []byte) (*Database, error) {
 	conn, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	return &database{
+	return &Database{
 		conn:          conn,
 		encryptionKey: encryptionKey,
 	}, nil
 }
 
-func (db *database) timedQuery(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
+func (db *Database) timedQuery(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
 	now := time.Now()
 	rows, err := db.conn.Query(ctx, sql, args...)
 	metrics.DatabaseQuery(now, err)
 	return rows, err
 }
 
-func (db *database) Migrate(ctx context.Context) error {
+func (db *Database) Migrate(ctx context.Context) error {
 	var version int
 
 	query := `SELECT MAX(version) FROM migrations`

@@ -46,6 +46,8 @@ var maskedConfig = []string{
 }
 
 func run() error {
+	var db *database.Database
+
 	cfg := config.Initialize()
 	err := conftools.Load(cfg)
 	if err != nil {
@@ -81,7 +83,17 @@ func run() error {
 		return err
 	}
 
-	db, err := database.New(cfg.DatabaseURL, dbEncryptionKey)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.DatabaseConnectTimeout)
+	for {
+		db, err = database.New(ctx, cfg.DatabaseURL, dbEncryptionKey)
+		if err == nil {
+			log.Infof("Database connection established.")
+			break
+		} else if ctx.Err() != nil {
+			break
+		}
+	}
+	cancel()
 	if err != nil {
 		return fmt.Errorf("setup postgres connection: %s", err)
 	}

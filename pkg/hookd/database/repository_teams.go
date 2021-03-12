@@ -11,9 +11,9 @@ type RepositoryTeamStore interface {
 	WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error
 }
 
-var _ RepositoryTeamStore = &database{}
+var _ RepositoryTeamStore = &Database{}
 
-func (db *database) ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error) {
+func (db *Database) ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error) {
 	query := `SELECT team FROM team_repositories WHERE repository = $1;`
 	rows, err := db.timedQuery(ctx, query, repository)
 
@@ -40,7 +40,7 @@ func (db *database) ReadRepositoryTeams(ctx context.Context, repository string) 
 	return teams, nil
 }
 
-func (db *database) WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error {
+func (db *Database) WriteRepositoryTeams(ctx context.Context, repository string, teams []string) error {
 	var query string
 
 	tx, err := db.conn.Begin(ctx)

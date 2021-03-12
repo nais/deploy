@@ -24,7 +24,7 @@ type ApiKeyStore interface {
 	RotateApiKey(ctx context.Context, team, groupId string, key []byte) error
 }
 
-var _ ApiKeyStore = &database{}
+var _ ApiKeyStore = &Database{}
 
 type ApiKeys []ApiKey
 
@@ -48,7 +48,7 @@ func (apikeys ApiKeys) Valid() ApiKeys {
 
 const selectApiKeyFields = `key, team, team_azure_id, created, expires`
 
-func (db *database) decrypt(encrypted string) ([]byte, error) {
+func (db *Database) decrypt(encrypted string) ([]byte, error) {
 	decoded, err := hex.DecodeString(encrypted)
 	if err != nil {
 		return nil, fmt.Errorf("decode hex: %s", err)
@@ -56,7 +56,7 @@ func (db *database) decrypt(encrypted string) ([]byte, error) {
 	return crypto.Decrypt(decoded, db.encryptionKey)
 }
 
-func (db *database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
+func (db *Database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
 	apiKeys := make(ApiKeys, 0)
 
 	defer rows.Close()
@@ -86,7 +86,7 @@ func (db *database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
 }
 
 // Read all API keys matching the provided team or azure group ID.
-func (db *database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
+func (db *Database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
 	var err error
 
 	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 OR team_azure_id = $1 ORDER BY expires DESC;`
@@ -99,7 +99,7 @@ func (db *database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *database) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
+func (db *Database) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
 	var query string
 
 	encrypted, err := crypto.Encrypt(key, db.encryptionKey)
