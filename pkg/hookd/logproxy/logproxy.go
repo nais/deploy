@@ -14,7 +14,7 @@ import (
 
 const kibanaFormat = "https://logs.adeo.no/app/kibana#/discover?_a=%s&_g=%s"
 const searchQueryV0 = "+x_delivery_id:\"%s\" -level:\"Trace\""
-const searchQueryV1 = "+x_correlation_id:\"%s\""
+const searchQueryV1 = "+x_correlation_id:\"%s\" -level:\"Trace\" -level:\"Debug\""
 
 type query struct {
 	Language string `json:"language"`
