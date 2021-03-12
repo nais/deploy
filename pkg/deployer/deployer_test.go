@@ -180,6 +180,13 @@ func TestDeployWithStatusRetry(t *testing.T) {
 
 	// re-establish status stream
 	client.On("Status", ctx, request).Return(nil, status.Errorf(codes.Unavailable, "still down")).Times(3)
+	client.On("Status", ctx, request).Return(nil, status.Errorf(codes.Internal, "still down, internal error")).Times(3)
+	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+
+	// more internal errors in stream
+	statusClient.On("Recv").Return(nil, status.Errorf(codes.Internal, "internal error again")).Once()
+
+	// re-establish status stream
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
 	// come back to discover deployment is gone

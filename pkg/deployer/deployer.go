@@ -208,7 +208,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 			deployStatus, err = stream.Recv()
 			if err != nil {
 				connectionLost = true
-				if cfg.Retry && grpcErrorCode(err) == codes.Unavailable {
+				if cfg.Retry && grpcErrorRetriable(err) {
 					log.Warnf(formatGrpcError(err))
 					break
 				} else {
@@ -231,10 +231,19 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	return Errorf(ExitTimeout, "deployment timed out: %w", ctx.Err())
 }
 
+func grpcErrorRetriable(err error) bool {
+	switch grpcErrorCode(err) {
+	case codes.Unavailable, codes.Internal:
+		return true
+	default:
+		return false
+	}
+}
+
 func retryUnavailable(interval time.Duration, retry bool, fn func() error) error {
 	for {
 		err := fn()
-		if retry && grpcErrorCode(err) == codes.Unavailable {
+		if retry && grpcErrorRetriable(err) {
 			log.Warnf("%s (retrying in %s...)", formatGrpcError(err), interval)
 			time.Sleep(interval)
 			continue
