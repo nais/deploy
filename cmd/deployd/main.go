@@ -11,23 +11,25 @@ import (
 
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/navikt/deployment/pkg/azure/oauth2"
-	"github.com/navikt/deployment/pkg/deployd/deployd"
-	"github.com/navikt/deployment/pkg/deployd/operation"
-	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
-	"github.com/navikt/deployment/pkg/version"
-
 	"github.com/navikt/deployment/pkg/deployd/config"
+	"github.com/navikt/deployment/pkg/deployd/deployd"
 	"github.com/navikt/deployment/pkg/deployd/kubeclient"
 	"github.com/navikt/deployment/pkg/deployd/metrics"
+	"github.com/navikt/deployment/pkg/deployd/operation"
+	"github.com/navikt/deployment/pkg/grpc/interceptor/token"
 	"github.com/navikt/deployment/pkg/logging"
 	"github.com/navikt/deployment/pkg/pb"
+	"github.com/navikt/deployment/pkg/version"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 )
 
 const (
-	requestBackoff = 2 * time.Second
+	requestBackoff            = 2 * time.Second
+	statusQueueReportInterval = 5 * time.Second
 )
 
 var maskedConfig = []string{
@@ -167,36 +169,60 @@ func run() error {
 		deployd.Run(op, client)
 	}
 
+	statusQueue := make([]*pb.DeploymentStatus, 0, 128)
+
+	report := func(st *pb.DeploymentStatus) error {
+		logger := log.WithFields(st.LogFields())
+		switch {
+		case st == nil:
+			metrics.DeployIgnored.Inc()
+			break
+		case st.GetState() == pb.DeploymentState_error:
+			fallthrough
+		case st.GetState() == pb.DeploymentState_failure:
+			metrics.DeployFailed.Inc()
+			logger.Errorf(st.GetMessage())
+		default:
+			metrics.DeploySuccessful.Inc()
+			logger.Infof(st.GetMessage())
+		}
+
+		_, err = grpcClient.ReportStatus(context.Background(), st)
+
+		return err
+	}
+
+	reportAllInQueue := func() {
+		for i, st := range statusQueue {
+			err := report(st)
+			if err != nil {
+				logger := log.WithFields(st.LogFields())
+				logger.Error(err)
+				switch status.Convert(err).Code() {
+				case codes.FailedPrecondition, codes.InvalidArgument, codes.AlreadyExists:
+					// drop message on terminal error conditions
+					logger.Warnf("Dropping message because server did not accept it: %s", st.GetMessage())
+				default:
+					// re-queue on all other error conditions
+					statusQueue = statusQueue[i:]
+					return
+				}
+			}
+		}
+		statusQueue = statusQueue[:0]
+	}
+
 	for {
 		select {
 		case req := <-requestChan:
 			go deploy(req)
 
-		case status := <-statusChan:
-			logger := log.WithFields(status.LogFields())
-			switch {
-			case status == nil:
-				metrics.DeployIgnored.Inc()
-				break
-			case status.GetState() == pb.DeploymentState_error:
-				fallthrough
-			case status.GetState() == pb.DeploymentState_failure:
-				metrics.DeployFailed.Inc()
-				logger.Errorf(status.GetMessage())
-			default:
-				metrics.DeploySuccessful.Inc()
-				logger.Infof(status.GetMessage())
-			}
+		case st := <-statusChan:
+			statusQueue = append(statusQueue, st)
+			reportAllInQueue()
 
-			_, err = grpcClient.ReportStatus(context.Background(), status)
-			if err != nil {
-				logger.Errorf("While reporting deployment status: %s", err)
-				statusChan <- status
-				time.Sleep(5 * time.Second)
-				break
-			} else {
-				logger.Debugf("Deployment response sent successfully")
-			}
+		case <-time.NewTimer(statusQueueReportInterval).C:
+			reportAllInQueue()
 
 		case <-signals:
 			return nil
