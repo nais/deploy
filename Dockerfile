@@ -1,4 +1,4 @@
-FROM golang:1.13-alpine as builder
+FROM golang:1.16-alpine as builder
 RUN apk add --no-cache git make
 ENV GOOS=linux
 ENV CGO_ENABLED=0
@@ -9,7 +9,7 @@ RUN rm -f go.sum
 RUN make test
 RUN make alpine
 
-FROM alpine:3.10
+FROM alpine:3.13
 RUN apk add --no-cache ca-certificates git curl
 RUN curl -L -f https://github.com/mikefarah/yq/releases/download/2.4.1/yq_linux_amd64 > /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 RUN export PATH=$PATH:/app
