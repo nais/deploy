@@ -5,7 +5,6 @@ ENV CGO_ENABLED=0
 ENV GO111MODULE=on
 COPY . /src
 WORKDIR /src
-RUN rm -f go.sum
 RUN make test
 RUN make alpine
 
