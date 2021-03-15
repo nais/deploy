@@ -55,7 +55,7 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 			"gvk":       identifier.GroupVersionKind,
 		})
 
-		deployed, err := client.DeployUnstructured(resource)
+		_, err := client.DeployUnstructured(resource)
 		if err != nil {
 			err = fmt.Errorf("%s: %s", identifier.String(), err)
 			logger.Error(err)
@@ -65,7 +65,7 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 
 		metrics.KubernetesResources.Inc()
 
-		op.StatusChan <- pb.NewInProgressStatus(op.Request, "Successfully applied %s", deployed.GetSelfLink())
+		op.StatusChan <- pb.NewInProgressStatus(op.Request, "Successfully applied %s", identifier.String())
 		wait.Add(1)
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
