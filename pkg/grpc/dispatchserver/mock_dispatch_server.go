@@ -5,7 +5,7 @@ package dispatchserver
 import (
 	"context"
 
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/pb"
 	"github.com/stretchr/testify/mock"
 )
 

@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/navikt/deployment/pkg/azure/graphapi"
-	"github.com/navikt/deployment/pkg/hookd/api"
-	"github.com/navikt/deployment/pkg/hookd/api/v1"
-	"github.com/navikt/deployment/pkg/hookd/api/v1/provision"
-	"github.com/navikt/deployment/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/azure/graphapi"
+	"github.com/nais/deploy/pkg/hookd/api"
+	"github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/api/v1/provision"
+	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 )
 

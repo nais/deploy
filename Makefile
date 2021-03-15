@@ -4,7 +4,7 @@ BUILDTIME = $(shell date "+%s")
 DATE = $(shell date "+%Y-%m-%d")
 LAST_COMMIT = $(shell git rev-parse --short HEAD)
 VERSION ?= $(DATE)-$(LAST_COMMIT)
-LDFLAGS := -X github.com/navikt/deployment/pkg/version.Revision=$(LAST_COMMIT) -X github.com/navikt/deployment/pkg/version.Date=$(DATE) -X github.com/navikt/deployment/pkg/version.BuildUnixTime=$(BUILDTIME)
+LDFLAGS := -X github.com/nais/deploy/pkg/version.Revision=$(LAST_COMMIT) -X github.com/nais/deploy/pkg/version.Date=$(DATE) -X github.com/nais/deploy/pkg/version.BuildUnixTime=$(BUILDTIME)
 
 .PHONY: all proto hookd deployd token-generator deploy provision alpine test docker upload
 

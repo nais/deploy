@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/navikt/deployment/pkg/deployd/operation"
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/deployd/operation"
+	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"

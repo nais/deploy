@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/navikt/deployment/pkg/deployd/operation"
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/deployd/operation"
+	"github.com/nais/deploy/pkg/pb"
 	v1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

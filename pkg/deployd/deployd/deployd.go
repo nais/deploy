@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/navikt/deployment/pkg/deployd/kubeclient"
-	"github.com/navikt/deployment/pkg/deployd/metrics"
-	"github.com/navikt/deployment/pkg/deployd/operation"
-	"github.com/navikt/deployment/pkg/k8sutils"
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/deployd/kubeclient"
+	"github.com/nais/deploy/pkg/deployd/metrics"
+	"github.com/nais/deploy/pkg/deployd/operation"
+	"github.com/nais/deploy/pkg/k8sutils"
+	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

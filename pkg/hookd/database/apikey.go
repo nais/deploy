@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4"
-	"github.com/navikt/deployment/pkg/crypto"
-	api_v1 "github.com/navikt/deployment/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/crypto"
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 )
 
 type ApiKey struct {

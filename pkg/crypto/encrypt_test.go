@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/navikt/deployment/pkg/crypto"
+	"github.com/nais/deploy/pkg/crypto"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/navikt/deployment/pkg/k8sutils"
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/k8sutils"
+	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

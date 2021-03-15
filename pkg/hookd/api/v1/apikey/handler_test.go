@@ -12,9 +12,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/navikt/deployment/pkg/hookd/api"
-	"github.com/navikt/deployment/pkg/hookd/api/v1"
-	"github.com/navikt/deployment/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/hookd/api"
+	"github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/navikt/deployment/pkg/hookd/config"
+	"github.com/nais/deploy/pkg/hookd/config"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/navikt/deployment/pkg/hookd/config"
+	"github.com/nais/deploy/pkg/hookd/config"
 	"golang.org/x/oauth2/clientcredentials"
 	"golang.org/x/oauth2/microsoft"
 )

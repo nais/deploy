@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/navikt/deployment/pkg/hookd/metrics"
+	"github.com/nais/deploy/pkg/hookd/metrics"
 	log "github.com/sirupsen/logrus"
 )
 

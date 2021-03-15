@@ -8,8 +8,8 @@ import (
 
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"github.com/nais/liberator/pkg/events"
-	"github.com/navikt/deployment/pkg/deployd/operation"
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/deployd/operation"
+	"github.com/nais/deploy/pkg/pb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	gh "github.com/google/go-github/v27/github"
-	api_v1 "github.com/navikt/deployment/pkg/hookd/api/v1"
-	"github.com/navikt/deployment/pkg/hookd/logproxy"
-	"github.com/navikt/deployment/pkg/hookd/metrics"
-	"github.com/navikt/deployment/pkg/pb"
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/logproxy"
+	"github.com/nais/deploy/pkg/hookd/metrics"
+	"github.com/nais/deploy/pkg/pb"
 )
 
 var (

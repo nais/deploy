@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 
-	apikey_interceptor "github.com/navikt/deployment/pkg/grpc/interceptor/apikey"
+	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

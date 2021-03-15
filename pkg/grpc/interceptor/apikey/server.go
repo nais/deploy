@@ -6,9 +6,9 @@ import (
 	"math"
 	"time"
 
-	api_v1 "github.com/navikt/deployment/pkg/hookd/api/v1"
-	"github.com/navikt/deployment/pkg/hookd/database"
-	"github.com/navikt/deployment/pkg/pb"
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

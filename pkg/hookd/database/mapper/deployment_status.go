@@ -2,8 +2,8 @@ package database_mapper
 
 import (
 	"github.com/google/uuid"
-	"github.com/navikt/deployment/pkg/hookd/database"
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/pb"
 )
 
 func DeploymentStatus(status *pb.DeploymentStatus) database.DeploymentStatus {

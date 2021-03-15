@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/navikt/deployment/pkg/deployd/operation"
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/deployd/operation"
+	"github.com/nais/deploy/pkg/pb"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"

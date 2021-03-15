@@ -3,7 +3,7 @@ package api_v1_deploy_test
 import (
 	"testing"
 
-	server "github.com/navikt/deployment/pkg/hookd/api/v1/deploy"
+	server "github.com/nais/deploy/pkg/hookd/api/v1/deploy"
 	"github.com/stretchr/testify/assert"
 )
 

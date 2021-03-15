@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/navikt/deployment/pkg/deployer"
-	"github.com/navikt/deployment/pkg/pb"
-	"github.com/navikt/deployment/pkg/version"
+	"github.com/nais/deploy/pkg/deployer"
+	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/version"
 
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"

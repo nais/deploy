@@ -7,8 +7,8 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/jwtauth"
-	"github.com/navikt/deployment/pkg/azure/discovery"
-	"github.com/navikt/deployment/pkg/azure/validate"
+	"github.com/nais/deploy/pkg/azure/discovery"
+	"github.com/nais/deploy/pkg/azure/validate"
 )
 
 func TokenValidatorMiddleware(certificates map[string]discovery.CertificateList, audience string) func(next http.Handler) http.Handler {

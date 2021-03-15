@@ -3,7 +3,7 @@ package deployer_test
 import (
 	"testing"
 
-	"github.com/navikt/deployment/pkg/deployer"
+	"github.com/nais/deploy/pkg/deployer"
 	"github.com/stretchr/testify/assert"
 )
 

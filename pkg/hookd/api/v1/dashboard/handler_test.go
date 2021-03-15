@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/middleware"
-	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
-	"github.com/navikt/deployment/pkg/hookd/api"
-	api_v1_dashboard "github.com/navikt/deployment/pkg/hookd/api/v1/dashboard"
-	"github.com/navikt/deployment/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/grpc/dispatchserver"
+	"github.com/nais/deploy/pkg/hookd/api"
+	api_v1_dashboard "github.com/nais/deploy/pkg/hookd/api/v1/dashboard"
+	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

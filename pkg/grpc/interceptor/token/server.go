@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/navikt/deployment/pkg/azure/discovery"
-	"github.com/navikt/deployment/pkg/azure/oauth2"
-	"github.com/navikt/deployment/pkg/azure/validate"
+	"github.com/nais/deploy/pkg/azure/discovery"
+	"github.com/nais/deploy/pkg/azure/oauth2"
+	"github.com/nais/deploy/pkg/azure/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"

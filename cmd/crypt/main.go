@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/navikt/deployment/pkg/crypto"
+	"github.com/nais/deploy/pkg/crypto"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )

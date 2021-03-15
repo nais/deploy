@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/navikt/deployment/pkg/azure/discovery"
+	"github.com/nais/deploy/pkg/azure/discovery"
 )
 
 func JWTValidator(certificates map[string]discovery.CertificateList, audience string) jwt.Keyfunc {

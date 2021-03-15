@@ -3,7 +3,7 @@ package api_v1_deploy
 import (
 	"time"
 
-	types "github.com/navikt/deployment/pkg/pb"
+	types "github.com/nais/deploy/pkg/pb"
 )
 
 var (

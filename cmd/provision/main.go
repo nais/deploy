@@ -12,8 +12,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/navikt/deployment/pkg/hookd/api/v1"
-	"github.com/navikt/deployment/pkg/hookd/api/v1/provision"
+	"github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/api/v1/provision"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
 )

@@ -3,7 +3,7 @@ package deployer
 import (
 	"fmt"
 
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/pb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

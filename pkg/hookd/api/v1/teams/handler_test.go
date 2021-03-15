@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	api_v1_teams "github.com/navikt/deployment/pkg/hookd/api/v1/teams"
-	"github.com/navikt/deployment/pkg/hookd/database"
+	api_v1_teams "github.com/nais/deploy/pkg/hookd/api/v1/teams"
+	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 )
 

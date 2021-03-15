@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -7,15 +7,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/navikt/deployment/pkg/hookd/database"
-	database_mapper "github.com/navikt/deployment/pkg/hookd/database/mapper"
-	"github.com/navikt/deployment/pkg/hookd/github"
-	"github.com/navikt/deployment/pkg/hookd/metrics"
+	"github.com/nais/deploy/pkg/hookd/database"
+	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
+	"github.com/nais/deploy/pkg/hookd/github"
+	"github.com/nais/deploy/pkg/hookd/metrics"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/navikt/deployment/pkg/pb"
+	"github.com/nais/deploy/pkg/pb"
 )
 
 var maplock sync.Mutex

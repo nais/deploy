@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/navikt/deployment/pkg/grpc/dispatchserver"
-	"github.com/navikt/deployment/pkg/hookd/api/v1"
-	"github.com/navikt/deployment/pkg/hookd/database"
-	"github.com/navikt/deployment/pkg/hookd/logproxy"
-	"github.com/navikt/deployment/pkg/hookd/middleware"
-	"github.com/navikt/deployment/pkg/k8sutils"
+	"github.com/nais/deploy/pkg/grpc/dispatchserver"
+	"github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/hookd/logproxy"
+	"github.com/nais/deploy/pkg/hookd/middleware"
+	"github.com/nais/deploy/pkg/k8sutils"
 
 	gh "github.com/google/go-github/v27/github"
-	types "github.com/navikt/deployment/pkg/pb"
+	types "github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 )
 

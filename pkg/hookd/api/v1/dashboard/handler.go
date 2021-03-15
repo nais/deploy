@@ -6,8 +6,8 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
-	"github.com/navikt/deployment/pkg/hookd/database"
-	"github.com/navikt/deployment/pkg/hookd/middleware"
+	"github.com/nais/deploy/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/hookd/middleware"
 	log "github.com/sirupsen/logrus"
 )
 

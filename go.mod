@@ -1,4 +1,4 @@
-module github.com/navikt/deployment
+module github.com/nais/deploy
 
 require (
 	github.com/aymerick/raymond v2.0.2+incompatible

@@ -8,12 +8,12 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/navikt/deployment/pkg/azure/graphapi"
-	"github.com/navikt/deployment/pkg/hookd/api/v1"
-	"github.com/navikt/deployment/pkg/hookd/database"
-	"github.com/navikt/deployment/pkg/hookd/middleware"
+	"github.com/nais/deploy/pkg/azure/graphapi"
+	"github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/hookd/middleware"
 
-	types "github.com/navikt/deployment/pkg/pb"
+	types "github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 )
 
