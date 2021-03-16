@@ -15,6 +15,7 @@ import (
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"github.com/nais/liberator/pkg/crd"
 	"github.com/nais/liberator/pkg/events"
+	"github.com/nais/liberator/pkg/keygen"
 	"github.com/nais/liberator/pkg/scheme"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -90,23 +91,27 @@ var tests = []testSpec{
 			},
 		},
 		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
-			ev := &v1.Event{
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "myapplication"))
+		},
+	},
+
+	// Application failed prep in Naiserator
+	{
+		fixture: "testdata/application-failedprepare.json",
+		timeout: 2 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State: pb.DeploymentState_failure,
+		},
+		deployedResources: []runtime.Object{
+			&nais_io_v1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "some-event",
+					Name:      "myapplication-failedprepare",
 					Namespace: "default",
-					Annotations: map[string]string{
-						nais_io_v1alpha1.DeploymentCorrelationIDAnnotation: test.fixture,
-					},
 				},
-				ReportingController: "naiserator",
-				Reason:              events.RolloutComplete,
-				InvolvedObject: v1.ObjectReference{
-					Kind: "Application",
-					Name: "myapplication",
-				},
-				LastTimestamp: metav1.NewTime(time.Now()),
-			}
-			return rig.client.Create(ctx, ev)
+			},
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedPrepare, "oops", "myapplication"))
 		},
 	},
 }
@@ -287,4 +292,24 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 	assert.NoError(t, err)
 
 	wg.Wait()
+}
+
+func naiseratorEvent(id, reason, message, app string) *v1.Event {
+	return &v1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "event-" + keygen.RandStringBytes(10),
+			Namespace: "default",
+			Annotations: map[string]string{
+				nais_io_v1alpha1.DeploymentCorrelationIDAnnotation: id,
+			},
+		},
+		ReportingController: "naiserator",
+		Reason:              reason,
+		Message:             message,
+		InvolvedObject: v1.ObjectReference{
+			Kind: "Application",
+			Name: app,
+		},
+		LastTimestamp: metav1.NewTime(time.Now()),
+	}
 }
