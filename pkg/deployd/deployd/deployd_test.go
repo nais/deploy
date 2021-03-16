@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -24,12 +25,37 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+type testSpec struct {
+	fixture           string             // path to testdata to deploy to cluster
+	timeout           time.Duration      // time to allow for deploy to reach end state
+	endState          pb.DeploymentState // which end state we expect
+	deployedResources []runtime.Object   // list of Kubernetes resources expected to be applied to the cluster - only checks name and namespace
+}
+
+var tests = []testSpec{
+	{
+		fixture:  "testdata/configmap.json",
+		timeout:  1 * time.Second,
+		endState: pb.DeploymentState_success,
+		deployedResources: []runtime.Object{
+			&v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+			},
+		},
+	},
+}
+
 type testRig struct {
 	kubernetes   *envtest.Environment
 	client       client.Client
 	structured   kubernetes.Interface
 	dynamic      dynamic.Interface
 	synchronizer reconcile.Reconciler
+	statusChan   chan *pb.DeploymentStatus
+	teamClient   kubeclient.TeamClient
 	scheme       *runtime.Scheme
 }
 
@@ -64,6 +90,9 @@ func newTestRig() (*testRig, error) {
 		return nil, fmt.Errorf("initialize dynamic client: %w", err)
 	}
 
+	rig.statusChan = make(chan *pb.DeploymentStatus, 16)
+	rig.teamClient = kubeclient.NewTeamClient(rig.structured, rig.dynamic)
+
 	return rig, nil
 }
 
@@ -75,14 +104,18 @@ func resources(path string) (*pb.Kubernetes, error) {
 	return pb.KubernetesFromJSONResources(data)
 }
 
-func waitFinish(ctx context.Context, statusChan <-chan *pb.DeploymentStatus) error {
+func waitFinish(ctx context.Context, statusChan <-chan *pb.DeploymentStatus, expectedState pb.DeploymentState) error {
 	for {
 		select {
 		case status := <-statusChan:
-			log.Infof("Deployment status '%s': %s", status.GetState(), status.GetMessage())
-			if status.GetState().Finished() {
-				log.Infof("Deploy reached finished state, exiting")
-				return nil
+			state := status.GetState()
+			log.Infof("Deployment status '%s': %s", state, status.GetMessage())
+			if state.Finished() {
+				if state == expectedState {
+					log.Infof("Deploy reached finished state")
+					return nil
+				}
+				return fmt.Errorf("Expected deployment to end with '%s' but got '%s'", expectedState, state)
 			}
 
 		case <-ctx.Done():
@@ -102,19 +135,27 @@ func TestDeployRun(t *testing.T) {
 
 	defer rig.kubernetes.Stop()
 
-	// Allow no more than 15 seconds for these tests to run
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*615)
-	defer cancel()
+	log.SetLevel(log.TraceLevel)
 
-	kubes, err := resources("testdata/configmap.json")
-	if err != nil {
-		panic(fmt.Sprintf("test data fixture error: %s", err))
+	for _, test := range tests {
+		subTest(t, rig, test)
 	}
 
-	log.SetLevel(log.TraceLevel)
-	statusChan := make(chan *pb.DeploymentStatus, 16)
-	teamClient := kubeclient.NewTeamClient(rig.structured, rig.dynamic)
-	defer close(statusChan)
+	if err := recover(); err != nil {
+		t.Error(err)
+		t.Fail()
+	}
+}
+
+func subTest(t *testing.T, rig *testRig, test testSpec) {
+	// Allow no more than 15 seconds for these tests to run
+	ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
+	defer cancel()
+
+	kubes, err := resources(test.fixture)
+	if err != nil {
+		panic(fmt.Sprintf("test data fixture error in '%s': %s", test.fixture, err))
+	}
 
 	op := &operation.Operation{
 		Context: ctx,
@@ -122,17 +163,22 @@ func TestDeployRun(t *testing.T) {
 		Request: &pb.DeploymentRequest{
 			Kubernetes: kubes,
 		},
-		StatusChan: statusChan,
+		StatusChan: rig.statusChan,
 	}
 
 	// Start deployment
-	deployd.Run(op, teamClient)
-	err = waitFinish(ctx, statusChan)
+	deployd.Run(op, rig.teamClient)
+	err = waitFinish(ctx, rig.statusChan, test.endState)
 	assert.NoError(t, err)
 
-	// Check that the resource was deployed to the cluster
-	obj := &v1.ConfigMap{}
-	err = rig.client.Get(ctx, client.ObjectKey{Name: "foo", Namespace: "default"}, obj)
-	assert.NoError(t, err)
-	assert.Equal(t, "bar", obj.Data["foo"])
+	// Check that resources was deployed to the cluster
+	for i, expectedDeployed := range test.deployedResources {
+		key, err := client.ObjectKeyFromObject(expectedDeployed)
+		if err != nil {
+			panic(fmt.Sprintf("test data error in resource %d: %s", i, err))
+		}
+		obj := expectedDeployed.DeepCopyObject()
+		err = rig.client.Get(ctx, key, obj)
+		assert.NoError(t, err)
+	}
 }
