@@ -80,7 +80,8 @@ var tests = []testSpec{
 		fixture: "testdata/application-rolloutcomplete.json",
 		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
-			State: pb.DeploymentState_success,
+			State:   pb.DeploymentState_success,
+			Message: "Deployment completed successfully.",
 		},
 		deployedResources: []runtime.Object{
 			&nais_io_v1alpha1.Application{
@@ -95,12 +96,34 @@ var tests = []testSpec{
 		},
 	},
 
+	// Application failed synchronization in Naiserator
+	{
+		fixture: "testdata/application-failedsynchronization.json",
+		timeout: 2 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_failure,
+			Message: "Application/myapplication-failedsynchronization (FailedSynchronization): oops (total of 1 errors)",
+		},
+		deployedResources: []runtime.Object{
+			&nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-failedsynchronization",
+					Namespace: "default",
+				},
+			},
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedSynchronization, "oops", "myapplication-failedsynchronization"))
+		},
+	},
+
 	// Application failed prep in Naiserator
 	{
 		fixture: "testdata/application-failedprepare.json",
 		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
-			State: pb.DeploymentState_failure,
+			State:   pb.DeploymentState_failure,
+			Message: "Application/myapplication-failedprepare (FailedPrepare): oops (total of 1 errors)",
 		},
 		deployedResources: []runtime.Object{
 			&nais_io_v1alpha1.Application{
@@ -111,7 +134,7 @@ var tests = []testSpec{
 			},
 		},
 		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
-			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedPrepare, "oops", "myapplication"))
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedPrepare, "oops", "myapplication-failedprepare"))
 		},
 	},
 }
