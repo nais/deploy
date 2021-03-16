@@ -5,6 +5,7 @@ ENV CGO_ENABLED=0
 ENV GO111MODULE=on
 COPY . /src
 WORKDIR /src
+RUN make kubebuilder
 RUN make test
 RUN make alpine
 
