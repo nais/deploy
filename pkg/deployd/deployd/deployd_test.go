@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"github.com/nais/liberator/pkg/crd"
+	"github.com/nais/liberator/pkg/events"
 	"github.com/nais/liberator/pkg/scheme"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -26,17 +28,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+type processCallback func(ctx context.Context, rig *testRig, test testSpec) error
+
 type testSpec struct {
 	fixture           string               // path to testdata to deploy to cluster
 	timeout           time.Duration        // time to allow for deploy to reach end state
 	endStatus         *pb.DeploymentStatus // which end state we expect
 	deployedResources []runtime.Object     // list of Kubernetes resources expected to be applied to the cluster - only checks name and namespace
+	processing        processCallback      // processing that happens in a coroutine together with deployd.Run(). Requires all resources in `deployedResources` to exist.
 }
 
 var tests = []testSpec{
+	// Simple configmap with no watcher
 	{
 		fixture: "testdata/configmap.json",
-		timeout: 1 * time.Second,
+		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
 			State: pb.DeploymentState_success,
 		},
@@ -49,12 +55,31 @@ var tests = []testSpec{
 			},
 		},
 	},
+
+	// Check that deploy times out
 	{
-		fixture: "testdata/application.json",
-		timeout: 1 * time.Second,
+		fixture: "testdata/application-timeout.json",
+		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
 			State:   pb.DeploymentState_failure,
 			Message: "timeout while waiting for deployment to succeed (total of 1 errors)",
+		},
+		deployedResources: []runtime.Object{
+			&nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-timeout",
+					Namespace: "default",
+				},
+			},
+		},
+	},
+
+	// Happy path for applications
+	{
+		fixture: "testdata/application-rolloutcomplete.json",
+		timeout: 2 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State: pb.DeploymentState_success,
 		},
 		deployedResources: []runtime.Object{
 			&nais_io_v1alpha1.Application{
@@ -63,6 +88,25 @@ var tests = []testSpec{
 					Namespace: "default",
 				},
 			},
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			ev := &v1.Event{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "some-event",
+					Namespace: "default",
+					Annotations: map[string]string{
+						nais_io_v1alpha1.DeploymentCorrelationIDAnnotation: test.fixture,
+					},
+				},
+				ReportingController: "naiserator",
+				Reason:              events.RolloutComplete,
+				InvolvedObject: v1.ObjectReference{
+					Kind: "Application",
+					Name: "myapplication",
+				},
+				LastTimestamp: metav1.NewTime(time.Now()),
+			}
+			return rig.client.Create(ctx, ev)
 		},
 	},
 }
@@ -171,8 +215,35 @@ func TestDeployRun(t *testing.T) {
 	}
 }
 
+func resourceExists(ctx context.Context, rig *testRig, resource runtime.Object) error {
+	key, err := client.ObjectKeyFromObject(resource)
+	if err != nil {
+		panic(fmt.Sprintf("test data error: %s", err))
+	}
+	obj := resource.DeepCopyObject()
+	return rig.client.Get(ctx, key, obj)
+}
+
+func waitForResources(ctx context.Context, rig *testRig, test testSpec) error {
+	var err error
+
+	for ctx.Err() == nil {
+		// Check that resources was deployed to the cluster
+		for i, expectedDeployed := range test.deployedResources {
+			err = resourceExists(ctx, rig, expectedDeployed)
+			if err != nil {
+				err = fmt.Errorf("resource %d: %s", i, err)
+				break
+			}
+		}
+		if err == nil {
+			return nil
+		}
+	}
+	return ctx.Err()
+}
+
 func subTest(t *testing.T, rig *testRig, test testSpec) {
-	// Allow no more than 15 seconds for these tests to run
 	ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
 	defer cancel()
 
@@ -183,26 +254,37 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 
 	op := &operation.Operation{
 		Context: ctx,
-		Logger:  log.NewEntry(log.StandardLogger()),
+		Logger:  log.WithField("fixture", test.fixture),
 		Request: &pb.DeploymentRequest{
+			ID:         test.fixture,
 			Kubernetes: kubes,
 		},
 		StatusChan: rig.statusChan,
 	}
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		err := waitForResources(ctx, rig, test)
+		if err != nil {
+			t.Errorf("Wait for resources: %s", err)
+			t.Fail()
+			return
+		}
+		log.Infof("Resources rolled out, running coroutine processing")
+		if test.processing != nil {
+			err = test.processing(ctx, rig, test)
+			assert.NoError(t, err)
+		}
+		log.Infof("Coroutine processing finished")
+	}()
 
 	// Start deployment
 	deployd.Run(op, rig.teamClient)
 	err = waitFinish(rig.statusChan, test.endStatus)
 	assert.NoError(t, err)
 
-	// Check that resources was deployed to the cluster
-	for i, expectedDeployed := range test.deployedResources {
-		key, err := client.ObjectKeyFromObject(expectedDeployed)
-		if err != nil {
-			panic(fmt.Sprintf("test data error in resource %d: %s", i, err))
-		}
-		obj := expectedDeployed.DeepCopyObject()
-		err = rig.client.Get(context.Background(), key, obj)
-		assert.NoError(t, err)
-	}
+	wg.Wait()
 }
