@@ -5,6 +5,8 @@ DATE = $(shell date "+%Y-%m-%d")
 LAST_COMMIT = $(shell git rev-parse --short HEAD)
 VERSION ?= $(DATE)-$(LAST_COMMIT)
 LDFLAGS := -X github.com/nais/deploy/pkg/version.Revision=$(LAST_COMMIT) -X github.com/nais/deploy/pkg/version.Date=$(DATE) -X github.com/nais/deploy/pkg/version.BuildUnixTime=$(BUILDTIME)
+arch := amd64
+os := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
 .PHONY: all proto hookd deployd token-generator deploy provision alpine test docker upload
 
@@ -70,3 +72,7 @@ upload:
 
 migration:
 	go generate ./...
+
+kubebuilder:
+	curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+	mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder

@@ -17,7 +17,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jackc/pgx/v4 v4.5.0
-	github.com/nais/liberator v0.0.0-20210308144942-80d0899e683d
+	github.com/nais/liberator v0.0.0-20210316092305-787adeb3875b
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/sirupsen/logrus v1.4.2
@@ -33,9 +33,10 @@ require (
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/sakura-internet/go-rison.v3 v3.1.0
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.17.2 // kubernetes-1.15.0
-	k8s.io/apimachinery v0.17.2 // kubernetes-1.15.0
-	k8s.io/client-go v0.17.2 // release-12.0
+	k8s.io/api v0.17.2
+	k8s.io/apimachinery v0.17.3-beta.0
+	k8s.io/client-go v0.17.2
+	sigs.k8s.io/controller-runtime v0.5.0 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 

@@ -111,10 +111,14 @@ func (c *Client) TeamClient(team string) (TeamClient, error) {
 		return nil, fmt.Errorf("unable to generate dynamic client: %s", err)
 	}
 
+	return NewTeamClient(k, d), nil
+}
+
+func NewTeamClient(structured kubernetes.Interface, dynamic dynamic.Interface) TeamClient {
 	return &teamClient{
-		structuredClient:   k,
-		unstructuredClient: d,
-	}, nil
+		structuredClient:   structured,
+		unstructuredClient: dynamic,
+	}
 }
 
 func defaultConfig() (*rest.Config, error) {
