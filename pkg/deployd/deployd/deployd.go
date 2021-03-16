@@ -75,7 +75,7 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 			if status != nil {
 				if status.GetState().IsError() {
 					errors <- fmt.Errorf(status.Message)
-					op.Logger.Error(err)
+					op.Logger.Error(status.Message)
 				} else {
 					op.Logger.Infof(status.Message)
 				}

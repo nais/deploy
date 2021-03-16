@@ -11,7 +11,9 @@ import (
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
+	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"github.com/nais/liberator/pkg/crd"
+	"github.com/nais/liberator/pkg/scheme"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -19,28 +21,45 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type testSpec struct {
-	fixture           string             // path to testdata to deploy to cluster
-	timeout           time.Duration      // time to allow for deploy to reach end state
-	endState          pb.DeploymentState // which end state we expect
-	deployedResources []runtime.Object   // list of Kubernetes resources expected to be applied to the cluster - only checks name and namespace
+	fixture           string               // path to testdata to deploy to cluster
+	timeout           time.Duration        // time to allow for deploy to reach end state
+	endStatus         *pb.DeploymentStatus // which end state we expect
+	deployedResources []runtime.Object     // list of Kubernetes resources expected to be applied to the cluster - only checks name and namespace
 }
 
 var tests = []testSpec{
 	{
-		fixture:  "testdata/configmap.json",
-		timeout:  1 * time.Second,
-		endState: pb.DeploymentState_success,
+		fixture: "testdata/configmap.json",
+		timeout: 1 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State: pb.DeploymentState_success,
+		},
 		deployedResources: []runtime.Object{
 			&v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
+					Namespace: "default",
+				},
+			},
+		},
+	},
+	{
+		fixture: "testdata/application.json",
+		timeout: 1 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_failure,
+			Message: "timeout while waiting for deployment to succeed (total of 1 errors)",
+		},
+		deployedResources: []runtime.Object{
+			&nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication",
 					Namespace: "default",
 				},
 			},
@@ -71,7 +90,10 @@ func newTestRig() (*testRig, error) {
 		return nil, fmt.Errorf("setup Kubernetes test environment: %w", err)
 	}
 
-	rig.scheme = clientgoscheme.Scheme
+	rig.scheme, err = scheme.All()
+	if err != nil {
+		return nil, fmt.Errorf("initialize Kubernetes schemes: %s", err)
+	}
 
 	rig.client, err = client.New(cfg, client.Options{
 		Scheme: rig.scheme,
@@ -104,24 +126,26 @@ func resources(path string) (*pb.Kubernetes, error) {
 	return pb.KubernetesFromJSONResources(data)
 }
 
-func waitFinish(ctx context.Context, statusChan <-chan *pb.DeploymentStatus, expectedState pb.DeploymentState) error {
-	for {
-		select {
-		case status := <-statusChan:
-			state := status.GetState()
-			log.Infof("Deployment status '%s': %s", state, status.GetMessage())
-			if state.Finished() {
-				if state == expectedState {
-					log.Infof("Deploy reached finished state")
-					return nil
-				}
-				return fmt.Errorf("Expected deployment to end with '%s' but got '%s'", expectedState, state)
-			}
+func compareStatus(expected, actual *pb.DeploymentStatus) error {
+	if expected.GetState() != actual.GetState() {
+		return fmt.Errorf("expected state '%s' but got '%s'", expected.GetState(), actual.GetState())
+	}
+	if len(expected.GetMessage()) > 0 && expected.GetMessage() != actual.GetMessage() {
+		return fmt.Errorf("expected status message '%s' but got '%s'", expected.GetMessage(), actual.GetMessage())
+	}
+	return nil
+}
 
-		case <-ctx.Done():
-			return fmt.Errorf("Timed out waiting for finished state")
+func waitFinish(statusChan <-chan *pb.DeploymentStatus, expectedStatus *pb.DeploymentStatus) error {
+	for status := range statusChan {
+		state := status.GetState()
+		log.Infof("Deployment status '%s': %s", state, status.GetMessage())
+		if state.Finished() {
+			log.Infof("Deploy reached finished state")
+			return compareStatus(expectedStatus, status)
 		}
 	}
+	return fmt.Errorf("channel closed but no end state")
 }
 
 // This test sets up a complete in-memory Kubernetes rig, and tests the deploy and watch strategies against it.
@@ -168,7 +192,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 
 	// Start deployment
 	deployd.Run(op, rig.teamClient)
-	err = waitFinish(ctx, rig.statusChan, test.endState)
+	err = waitFinish(rig.statusChan, test.endStatus)
 	assert.NoError(t, err)
 
 	// Check that resources was deployed to the cluster
@@ -178,7 +202,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 			panic(fmt.Sprintf("test data error in resource %d: %s", i, err))
 		}
 		obj := expectedDeployed.DeepCopyObject()
-		err = rig.client.Get(ctx, key, obj)
+		err = rig.client.Get(context.Background(), key, obj)
 		assert.NoError(t, err)
 	}
 }
