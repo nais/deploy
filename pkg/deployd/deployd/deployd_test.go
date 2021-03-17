@@ -212,6 +212,55 @@ func waitFinish(statusChan <-chan *pb.DeploymentStatus, expectedStatus *pb.Deplo
 	return fmt.Errorf("channel closed but no end state")
 }
 
+func createServiceAccount(team string, rig *testRig) error {
+	name := "serviceuser-" + team
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: team,
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": name,
+			},
+		},
+		Data: nil,
+		StringData: map[string]string{
+			"ca.crt":    string(rig.kubernetes.Config.CAData),
+			"namespace": team,
+			"token":     "dummy",
+		},
+		Type: v1.SecretTypeServiceAccountToken,
+	}
+	err := rig.client.Create(context.Background(), secret)
+	if err != nil {
+		return err
+	}
+
+	svcacc := &v1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: team,
+		},
+		Secrets: []v1.ObjectReference{
+			{
+				Kind:            secret.Kind,
+				Namespace:       secret.Namespace,
+				Name:            secret.Name,
+				UID:             secret.GetUID(),
+				APIVersion:      secret.APIVersion,
+				ResourceVersion: secret.GetResourceVersion(),
+			},
+		},
+	}
+
+	err = rig.client.Create(context.Background(), svcacc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // This test sets up a complete in-memory Kubernetes rig, and tests the deploy and watch strategies against it.
 // These tests ensure that resources are actually created or updated in the cluster.
 func TestDeployRun(t *testing.T) {
@@ -224,6 +273,14 @@ func TestDeployRun(t *testing.T) {
 	defer rig.kubernetes.Stop()
 
 	log.SetLevel(log.TraceLevel)
+
+	// set up teams for impersonation
+	err = createServiceAccount("aura", rig)
+	if err != nil {
+		t.Errorf("unable to create service account: %s", err)
+		t.FailNow()
+	}
+	time.Sleep(1 * time.Second)
 
 	for _, test := range tests {
 		subTest(t, rig, test)
@@ -277,6 +334,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 		Logger:  log.WithField("fixture", test.fixture),
 		Request: &pb.DeploymentRequest{
 			ID:         test.fixture,
+			Team:       "aura",
 			Kubernetes: kubes,
 		},
 		StatusChan: rig.statusChan,
@@ -302,7 +360,13 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 	}()
 
 	// Start deployment
-	deployd.Run(op, rig.kubeclient)
+	teamClient, err := rig.kubeclient.Impersonate(op.Request.GetTeam())
+	assert.NoError(t, err)
+	if err != nil {
+		return
+	}
+
+	deployd.Run(op, teamClient)
 	err = waitFinish(rig.statusChan, test.endStatus)
 	assert.NoError(t, err)
 
