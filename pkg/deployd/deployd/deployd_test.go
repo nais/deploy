@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type processCallback func(ctx context.Context, rig *testRig, test testSpec) error
@@ -140,14 +139,13 @@ var tests = []testSpec{
 }
 
 type testRig struct {
-	kubernetes   *envtest.Environment
-	client       client.Client
-	structured   kubernetes.Interface
-	dynamic      dynamic.Interface
-	synchronizer reconcile.Reconciler
-	statusChan   chan *pb.DeploymentStatus
-	teamClient   kubeclient.TeamClient
-	scheme       *runtime.Scheme
+	kubernetes *envtest.Environment
+	client     client.Client
+	structured kubernetes.Interface
+	dynamic    dynamic.Interface
+	statusChan chan *pb.DeploymentStatus
+	kubeclient kubeclient.Interface
+	scheme     *runtime.Scheme
 }
 
 func newTestRig() (*testRig, error) {
@@ -174,18 +172,12 @@ func newTestRig() (*testRig, error) {
 		return nil, fmt.Errorf("initialize Kubernetes client: %w", err)
 	}
 
-	rig.structured, err = kubernetes.NewForConfig(rig.kubernetes.Config)
+	rig.kubeclient, err = kubeclient.New(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("initialize structured client: %w", err)
-	}
-
-	rig.dynamic, err = dynamic.NewForConfig(rig.kubernetes.Config)
-	if err != nil {
-		return nil, fmt.Errorf("initialize dynamic client: %w", err)
+		return nil, fmt.Errorf("initialize custom client: %w", err)
 	}
 
 	rig.statusChan = make(chan *pb.DeploymentStatus, 16)
-	rig.teamClient = kubeclient.NewTeamClient(rig.structured, rig.dynamic)
 
 	return rig, nil
 }
@@ -310,7 +302,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 	}()
 
 	// Start deployment
-	deployd.Run(op, rig.teamClient)
+	deployd.Run(op, rig.kubeclient)
 	err = waitFinish(rig.statusChan, test.endStatus)
 	assert.NoError(t, err)
 

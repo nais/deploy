@@ -4,23 +4,23 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
 	v1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/kubernetes"
 )
 
 type job struct {
-	client kubernetes.Interface
+	client kubeclient.Interface
 }
 
 func (j job) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
 	var job *v1.Job
 	var err error
 
-	client := j.client.BatchV1().Jobs(resource.GetNamespace())
+	client := j.client.Kubernetes().BatchV1().Jobs(resource.GetNamespace())
 	deadline, _ := op.Context.Deadline()
 
 	// Wait until the new job object is present in the cluster.

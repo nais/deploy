@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/nais/liberator/pkg/conftools"
 	"github.com/nais/deploy/pkg/azure/oauth2"
 	"github.com/nais/deploy/pkg/deployd/config"
 	"github.com/nais/deploy/pkg/deployd/deployd"
@@ -20,6 +19,7 @@ import (
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/version"
+	"github.com/nais/liberator/pkg/conftools"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -62,11 +62,10 @@ func run() error {
 		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-application-id is not specified")
 	}
 
-	kube, err := kubeclient.New()
+	kube, err := kubeclient.DefaultClient()
 	if err != nil {
 		return fmt.Errorf("cannot configure Kubernetes client: %s", err)
 	}
-	log.Infof("kubernetes..............: %s", kube.Config.Host)
 
 	metricsServer := http.NewServeMux()
 	metricsServer.Handle(cfg.MetricsPath, metrics.Handler())
@@ -148,7 +147,7 @@ func run() error {
 		ctx, cancel := req.Context()
 		defer cancel()
 
-		client, err := kube.TeamClient(req.GetTeam())
+		client, err := kube.Impersonate(req.GetTeam())
 		if err != nil {
 			statusChan <- pb.NewErrorStatus(req, err)
 			return

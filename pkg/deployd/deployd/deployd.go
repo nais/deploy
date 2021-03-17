@@ -7,8 +7,10 @@ import (
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/metrics"
 	"github.com/nais/deploy/pkg/deployd/operation"
+	"github.com/nais/deploy/pkg/deployd/strategy"
 	"github.com/nais/deploy/pkg/k8sutils"
 	"github.com/nais/deploy/pkg/pb"
+	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -19,11 +21,11 @@ func addCorrelationID(resource *unstructured.Unstructured, correlationID string)
 	if anno == nil {
 		anno = make(map[string]string)
 	}
-	anno[kubeclient.CorrelationIDAnnotation] = correlationID
+	anno[nais_io_v1alpha1.DeploymentCorrelationIDAnnotation] = correlationID
 	resource.SetAnnotations(anno)
 }
 
-func Run(op *operation.Operation, client kubeclient.TeamClient) {
+func Run(op *operation.Operation, client kubeclient.Interface) {
 	op.Logger.Infof("Starting deployment")
 
 	failure := func(err error) {
@@ -55,7 +57,11 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 			"gvk":       identifier.GroupVersionKind,
 		})
 
-		_, err := client.DeployUnstructured(resource)
+		resourceInterface, err := client.ResourceInterface(&resource)
+		if err == nil {
+			_, err = strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface).Deploy(resource)
+		}
+
 		if err != nil {
 			err = fmt.Errorf("%s: %s", identifier.String(), err)
 			logger.Error(err)
@@ -71,7 +77,8 @@ func Run(op *operation.Operation, client kubeclient.TeamClient) {
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
 			deadline, _ := op.Context.Deadline()
 			op.Logger.Debugf("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
-			status := client.WaitForDeployment(op, resource)
+			strat := strategy.NewWatchStrategy(identifier.GroupVersionKind, client)
+			status := strat.Watch(op, resource)
 			if status != nil {
 				if status.GetState().IsError() {
 					errors <- fmt.Errorf(status.Message)

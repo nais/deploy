@@ -6,20 +6,18 @@ import (
 	"regexp"
 	"time"
 
-	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
-	"github.com/nais/liberator/pkg/events"
+	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
+	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
+	"github.com/nais/liberator/pkg/events"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 )
 
 type application struct {
-	structuredClient   kubernetes.Interface
-	unstructuredClient dynamic.Interface
+	client kubeclient.Interface
 }
 
 func EventString(event *v1.Event) string {
@@ -69,7 +67,7 @@ func EventStreamMatch(event *v1.Event, resourceName string) bool {
 func (a application) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
 	var err error
 
-	eventsClient := a.structuredClient.CoreV1().Events(resource.GetNamespace())
+	eventsClient := a.client.Kubernetes().CoreV1().Events(resource.GetNamespace())
 	deadline, _ := op.Context.Deadline()
 	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
 	eventWatcher, err := eventsClient.Watch(metav1.ListOptions{

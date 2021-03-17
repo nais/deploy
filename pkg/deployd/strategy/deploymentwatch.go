@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
@@ -12,11 +13,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/kubernetes"
 )
 
 type deployment struct {
-	client kubernetes.Interface
+	client kubeclient.Interface
 }
 
 func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
@@ -26,7 +26,7 @@ func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstruc
 	var resourceVersion int
 	var updated bool
 
-	client := d.client.AppsV1().Deployments(resource.GetNamespace())
+	client := d.client.Kubernetes().AppsV1().Deployments(resource.GetNamespace())
 	deadline, _ := op.Context.Deadline()
 
 	// For native Kubernetes deployment objects, get the current deployment object.

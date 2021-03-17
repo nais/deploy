@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 )
 
 var (
@@ -29,17 +28,17 @@ func (c NoOp) Watch(op *operation.Operation, resource unstructured.Unstructured)
 	return nil
 }
 
-func NewWatchStrategy(gvk schema.GroupVersionKind, structuredClient kubernetes.Interface, unstructuredClient dynamic.Interface) WatchStrategy {
+func NewWatchStrategy(gvk schema.GroupVersionKind, client kubeclient.Interface) WatchStrategy {
 	if gvk.Group == "nais.io" && gvk.Kind == "Application" {
-		return application{unstructuredClient: unstructuredClient, structuredClient: structuredClient}
+		return application{client: client}
 	}
 
 	if gvk.Kind == "Deployment" && (gvk.Group == "apps" || gvk.Group == "extensions") {
-		return deployment{client: structuredClient}
+		return deployment{client: client}
 	}
 
 	if gvk.Group == "batch" && gvk.Kind == "Job" && gvk.Version == "v1" {
-		return job{client: structuredClient}
+		return job{client: client}
 	}
 
 	return NoOp{}
