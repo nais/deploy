@@ -1,4 +1,4 @@
-package deployer_test
+package deployclient_test
 
 import (
 	"context"
@@ -6,17 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nais/deploy/pkg/deployer"
+	"github.com/nais/deploy/pkg/deployclient"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-func makeMockDeployRequest(cfg deployer.Config) *pb.DeploymentRequest {
+func makeMockDeployRequest(cfg deployclient.Config) *pb.DeploymentRequest {
 	tm := time.Now()
 	deadline := time.Now().Add(1 * time.Minute)
-	request := deployer.MakeDeploymentRequest(cfg, deadline, &pb.Kubernetes{})
+	request := deployclient.MakeDeploymentRequest(cfg, deadline, &pb.Kubernetes{})
 	request.Time = pb.TimeAsTimestamp(tm)
 	return request
 }
@@ -34,11 +34,11 @@ func TestSimpleSuccessfulDeploy(t *testing.T) {
 		Message: "happy",
 	}, nil).Once()
 
-	d := deployer.Deployer{Client: client}
+	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
 
 	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
+	assert.Equal(t, deployclient.ExitSuccess, deployclient.ErrorExitCode(err))
 }
 
 func TestSuccessfulDeploy(t *testing.T) {
@@ -65,11 +65,11 @@ func TestSuccessfulDeploy(t *testing.T) {
 
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
-	d := deployer.Deployer{Client: client}
+	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
 
 	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
+	assert.Equal(t, deployclient.ExitSuccess, deployclient.ErrorExitCode(err))
 }
 
 func TestDeployError(t *testing.T) {
@@ -97,11 +97,11 @@ func TestDeployError(t *testing.T) {
 
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
-	d := deployer.Deployer{Client: client}
+	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
 
 	assert.Error(t, err)
-	assert.Equal(t, deployer.ExitDeploymentError, deployer.ErrorExitCode(err))
+	assert.Equal(t, deployclient.ExitDeploymentError, deployclient.ErrorExitCode(err))
 }
 
 func TestDeployPolling(t *testing.T) {
@@ -135,11 +135,11 @@ func TestDeployPolling(t *testing.T) {
 
 	client.On("Status", ctx, request).Return(statusClient, nil).Once()
 
-	d := deployer.Deployer{Client: client}
+	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
 
 	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
+	assert.Equal(t, deployclient.ExitSuccess, deployclient.ErrorExitCode(err))
 }
 
 func TestDeployWithStatusRetry(t *testing.T) {
@@ -213,11 +213,11 @@ func TestDeployWithStatusRetry(t *testing.T) {
 		Message: "finally over",
 	}, nil).Once()
 
-	d := deployer.Deployer{Client: client}
+	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
 
 	assert.NoError(t, err)
-	assert.Equal(t, deployer.ExitSuccess, deployer.ErrorExitCode(err))
+	assert.Equal(t, deployclient.ExitSuccess, deployclient.ErrorExitCode(err))
 }
 
 func TestImmediateTimeout(t *testing.T) {
@@ -234,18 +234,18 @@ func TestImmediateTimeout(t *testing.T) {
 
 	client.On("Deploy", ctx, request).Return(nil, status.Errorf(codes.DeadlineExceeded, "too slow, mofo")).Once()
 
-	d := deployer.Deployer{Client: client}
+	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
 
 	assert.Error(t, err)
-	assert.Equal(t, deployer.ExitTimeout, deployer.ErrorExitCode(err))
+	assert.Equal(t, deployclient.ExitTimeout, deployclient.ErrorExitCode(err))
 }
 
 func TestPrepareJSON(t *testing.T) {
 	cfg := validConfig()
 	cfg.Resource = []string{"testdata/alert.json"}
 
-	request, err := deployer.Prepare(context.Background(), cfg)
+	request, err := deployclient.Prepare(context.Background(), cfg)
 
 	assert.NoError(t, err)
 
@@ -258,7 +258,7 @@ func TestPrepareYAML(t *testing.T) {
 	cfg := validConfig()
 	cfg.Resource = []string{"testdata/nais.yaml"}
 
-	request, err := deployer.Prepare(context.Background(), cfg)
+	request, err := deployclient.Prepare(context.Background(), cfg)
 
 	assert.NoError(t, err)
 
@@ -272,18 +272,18 @@ func TestValidationFailures(t *testing.T) {
 
 	for _, testCase := range []struct {
 		errorMsg  string
-		transform func(cfg deployer.Config) deployer.Config
+		transform func(cfg deployclient.Config) deployclient.Config
 	}{
-		{deployer.ClusterRequiredMsg, func(cfg deployer.Config) deployer.Config { cfg.Cluster = ""; return cfg }},
-		{deployer.APIKeyRequiredMsg, func(cfg deployer.Config) deployer.Config { cfg.APIKey = ""; return cfg }},
-		{deployer.ResourceRequiredMsg, func(cfg deployer.Config) deployer.Config { cfg.Resource = nil; return cfg }},
-		{deployer.MalformedAPIKeyMsg, func(cfg deployer.Config) deployer.Config { cfg.APIKey = "malformed"; return cfg }},
+		{deployclient.ClusterRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.Cluster = ""; return cfg }},
+		{deployclient.APIKeyRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = ""; return cfg }},
+		{deployclient.ResourceRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.Resource = nil; return cfg }},
+		{deployclient.MalformedAPIKeyMsg, func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = "malformed"; return cfg }},
 	} {
 		cfg := testCase.transform(*valid)
-		request, err := deployer.Prepare(context.Background(), &cfg)
+		request, err := deployclient.Prepare(context.Background(), &cfg)
 		assert.Error(t, err)
 		assert.Nil(t, request)
-		assert.Equal(t, deployer.ExitInvocationFailure, deployer.ErrorExitCode(err))
+		assert.Equal(t, deployclient.ExitInvocationFailure, deployclient.ErrorExitCode(err))
 		assert.Contains(t, err.Error(), testCase.errorMsg)
 	}
 }
@@ -304,7 +304,7 @@ func TestTemplateVariableFromCommandLine(t *testing.T) {
 		"two=TWO",
 	}
 
-	request, err := deployer.Prepare(context.Background(), cfg)
+	request, err := deployclient.Prepare(context.Background(), cfg)
 	assert.NoError(t, err)
 
 	resources, err := request.Kubernetes.JSONResources()
@@ -321,11 +321,11 @@ func TestTemplateVariableFromCommandLine(t *testing.T) {
 }
 
 func TestExitCodeZero(t *testing.T) {
-	assert.Equal(t, deployer.ExitCode(0), deployer.ExitSuccess)
+	assert.Equal(t, deployclient.ExitCode(0), deployclient.ExitSuccess)
 }
 
-func validConfig() *deployer.Config {
-	cfg := deployer.NewConfig()
+func validConfig() *deployclient.Config {
+	cfg := deployclient.NewConfig()
 	cfg.Resource = []string{"testdata/nais.yaml"}
 	cfg.Cluster = "dev-fss"
 	cfg.Repository = "myrepo"

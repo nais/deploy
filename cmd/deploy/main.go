@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/nais/deploy/pkg/deployer"
+	"github.com/nais/deploy/pkg/deployclient"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/version"
 
@@ -18,8 +18,8 @@ func main() {
 	if err == nil {
 		return
 	}
-	code := deployer.ErrorExitCode(err)
-	if code == deployer.ExitInvocationFailure {
+	code := deployclient.ErrorExitCode(err)
+	if code == deployclient.ExitInvocationFailure {
 		flag.Usage()
 	}
 	log.Errorf("fatal: %s", err)
@@ -28,13 +28,13 @@ func main() {
 
 func run() error {
 	// Configuration and context
-	cfg := deployer.NewConfig()
-	deployer.InitConfig(cfg)
+	cfg := deployclient.NewConfig()
+	deployclient.InitConfig(cfg)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
 	// Logging
-	deployer.SetupLogging(*cfg)
+	deployclient.SetupLogging(*cfg)
 
 	// Welcome
 	log.Infof("NAIS deploy %s", version.Version())
@@ -44,13 +44,13 @@ func run() error {
 	}
 
 	// Prepare request
-	request, err := deployer.Prepare(ctx, cfg)
+	request, err := deployclient.Prepare(ctx, cfg)
 	if err != nil {
 		return err
 	}
 
 	// Set up asynchronous gRPC connection
-	grpcConnection, err := deployer.NewGrpcConnection(*cfg)
+	grpcConnection, err := deployclient.NewGrpcConnection(*cfg)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func run() error {
 		}
 	}()
 
-	d := deployer.Deployer{
+	d := deployclient.Deployer{
 		Client: pb.NewDeployClient(grpcConnection),
 	}
 

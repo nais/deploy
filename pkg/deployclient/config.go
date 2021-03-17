@@ -1,4 +1,4 @@
-package deployer
+package deployclient
 
 import (
 	"encoding/hex"
