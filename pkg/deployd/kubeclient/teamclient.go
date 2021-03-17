@@ -30,6 +30,7 @@ type TeamClient interface {
 // Implement TeamClient interface
 var _ TeamClient = &teamClient{}
 
+// Given a unstructured Kubernetes resource, return a GroupVersionResource that identifies it in the cluster.
 func (c *teamClient) gvr(resource *unstructured.Unstructured) (*schema.GroupVersionResource, error) {
 	groupResources, err := restmapper.GetAPIGroupResources(c.structuredClient.Discovery())
 	if err != nil {
@@ -47,10 +48,9 @@ func (c *teamClient) gvr(resource *unstructured.Unstructured) (*schema.GroupVers
 	return &mapping.Resource, nil
 }
 
-// DeployUnstructured takes a generic unstructured object, discovers its location
-// using the Kubernetes API REST mapper, and deploys it to the cluster.
-func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	gvr, err := c.gvr(&resource)
+// Given a unstructured Kubernetes resource, return a dynamic client that knows how to apply it to the cluster.
+func (c *teamClient) resourceInterface(resource *unstructured.Unstructured) (dynamic.ResourceInterface, error) {
+	gvr, err := c.gvr(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -59,10 +59,21 @@ func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*un
 	ns := resource.GetNamespace()
 
 	if len(ns) == 0 {
-		return strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface).Deploy(resource)
+		return resourceInterface, nil
 	}
 
-	return strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface.Namespace(ns)).Deploy(resource)
+	return resourceInterface.Namespace(ns), nil
+}
+
+// DeployUnstructured takes a generic unstructured object, discovers its location
+// using the Kubernetes API REST mapper, and deploys it to the cluster.
+func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	resourceInterface, err := c.resourceInterface(&resource)
+	if err != nil {
+		return nil, err
+	}
+
+	return strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface).Deploy(resource)
 }
 
 // Returns nil after the next generation of the deployment is successfully rolled out,
