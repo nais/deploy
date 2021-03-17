@@ -30,9 +30,7 @@ type TeamClient interface {
 // Implement TeamClient interface
 var _ TeamClient = &teamClient{}
 
-// DeployUnstructured takes a generic unstructured object, discovers its location
-// using the Kubernetes API REST mapper, and deploys it to the cluster.
-func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func (c *teamClient) gvr(resource *unstructured.Unstructured) (*schema.GroupVersionResource, error) {
 	groupResources, err := restmapper.GetAPIGroupResources(c.structuredClient.Discovery())
 	if err != nil {
 		return nil, fmt.Errorf("unable to run kubernetes resource discovery: %s", err)
@@ -46,14 +44,25 @@ func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*un
 		return nil, fmt.Errorf("unable to discover resource using REST mapper: %s", err)
 	}
 
-	clusterResource := c.unstructuredClient.Resource(mapping.Resource)
+	return &mapping.Resource, nil
+}
+
+// DeployUnstructured takes a generic unstructured object, discovers its location
+// using the Kubernetes API REST mapper, and deploys it to the cluster.
+func (c *teamClient) DeployUnstructured(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	gvr, err := c.gvr(&resource)
+	if err != nil {
+		return nil, err
+	}
+
+	resourceInterface := c.unstructuredClient.Resource(*gvr)
 	ns := resource.GetNamespace()
 
 	if len(ns) == 0 {
-		return strategy.NewDeployStrategy(gvk, clusterResource).Deploy(resource)
-	} else {
-		return strategy.NewDeployStrategy(gvk, clusterResource.Namespace(ns)).Deploy(resource)
+		return strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface).Deploy(resource)
 	}
+
+	return strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface.Namespace(ns)).Deploy(resource)
 }
 
 // Returns nil after the next generation of the deployment is successfully rolled out,
