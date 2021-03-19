@@ -120,6 +120,13 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 		log.Infof("Detected environment '%s'", cfg.Environment)
 	}
 
+	for i := range resources {
+		resources[i], err = InjectAnnotations(resources[i], BuildEnvironmentAnnotations())
+		if err != nil {
+			return nil, ErrorWrap(ExitInternalError, fmt.Errorf("inject annotations in resource %d: %w", i, err))
+		}
+	}
+
 	allResources, err := wrapResources(resources)
 	if err != nil {
 		return nil, ErrorWrap(ExitInvocationFailure, err)
