@@ -267,6 +267,19 @@ func TestPrepareYAML(t *testing.T) {
 	assert.Equal(t, cfg.Cluster, request.Cluster, "cluster is set")
 }
 
+func TestAnnotationInjection(t *testing.T) {
+	cfg := validConfig()
+	cfg.Resource = []string{"testdata/alert.json"}
+
+	request, err := deployclient.Prepare(context.Background(), cfg)
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, "aura", request.Team, "auto-detection of team works")
+	assert.Equal(t, "dev-fss", request.GithubEnvironment, "auto-detection of environment works")
+	assert.Equal(t, cfg.Cluster, request.Cluster, "cluster is set")
+}
+
 func TestValidationFailures(t *testing.T) {
 	valid := validConfig()
 

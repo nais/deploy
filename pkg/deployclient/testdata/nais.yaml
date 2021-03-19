@@ -3,6 +3,8 @@ kind: "Application"
 metadata:
   name: testapp
   namespace: nais
+  annotations:
+    some-annotation: "yes"
   labels:
     team: aura
 spec:
