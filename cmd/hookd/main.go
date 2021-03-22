@@ -15,12 +15,12 @@ import (
 	"github.com/nais/deploy/pkg/version"
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/nais/liberator/pkg/conftools"
 	"github.com/nais/deploy/pkg/azure/oauth2"
 	"github.com/nais/deploy/pkg/grpc/deployserver"
 	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
 	switch_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/switch"
 	"github.com/nais/deploy/pkg/grpc/interceptor/token"
+	"github.com/nais/liberator/pkg/conftools"
 
 	gh "github.com/google/go-github/v27/github"
 	"github.com/nais/deploy/pkg/azure/discovery"
@@ -137,6 +137,11 @@ func run() error {
 
 	log.Infof("gRPC server started")
 
+	var tokenValidator api.Middleware
+	if cfg.Azure.HasConfig() {
+		tokenValidator = middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID)
+	}
+
 	router := api.New(api.Config{
 		ApiKeyStore:                 db,
 		BaseURL:                     cfg.BaseURL,
@@ -146,7 +151,7 @@ func run() error {
 		GithubConfig:                cfg.Github,
 		InstallationClient:          installationClient,
 		MetricsPath:                 cfg.MetricsPath,
-		OAuthKeyValidatorMiddleware: middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID),
+		OAuthKeyValidatorMiddleware: tokenValidator,
 		ProvisionKey:                provisionKey,
 		TeamClient:                  graphAPIClient,
 		TeamRepositoryStorage:       db,
