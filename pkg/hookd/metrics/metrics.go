@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/nais/deploy/pkg/pb"
@@ -26,6 +27,7 @@ const (
 var (
 	deployQueue        = make(map[string]interface{})
 	clusterConnections = make(map[string]bool)
+	qlock              = &sync.Mutex{}
 )
 
 func GitHubRequest(statusCode int, repository, team string) {
@@ -76,6 +78,10 @@ func UpdateQueue(status *pb.DeploymentStatus) {
 		Cluster:              status.GetRequest().GetCluster(),
 	}
 	stateTransitions.With(labels).Inc()
+
+	// avoid concurrent map writes
+	qlock.Lock()
+	defer qlock.Unlock()
 
 	switch status.GetState() {
 
