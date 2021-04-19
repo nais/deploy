@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	unauthenticated_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/unauthenticated"
@@ -44,6 +45,10 @@ var maskedConfig = []string{
 	config.DatabaseUrl,
 	config.ProvisionKey,
 }
+
+const (
+	databaseConnectBackoffInterval = 3 * time.Second
+)
 
 func run() error {
 	var db *database.Database
@@ -91,6 +96,9 @@ func run() error {
 			break
 		} else if ctx.Err() != nil {
 			break
+		} else {
+			log.Errorf("unable to connect to database: %s", err)
+			time.Sleep(databaseConnectBackoffInterval)
 		}
 	}
 	cancel()
