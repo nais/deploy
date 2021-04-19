@@ -56,7 +56,7 @@ func (h *Handler) Deployments(w http.ResponseWriter, r *http.Request) {
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
-	deployments, err := h.DeploymentStore.Deployments(r.Context(), "", maxRows)
+	deployments, err := h.DeploymentStore.Deployments(r.Context(), r.URL.Query().Get("team"), maxRows)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)
