@@ -90,6 +90,7 @@ func run() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.DatabaseConnectTimeout)
 	for {
+		log.Infof("Connecting to database...")
 		db, err = database.New(ctx, cfg.DatabaseURL, dbEncryptionKey)
 		if err == nil {
 			log.Infof("Database connection established.")
