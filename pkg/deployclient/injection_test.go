@@ -2,6 +2,7 @@ package deployclient_test
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/nais/deploy/pkg/deployclient"
@@ -20,10 +21,14 @@ func TestInjectAnnotations(t *testing.T) {
 	assert.NoError(t, err)
 	assert.EqualValues(t, map[string]string{"some-annotation": "yes"}, app.GetAnnotations())
 
-	annotations := map[string]string{
-		"foo": "bar",
-		"yes": "no",
-	}
+	os.Setenv("GITHUB_SHA", "shasum")
+	os.Setenv("GITHUB_SERVER_URL", "http://localhost:1234")
+	os.Setenv("GITHUB_REPOSITORY", "foo/bar")
+	os.Setenv("GITHUB_RUN_ID", "4567")
+
+	annotations := deployclient.BuildEnvironmentAnnotations()
+	annotations["foo"] = "bar"
+	annotations["yes"] = "no"
 
 	// Merge our custom annotations
 	modified, err := deployclient.InjectAnnotations(docs[0], annotations)
@@ -31,6 +36,7 @@ func TestInjectAnnotations(t *testing.T) {
 
 	// Check that the resulting object contains all three annotations
 	annotations["some-annotation"] = "yes"
+	annotations["kubernetes.io/change-cause"] = "nais deploy: commit shasum: http://localhost:1234/foo/bar/actions/runs/4567"
 	app = &nais_io_v1alpha1.Application{}
 	err = json.Unmarshal(modified, app)
 	assert.NoError(t, err)

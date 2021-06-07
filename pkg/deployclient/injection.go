@@ -10,6 +10,9 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const DeployClientVersion = "deploy.nais.io/client-version"
+const GithubWorkflowRunURL = "deploy.nais.io/github-workflow-run-url"
+
 func InjectAnnotations(resource json.RawMessage, annotations map[string]string) (json.RawMessage, error) {
 	decoded := make(map[string]json.RawMessage)
 	err := json.Unmarshal(resource, &decoded)
@@ -64,16 +67,43 @@ func BuildEnvironmentAnnotations() map[string]string {
 		"GIT_COMMIT",
 	)
 
-	const DeployClientVersion = "deploy.nais.io/client-version"
-	const GithubWorkflowRunURL = "deploy.nais.io/github-workflow-run-url"
-
 	a[DeployClientVersion] = version.Version()
 	runurl := githubWorkflowRunURL()
 	if len(runurl) > 0 {
 		a[GithubWorkflowRunURL] = runurl
 	}
 
+	cause := changeCause(a)
+	if len(cause) > 0 {
+		a["kubernetes.io/change-cause"] = cause
+	}
+
 	return a
+}
+
+func changeCause(annotations map[string]string) string {
+	var commit, url string
+	var ok bool
+
+	for _, key := range []string{"deploy.nais.io/github-sha", "deploy.nais.io/git-commit"} {
+		commit, ok = annotations[key]
+		if ok {
+			break
+		}
+	}
+
+	for _, key := range []string{GithubWorkflowRunURL, "deploy.nais.io/build-url"} {
+		url, ok = annotations[key]
+		if ok {
+			break
+		}
+	}
+
+	if len(commit) == 0 || len(url) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("nais deploy: commit %s: %s", commit, url)
 }
 
 func githubWorkflowRunURL() string {
