@@ -13,9 +13,7 @@ import (
 	"github.com/nais/deploy/pkg/azure/graphapi"
 	api_v1_apikey "github.com/nais/deploy/pkg/hookd/api/v1/apikey"
 	"github.com/nais/deploy/pkg/hookd/api/v1/dashboard"
-	api_v1_deploy "github.com/nais/deploy/pkg/hookd/api/v1/deploy"
 	api_v1_provision "github.com/nais/deploy/pkg/hookd/api/v1/provision"
-	api_v1_status "github.com/nais/deploy/pkg/hookd/api/v1/status"
 	api_v1_teams "github.com/nais/deploy/pkg/hookd/api/v1/teams"
 	"github.com/nais/deploy/pkg/hookd/config"
 	"github.com/nais/deploy/pkg/hookd/database"
@@ -50,24 +48,12 @@ func New(cfg Config) chi.Router {
 
 	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
 
-	deploymentHandler := &api_v1_deploy.DeploymentHandler{
-		APIKeyStorage:   cfg.ApiKeyStore,
-		BaseURL:         cfg.BaseURL,
-		DispatchServer:  cfg.DispatchServer,
-		DeploymentStore: cfg.DeploymentStore,
-	}
-
 	teamsHandler := &api_v1_teams.TeamsHandler{
 		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
 	apikeyHandler := &api_v1_apikey.ApiKeyHandler{
 		APIKeyStorage: cfg.ApiKeyStore,
-	}
-
-	statusHandler := &api_v1_status.StatusHandler{
-		APIKeyStorage:   cfg.ApiKeyStore,
-		DeploymentStore: cfg.DeploymentStore,
 	}
 
 	provisionHandler := &api_v1_provision.Handler{
@@ -80,13 +66,13 @@ func New(cfg Config) chi.Router {
 		DeploymentStore: cfg.DeploymentStore,
 	}
 
+	goneHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusGone)
+	}
+
 	// Pre-populate request metrics
-	for _, code := range api_v1_deploy.StatusCodes {
-		prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, code)
-	}
-	for _, code := range api_v1_status.StatusCodes {
-		prometheusMiddleware.Initialize("/api/v1/status", http.MethodPost, code)
-	}
+	prometheusMiddleware.Initialize("/api/v1/deploy", http.MethodPost, http.StatusGone)
+	prometheusMiddleware.Initialize("/api/v1/status", http.MethodPost, http.StatusGone)
 	for _, code := range api_v1_provision.StatusCodes {
 		prometheusMiddleware.Initialize("/api/v1/provision", http.MethodPost, code)
 	}
@@ -139,8 +125,8 @@ func New(cfg Config) chi.Router {
 			log.Error("Note: /api/v1/apikey will be unavailable")
 			log.Error("Note: /api/v1/teams will be unavailable")
 		}
-		r.Post("/deploy", deploymentHandler.ServeHTTP)
-		r.Post("/status", statusHandler.ServeHTTP)
+		r.Post("/deploy", goneHandler)
+		r.Post("/status", goneHandler)
 		if len(cfg.ProvisionKey) == 0 {
 			log.Error("Refusing to set up team API provisioning endpoint without pre-shared secret; try using --provision-key")
 			log.Error("Note: /api/v1/provision will be unavailable")
