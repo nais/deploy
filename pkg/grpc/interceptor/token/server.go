@@ -3,7 +3,7 @@ package token_interceptor
 import (
 	"context"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"github.com/nais/deploy/pkg/azure/discovery"
 	"github.com/nais/deploy/pkg/azure/oauth2"
 	"github.com/nais/deploy/pkg/azure/validate"

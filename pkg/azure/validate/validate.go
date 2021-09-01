@@ -3,7 +3,7 @@ package validate
 import (
 	"fmt"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"github.com/nais/deploy/pkg/azure/discovery"
 )
 

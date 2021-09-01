@@ -4,12 +4,12 @@ require (
 	github.com/aymerick/raymond v2.0.2+incompatible
 	github.com/bradleyfalzon/ghinstallation v1.0.0
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.0.3+incompatible
 	github.com/go-chi/jwtauth v4.0.4+incompatible
 	github.com/go-chi/render v1.0.1
 	github.com/gogo/protobuf v1.3.0 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/protobuf v1.4.1
 	github.com/google/go-github/v27 v27.0.6
 	github.com/google/uuid v1.1.2
@@ -36,7 +36,7 @@ require (
 	k8s.io/api v0.17.2
 	k8s.io/apimachinery v0.17.3-beta.0
 	k8s.io/client-go v0.17.2
-	sigs.k8s.io/controller-runtime v0.5.0 // indirect
+	sigs.k8s.io/controller-runtime v0.5.0
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
