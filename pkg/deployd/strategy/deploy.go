@@ -43,8 +43,9 @@ func (c createOrUpdateStrategy) Deploy(resource unstructured.Unstructured) (*uns
 	if errors.IsNotFound(err) {
 		deployed, err := c.client.Create(&resource, metav1.CreateOptions{})
 		if err != nil {
-			return deployed, err
+			return nil, fmt.Errorf("get existing resource: %s", err)
 		}
+		return deployed, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("get existing resource: %s", err)
 	}
