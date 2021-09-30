@@ -39,15 +39,17 @@ func (r recreateStrategy) Deploy(resource unstructured.Unstructured) (*unstructu
 }
 
 func (c createOrUpdateStrategy) Deploy(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	deployed, err := c.client.Create(&resource, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		return deployed, err
-	}
-
 	existing, err := c.client.Get(resource.GetName(), metav1.GetOptions{})
-	if err != nil {
+	if errors.IsNotFound(err) {
+		deployed, err := c.client.Create(&resource, metav1.CreateOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("get existing resource: %s", err)
+		}
+		return deployed, nil
+	} else if err != nil {
 		return nil, fmt.Errorf("get existing resource: %s", err)
 	}
+
 	resource.SetResourceVersion(existing.GetResourceVersion())
 	return c.client.Update(&resource, metav1.UpdateOptions{})
 }
