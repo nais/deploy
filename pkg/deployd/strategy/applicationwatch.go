@@ -3,13 +3,13 @@ package strategy
 import (
 	"context"
 	"fmt"
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"regexp"
 	"time"
 
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
-	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"github.com/nais/liberator/pkg/events"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +33,7 @@ func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentS
 	}
 
 	if event.ReportingController == "naiserator" {
-		id, _ := event.GetAnnotations()[nais_io_v1alpha1.DeploymentCorrelationIDAnnotation]
+		id, _ := event.GetAnnotations()[nais_io_v1.DeploymentCorrelationIDAnnotation]
 		if id != status.GetRequest().GetID() {
 			return nil // not a status that applies to our request id
 		}
@@ -70,7 +70,7 @@ func (a application) Watch(op *operation.Operation, resource unstructured.Unstru
 	eventsClient := a.client.Kubernetes().CoreV1().Events(resource.GetNamespace())
 	deadline, _ := op.Context.Deadline()
 	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
-	eventWatcher, err := eventsClient.Watch(metav1.ListOptions{
+	eventWatcher, err := eventsClient.Watch(op.Context, metav1.ListOptions{
 		TimeoutSeconds:  &timeoutSecs,
 		ResourceVersion: "0",
 	})
@@ -80,7 +80,7 @@ func (a application) Watch(op *operation.Operation, resource unstructured.Unstru
 	}
 
 	watchStart := time.Now().Truncate(time.Second)
-	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	ctx, cancel := context.WithCancel(op.Context)
 	defer cancel()
 
 	for {

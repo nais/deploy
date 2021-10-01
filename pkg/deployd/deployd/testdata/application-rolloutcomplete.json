@@ -4,7 +4,7 @@
     "apiVersion": "nais.io/v1alpha1",
     "metadata": {
       "name": "myapplication",
-      "namespace": "default"
+      "namespace": "aura"
     },
     "spec": {
       "image": "foo/bar"

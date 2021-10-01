@@ -2,6 +2,7 @@ package deployd
 
 import (
 	"fmt"
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"sync"
 
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
@@ -10,7 +11,6 @@ import (
 	"github.com/nais/deploy/pkg/deployd/strategy"
 	"github.com/nais/deploy/pkg/k8sutils"
 	"github.com/nais/deploy/pkg/pb"
-	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -21,7 +21,7 @@ func addCorrelationID(resource *unstructured.Unstructured, correlationID string)
 	if anno == nil {
 		anno = make(map[string]string)
 	}
-	anno[nais_io_v1alpha1.DeploymentCorrelationIDAnnotation] = correlationID
+	anno[nais_io_v1.DeploymentCorrelationIDAnnotation] = correlationID
 	resource.SetAnnotations(anno)
 }
 
@@ -59,7 +59,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 
 		resourceInterface, err := client.ResourceInterface(&resource)
 		if err == nil {
-			_, err = strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface).Deploy(resource)
+			_, err = strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface).Deploy(op.Context, resource)
 		}
 
 		if err != nil {

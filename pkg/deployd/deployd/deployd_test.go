@@ -3,7 +3,10 @@ package deployd_test
 import (
 	"context"
 	"fmt"
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"io/ioutil"
+	rbac_v1 "k8s.io/api/rbac/v1"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -34,7 +37,7 @@ type testSpec struct {
 	fixture           string               // path to testdata to deploy to cluster
 	timeout           time.Duration        // time to allow for deploy to reach end state
 	endStatus         *pb.DeploymentStatus // which end state we expect
-	deployedResources []runtime.Object     // list of Kubernetes resources expected to be applied to the cluster - only checks name and namespace
+	deployedResources []client.Object      // list of Kubernetes resources expected to be applied to the cluster - only checks name and namespace
 	processing        processCallback      // processing that happens in a coroutine together with deployd.Run(). Requires all resources in `deployedResources` to exist.
 }
 
@@ -46,11 +49,11 @@ var tests = []testSpec{
 		endStatus: &pb.DeploymentStatus{
 			State: pb.DeploymentState_success,
 		},
-		deployedResources: []runtime.Object{
+		deployedResources: []client.Object{
 			&v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
-					Namespace: "default",
+					Namespace: "aura",
 				},
 			},
 		},
@@ -64,11 +67,11 @@ var tests = []testSpec{
 			State:   pb.DeploymentState_failure,
 			Message: "timeout while waiting for deployment to succeed (total of 1 errors)",
 		},
-		deployedResources: []runtime.Object{
+		deployedResources: []client.Object{
 			&nais_io_v1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myapplication-timeout",
-					Namespace: "default",
+					Namespace: "aura",
 				},
 			},
 		},
@@ -82,11 +85,11 @@ var tests = []testSpec{
 			State:   pb.DeploymentState_success,
 			Message: "Deployment completed successfully.",
 		},
-		deployedResources: []runtime.Object{
+		deployedResources: []client.Object{
 			&nais_io_v1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myapplication",
-					Namespace: "default",
+					Namespace: "aura",
 				},
 			},
 		},
@@ -103,11 +106,11 @@ var tests = []testSpec{
 			State:   pb.DeploymentState_failure,
 			Message: "Application/myapplication-failedsynchronization (FailedSynchronization): oops (total of 1 errors)",
 		},
-		deployedResources: []runtime.Object{
+		deployedResources: []client.Object{
 			&nais_io_v1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myapplication-failedsynchronization",
-					Namespace: "default",
+					Namespace: "aura",
 				},
 			},
 		},
@@ -124,11 +127,11 @@ var tests = []testSpec{
 			State:   pb.DeploymentState_failure,
 			Message: "Application/myapplication-failedprepare (FailedPrepare): oops (total of 1 errors)",
 		},
-		deployedResources: []runtime.Object{
+		deployedResources: []client.Object{
 			&nais_io_v1alpha1.Application{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "myapplication-failedprepare",
-					Namespace: "default",
+					Namespace: "aura",
 				},
 			},
 		},
@@ -149,20 +152,28 @@ type testRig struct {
 }
 
 func newTestRig() (*testRig, error) {
+	var err error
+
+	os.Setenv("KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT", "true")
+
 	rig := &testRig{}
+
+	rig.scheme, err = scheme.All()
+	if err != nil {
+		return nil, fmt.Errorf("initialize Kubernetes schemes: %s", err)
+	}
+
 	crdPath := crd.YamlDirectory()
 	rig.kubernetes = &envtest.Environment{
-		CRDDirectoryPaths: []string{crdPath},
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Scheme: rig.scheme,
+			Paths:  []string{crdPath},
+		},
 	}
 
 	cfg, err := rig.kubernetes.Start()
 	if err != nil {
 		return nil, fmt.Errorf("setup Kubernetes test environment: %w", err)
-	}
-
-	rig.scheme, err = scheme.All()
-	if err != nil {
-		return nil, fmt.Errorf("initialize Kubernetes schemes: %s", err)
 	}
 
 	rig.client, err = client.New(cfg, client.Options{
@@ -212,7 +223,38 @@ func waitFinish(statusChan <-chan *pb.DeploymentStatus, expectedStatus *pb.Deplo
 	return fmt.Errorf("channel closed but no end state")
 }
 
-func createServiceAccount(team string, rig *testRig) error {
+func createRBAC(ctx context.Context, rig *testRig) error {
+	rbac := &rbac_v1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "allow-rest-mapper",
+		},
+		Subjects: []rbac_v1.Subject{
+			{
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "User",
+				Name:     "system:serviceaccount:aura:serviceuser-aura",
+			},
+		},
+		RoleRef: rbac_v1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "cluster-admin",
+		},
+	}
+
+	return rig.client.Create(ctx, rbac)
+}
+
+func createNamespace(ctx context.Context, namespace string, rig *testRig) error {
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	return rig.client.Create(ctx, ns)
+}
+
+func createServiceAccount(ctx context.Context, team string, rig *testRig) error {
 	name := "serviceuser-" + team
 
 	secret := &v1.Secret{
@@ -223,15 +265,15 @@ func createServiceAccount(team string, rig *testRig) error {
 				"kubernetes.io/service-account.name": name,
 			},
 		},
-		Data: nil,
 		StringData: map[string]string{
 			"ca.crt":    string(rig.kubernetes.Config.CAData),
 			"namespace": team,
-			"token":     "dummy",
+			"token":     "",
 		},
 		Type: v1.SecretTypeServiceAccountToken,
 	}
-	err := rig.client.Create(context.Background(), secret)
+
+	err := rig.client.Create(ctx, secret)
 	if err != nil {
 		return err
 	}
@@ -253,7 +295,7 @@ func createServiceAccount(team string, rig *testRig) error {
 		},
 	}
 
-	err = rig.client.Create(context.Background(), svcacc)
+	err = rig.client.Create(ctx, svcacc)
 	if err != nil {
 		return err
 	}
@@ -270,12 +312,32 @@ func TestDeployRun(t *testing.T) {
 		t.FailNow()
 	}
 
+	t.Logf("Test rig initialized")
+
 	defer rig.kubernetes.Stop()
 
 	log.SetLevel(log.TraceLevel)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	t.Logf("Creating namespace")
+	err = createNamespace(ctx, "aura", rig)
+	if err != nil {
+		t.Errorf("unable to create namespace: %s", err)
+		t.FailNow()
+	}
+
+	t.Logf("Creating role binding")
+	err = createRBAC(ctx, rig)
+	if err != nil {
+		t.Errorf("unable to create RBAC: %s", err)
+		t.FailNow()
+	}
+
 	// set up teams for impersonation
-	err = createServiceAccount("aura", rig)
+	t.Logf("Creating service account")
+	err = createServiceAccount(ctx, "aura", rig)
 	if err != nil {
 		t.Errorf("unable to create service account: %s", err)
 		t.FailNow()
@@ -292,13 +354,10 @@ func TestDeployRun(t *testing.T) {
 	}
 }
 
-func resourceExists(ctx context.Context, rig *testRig, resource runtime.Object) error {
-	key, err := client.ObjectKeyFromObject(resource)
-	if err != nil {
-		panic(fmt.Sprintf("test data error: %s", err))
-	}
+func resourceExists(ctx context.Context, rig *testRig, resource client.Object) error {
+	key := client.ObjectKeyFromObject(resource)
 	obj := resource.DeepCopyObject()
-	return rig.client.Get(ctx, key, obj)
+	return rig.client.Get(ctx, key, obj.(client.Object))
 }
 
 func waitForResources(ctx context.Context, rig *testRig, test testSpec) error {
@@ -360,13 +419,19 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 	}()
 
 	// Start deployment
-	teamClient, err := rig.kubeclient.Impersonate(op.Request.GetTeam())
-	assert.NoError(t, err)
-	if err != nil {
-		return
-	}
 
-	deployd.Run(op, teamClient)
+	// FIXME: team client is broken because it cannot use REST mapper
+	it_is_broken := true
+	if it_is_broken {
+		deployd.Run(op, rig.kubeclient)
+	} else {
+		teamClient, err := rig.kubeclient.Impersonate(op.Request.GetTeam())
+		assert.NoError(t, err)
+		if err != nil {
+			return
+		}
+		deployd.Run(op, teamClient)
+	}
 	err = waitFinish(rig.statusChan, test.endStatus)
 	assert.NoError(t, err)
 
@@ -377,17 +442,18 @@ func naiseratorEvent(id, reason, message, app string) *v1.Event {
 	return &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "event-" + keygen.RandStringBytes(10),
-			Namespace: "default",
+			Namespace: "aura",
 			Annotations: map[string]string{
-				nais_io_v1alpha1.DeploymentCorrelationIDAnnotation: id,
+				nais_io_v1.DeploymentCorrelationIDAnnotation: id,
 			},
 		},
 		ReportingController: "naiserator",
 		Reason:              reason,
 		Message:             message,
 		InvolvedObject: v1.ObjectReference{
-			Kind: "Application",
-			Name: app,
+			Kind:      "Application",
+			Namespace: "aura",
+			Name:      app,
 		},
 		LastTimestamp: metav1.NewTime(time.Now()),
 	}

@@ -25,7 +25,7 @@ func (j job) Watch(op *operation.Operation, resource unstructured.Unstructured) 
 
 	// Wait until the new job object is present in the cluster.
 	for deadline.After(time.Now()) {
-		job, err = client.Get(resource.GetName(), metav1.GetOptions{})
+		job, err = client.Get(op.Context, resource.GetName(), metav1.GetOptions{})
 
 		if err != nil {
 			time.Sleep(requestInterval)
