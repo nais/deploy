@@ -2,7 +2,7 @@ module github.com/nais/deploy
 
 require (
 	github.com/aymerick/raymond v2.0.2+incompatible
-	github.com/bradleyfalzon/ghinstallation v1.0.0
+	github.com/bradleyfalzon/ghinstallation/v2 v2.0.3
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.0.3+incompatible
@@ -52,8 +52,9 @@ require (
 	github.com/evanphx/json-patch v4.5.0+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/go-logr/logr v0.1.0 // indirect
-	github.com/google/go-github/v28 v28.1.1 // indirect
-	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.1.0 // indirect
+	github.com/google/go-github/v39 v39.1.0 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.0.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
