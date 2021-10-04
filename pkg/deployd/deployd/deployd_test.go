@@ -82,7 +82,7 @@ var tests = []testSpec{
 		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
 			State:   pb.DeploymentState_failure,
-			Message: "nais.io/v1alpha1, Kind=Application, Namespace=not-aura, Name=myapplication-unauthorized: get existing resource: applications.nais.io \"myapplication-unauthorized\" is forbidden: User \"system:serviceaccount:aura:serviceuser-aura\" cannot get resource \"applications\" in API group \"nais.io\" in the namespace \"not-aura\" (total of 1 errors)",
+			Message: `nais.io/v1alpha1, Kind=Application, Namespace=not-aura, Name=myapplication-unauthorized: get existing resource: applications.nais.io "myapplication-unauthorized" is forbidden: User "system:serviceaccount:aura:serviceuser-aura" cannot get resource "applications" in API group "nais.io" in the namespace "not-aura" (total of 1 errors)`,
 		},
 		deployedResources: nil,
 	},
@@ -239,9 +239,9 @@ func createRBAC(ctx context.Context, team string, rig *testRig) error {
 		},
 		Subjects: []rbac_v1.Subject{
 			{
-				Kind:      "ServiceAccount",
-				Name:      "serviceuser-" + team,
-				Namespace: team,
+				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "User",
+				Name:     fmt.Sprintf("system:serviceaccount:%s:serviceuser-%s", team, team),
 			},
 		},
 		RoleRef: rbac_v1.RoleRef{
