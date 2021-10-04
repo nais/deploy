@@ -1,6 +1,7 @@
 package strategy
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -27,10 +28,12 @@ func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstruc
 	var updated bool
 
 	client := d.client.Kubernetes().AppsV1().Deployments(resource.GetNamespace())
-	deadline, _ := op.Context.Deadline()
+
+	ctx, cancel := context.WithCancel(op.Context)
+	defer cancel()
 
 	// For native Kubernetes deployment objects, get the current deployment object.
-	for deadline.After(time.Now()) {
+	for ctx.Err() == nil {
 		cur, err = client.Get(op.Context, resource.GetName(), metav1.GetOptions{})
 		if err == nil {
 			resourceVersion, _ = strconv.Atoi(cur.GetResourceVersion())
@@ -46,7 +49,7 @@ func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstruc
 	}
 
 	// Wait until the new deployment object is present in the cluster.
-	for deadline.After(time.Now()) {
+	for ctx.Err() == nil {
 		nova, err = client.Get(op.Context, resource.GetName(), metav1.GetOptions{})
 		if err != nil {
 			time.Sleep(requestInterval)

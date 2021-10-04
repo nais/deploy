@@ -401,6 +401,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 
 	op := &operation.Operation{
 		Context: ctx,
+		Cancel:  cancel,
 		Logger:  log.WithField("fixture", test.fixture),
 		Request: &pb.DeploymentRequest{
 			ID:         test.fixture,

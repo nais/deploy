@@ -70,7 +70,10 @@ func (a application) Watch(op *operation.Operation, resource unstructured.Unstru
 	eventsClient := a.client.Kubernetes().CoreV1().Events(resource.GetNamespace())
 	deadline, _ := op.Context.Deadline()
 	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
-	eventWatcher, err := eventsClient.Watch(op.Context, metav1.ListOptions{
+	ctx, cancel := context.WithCancel(op.Context)
+	defer cancel()
+
+	eventWatcher, err := eventsClient.Watch(ctx, metav1.ListOptions{
 		TimeoutSeconds:  &timeoutSecs,
 		ResourceVersion: "0",
 	})
@@ -80,8 +83,6 @@ func (a application) Watch(op *operation.Operation, resource unstructured.Unstru
 	}
 
 	watchStart := time.Now().Truncate(time.Second)
-	ctx, cancel := context.WithCancel(op.Context)
-	defer cancel()
 
 	for {
 		select {
@@ -118,7 +119,7 @@ func (a application) Watch(op *operation.Operation, resource unstructured.Unstru
 
 			op.StatusChan <- status
 
-		case <-ctx.Done():
+		case <-op.Context.Done():
 			return pb.NewErrorStatus(op.Request, ErrDeploymentTimeout)
 		}
 	}

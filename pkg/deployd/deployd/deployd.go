@@ -29,6 +29,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 	op.Logger.Infof("Starting deployment")
 
 	failure := func(err error) {
+		op.Cancel()
 		op.StatusChan <- pb.NewFailureStatus(op.Request, err)
 	}
 

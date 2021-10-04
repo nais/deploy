@@ -1,6 +1,7 @@
 package strategy
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -21,10 +22,12 @@ func (j job) Watch(op *operation.Operation, resource unstructured.Unstructured) 
 	var err error
 
 	client := j.client.Kubernetes().BatchV1().Jobs(resource.GetNamespace())
-	deadline, _ := op.Context.Deadline()
+
+	ctx, cancel := context.WithCancel(op.Context)
+	defer cancel()
 
 	// Wait until the new job object is present in the cluster.
-	for deadline.After(time.Now()) {
+	for ctx.Err() == nil {
 		job, err = client.Get(op.Context, resource.GetName(), metav1.GetOptions{})
 
 		if err != nil {

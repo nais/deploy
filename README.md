@@ -176,4 +176,17 @@ To enable secure listener and Azure AD token validation on deployd, the followin
 
 ### Deploy
 Once the above components are running and configured, you can deploy using the following command:
+
+```
+./bin/deploy \
+    --resource resource.yaml \
+    --cluster local \
+    --apikey 20cefcd6bd0e8b8860c4ea90e75d7123019ed7866c61bd09e23821948878a11d \
+    --deploy-server localhost:9090 \
+    --grpc-authentication=false \
+    --grpc-use-tls=false \
+    --wait \
+;
+```
+```
 `./bin/deploy --resource res.yaml --cluster local --apikey 20cefcd6bd0e8b8860c4ea90e75d7123019ed7866c61bd09e23821948878a11d --deploy-server http://localhost:8080 --wait`
