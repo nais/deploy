@@ -6,7 +6,6 @@ import (
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"io/ioutil"
 	rbac_v1 "k8s.io/api/rbac/v1"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -75,6 +74,17 @@ var tests = []testSpec{
 				},
 			},
 		},
+	},
+
+	// Deployments to other namespaces are unauthorized
+	{
+		fixture: "testdata/application-unauthorized.json",
+		timeout: 2 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_failure,
+			Message: "nais.io/v1alpha1, Kind=Application, Namespace=not-aura, Name=myapplication-unauthorized: get existing resource: applications.nais.io \"myapplication-unauthorized\" is forbidden: User \"system:serviceaccount:aura:serviceuser-aura\" cannot get resource \"applications\" in API group \"nais.io\" in the namespace \"not-aura\" (total of 1 errors)",
+		},
+		deployedResources: nil,
 	},
 
 	// Happy path for applications
@@ -154,8 +164,6 @@ type testRig struct {
 func newTestRig() (*testRig, error) {
 	var err error
 
-	os.Setenv("KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT", "true")
-
 	rig := &testRig{}
 
 	rig.scheme, err = scheme.All()
@@ -223,16 +231,17 @@ func waitFinish(statusChan <-chan *pb.DeploymentStatus, expectedStatus *pb.Deplo
 	return fmt.Errorf("channel closed but no end state")
 }
 
-func createRBAC(ctx context.Context, rig *testRig) error {
-	rbac := &rbac_v1.ClusterRoleBinding{
+func createRBAC(ctx context.Context, team string, rig *testRig) error {
+	rbac := &rbac_v1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "allow-rest-mapper",
+			Name:      "allow-rest-mapper",
+			Namespace: team,
 		},
 		Subjects: []rbac_v1.Subject{
 			{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "User",
-				Name:     "system:serviceaccount:aura:serviceuser-aura",
+				Kind:      "ServiceAccount",
+				Name:      "serviceuser-" + team,
+				Namespace: team,
 			},
 		},
 		RoleRef: rbac_v1.RoleRef{
@@ -321,15 +330,17 @@ func TestDeployRun(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	team := "aura"
+
 	t.Logf("Creating namespace")
-	err = createNamespace(ctx, "aura", rig)
+	err = createNamespace(ctx, team, rig)
 	if err != nil {
 		t.Errorf("unable to create namespace: %s", err)
 		t.FailNow()
 	}
 
 	t.Logf("Creating role binding")
-	err = createRBAC(ctx, rig)
+	err = createRBAC(ctx, team, rig)
 	if err != nil {
 		t.Errorf("unable to create RBAC: %s", err)
 		t.FailNow()
@@ -337,7 +348,7 @@ func TestDeployRun(t *testing.T) {
 
 	// set up teams for impersonation
 	t.Logf("Creating service account")
-	err = createServiceAccount(ctx, "aura", rig)
+	err = createServiceAccount(ctx, team, rig)
 	if err != nil {
 		t.Errorf("unable to create service account: %s", err)
 		t.FailNow()
@@ -345,7 +356,7 @@ func TestDeployRun(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	for _, test := range tests {
-		subTest(t, rig, test)
+		subTest(t, rig, test, team)
 	}
 
 	if err := recover(); err != nil {
@@ -379,7 +390,7 @@ func waitForResources(ctx context.Context, rig *testRig, test testSpec) error {
 	return ctx.Err()
 }
 
-func subTest(t *testing.T, rig *testRig, test testSpec) {
+func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 	ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
 	defer cancel()
 
@@ -393,7 +404,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 		Logger:  log.WithField("fixture", test.fixture),
 		Request: &pb.DeploymentRequest{
 			ID:         test.fixture,
-			Team:       "aura",
+			Team:       team,
 			Kubernetes: kubes,
 		},
 		StatusChan: rig.statusChan,
@@ -419,19 +430,13 @@ func subTest(t *testing.T, rig *testRig, test testSpec) {
 	}()
 
 	// Start deployment
-
-	// FIXME: team client is broken because it cannot use REST mapper
-	it_is_broken := true
-	if it_is_broken {
-		deployd.Run(op, rig.kubeclient)
-	} else {
-		teamClient, err := rig.kubeclient.Impersonate(op.Request.GetTeam())
-		assert.NoError(t, err)
-		if err != nil {
-			return
-		}
-		deployd.Run(op, teamClient)
+	teamClient, err := rig.kubeclient.Impersonate(op.Request.GetTeam())
+	assert.NoError(t, err)
+	if err != nil {
+		return
 	}
+	deployd.Run(op, teamClient)
+
 	err = waitFinish(rig.statusChan, test.endStatus)
 	assert.NoError(t, err)
 

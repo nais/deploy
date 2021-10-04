@@ -1,0 +1,13 @@
+[
+  {
+    "kind": "Application",
+    "apiVersion": "nais.io/v1alpha1",
+    "metadata": {
+      "name": "myapplication-unauthorized",
+      "namespace": "not-aura"
+    },
+    "spec": {
+      "image": "foo/bar"
+    }
+  }
+]

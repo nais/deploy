@@ -37,7 +37,7 @@ func (c *client) Kubernetes() kubernetes.Interface {
 }
 
 func (c *client) Impersonate(team string) (Interface, error) {
-	config, err := teamconfig.Generate(c.static, c.config, team)
+	config, err := teamconfig.Generate(*c.config, team)
 	if err != nil {
 		return nil, err
 	}
