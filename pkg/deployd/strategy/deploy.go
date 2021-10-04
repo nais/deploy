@@ -1,6 +1,7 @@
 package strategy
 
 import (
+	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -19,7 +20,7 @@ func NewDeployStrategy(gvk schema.GroupVersionKind, namespacedResource dynamic.R
 }
 
 type DeployStrategy interface {
-	Deploy(resource unstructured.Unstructured) (*unstructured.Unstructured, error)
+	Deploy(ctx context.Context, resource unstructured.Unstructured) (*unstructured.Unstructured, error)
 }
 
 type recreateStrategy struct {
@@ -30,18 +31,18 @@ type createOrUpdateStrategy struct {
 	client dynamic.ResourceInterface
 }
 
-func (r recreateStrategy) Deploy(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	err := r.client.Delete(resource.GetName(), &metav1.DeleteOptions{})
+func (r recreateStrategy) Deploy(ctx context.Context, resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	err := r.client.Delete(ctx, resource.GetName(), metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		return nil, err
 	}
-	return r.client.Create(&resource, metav1.CreateOptions{})
+	return r.client.Create(ctx, &resource, metav1.CreateOptions{})
 }
 
-func (c createOrUpdateStrategy) Deploy(resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	existing, err := c.client.Get(resource.GetName(), metav1.GetOptions{})
+func (c createOrUpdateStrategy) Deploy(ctx context.Context, resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	existing, err := c.client.Get(ctx, resource.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		deployed, err := c.client.Create(&resource, metav1.CreateOptions{})
+		deployed, err := c.client.Create(ctx, &resource, metav1.CreateOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("get existing resource: %s", err)
 		}
@@ -51,5 +52,5 @@ func (c createOrUpdateStrategy) Deploy(resource unstructured.Unstructured) (*uns
 	}
 
 	resource.SetResourceVersion(existing.GetResourceVersion())
-	return c.client.Update(&resource, metav1.UpdateOptions{})
+	return c.client.Update(ctx, &resource, metav1.UpdateOptions{})
 }

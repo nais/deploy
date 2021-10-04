@@ -2,7 +2,6 @@ package kubeclient
 
 import (
 	"fmt"
-
 	"github.com/nais/deploy/pkg/deployd/teamconfig"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,7 +37,7 @@ func (c *client) Kubernetes() kubernetes.Interface {
 }
 
 func (c *client) Impersonate(team string) (Interface, error) {
-	config, err := teamconfig.Generate(c.static, c.config, team)
+	config, err := teamconfig.Generate(*c.config, team)
 	if err != nil {
 		return nil, err
 	}

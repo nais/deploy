@@ -145,10 +145,10 @@ func run() error {
 
 	deploy := func(req *pb.DeploymentRequest) {
 		ctx, cancel := req.Context()
-		defer cancel()
 
 		client, err := kube.Impersonate(req.GetTeam())
 		if err != nil {
+			cancel()
 			statusChan <- pb.NewErrorStatus(req, err)
 			return
 		}
@@ -157,6 +157,7 @@ func run() error {
 
 		op := &operation.Operation{
 			Context:    ctx,
+			Cancel:     cancel,
 			Logger:     logger,
 			Request:    req,
 			StatusChan: statusChan,

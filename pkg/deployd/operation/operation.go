@@ -12,6 +12,7 @@ import (
 
 type Operation struct {
 	Context    context.Context
+	Cancel     context.CancelFunc
 	Logger     *log.Entry
 	Request    *pb.DeploymentRequest
 	StatusChan chan<- *pb.DeploymentStatus
