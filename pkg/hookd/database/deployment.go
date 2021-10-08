@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4"
+	"github.com/lib/pq"
 )
 
 type Deployment struct {
@@ -37,7 +38,7 @@ type DeploymentResource struct {
 }
 
 type DeploymentStore interface {
-	Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error)
+	Deployments(ctx context.Context, team []string, limit int) ([]*Deployment, error)
 	Deployment(ctx context.Context, id string) (*Deployment, error)
 	HistoricDeployments(ctx context.Context, cluster string, timestamp time.Time) ([]*Deployment, error)
 	WriteDeployment(ctx context.Context, deployment Deployment) error
@@ -91,15 +92,15 @@ WHERE (cluster = $1 AND created < $2 AND (state = 'in_progress' OR state = 'queu
 	return deployments, nil
 }
 
-func (db *Database) Deployments(ctx context.Context, team string, limit int) ([]*Deployment, error) {
+func (db *Database) Deployments(ctx context.Context, team []string, limit int) ([]*Deployment, error) {
 	query := `
 SELECT id, team, created, github_id, github_repository, cluster
 FROM deployment
-WHERE ($1 = '' OR team = $1)
+WHERE (ARRAY_LENGTH($1::VARCHAR[], 1) IS NULL OR team = ANY($1))
 ORDER BY created DESC
 LIMIT $2;
 `
-	rows, err := db.timedQuery(ctx, query, team, limit)
+	rows, err := db.timedQuery(ctx, query, pq.Array(team), limit)
 
 	if err != nil {
 		return nil, err
