@@ -1,6 +1,7 @@
 version: "3"
 services:
   postgres:
+    command: postgres -c log_statement=all
     image: postgres:11-alpine
     ports:
     - "5432:5432"
