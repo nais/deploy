@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4"
+	"github.com/lib/pq"
 )
 
 type Deployment struct {
@@ -95,11 +96,11 @@ func (db *Database) Deployments(ctx context.Context, team []string, limit int) (
 	query := `
 SELECT id, team, created, github_id, github_repository, cluster
 FROM deployment
-WHERE (ARRAY_LENGTH($1, 1) = 0 OR team in $1)
+WHERE (ARRAY_LENGTH($1::VARCHAR[], 1) IS NULL OR team = ANY($1))
 ORDER BY created DESC
 LIMIT $2;
 `
-	rows, err := db.timedQuery(ctx, query, team, limit)
+	rows, err := db.timedQuery(ctx, query, pq.Array(team), limit)
 
 	if err != nil {
 		return nil, err

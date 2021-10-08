@@ -16,6 +16,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/jackc/pgx/v4 v4.5.0
+	github.com/lib/pq v1.2.0
 	github.com/nais/liberator v0.0.0-20211001113024-dfe14e16ec83
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/procfs v0.6.0 // indirect
