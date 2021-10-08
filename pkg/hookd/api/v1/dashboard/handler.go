@@ -3,6 +3,7 @@ package api_v1_dashboard
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
@@ -56,7 +57,14 @@ func (h *Handler) Deployments(w http.ResponseWriter, r *http.Request) {
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
-	deployments, err := h.DeploymentStore.Deployments(r.Context(), r.URL.Query().Get("team"), maxRows)
+	// this approach eliminates empty tokens in the final slice
+	// e.g. input "myteam," will produce [myteam] and not [myteam ]
+	splitFn := func(c rune) bool {
+		return c == ','
+	}
+	teams := strings.FieldsFunc(r.URL.Query().Get("team"), splitFn)
+
+	deployments, err := h.DeploymentStore.Deployments(r.Context(), teams, maxRows)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)
