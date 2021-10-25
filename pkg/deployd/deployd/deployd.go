@@ -102,6 +102,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		op.Logger.Debugf("Waiting for resources to be successfully rolled out")
 		wait.Wait()
 		op.Logger.Debugf("Finished monitoring all resources")
+		op.Cancel()
 
 		errCount := len(errors)
 		if errCount > 0 {
