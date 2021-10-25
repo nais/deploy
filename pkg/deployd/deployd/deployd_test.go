@@ -3,12 +3,13 @@ package deployd_test
 import (
 	"context"
 	"fmt"
-	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"io/ioutil"
-	rbac_v1 "k8s.io/api/rbac/v1"
 	"sync"
 	"testing"
 	"time"
+
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
+	rbac_v1 "k8s.io/api/rbac/v1"
 
 	"github.com/nais/deploy/pkg/deployd/deployd"
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
@@ -399,8 +400,11 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 		panic(fmt.Sprintf("test data fixture error in '%s': %s", test.fixture, err))
 	}
 
+	opctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	op := &operation.Operation{
-		Context: ctx,
+		Context: opctx,
 		Cancel:  cancel,
 		Logger:  log.WithField("fixture", test.fixture),
 		Request: &pb.DeploymentRequest{
