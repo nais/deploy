@@ -82,6 +82,7 @@ func (a application) Watch(op *operation.Operation, resource unstructured.Unstru
 		return pb.NewErrorStatus(op.Request, fmt.Errorf("unable to set up event watcher: %w", err))
 	}
 
+	defer eventWatcher.Stop()
 	watchStart := time.Now().Truncate(time.Second)
 
 	for {
