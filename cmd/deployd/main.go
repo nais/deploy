@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -94,6 +95,7 @@ func run() error {
 		}
 		go intercept.TokenLoop()
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
+		dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 10 * time.Second}))
 	}
 
 	grpcConnection, err := grpc.Dial(cfg.GRPC.Server, dialOptions...)
