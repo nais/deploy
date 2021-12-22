@@ -6,10 +6,10 @@ on:
     - '.github/workflows/codeql-analysis.yml'
 
 env:
-  image: docker.pkg.github.com/${{ github.repository }}/deploy
-  hookd_image: docker.pkg.github.com/${{ github.repository }}/hookd
-  deployd_image: docker.pkg.github.com/${{ github.repository }}/deployd
-  canary_deployer_image: docker.pkg.github.com/${{ github.repository }}/canary-deployer
+  image: ghcr.io/${{ github.repository }}/deploy
+  hookd_image: ghcr.io/${{ github.repository }}/hookd
+  deployd_image: ghcr.io/${{ github.repository }}/deployd
+  canary_deployer_image: ghcr.io/${{ github.repository }}/canary-deployer
   dockerhub_image: navikt/deployment
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        docker login docker.pkg.github.com -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
+        docker login ghcr.io -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
         docker push ${image}:${version}
         docker push ${hookd_image}:${version}
         docker push ${deployd_image}:${version}
@@ -43,7 +43,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        docker login docker.pkg.github.com -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
+        docker login ghcr.io -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
         docker push ${image}:${deploy_action_api_version}
         docker push ${image}:latest
         docker push ${hookd_image}:latest
