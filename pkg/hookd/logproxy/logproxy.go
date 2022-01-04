@@ -12,6 +12,7 @@ import (
 	"gopkg.in/sakura-internet/go-rison.v3"
 )
 
+const defaultIndex = "96e648c0-980a-11e9-830a-e17bbd64b4db"
 const kibanaFormat = "https://logs.adeo.no/app/kibana#/discover?_a=%s&_g=%s"
 const searchQueryV0 = "+x_delivery_id:\"%s\" -level:\"Trace\""
 const searchQueryV1 = "+x_correlation_id:\"%s\" -level:\"Trace\" -level:\"Debug\""
@@ -64,7 +65,7 @@ func formatKibana(deliveryID string, ts time.Time, version int) string {
 	}
 
 	as := appState{
-		Index: "logstash-apps-*",
+		Index: defaultIndex,
 		Query: query{
 			Language: "lucene",
 			Query:    fmt.Sprintf(q, deliveryID),
