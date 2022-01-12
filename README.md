@@ -122,6 +122,16 @@ Hookd publishes the deployment status to Github.
 
 Check out the repository and run `make`. Dependencies will download automatically, and you should have three binary files at `bin/hookd`, `bin/deployd`, `bin/deploy` and `bin/provision`.
 
+To run the integration tests, please download and use a Kubernetes test environment:
+
+```
+# change into the home directory before running `go install`
+cd
+go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+# note: for Apple Silicon, add: `--os darwin --arch amd64`
+source <(setup-envtest use -p env)
+```
+
 ## Running locally
 ### Postgres
 Start the database by running `docker-compose up`. This will start an empty local database.
