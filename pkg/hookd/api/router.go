@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
-	gh "github.com/google/go-github/v27/github"
+	gh "github.com/google/go-github/v41/github"
 	"github.com/nais/deploy/pkg/azure/discovery"
 	"github.com/nais/deploy/pkg/azure/graphapi"
 	api_v1_apikey "github.com/nais/deploy/pkg/hookd/api/v1/apikey"

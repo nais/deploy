@@ -3,7 +3,7 @@ package github
 import (
 	"context"
 
-	gh "github.com/google/go-github/v27/github"
+	gh "github.com/google/go-github/v41/github"
 	"github.com/nais/deploy/pkg/pb"
 )
 

@@ -23,7 +23,7 @@ import (
 	"github.com/nais/deploy/pkg/grpc/interceptor/token"
 	"github.com/nais/liberator/pkg/conftools"
 
-	gh "github.com/google/go-github/v27/github"
+	gh "github.com/google/go-github/v41/github"
 	"github.com/nais/deploy/pkg/azure/discovery"
 	"github.com/nais/deploy/pkg/azure/graphapi"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"

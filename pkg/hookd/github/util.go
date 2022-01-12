@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	gh "github.com/google/go-github/v27/github"
+	gh "github.com/google/go-github/v41/github"
 )
 
 func SplitFullname(fullName string) (string, string, error) {

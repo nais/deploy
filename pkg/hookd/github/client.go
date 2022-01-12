@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	gh "github.com/google/go-github/v27/github"
+	gh "github.com/google/go-github/v41/github"
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/deploy/pkg/hookd/metrics"
@@ -49,7 +49,7 @@ func (c *client) TeamAllowed(ctx context.Context, owner, repository, teamName st
 		return err
 	}
 
-	repo, resp, err := c.client.Teams.IsTeamRepo(ctx, team.GetID(), owner, repository)
+	repo, resp, err := c.client.Teams.IsTeamRepoByID(ctx, team.GetOrganization().GetID(), team.GetID(), owner, repository)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return ErrTeamNoAccess
