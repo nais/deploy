@@ -24,6 +24,10 @@ var (
 )
 
 func (s *dispatchServer) githubLoop() {
+	// State cache. Only report one of each kind of state for each deployment.
+	// This is neccessary to avoid rate limiting.
+	statuses := make(map[string]pb.DeploymentState)
+
 	for {
 		select {
 		case request := <-s.requests:
@@ -49,16 +53,30 @@ func (s *dispatchServer) githubLoop() {
 				logger.Errorf("Unable to sync deployment to GitHub: %s", err)
 			}
 
-		case status := <-s.statuses:
-			logger := log.WithFields(status.LogFields())
-			err := s.createGithubDeploymentStatus(status)
+		case st := <-s.statuses:
+			logger := log.WithFields(st.LogFields())
+
+			reqid := st.GetRequest().GetID()
+			lastState, hasLastState := statuses[reqid]
+			if hasLastState && lastState == st.GetState() {
+				logger.Tracef("Not syncing deployment status to GitHub: last state for this deployment is identical")
+				break
+			}
+
+			err := s.createGithubDeploymentStatus(st)
 			switch err {
 			case errNoRepository, errNoGithubDeploymentID:
-				logger.Debugf("Not syncing deployment to GitHub: %s", err)
+				logger.Debugf("Not syncing deployment status to GitHub: %s", err)
 			case nil:
 				logger.Debugf("Synchronized deployment status to GitHub")
+				statuses[reqid] = st.GetState()
 			default:
 				logger.Errorf("Unable to sync deployment status to GitHub: %s", err)
+			}
+
+			// Clean up state cache to avoid memory leaks
+			if st.GetState().Finished() {
+				delete(statuses, reqid)
 			}
 		}
 	}
