@@ -29,8 +29,8 @@ func (c NoOp) Watch(op *operation.Operation, resource unstructured.Unstructured)
 }
 
 func NewWatchStrategy(gvk schema.GroupVersionKind, client kubeclient.Interface) WatchStrategy {
-	if gvk.Group == "nais.io" && (gvk.Kind == "Application" || gvk.Kind == "Naisjob") {
-		return naisResource{client: client}
+	if gvk.Group == "nais.io" && gvk.Kind == "Application" {
+		return application{client: client}
 	}
 
 	if gvk.Kind == "Deployment" && (gvk.Group == "apps" || gvk.Group == "extensions") {
