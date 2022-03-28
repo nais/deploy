@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pi
+  labels:
+    app: pi
+    team: aura
+  namespace: aura
+spec:
+  template:
+    metadata:
+      labels:
+        app: pi
+        nais.io/naisjob: "true"
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: pi
+        image: navikt/perl
+        command: ["perl",  "-Mbignum=bpi", "-wle", "print bpi(4000)"]
