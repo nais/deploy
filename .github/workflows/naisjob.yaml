@@ -1,0 +1,22 @@
+name: Deploy Naisjob /w schedule
+on:
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: "Cluster to deploy to"
+        default: "ci-fss"
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to NAIS
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: deploy to ${{ github.event.inputs.cluster }}
+      uses: nais/deploy/actions/deploy@v1
+      env:
+        APIKEY: ${{ secrets.NAIS_DEPLOY_APIKEY }}
+        CLUSTER: ${{ github.event.inputs.cluster }}
+        RESOURCE: testdata/naisjob.yaml
