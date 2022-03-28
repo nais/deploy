@@ -116,7 +116,7 @@ func EventStreamMatch(event *v1.Event, resourceName string) bool {
 	var re string
 	switch event.InvolvedObject.Kind {
 	case "Pod":
-		re = fmt.Sprintf(`^%s-[a-z0-9]{10}-[a-z0-9]{5}$`, resourceName)
+		re = fmt.Sprintf(`^%s-([a-z0-9]{10}-)?[a-z0-9]{5}$`, resourceName)
 	case "ReplicaSet":
 		re = fmt.Sprintf(`^%s-[a-z0-9]{10}$`, resourceName)
 	case "Job":
