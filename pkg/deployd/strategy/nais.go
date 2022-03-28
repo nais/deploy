@@ -56,7 +56,7 @@ func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstr
 			}
 
 			if !EventStreamMatch(event, resource.GetName()) {
-				op.Logger.Tracef("Ignoring unrelated event %v/%v", event.Kind, event.Name)
+				op.Logger.Tracef("Ignoring unrelated event %v", event.Name)
 				continue
 			}
 
