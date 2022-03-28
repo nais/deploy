@@ -60,7 +60,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 
 		resourceInterface, err := client.ResourceInterface(&resource)
 		if err == nil {
-			_, err = strategy.NewDeployStrategy(resource.GroupVersionKind(), resourceInterface).Deploy(op.Context, resource)
+			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource)
 		}
 
 		if err != nil {
