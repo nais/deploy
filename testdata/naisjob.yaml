@@ -5,7 +5,7 @@ metadata:
     team: aura
   annotations:
     nais.io/naisjob: "true"
-  name: oh-no
+  name: naisjob-with-schedule
   namespace: aura
 spec:
   image: navikt/perl
