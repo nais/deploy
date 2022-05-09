@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/nais/deploy/pkg/azure/oauth2"
 	"github.com/nais/deploy/pkg/deployd/config"
 	"github.com/nais/deploy/pkg/deployd/deployd"
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
@@ -34,7 +33,7 @@ const (
 )
 
 var maskedConfig = []string{
-	config.AzureClientSecret,
+	config.HookdToken,
 }
 
 func run() error {
@@ -59,8 +58,8 @@ func run() error {
 		log.Info(line)
 	}
 
-	if cfg.GRPC.Authentication && len(cfg.HookdApplicationID) == 0 {
-		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-application-id is not specified")
+	if cfg.GRPC.Authentication && len(cfg.HookdToken) == 0 {
+		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-token is not specified")
 	}
 
 	kube, err := kubeclient.DefaultClient()
@@ -83,17 +82,10 @@ func run() error {
 	}
 
 	if cfg.GRPC.Authentication {
-		tokenConfig := oauth2.Config(oauth2.ClientConfig{
-			ClientID:     cfg.Azure.ClientID,
-			ClientSecret: cfg.Azure.ClientSecret,
-			TenantID:     cfg.Azure.Tenant,
-			Scopes:       []string{fmt.Sprintf("api://%s/.default", cfg.HookdApplicationID)},
-		})
 		intercept := &token_interceptor.ClientInterceptor{
-			Config:     tokenConfig,
 			RequireTLS: cfg.GRPC.UseTLS,
+			Token:      cfg.HookdToken,
 		}
-		go intercept.TokenLoop()
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 		dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 10 * time.Second}))
 	}

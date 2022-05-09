@@ -8,10 +8,9 @@ import (
 
 type Config struct {
 	AutoCreateServiceAccount bool   `json:"auto-create-service-account"`
-	Azure                    Azure  `json:"azure"`
 	Cluster                  string `json:"cluster"`
 	GRPC                     GRPC   `json:"grpc"`
-	HookdApplicationID       string `json:"hookd-application-id"`
+	HookdToken               string `json:"hookd-token"`
 	LogFormat                string `json:"log-format"`
 	LogLevel                 string `json:"log-level"`
 	MetricsListenAddr        string `json:"metrics-listen-address"`
@@ -25,12 +24,6 @@ type GRPC struct {
 	Server         string `json:"server"`
 }
 
-type Azure struct {
-	ClientID     string `json:"app-client-id"`
-	ClientSecret string `json:"app-client-secret"`
-	Tenant       string `json:"app-tenant-id"`
-}
-
 const (
 	LogFormat          = "log-format"
 	LogLevel           = "log-level"
@@ -39,17 +32,12 @@ const (
 	GrpcAuthentication = "grpc.authentication"
 	GrpcUseTLS         = "grpc.use-tls"
 	GrpcServer         = "grpc.server"
-	HookdApplicationID = "hookd-application-id"
+	HookdToken         = "hookd-token"
 	MetricsPath        = "metrics-path"
-	AzureClientID      = "azure.app-client-id"
-	AzureClientSecret  = "azure.app-client-secret"
-	AzureTenant        = "azure.app-tenant-id"
 )
 
 func bindNAIS() {
-	viper.BindEnv(AzureClientID, "AZURE_APP_CLIENT_ID")
-	viper.BindEnv(AzureClientSecret, "AZURE_APP_CLIENT_SECRET")
-	viper.BindEnv(AzureTenant, "AZURE_APP_TENANT_ID")
+	viper.BindEnv(HookdToken, "HOOKD_TOKEN")
 }
 
 func Initialize() *Config {
@@ -63,11 +51,8 @@ func Initialize() *Config {
 	flag.Bool(GrpcUseTLS, false, "Use TLS when connecting to gRPC server.")
 	flag.String(GrpcServer, "127.0.0.1:9090", "gRPC server endpoint on hookd.")
 	flag.Bool(GrpcAuthentication, false, "Use token authentication on gRPC connection.")
-	flag.String(HookdApplicationID, "", "Azure application ID of hookd, used for token authentication.")
+	flag.String(HookdToken, "", "Token used for hookd token authentication.")
 	flag.String(MetricsPath, "/metrics", "Serve metrics on this endpoint.")
-	flag.String(AzureClientID, "", "Azure ClientId.")
-	flag.String(AzureClientSecret, "", "Azure ClientSecret")
-	flag.String(AzureTenant, "", "Azure Tenant")
 
 	return &Config{}
 }
