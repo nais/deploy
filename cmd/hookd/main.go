@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -42,6 +41,7 @@ var maskedConfig = []string{
 	config.GithubClientSecret,
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
+	config.DeploydTokens,
 	config.ProvisionKey,
 }
 
@@ -209,14 +209,8 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		}
 
 		if cfg.GRPC.DeploydAuthentication {
-			deploydTokens := make([]string, 0)
-			err := json.Unmarshal([]byte(cfg.DeploydTokens), &deploydTokens)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshalling deployd tokens: %s", err)
-			}
-
 			tokenInterceptor := &token_interceptor.ServerInterceptor{
-				Tokens: deploydTokens,
+				Tokens: cfg.DeploydTokens,
 			}
 
 			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
