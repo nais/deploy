@@ -14,7 +14,6 @@ type Azure struct {
 	Tenant              string `json:"app-tenant-id"`
 	WellKnownURL        string `json:"app-well-known-url"`
 	TeamMembershipAppID string `json:"team-membership-app-id"`
-	PreAuthorizedApps   string `json:"app-pre-authorized-apps"`
 }
 
 type Github struct {
@@ -46,6 +45,7 @@ type Config struct {
 	LogLevel               string        `json:"log-level"`
 	MetricsPath            string        `json:"metrics-path"`
 	ProvisionKey           string        `json:"provision-key"`
+	DeploydTokens          string        `json:"deployd-tokens"`
 }
 
 func (a *Azure) HasConfig() bool {
@@ -67,6 +67,7 @@ const (
 	DatabaseConnectTimeout    = "database-connect-timeout"
 	DatabaseEncryptionKey     = "database-encryption-key"
 	DatabaseUrl               = "database-url"
+	DeploydTokens             = "deployd-tokens"
 	GithubAppId               = "github.app-id"
 	GithubClientId            = "github.client-id"
 	GithubClientSecret        = "github.client-secret"
@@ -93,6 +94,8 @@ func bindNAIS() {
 	viper.BindEnv(AzureWellKnownUrl, "AZURE_APP_WELL_KNOWN_URL")
 
 	viper.BindEnv(DatabaseUrl, "DATABASE_URL")
+
+	viper.BindEnv(DeploydTokens, "DEPLOYD_TOKENS")
 }
 
 func Initialize() *Config {
@@ -122,6 +125,8 @@ func Initialize() *Config {
 	flag.String(DatabaseEncryptionKey, "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff", "Key used to encrypt api keys at rest in PostgreSQL database.")
 	flag.String(DatabaseUrl, "postgresql://postgres:root@127.0.0.1:5432/hookd", "PostgreSQL connection information.")
 	flag.Duration(DatabaseConnectTimeout, time.Minute*5, "How long to try the initial database connection.")
+
+	flag.String(DeploydTokens, "[]", "Deployd tokens as Json")
 
 	flag.String(AzureClientId, "", "Azure ClientId.")
 	flag.String(AzureClientSecret, "", "Azure ClientSecret")

@@ -3,10 +3,6 @@ package token_interceptor
 import (
 	"context"
 
-	"github.com/golang-jwt/jwt"
-	"github.com/nais/deploy/pkg/azure/discovery"
-	"github.com/nais/deploy/pkg/azure/oauth2"
-	"github.com/nais/deploy/pkg/azure/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -14,9 +10,7 @@ import (
 )
 
 type ServerInterceptor struct {
-	Audience     string
-	Certificates map[string]discovery.CertificateList
-	PreAuthApps  []oauth2.PreAuthorizedApplication
+	Tokens []string
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
@@ -39,14 +33,8 @@ func (t *ServerInterceptor) authenticate(ctx context.Context) error {
 	}
 
 	accessToken := values[0]
-	var claims jwt.MapClaims
-	_, err := jwt.ParseWithClaims(accessToken, &claims, validate.JWTValidator(t.Certificates, t.Audience))
-	if err != nil {
-		return status.Errorf(codes.Unauthenticated, "access token is invalid: %v", err)
-	}
-
-	for _, authApp := range t.PreAuthApps {
-		if authApp.ClientId == claims["azp"] {
+	for _, token := range t.Tokens {
+		if token == accessToken {
 			return nil
 		}
 	}

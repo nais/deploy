@@ -16,7 +16,6 @@ import (
 	"github.com/nais/deploy/pkg/version"
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/nais/deploy/pkg/azure/oauth2"
 	"github.com/nais/deploy/pkg/grpc/deployserver"
 	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
 	switch_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/switch"
@@ -210,16 +209,14 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		}
 
 		if cfg.GRPC.DeploydAuthentication {
-			preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
-			err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
+			deploydTokens := make([]string, 0)
+			err := json.Unmarshal([]byte(cfg.DeploydTokens), &deploydTokens)
 			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
+				return nil, nil, fmt.Errorf("unmarshalling deployd tokens: %s", err)
 			}
 
 			tokenInterceptor := &token_interceptor.ServerInterceptor{
-				Audience:     cfg.Azure.ClientID,
-				Certificates: certificates,
-				PreAuthApps:  preAuthApps,
+				Tokens: deploydTokens,
 			}
 
 			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
