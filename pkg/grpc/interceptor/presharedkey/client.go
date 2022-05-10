@@ -1,4 +1,4 @@
-package token_interceptor
+package presharedkey_interceptor
 
 import (
 	"context"
@@ -6,11 +6,11 @@ import (
 
 type ClientInterceptor struct {
 	RequireTLS bool
-	Token      string
+	Key        string
 }
 
 func (t *ClientInterceptor) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	return map[string]string{"authorization": t.Token}, nil
+	return map[string]string{"authorization": t.Key}, nil
 }
 
 func (t *ClientInterceptor) RequireTransportSecurity() bool {

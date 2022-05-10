@@ -45,7 +45,7 @@ type Config struct {
 	LogLevel               string        `json:"log-level"`
 	MetricsPath            string        `json:"metrics-path"`
 	ProvisionKey           string        `json:"provision-key"`
-	DeploydTokens          []string      `json:"deployd-tokens"`
+	DeploydKeys            []string      `json:"deployd-keys"`
 }
 
 func (a *Azure) HasConfig() bool {
@@ -66,7 +66,7 @@ const (
 	DatabaseConnectTimeout    = "database-connect-timeout"
 	DatabaseEncryptionKey     = "database-encryption-key"
 	DatabaseUrl               = "database-url"
-	DeploydTokens             = "deployd-tokens"
+	DeploydKeys               = "deployd-keys"
 	GithubAppId               = "github.app-id"
 	GithubClientId            = "github.client-id"
 	GithubClientSecret        = "github.client-secret"
@@ -93,7 +93,7 @@ func bindNAIS() {
 
 	viper.BindEnv(DatabaseUrl, "DATABASE_URL")
 
-	viper.BindEnv(DeploydTokens, "DEPLOYD_TOKENS")
+	viper.BindEnv(DeploydKeys, "DEPLOYD_KEYS")
 }
 
 func Initialize() *Config {
@@ -124,7 +124,7 @@ func Initialize() *Config {
 	flag.String(DatabaseUrl, "postgresql://postgres:root@127.0.0.1:5432/hookd", "PostgreSQL connection information.")
 	flag.Duration(DatabaseConnectTimeout, time.Minute*5, "How long to try the initial database connection.")
 
-	flag.StringSlice(DeploydTokens, nil, "Deployd tokens, comma separated")
+	flag.StringSlice(DeploydKeys, nil, "Pre-shared deployd keys, comma separated")
 
 	flag.String(AzureClientId, "", "Azure ClientId.")
 	flag.String(AzureClientSecret, "", "Azure ClientSecret")

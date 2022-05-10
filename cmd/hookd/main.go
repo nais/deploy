@@ -17,8 +17,8 @@ import (
 
 	"github.com/nais/deploy/pkg/grpc/deployserver"
 	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
+	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	switch_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/switch"
-	"github.com/nais/deploy/pkg/grpc/interceptor/token"
 	"github.com/nais/liberator/pkg/conftools"
 
 	gh "github.com/google/go-github/v41/github"
@@ -41,7 +41,7 @@ var maskedConfig = []string{
 	config.GithubClientSecret,
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
-	config.DeploydTokens,
+	config.DeploydKeys,
 	config.ProvisionKey,
 }
 
@@ -209,8 +209,8 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		}
 
 		if cfg.GRPC.DeploydAuthentication {
-			tokenInterceptor := &token_interceptor.ServerInterceptor{
-				Tokens: cfg.DeploydTokens,
+			tokenInterceptor := &presharedkey_interceptor.ServerInterceptor{
+				Keys: cfg.DeploydKeys,
 			}
 
 			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)

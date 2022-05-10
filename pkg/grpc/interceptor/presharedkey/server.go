@@ -1,4 +1,4 @@
-package token_interceptor
+package presharedkey_interceptor
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 )
 
 type ServerInterceptor struct {
-	Tokens []string
+	Keys []string
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
@@ -29,12 +29,12 @@ func (t *ServerInterceptor) authenticate(ctx context.Context) error {
 
 	values := md["authorization"]
 	if len(values) == 0 {
-		return status.Errorf(codes.Unauthenticated, "authorization token is not provided")
+		return status.Errorf(codes.Unauthenticated, "authorization key is not provided")
 	}
 
-	accessToken := values[0]
-	for _, token := range t.Tokens {
-		if token == accessToken {
+	accessKey := values[0]
+	for _, key := range t.Keys {
+		if key == accessKey {
 			return nil
 		}
 	}

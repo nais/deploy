@@ -14,7 +14,7 @@ import (
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/metrics"
 	"github.com/nais/deploy/pkg/deployd/operation"
-	"github.com/nais/deploy/pkg/grpc/interceptor/token"
+	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/version"
@@ -33,7 +33,7 @@ const (
 )
 
 var maskedConfig = []string{
-	config.HookdToken,
+	config.HookdKey,
 }
 
 func run() error {
@@ -58,8 +58,8 @@ func run() error {
 		log.Info(line)
 	}
 
-	if cfg.GRPC.Authentication && len(cfg.HookdToken) == 0 {
-		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-token is not specified")
+	if cfg.GRPC.Authentication && len(cfg.HookdKey) == 0 {
+		return fmt.Errorf("authenticated gRPC calls enabled, but --hookd-key is not specified")
 	}
 
 	kube, err := kubeclient.DefaultClient()
@@ -82,9 +82,9 @@ func run() error {
 	}
 
 	if cfg.GRPC.Authentication {
-		intercept := &token_interceptor.ClientInterceptor{
+		intercept := &presharedkey_interceptor.ClientInterceptor{
 			RequireTLS: cfg.GRPC.UseTLS,
-			Token:      cfg.HookdToken,
+			Key:        cfg.HookdKey,
 		}
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
 		dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 10 * time.Second}))
