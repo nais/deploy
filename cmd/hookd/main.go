@@ -209,11 +209,11 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		}
 
 		if cfg.GRPC.DeploydAuthentication {
-			tokenInterceptor := &presharedkey_interceptor.ServerInterceptor{
+			presharedkeyInterceptor := &presharedkey_interceptor.ServerInterceptor{
 				Keys: cfg.DeploydKeys,
 			}
 
-			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
+			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, presharedkeyInterceptor)
 			log.Infof("Authentication enabled for deployd connections")
 		}
 
