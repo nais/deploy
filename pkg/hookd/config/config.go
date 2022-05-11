@@ -14,7 +14,6 @@ type Azure struct {
 	Tenant              string `json:"app-tenant-id"`
 	WellKnownURL        string `json:"app-well-known-url"`
 	TeamMembershipAppID string `json:"team-membership-app-id"`
-	PreAuthorizedApps   string `json:"app-pre-authorized-apps"`
 }
 
 type Github struct {
@@ -46,6 +45,7 @@ type Config struct {
 	LogLevel               string        `json:"log-level"`
 	MetricsPath            string        `json:"metrics-path"`
 	ProvisionKey           string        `json:"provision-key"`
+	DeploydKeys            []string      `json:"deployd-keys"`
 }
 
 func (a *Azure) HasConfig() bool {
@@ -59,7 +59,6 @@ func (a *Azure) HasConfig() bool {
 const (
 	AzureClientId             = "azure.app-client-id"
 	AzureClientSecret         = "azure.app-client-secret"
-	AzurePreAuthorizedApps    = "azure.app-pre-authorized-apps"
 	AzureTeamMembershipAppId  = "azure.team-membership-app-id"
 	AzureTenant               = "azure.app-tenant-id"
 	AzureWellKnownUrl         = "azure.app-well-known-url"
@@ -67,6 +66,7 @@ const (
 	DatabaseConnectTimeout    = "database-connect-timeout"
 	DatabaseEncryptionKey     = "database-encryption-key"
 	DatabaseUrl               = "database-url"
+	DeploydKeys               = "deployd-keys"
 	GithubAppId               = "github.app-id"
 	GithubClientId            = "github.client-id"
 	GithubClientSecret        = "github.client-secret"
@@ -88,11 +88,12 @@ const (
 func bindNAIS() {
 	viper.BindEnv(AzureClientId, "AZURE_APP_CLIENT_ID")
 	viper.BindEnv(AzureClientSecret, "AZURE_APP_CLIENT_SECRET")
-	viper.BindEnv(AzurePreAuthorizedApps, "AZURE_APP_PRE_AUTHORIZED_APPS")
 	viper.BindEnv(AzureTenant, "AZURE_APP_TENANT_ID")
 	viper.BindEnv(AzureWellKnownUrl, "AZURE_APP_WELL_KNOWN_URL")
 
 	viper.BindEnv(DatabaseUrl, "DATABASE_URL")
+
+	viper.BindEnv(DeploydKeys, "DEPLOYD_KEYS")
 }
 
 func Initialize() *Config {
@@ -123,12 +124,13 @@ func Initialize() *Config {
 	flag.String(DatabaseUrl, "postgresql://postgres:root@127.0.0.1:5432/hookd", "PostgreSQL connection information.")
 	flag.Duration(DatabaseConnectTimeout, time.Minute*5, "How long to try the initial database connection.")
 
+	flag.StringSlice(DeploydKeys, nil, "Pre-shared deployd keys, comma separated")
+
 	flag.String(AzureClientId, "", "Azure ClientId.")
 	flag.String(AzureClientSecret, "", "Azure ClientSecret")
 	flag.String(AzureWellKnownUrl, "", "URL to Azure configuration.")
 	flag.String(AzureTenant, "", "Azure Tenant")
 	flag.String(AzureTeamMembershipAppId, "", "Application ID of canonical team list")
-	flag.String(AzurePreAuthorizedApps, "[]", "Preauthorized Applications as Json")
 
 	return &Config{}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -16,11 +15,10 @@ import (
 	"github.com/nais/deploy/pkg/version"
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/nais/deploy/pkg/azure/oauth2"
 	"github.com/nais/deploy/pkg/grpc/deployserver"
 	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
+	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	switch_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/switch"
-	"github.com/nais/deploy/pkg/grpc/interceptor/token"
 	"github.com/nais/liberator/pkg/conftools"
 
 	gh "github.com/google/go-github/v41/github"
@@ -43,6 +41,7 @@ var maskedConfig = []string{
 	config.GithubClientSecret,
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
+	config.DeploydKeys,
 	config.ProvisionKey,
 }
 
@@ -210,16 +209,8 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		}
 
 		if cfg.GRPC.DeploydAuthentication {
-			preAuthApps := make([]oauth2.PreAuthorizedApplication, 0)
-			err := json.Unmarshal([]byte(cfg.Azure.PreAuthorizedApps), &preAuthApps)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unmarshalling pre-authorized apps: %s", err)
-			}
-
-			tokenInterceptor := &token_interceptor.ServerInterceptor{
-				Audience:     cfg.Azure.ClientID,
-				Certificates: certificates,
-				PreAuthApps:  preAuthApps,
+			tokenInterceptor := &presharedkey_interceptor.ServerInterceptor{
+				Keys: cfg.DeploydKeys,
 			}
 
 			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, tokenInterceptor)
