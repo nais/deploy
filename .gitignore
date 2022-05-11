@@ -14,6 +14,7 @@
 
 # Go and IntelliJ
 .idea
+.vscode
 
 # Local test data
 /testdata
