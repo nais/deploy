@@ -24,15 +24,27 @@ func bufDialer(b *bufconn.Listener) func(context.Context, string) (net.Conn, err
 	}
 }
 
+const (
+	CorrectPassword = "correct"
+	WrongPassword   = "wrong"
+)
+
 func TestInterceptors(t *testing.T) {
 	ctx := context.Background()
 
 	deploymentStore := database.MockDeploymentStore{}
-	ds := New(&deploymentStore, github.FakeClient())
+
+	mockDeployment := &database.Deployment{
+		ID: "mock",
+	}
 	deploymentStore.On("HistoricDeployments", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+	deploymentStore.On("WriteDeploymentStatus", mock.Anything, mock.Anything).Return(nil)
+	deploymentStore.On("Deployment", mock.Anything, mock.Anything).Return(mockDeployment, nil)
+
+	ds := New(&deploymentStore, github.FakeClient())
 
 	presharedkeyInterceptor := &presharedkey_interceptor.ServerInterceptor{
-		Keys: []string{"secret"},
+		Keys: []string{CorrectPassword},
 	}
 
 	b := bufconn.Listen(1024 * 1024)
@@ -50,8 +62,8 @@ func TestInterceptors(t *testing.T) {
 		}
 	}(srv)
 
-	t.Run("test correct password gets deployment reques", func(t *testing.T) {
-		pskClientInterceptor := &presharedkey_interceptor.ClientInterceptor{RequireTLS: false, Key: "secret"}
+	t.Run("test correct password gets deployment reques (stream)", func(t *testing.T) {
+		pskClientInterceptor := &presharedkey_interceptor.ClientInterceptor{RequireTLS: false, Key: CorrectPassword}
 		conn, _ := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer(b)), grpc.WithInsecure(), grpc.WithPerRPCCredentials(pskClientInterceptor))
 
 		client := pb.NewDispatchClient(conn)
@@ -76,8 +88,8 @@ func TestInterceptors(t *testing.T) {
 		}
 	})
 
-	t.Run("test wrong password does not get deployment request", func(t *testing.T) {
-		pskClientInterceptor := &presharedkey_interceptor.ClientInterceptor{RequireTLS: false, Key: "wrong"}
+	t.Run("test wrong password does not get deployment request (stream)", func(t *testing.T) {
+		pskClientInterceptor := &presharedkey_interceptor.ClientInterceptor{RequireTLS: false, Key: WrongPassword}
 		conn, _ := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer(b)), grpc.WithInsecure(), grpc.WithPerRPCCredentials(pskClientInterceptor))
 
 		client := pb.NewDispatchClient(conn)
@@ -104,6 +116,29 @@ func TestInterceptors(t *testing.T) {
 
 		if req != nil {
 			t.Error("we should not get a deployment request when unauthenticated")
+		}
+	})
+
+	t.Run("test correct password can post status (unary)", func(t *testing.T) {
+		pskClientInterceptor := &presharedkey_interceptor.ClientInterceptor{RequireTLS: false, Key: CorrectPassword}
+		conn, _ := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer(b)), grpc.WithInsecure(), grpc.WithPerRPCCredentials(pskClientInterceptor))
+
+		client := pb.NewDispatchClient(conn)
+		_, err := client.ReportStatus(ctx, &pb.DeploymentStatus{})
+		if err != nil {
+			t.Fatal("failed to get report status client", err)
+		}
+		time.Sleep(1 * time.Second)
+	})
+
+	t.Run("test wrong password cant post status (unary)", func(t *testing.T) {
+		pskClientInterceptor := &presharedkey_interceptor.ClientInterceptor{RequireTLS: false, Key: WrongPassword}
+		conn, _ := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer(b)), grpc.WithInsecure(), grpc.WithPerRPCCredentials(pskClientInterceptor))
+
+		client := pb.NewDispatchClient(conn)
+		_, err := client.ReportStatus(ctx, &pb.DeploymentStatus{})
+		if status.Code(err) != codes.PermissionDenied {
+			t.Error("should have gotten permission denied error when unauthenticated", err)
 		}
 	})
 }
