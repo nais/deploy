@@ -3,9 +3,10 @@ package middleware
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type TokenInfo struct {
@@ -21,6 +22,11 @@ func GoogleValidatorMiddleware(audience string) func(next http.Handler) http.Han
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
+			if len(authHeader) < len("Bearer ") {
+				w.WriteHeader(http.StatusUnauthorized)
+				fmt.Fprintf(w, "Failed to authenticate")
+				return // no token
+			}
 			token := authHeader[len("Bearer "):]
 
 			req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, fmt.Sprintf("https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s", token), nil)
