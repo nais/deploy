@@ -38,14 +38,16 @@ type Config struct {
 	DatabaseEncryptionKey  string        `json:"database-encryption-key"`
 	DatabaseURL            string        `json:"database-url"`
 	DatabaseConnectTimeout time.Duration `json:"database-connect-timeout"`
+	DeploydKeys            []string      `json:"deployd-keys"`
+	FrontendKeys           []string      `json:"frontend-keys"`
 	Github                 Github        `json:"github"`
+	GoogleClientId         string        `json:"google-client-id"`
 	GRPC                   GRPC          `json:"grpc"`
 	ListenAddress          string        `json:"listen-address"`
 	LogFormat              string        `json:"log-format"`
 	LogLevel               string        `json:"log-level"`
 	MetricsPath            string        `json:"metrics-path"`
 	ProvisionKey           string        `json:"provision-key"`
-	DeploydKeys            []string      `json:"deployd-keys"`
 }
 
 func (a *Azure) HasConfig() bool {
@@ -67,12 +69,14 @@ const (
 	DatabaseEncryptionKey     = "database-encryption-key"
 	DatabaseUrl               = "database-url"
 	DeploydKeys               = "deployd-keys"
+	FrontendKeys              = "frontend-keys"
 	GithubAppId               = "github.app-id"
 	GithubClientId            = "github.client-id"
 	GithubClientSecret        = "github.client-secret"
 	GithubEnabled             = "github.enabled"
 	GithubInstallId           = "github.install-id"
 	GithubKeyFile             = "github.key-file"
+	GoogleClientId            = "google-client-id"
 	GrpcAddress               = "grpc.address"
 	GrpcCliAuthentication     = "grpc.cli-authentication"
 	GrpcDeploydAuthentication = "grpc.deployd-authentication"
@@ -94,6 +98,9 @@ func bindNAIS() {
 	viper.BindEnv(DatabaseUrl, "DATABASE_URL")
 
 	viper.BindEnv(DeploydKeys, "DEPLOYD_KEYS")
+	viper.BindEnv(FrontendKeys, "FRONTEND_KEYS")
+
+	viper.BindEnv(GoogleClientId, "GOOGLE_CLIENT_ID")
 }
 
 func Initialize() *Config {
@@ -125,6 +132,9 @@ func Initialize() *Config {
 	flag.Duration(DatabaseConnectTimeout, time.Minute*5, "How long to try the initial database connection.")
 
 	flag.StringSlice(DeploydKeys, nil, "Pre-shared deployd keys, comma separated")
+	flag.StringSlice(FrontendKeys, nil, "Pre-shared frontend keys, comma separated")
+
+	flag.String(GoogleClientId, "", "Google ClientId.")
 
 	flag.String(AzureClientId, "", "Azure ClientId.")
 	flag.String(AzureClientSecret, "", "Azure ClientSecret")

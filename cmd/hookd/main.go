@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/go-chi/chi"
 	"net"
 	"net/http"
 	"os"
@@ -42,6 +43,7 @@ var maskedConfig = []string{
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
 	config.DeploydKeys,
+	config.FrontendKeys,
 	config.ProvisionKey,
 }
 
@@ -145,24 +147,27 @@ func run() error {
 
 	log.Infof("gRPC server started")
 
-	var tokenValidator api.Middleware
+	var validators chi.Middlewares
 	if cfg.Azure.HasConfig() {
-		tokenValidator = middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID)
+		validators = append(validators, middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID))
+	} else if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
+		validators = append(validators, middleware.PskValidatorMiddleware(cfg.FrontendKeys))
+		validators = append(validators, middleware.GoogleValidatorMiddleware(cfg.GoogleClientId))
 	}
 
 	router := api.New(api.Config{
-		ApiKeyStore:                 db,
-		BaseURL:                     cfg.BaseURL,
-		Certificates:                certificates,
-		DeploymentStore:             db,
-		DispatchServer:              dispatchServer,
-		GithubConfig:                cfg.Github,
-		InstallationClient:          installationClient,
-		MetricsPath:                 cfg.MetricsPath,
-		OAuthKeyValidatorMiddleware: tokenValidator,
-		ProvisionKey:                provisionKey,
-		TeamClient:                  graphAPIClient,
-		TeamRepositoryStorage:       db,
+		ApiKeyStore:           db,
+		BaseURL:               cfg.BaseURL,
+		Certificates:          certificates,
+		DeploymentStore:       db,
+		DispatchServer:        dispatchServer,
+		GithubConfig:          cfg.Github,
+		InstallationClient:    installationClient,
+		MetricsPath:           cfg.MetricsPath,
+		ValidatorMiddlewares:  validators,
+		ProvisionKey:          provisionKey,
+		TeamClient:            graphAPIClient,
+		TeamRepositoryStorage: db,
 	})
 
 	go func() {

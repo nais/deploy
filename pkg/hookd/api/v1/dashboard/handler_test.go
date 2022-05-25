@@ -3,6 +3,7 @@ package api_v1_dashboard_test
 import (
 	"encoding/json"
 	"errors"
+	"github.com/go-chi/chi"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -161,11 +162,11 @@ func subTest(t *testing.T, test testCase) {
 	}
 
 	handler := api.New(api.Config{
-		ApiKeyStore:                 apiKeyStore,
-		DispatchServer:              deployServer,
-		DeploymentStore:             deployStore,
-		OAuthKeyValidatorMiddleware: middleware.WithValue("foo", nil),
-		MetricsPath:                 "/metrics",
+		ApiKeyStore:          apiKeyStore,
+		DispatchServer:       deployServer,
+		DeploymentStore:      deployStore,
+		ValidatorMiddlewares: chi.Middlewares{middleware.WithValue("foo", nil)},
+		MetricsPath:          "/metrics",
 	})
 
 	handler.ServeHTTP(recorder, request)

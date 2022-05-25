@@ -30,18 +30,18 @@ var (
 type Middleware func(http.Handler) http.Handler
 
 type Config struct {
-	ApiKeyStore                 database.ApiKeyStore
-	BaseURL                     string
-	DispatchServer              dispatchserver.DispatchServer
-	Certificates                map[string]discovery.CertificateList
-	DeploymentStore             database.DeploymentStore
-	GithubConfig                config.Github
-	InstallationClient          *gh.Client
-	MetricsPath                 string
-	OAuthKeyValidatorMiddleware Middleware
-	ProvisionKey                []byte
-	TeamClient                  graphapi.Client
-	TeamRepositoryStorage       database.RepositoryTeamStore
+	ApiKeyStore           database.ApiKeyStore
+	BaseURL               string
+	DispatchServer        dispatchserver.DispatchServer
+	Certificates          map[string]discovery.CertificateList
+	DeploymentStore       database.DeploymentStore
+	GithubConfig          config.Github
+	InstallationClient    *gh.Client
+	MetricsPath           string
+	ValidatorMiddlewares  chi.Middlewares
+	ProvisionKey          []byte
+	TeamClient            graphapi.Client
+	TeamRepositoryStorage database.RepositoryTeamStore
 }
 
 func New(cfg Config) chi.Router {
@@ -103,25 +103,25 @@ func New(cfg Config) chi.Router {
 			chi_middleware.Timeout(requestTimeout),
 		)
 		r.Route("/dashboard", func(r chi.Router) {
-			if cfg.OAuthKeyValidatorMiddleware != nil {
-				r.Use(cfg.OAuthKeyValidatorMiddleware)
+			if cfg.ValidatorMiddlewares != nil {
+				r.Use(cfg.ValidatorMiddlewares...)
 			}
 			r.Get("/deployments", dashboardHandler.Deployments)
 			r.Get("/deployments/{id}", dashboardHandler.Deployments)
 		})
-		if cfg.OAuthKeyValidatorMiddleware != nil {
+		if cfg.ValidatorMiddlewares != nil {
 			r.Route("/apikey", func(r chi.Router) {
-				r.Use(cfg.OAuthKeyValidatorMiddleware)
+				r.Use(cfg.ValidatorMiddlewares...)
 				r.Get("/", apikeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
 				r.Get("/{team}", apikeyHandler.GetTeamApiKey)     // -> apikey til dette spesifikke teamet
 				r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
 			})
 			r.Route("/teams", func(r chi.Router) {
-				r.Use(cfg.OAuthKeyValidatorMiddleware)
+				r.Use(cfg.ValidatorMiddlewares...)
 				r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
 			})
 		} else {
-			log.Error("Refusing to set up team API key retrieval without OAuth middleware; try configuring --azure-*")
+			log.Error("Refusing to set up team API key retrieval without validating middlewares; try configuring --azure-* or --frontend-keys and --google-client-id")
 			log.Error("Note: /api/v1/apikey will be unavailable")
 			log.Error("Note: /api/v1/teams will be unavailable")
 		}

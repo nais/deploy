@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-chi/chi"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -125,9 +126,9 @@ func statusSubTest(t *testing.T, folder, file string) {
 	recorder := httptest.NewRecorder()
 	apiKeyStore := apiKeyStorage{}
 	handler := api.New(api.Config{
-		ApiKeyStore:                 &apiKeyStore,
-		MetricsPath:                 "/metrics",
-		OAuthKeyValidatorMiddleware: tokenValidatorMiddleware,
+		ApiKeyStore:          &apiKeyStore,
+		MetricsPath:          "/metrics",
+		ValidatorMiddlewares: chi.Middlewares{tokenValidatorMiddleware},
 	})
 
 	switch folder {
