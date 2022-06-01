@@ -1,6 +1,6 @@
 version: "3"
 services:
-  postgres:
+  postgres-hookd:
     command: postgres -c log_statement=all
     image: postgres:11-alpine
     ports:
@@ -9,3 +9,18 @@ services:
     - "POSTGRES_USER=postgres"
     - "POSTGRES_PASSWORD=root"
     - "POSTGRES_DB=hookd"
+
+  hookd:
+    depends_on:
+      - postgres-hookd
+    build:
+      context: ./
+      dockerfile: Dockerfile.hookd
+    ports: 
+    - "8081:8081"
+    environment:
+      - "HOOKD_DATABASE_URL=postgresql://postgres:root@postgres-hookd:5432/hookd"
+      - "HOOKD_FRONTEND_KEYS=secret"
+      - "HOOKD_GOOGLE_CLIENT_ID=102050955906-gtmak6h3jrks6gen83a8cgjdsius3mdq.apps.googleusercontent.com"
+      - "HOOKD_LISTEN_ADDRESS=0.0.0.0:8081"
+      - "HOOKD_GRPC_ADDRESS=0.0.0.0:9090"
