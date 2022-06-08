@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+
 	"github.com/shurcooL/graphql"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
-	"io"
-	"net/http"
 )
 
 type TokenInfo struct {
@@ -98,7 +99,7 @@ func getGroupsFromConsole(ctx context.Context, id string, key string, url string
 			Nodes []struct {
 				Email graphql.String
 				Teams []struct {
-					slug graphql.String
+					Slug graphql.String
 				}
 			}
 		} `graphql:"users(query: $query)"`
@@ -114,7 +115,7 @@ func getGroupsFromConsole(ctx context.Context, id string, key string, url string
 	var groups []string
 	for _, node := range q.Users.Nodes {
 		for _, team := range node.Teams {
-			groups = append(groups, string(team.slug))
+			groups = append(groups, string(team.Slug))
 		}
 	}
 	return groups, nil
