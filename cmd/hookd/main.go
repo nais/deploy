@@ -136,6 +136,7 @@ func run() error {
 		}
 	}
 
+	// TODO: Switch to google impl when using google auth
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
@@ -150,9 +151,12 @@ func run() error {
 	var validators chi.Middlewares
 	if cfg.Azure.HasConfig() {
 		validators = append(validators, middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID))
+		log.Infof("Using Azure validator")
 	} else if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
 		validators = append(validators, middleware.PskValidatorMiddleware(cfg.FrontendKeys))
-		validators = append(validators, middleware.GoogleValidatorMiddleware(cfg.GoogleClientId))
+		log.Infof("Using PSK validator")
+		validators = append(validators, middleware.GoogleValidatorMiddleware(cfg.GoogleClientId, cfg.ConsoleApiKey, cfg.ConsoleUrl))
+		log.Infof("Using Google validator")
 	}
 
 	router := api.New(api.Config{

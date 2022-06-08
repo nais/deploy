@@ -35,6 +35,8 @@ type GRPC struct {
 type Config struct {
 	Azure                  Azure         `json:"azure"`
 	BaseURL                string        `json:"base-url"`
+	ConsoleApiKey          string        `json:"console-api-key"`
+	ConsoleUrl             string        `json:"console-url"`
 	DatabaseEncryptionKey  string        `json:"database-encryption-key"`
 	DatabaseURL            string        `json:"database-url"`
 	DatabaseConnectTimeout time.Duration `json:"database-connect-timeout"`
@@ -65,6 +67,8 @@ const (
 	AzureTenant               = "azure.app-tenant-id"
 	AzureWellKnownUrl         = "azure.app-well-known-url"
 	BaseUrl                   = "base-url"
+	ConsoleApiKey             = "console-api-key"
+	ConsoleUrl                = "console-url"
 	DatabaseConnectTimeout    = "database-connect-timeout"
 	DatabaseEncryptionKey     = "database-encryption-key"
 	DatabaseUrl               = "database-url"
@@ -133,6 +137,9 @@ func Initialize() *Config {
 
 	flag.StringSlice(DeploydKeys, nil, "Pre-shared deployd keys, comma separated")
 	flag.StringSlice(FrontendKeys, nil, "Pre-shared frontend keys, comma separated")
+
+	flag.String(ConsoleApiKey, "", "Console Api Key")
+	flag.String(ConsoleUrl, "http://localhost:3000/query", "Console URL")
 
 	flag.String(GoogleClientId, "", "Google ClientId.")
 
