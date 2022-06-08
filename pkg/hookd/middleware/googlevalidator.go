@@ -19,6 +19,7 @@ type TokenInfo struct {
 	Scope      string `json:"scope"`
 	ExpiresIn  int    `json:"expires_in"`
 	AccessType string `json:"access_type"`
+	Email      string `json:"email"`
 }
 
 func GoogleValidatorMiddleware(audience string, apiKey string, consoleUrl string) func(next http.Handler) http.Handler {
@@ -71,7 +72,7 @@ func GoogleValidatorMiddleware(audience string, apiKey string, consoleUrl string
 				return
 			}
 
-			groups, err := getGroupsFromConsole(r.Context(), tokenInfo.UserId, apiKey, consoleUrl)
+			groups, err := getGroupsFromConsole(r.Context(), tokenInfo.Email, apiKey, consoleUrl)
 			if err != nil {
 				http.Error(w, "Unavailable", http.StatusServiceUnavailable)
 				log.Warnf("Error resolving groups: %v", err)
