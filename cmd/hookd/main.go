@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/go-chi/chi"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/go-chi/chi"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	unauthenticated_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/unauthenticated"
@@ -136,7 +137,6 @@ func run() error {
 		}
 	}
 
-	// TODO: Switch to google impl when using google auth
 	graphAPIClient := graphapi.NewClient(cfg.Azure)
 
 	// Set up gRPC server
@@ -148,15 +148,18 @@ func run() error {
 
 	log.Infof("gRPC server started")
 
+	var groupProvider api.GroupProvider
 	var validators chi.Middlewares
 	if cfg.Azure.HasConfig() {
 		validators = append(validators, middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID))
 		log.Infof("Using Azure validator")
+		groupProvider = api.GroupProviderAzure
 	} else if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
 		validators = append(validators, middleware.PskValidatorMiddleware(cfg.FrontendKeys))
 		log.Infof("Using PSK validator")
 		validators = append(validators, middleware.GoogleValidatorMiddleware(cfg.GoogleClientId, cfg.ConsoleApiKey, cfg.ConsoleUrl))
 		log.Infof("Using Google validator")
+		groupProvider = api.GroupProviderGoogle
 	}
 
 	router := api.New(api.Config{
@@ -172,6 +175,7 @@ func run() error {
 		ProvisionKey:          provisionKey,
 		TeamClient:            graphAPIClient,
 		TeamRepositoryStorage: db,
+		GroupProvider:         groupProvider,
 	})
 
 	go func() {

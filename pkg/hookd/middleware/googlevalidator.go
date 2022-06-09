@@ -55,6 +55,8 @@ func GoogleValidatorMiddleware(audience string, apiKey string, consoleUrl string
 				return
 			case resp.StatusCode >= http.StatusBadRequest:
 				http.Error(w, "Failed to authenticate", http.StatusUnauthorized)
+				body, _ := io.ReadAll(resp.Body)
+				log.Infof("Bad Request %s", body)
 				return
 			case resp.StatusCode == http.StatusOK:
 				break

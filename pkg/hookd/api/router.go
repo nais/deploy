@@ -12,7 +12,7 @@ import (
 	"github.com/nais/deploy/pkg/azure/discovery"
 	"github.com/nais/deploy/pkg/azure/graphapi"
 	api_v1_apikey "github.com/nais/deploy/pkg/hookd/api/v1/apikey"
-	"github.com/nais/deploy/pkg/hookd/api/v1/dashboard"
+	api_v1_dashboard "github.com/nais/deploy/pkg/hookd/api/v1/dashboard"
 	api_v1_provision "github.com/nais/deploy/pkg/hookd/api/v1/provision"
 	api_v1_teams "github.com/nais/deploy/pkg/hookd/api/v1/teams"
 	"github.com/nais/deploy/pkg/hookd/config"
@@ -23,8 +23,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	requestTimeout = time.Second * 10
+var requestTimeout = time.Second * 10
+
+type GroupProvider int
+
+const (
+	GroupProviderGoogle GroupProvider = iota
+	GroupProviderAzure
 )
 
 type Middleware func(http.Handler) http.Handler
@@ -42,18 +47,25 @@ type Config struct {
 	ProvisionKey          []byte
 	TeamClient            graphapi.Client
 	TeamRepositoryStorage database.RepositoryTeamStore
+	GroupProvider         GroupProvider
 }
 
 func New(cfg Config) chi.Router {
-
 	prometheusMiddleware := middleware.PrometheusMiddleware("hookd")
 
 	teamsHandler := &api_v1_teams.TeamsHandler{
 		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
-	apikeyHandler := &api_v1_apikey.ApiKeyHandler{
-		APIKeyStorage: cfg.ApiKeyStore,
+	var apikeyHandler api_v1_apikey.ApiKeyHandler
+	if cfg.GroupProvider == GroupProviderAzure {
+		apikeyHandler = &api_v1_apikey.AzureApiKeyHandler{
+			APIKeyStorage: cfg.ApiKeyStore,
+		}
+	} else {
+		apikeyHandler = &api_v1_apikey.GoogleApiKeyHandler{
+			APIKeyStorage: cfg.ApiKeyStore,
+		}
 	}
 
 	provisionHandler := &api_v1_provision.Handler{
