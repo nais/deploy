@@ -157,8 +157,13 @@ func run() error {
 	} else if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
 		validators = append(validators, middleware.PskValidatorMiddleware(cfg.FrontendKeys))
 		log.Infof("Using PSK validator")
-		validators = append(validators, middleware.GoogleValidatorMiddleware(cfg.GoogleClientId, cfg.ConsoleApiKey, cfg.ConsoleUrl))
-		log.Infof("Using Google validator")
+		googleValidator, err := middleware.NewGoogleValidator(cfg.GoogleClientId, cfg.ConsoleApiKey, cfg.ConsoleUrl, cfg.GoogleAllowedDomains)
+		if err != nil {
+			log.Errorf("Failed to setup google validator: %v", err)
+		} else {
+			validators = append(validators, googleValidator.Middleware())
+			log.Infof("Using GoogleValidator validator")
+		}
 		groupProvider = api.GroupProviderGoogle
 	}
 

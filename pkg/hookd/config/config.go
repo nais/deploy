@@ -44,6 +44,7 @@ type Config struct {
 	FrontendKeys           []string      `json:"frontend-keys"`
 	Github                 Github        `json:"github"`
 	GoogleClientId         string        `json:"google-client-id"`
+	GoogleAllowedDomains   []string      `json:"google-allowed-domains"`
 	GRPC                   GRPC          `json:"grpc"`
 	ListenAddress          string        `json:"listen-address"`
 	LogFormat              string        `json:"log-format"`
@@ -81,6 +82,7 @@ const (
 	GithubInstallId           = "github.install-id"
 	GithubKeyFile             = "github.key-file"
 	GoogleClientId            = "google-client-id"
+	GoogleAllowedDomains      = "google-allowed-domains"
 	GrpcAddress               = "grpc.address"
 	GrpcCliAuthentication     = "grpc.cli-authentication"
 	GrpcDeploydAuthentication = "grpc.deployd-authentication"
@@ -142,6 +144,7 @@ func Initialize() *Config {
 	flag.String(ConsoleUrl, "http://localhost:3000/query", "Console URL")
 
 	flag.String(GoogleClientId, "", "Google ClientId.")
+	flag.StringSlice(GoogleAllowedDomains, []string{}, "Allowed Google Domains")
 
 	flag.String(AzureClientId, "", "Azure ClientId.")
 	flag.String(AzureClientSecret, "", "Azure ClientSecret")
