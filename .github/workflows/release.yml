@@ -12,58 +12,120 @@ on:
     - 'deploy/testdata/naisjob-without-schedule.yaml'
 
 env:
-  image: ghcr.io/${{ github.repository }}/deploy
-  hookd_image: ghcr.io/${{ github.repository }}/hookd
-  deployd_image: ghcr.io/${{ github.repository }}/deployd
-  canary_deployer_image: ghcr.io/${{ github.repository }}/canary-deployer
+  ghcr_registry: ghcr.io/${{ github.repository }}
+  gcp_registry: europe-north1-docker.pkg.dev/nais-io/nais/images
   dockerhub_image: navikt/deployment
 
 jobs:
-
-  build:
-    name: Build Docker container
+  tags:
+    name: Generate version tags
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tags.outputs.version }}
+      deploy_action_api_version: ${{ steps.tags.outputs.deploy_action_api_version }}
     steps:
     - uses: actions/checkout@v2
     - name: Generate version tags
+      id: tags
       run: |
-        echo "version=$(./version.sh)" >> $GITHUB_ENV
-        echo "deploy_action_api_version=$(cat actions/deploy/version)" >> $GITHUB_ENV
-    - name: Build Docker images
-      run: |
-        docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
-        docker build --tag ${hookd_image}:${version} --tag ${hookd_image}:latest -f Dockerfile.hookd .
-        docker build --tag ${deployd_image}:${version} --tag ${deployd_image}:latest -f Dockerfile.deployd .
-        docker build --tag ${canary_deployer_image}:${version} --tag ${canary_deployer_image}:latest canary-deployer
-    - name: Push versioned Docker image to GitHub
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        docker login ghcr.io -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
-        docker push ${image}:${version}
-        docker push ${hookd_image}:${version}
-        docker push ${deployd_image}:${version}
-        docker push ${canary_deployer_image}:${version}
-    - name: Push production Docker image to GitHub
-      if: github.ref == 'refs/heads/master'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        docker login ghcr.io -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
-        docker push ${image}:${deploy_action_api_version}
-        docker push ${image}:latest
-        docker push ${hookd_image}:latest
-        docker push ${deployd_image}:latest
-        docker push ${canary_deployer_image}:latest
-    - name: Push production Docker image to Dockerhub
-      if: github.ref == 'refs/heads/master'
-      env:
-        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-        DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-      run: |
-        docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
-        docker tag ${image}:latest ${dockerhub_image}:${deploy_action_api_version}-grpc
-        docker push ${dockerhub_image}:${deploy_action_api_version}-grpc
+        echo ::set-output name=version::$(./version.sh)
+        echo ::set-output name=deploy_action_api_version::$(cat actions/deploy/version)
+
+  build-and-push:
+    name: Build Docker container
+    needs:
+    - tags
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+    strategy:
+      matrix:
+        include:
+          - dockerfile: Dockerfile.hookd
+            context: .
+            images: |
+              ${{ env.ghcr_registry }}/hookd
+              ${{ env.gcp_registry }}/hookd
+            tags: |
+              type=raw,value={{ needs.tags.outputs.version }}
+
+          - dockerfile: Dockerfile.deployd
+            context: .
+            images: |
+              ${{ env.ghcr_registry }}/deployd
+              ${{ env.gcp_registry }}/deployd
+            tags: |
+              type=raw,value={{ needs.tags.outputs.version }}
+
+          - dockerfile: Dockerfile
+            context: canary-deployer
+            images: |
+              ${{ env.ghcr_registry }}/canary-deployer
+              ${{ env.gcp_registry }}/canary-deployer
+            tags: |
+              type=raw,value={{ needs.tags.outputs.version }}
+
+          - dockerfile: Dockerfile.deploy
+            context: .
+            images: |
+              ${{ env.ghcr_registry }}/deploy
+              ${{ env.gcp_registry }}/deploy
+              navikt/deploy
+            tags: |
+              type=raw,value={{ needs.tags.outputs.version }}
+              type=raw,value={{ needs.tags.outputs.deploy_action_api_version }}
+              type=raw,value={{ needs.tags.outputs.deploy_action_api_version }}-grpc
+    steps:
+    - uses: actions/checkout@v2
+    - name: Get Google access token
+      id: "auth"
+      uses: "google-github-actions/auth@v0.6.0"
+      with:
+        workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: "gh-deploy@nais-io.iam.gserviceaccount.com"
+        token_format: "access_token"
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v1
+    - name: Login Google Container Registry
+      uses: docker/login-action@v1
+      with:
+        registry: "${{ env.gcp_registry }}"
+        username: "oauth2accesstoken"
+        password: "${{ steps.auth.outputs.access_token }}"
+    - name: Login GitHub Package Registry
+      uses: docker/login-action@v1
+      with:
+        registry: "ghcr.io"
+        username: "${{ github.repository }}"
+        password: "${{ secrets.GITHUB_TOKEN }}"
+    - name: Login Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: "${{ secrets.DOCKERHUB_USERNAME }}"
+        password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+    - name: Docker meta
+      id: metadata
+      uses: docker/metadata-action@v3
+      with:
+        images: ${{ matrix.images }}
+        tags: |
+          type=schedule
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha
+          ${{ matrix.tags }}
+    - name: Build and push
+      uses: docker/build-push-action@v2
+      with:
+        context: ${{ matrix.context }}
+        file: ${{ matrix.dockerfile }}
+        push: true
+        tags: ${{ steps.metadata.outputs.tags }}
+        labels: ${{ steps.metadata.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
   release:
     name: Release versioned GitHub Action
@@ -135,7 +197,9 @@ jobs:
   deploy:
     name: Deploy to Kubernetes
     if: github.ref == 'refs/heads/master'
-    needs: build
+    needs:
+    - tags
+    - build-and-push
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -153,20 +217,14 @@ jobs:
         repository: navikt/nais-yaml
         token: ${{ steps.get-token.outputs.token }}
         path: nais-yaml
-    - name: Generate image environment variable
-      run: |
-        cd deploy
-        version=$(./version.sh)
-        echo "version=${version}" >> $GITHUB_ENV
-        echo "IMAGE=${image}:${version}" >> $GITHUB_ENV
     - name: Bump version in nais-yaml
       run: |
         cd nais-yaml
         git config user.name "$GITHUB_ACTOR"
         git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-        sed -E -i "s#hookdImage: .+#hookdImage: ${hookd_image}:${version}#" vars/global.yaml
-        sed -E -i "s#deploydImage: .+#deploydImage: ${deployd_image}:${version}#" vars/global.yaml
+        sed -E -i "s#hookdImage: .+#hookdImage: ${hookd_image}:${{ needs.tags.outputs.version }}#" vars/global.yaml
+        sed -E -i "s#deploydImage: .+#deploydImage: ${deployd_image}:${{ needs.tags.outputs.version }}#" vars/global.yaml
         git add .
         git --no-pager diff --cached
-        git commit --no-verify -a -m "Bump deployment orchestrator to version ${version}"
+        git commit --no-verify -a -m "Bump deployment orchestrator to version ${{ needs.tags.outputs.version }}"
         git push
