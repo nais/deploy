@@ -45,32 +45,32 @@ jobs:
           - dockerfile: Dockerfile.hookd
             context: .
             images: |
-              ${{ env.ghcr_registry }}/hookd
-              ${{ env.gcp_registry }}/hookd
+              ghcr.io/nais/deploy/hookd
+              europe-north1-docker.pkg.dev/nais-io/nais/images/hookd
             tags: |
               type=raw,value={{ needs.tags.outputs.version }}
 
           - dockerfile: Dockerfile.deployd
             context: .
             images: |
-              ${{ env.ghcr_registry }}/deployd
-              ${{ env.gcp_registry }}/deployd
+              ghcr.io/nais/deploy/deployd
+              europe-north1-docker.pkg.dev/nais-io/nais/images/deployd
             tags: |
               type=raw,value={{ needs.tags.outputs.version }}
 
           - dockerfile: Dockerfile
             context: canary-deployer
             images: |
-              ${{ env.ghcr_registry }}/canary-deployer
-              ${{ env.gcp_registry }}/canary-deployer
+              ghcr.io/nais/deploy/deployer
+              europe-north1-docker.pkg.dev/nais-io/nais/images/deployer
             tags: |
               type=raw,value={{ needs.tags.outputs.version }}
 
           - dockerfile: Dockerfile.deploy
             context: .
             images: |
-              ${{ env.ghcr_registry }}/deploy
-              ${{ env.gcp_registry }}/deploy
+              ghcr.io/nais/deploy/deploy
+              europe-north1-docker.pkg.dev/nais-io/nais/images/deploy
               navikt/deploy
             tags: |
               type=raw,value={{ needs.tags.outputs.version }}
