@@ -130,7 +130,7 @@ jobs:
   release:
     name: Release versioned GitHub Action
     if: github.ref == 'refs/heads/master'
-    needs: build
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
