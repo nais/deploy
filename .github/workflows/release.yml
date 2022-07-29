@@ -222,8 +222,8 @@ jobs:
         cd nais-yaml
         git config user.name "$GITHUB_ACTOR"
         git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-        sed -E -i "s#hookdImage: .+#hookdImage: ${hookd_image}:${{ needs.tags.outputs.version }}#" vars/global.yaml
-        sed -E -i "s#deploydImage: .+#deploydImage: ${deployd_image}:${{ needs.tags.outputs.version }}#" vars/global.yaml
+        sed -E -i "s#hookdImage: .+#hookdImage: ghcr.io/nais/deploy/hookd:${{ needs.tags.outputs.version }}#" vars/global.yaml
+        sed -E -i "s#deploydImage: .+#deploydImage: ghcr.io/nais/deploy/deployd:${{ needs.tags.outputs.version }}#" vars/global.yaml
         git add .
         git --no-pager diff --cached
         git commit --no-verify -a -m "Bump deployment orchestrator to version ${{ needs.tags.outputs.version }}"
