@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-chi/chi"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,14 +12,15 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-chi/chi"
+
 	"github.com/nais/deploy/pkg/hookd/api"
-	"github.com/nais/deploy/pkg/hookd/api/v1"
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 )
 
-type apiKeyStorage struct {
-}
+type apiKeyStorage struct{}
 
 type testCase struct {
 	Request  request  `json:"request"`
@@ -126,6 +126,7 @@ func statusSubTest(t *testing.T, folder, file string) {
 	recorder := httptest.NewRecorder()
 	apiKeyStore := apiKeyStorage{}
 	handler := api.New(api.Config{
+		GroupProvider:        api.GroupProviderAzure,
 		ApiKeyStore:          &apiKeyStore,
 		MetricsPath:          "/metrics",
 		ValidatorMiddlewares: chi.Middlewares{tokenValidatorMiddleware},
@@ -166,10 +167,8 @@ func TestApiKeyHandler(t *testing.T) {
 			for _, file := range testfiles {
 				t.Run(fmt.Sprintf("%s/%s", folder.Name(), file.Name()), func(t *testing.T) {
 					statusSubTest(t, folder.Name(), file.Name())
-
 				})
 			}
 		}
-
 	}
 }
