@@ -2,7 +2,9 @@ package kubeclient
 
 import (
 	"fmt"
+
 	"github.com/nais/deploy/pkg/deployd/teamconfig"
+	"github.com/prometheus/common/log"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -86,6 +88,7 @@ func (c *client) gvr(resource *unstructured.Unstructured) (*schema.GroupVersionR
 		return nil, fmt.Errorf("unable to run kubernetes resource discovery: %s", err)
 	}
 	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+	log.Debugf("discovered groupResources: %v", groupResources)
 
 	gvk := resource.GroupVersionKind()
 	gk := schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind}
