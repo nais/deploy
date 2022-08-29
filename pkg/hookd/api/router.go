@@ -105,7 +105,7 @@ func New(cfg Config) chi.Router {
 	router.Get(cfg.MetricsPath, promhttp.Handler().ServeHTTP)
 
 	// Deployment logs accessible via shorthand URL
-	router.HandleFunc("/logs", logproxy.HandleFunc)
+	router.HandleFunc("/logs", logproxy.MakeHandler())
 
 	// Mount /api/v1 for API requests
 	// Only application/json content type allowed

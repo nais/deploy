@@ -52,7 +52,7 @@ func TestHandleFunc(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", tt.url, nil)
 			rr := httptest.NewRecorder()
-			HandleFunc(rr, req)
+			MakeHandler()(rr, req)
 			assert.Equal(t, tt.code, rr.Code)
 			assert.Equal(t, tt.location, rr.Header().Get("Location"))
 		})
