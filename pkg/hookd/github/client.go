@@ -78,7 +78,8 @@ func (c *client) CreateDeployment(ctx context.Context, request *pb.DeploymentReq
 }
 
 func (c *client) CreateDeploymentStatus(ctx context.Context, status *pb.DeploymentStatus, deploymentID int64) (*gh.DeploymentStatus, error) {
-	repo := status.GetRequest().GetRepository()
+	deploymentRequest := status.GetRequest()
+	repo := deploymentRequest.GetRepository()
 	if repo == nil {
 		return nil, ErrEmptyRepository
 	}
@@ -89,7 +90,7 @@ func (c *client) CreateDeploymentStatus(ctx context.Context, status *pb.Deployme
 		description = description[:maxDescriptionLength]
 	}
 
-	url := logproxy.MakeURL(c.baseurl, status.GetRequest().GetID(), time.Now())
+	url := logproxy.MakeURL(c.baseurl, deploymentRequest.GetID(), time.Now(), deploymentRequest.Cluster)
 
 	st, resp, err := c.client.Repositories.CreateDeploymentStatus(
 		ctx,
@@ -104,7 +105,7 @@ func (c *client) CreateDeploymentStatus(ctx context.Context, status *pb.Deployme
 	)
 
 	if resp != nil {
-		metrics.GitHubRequest(resp.StatusCode, repo.FullName(), status.GetRequest().GetTeam())
+		metrics.GitHubRequest(resp.StatusCode, repo.FullName(), deploymentRequest.GetTeam())
 	}
 
 	return st, err

@@ -170,7 +170,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		log.Infof("Deployment information:")
 		log.Infof("---")
 		log.Infof("id...........: %s", deployRequest.GetID())
-		log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime()))
+		log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime(), deployRequest.Cluster))
 		log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
 		log.Infof("---")
 

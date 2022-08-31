@@ -46,7 +46,7 @@ func oneDay(ts time.Time) timeRange {
 	}
 }
 
-func formatKibana(deliveryID string, ts time.Time, version int) (string, error) {
+func formatKibana(deliveryID string, ts time.Time, version int, _ string) (string, error) {
 	var q string
 
 	switch version {

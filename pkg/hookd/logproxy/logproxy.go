@@ -10,14 +10,26 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var uuidRegex = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$")
-
-func MakeURL(baseURL, deliveryID string, timestamp time.Time) string {
-	return fmt.Sprintf("%s/logs?delivery_id=%s&ts=%d&v=1", baseURL, deliveryID, timestamp.Unix())
+type Config struct {
+	Projects map[string]string
 }
 
-func MakeHandler() http.HandlerFunc {
-	formatterFunc := formatKibana
+var uuidRegex = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$")
+
+func MakeURL(baseURL, deliveryID string, timestamp time.Time, cluster string) string {
+	return fmt.Sprintf("%s/logs?delivery_id=%s&ts=%d&v=1&cluster=%s", baseURL, deliveryID, timestamp.Unix(), cluster)
+}
+
+func MakeHandler(cfg Config) http.HandlerFunc {
+
+	var formatterFunc func(deliveryID string, ts time.Time, version int, cluster string) (string, error)
+	if cfg.Projects != nil {
+		formatter := gcpFormatter{Projects: cfg.Projects}
+		formatterFunc = formatter.format
+	} else {
+		formatterFunc = formatKibana
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		badrequest := func(err error) {
 			w.WriteHeader(http.StatusBadRequest)
@@ -31,6 +43,7 @@ func MakeHandler() http.HandlerFunc {
 		timestamp := r.URL.Query().Get("ts")
 		sversion := r.URL.Query().Get("v")
 		version, _ := strconv.Atoi(sversion)
+		cluster := r.URL.Query().Get("cluster")
 
 		if !uuidRegex.MatchString(deliveryID) {
 			badrequest(fmt.Errorf("delivery_id '%s' is not a well-formed UUID", deliveryID))
@@ -44,7 +57,7 @@ func MakeHandler() http.HandlerFunc {
 		}
 
 		utctime := time.Unix(int64(unixtime), 0).UTC()
-		url, err := formatterFunc(deliveryID, utctime, version)
+		url, err := formatterFunc(deliveryID, utctime, version, cluster)
 		if err != nil {
 			badrequest(err)
 			return
