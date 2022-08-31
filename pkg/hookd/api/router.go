@@ -48,6 +48,7 @@ type Config struct {
 	TeamClient            graphapi.Client
 	TeamRepositoryStorage database.RepositoryTeamStore
 	GroupProvider         GroupProvider
+	Projects              map[string]string
 }
 
 func New(cfg Config) chi.Router {
@@ -105,7 +106,7 @@ func New(cfg Config) chi.Router {
 	router.Get(cfg.MetricsPath, promhttp.Handler().ServeHTTP)
 
 	// Deployment logs accessible via shorthand URL
-	router.HandleFunc("/logs", logproxy.MakeHandler(logproxy.Config{}))
+	router.HandleFunc("/logs", logproxy.MakeHandler(logproxy.Config{Projects: cfg.Projects}))
 
 	// Mount /api/v1 for API requests
 	// Only application/json content type allowed

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -167,6 +168,10 @@ func run() error {
 		groupProvider = api.GroupProviderGoogle
 	}
 
+	projects, err := parseKeyVal(cfg.GoogleClusterProjects)
+	if err != nil {
+		return fmt.Errorf("unable to parse google cluster projects: %v", err)
+	}
 	router := api.New(api.Config{
 		ApiKeyStore:           db,
 		BaseURL:               cfg.BaseURL,
@@ -181,6 +186,7 @@ func run() error {
 		TeamClient:            graphAPIClient,
 		TeamRepositoryStorage: db,
 		GroupProvider:         groupProvider,
+		Projects:              projects,
 	})
 
 	go func() {
@@ -270,6 +276,18 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 	}()
 
 	return grpcServer, dispatchServer, nil
+}
+
+func parseKeyVal(projects []string) (map[string]string, error) {
+	projectMap := make(map[string]string, len(projects))
+	for _, pair := range projects {
+		parts := strings.Split(pair, "=")
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("invalid key-value pair '%s'", pair)
+		}
+		projectMap[parts[0]] = parts[1]
+	}
+	return projectMap, nil
 }
 
 func main() {

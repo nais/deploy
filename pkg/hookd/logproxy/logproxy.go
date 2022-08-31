@@ -23,7 +23,7 @@ func MakeURL(baseURL, deliveryID string, timestamp time.Time, cluster string) st
 func MakeHandler(cfg Config) http.HandlerFunc {
 
 	var formatterFunc func(deliveryID string, ts time.Time, version int, cluster string) (string, error)
-	if cfg.Projects != nil {
+	if len(cfg.Projects) > 0 {
 		formatter := gcpFormatter{Projects: cfg.Projects}
 		formatterFunc = formatter.format
 	} else {

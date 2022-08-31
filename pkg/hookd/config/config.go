@@ -45,6 +45,7 @@ type Config struct {
 	Github                 Github        `json:"github"`
 	GoogleClientId         string        `json:"google-client-id"`
 	GoogleAllowedDomains   []string      `json:"google-allowed-domains"`
+	GoogleClusterProjects  []string      `json:"google-cluster-projects"`
 	GRPC                   GRPC          `json:"grpc"`
 	ListenAddress          string        `json:"listen-address"`
 	LogFormat              string        `json:"log-format"`
@@ -83,6 +84,7 @@ const (
 	GithubKeyFile             = "github.key-file"
 	GoogleClientId            = "google-client-id"
 	GoogleAllowedDomains      = "google-allowed-domains"
+	GoogleClusterProjects     = "google-cluster-projects"
 	GrpcAddress               = "grpc.address"
 	GrpcCliAuthentication     = "grpc.cli-authentication"
 	GrpcDeploydAuthentication = "grpc.deployd-authentication"
@@ -145,6 +147,7 @@ func Initialize() *Config {
 
 	flag.String(GoogleClientId, "", "Google ClientId.")
 	flag.StringSlice(GoogleAllowedDomains, []string{}, "Allowed Google Domains")
+	flag.StringSlice(GoogleClusterProjects, []string{}, "Mapping cluster to google project: cluster1=project1,cluster2=project2")
 
 	flag.String(AzureClientId, "", "Azure ClientId.")
 	flag.String(AzureClientSecret, "", "Azure ClientSecret")
