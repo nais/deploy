@@ -26,8 +26,10 @@ func MakeHandler(cfg Config) http.HandlerFunc {
 	if len(cfg.Projects) > 0 {
 		formatter := gcpFormatter{Projects: cfg.Projects}
 		formatterFunc = formatter.format
+		log.Infof("Configured logproxy to target Google Logs Explorer")
 	} else {
 		formatterFunc = formatKibana
+		log.Infof("Configured logproxy to target Kibana")
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
