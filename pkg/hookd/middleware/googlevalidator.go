@@ -162,7 +162,7 @@ func getGroupsFromConsole(ctx context.Context, id string, key string, url string
 		} `graphql:"userByEmail(email: $query)"`
 	}
 	variables := map[string]interface{}{
-		"query": id,
+		"query": graphql.String(id),
 	}
 	err := client.Query(ctx, &q, variables)
 	if err != nil {
