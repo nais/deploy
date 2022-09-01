@@ -5,7 +5,10 @@ import (
 	"time"
 )
 
-const gcpFormat = "https://console.cloud.google.com/logs/query?query=jsonPayload.correlation_id=%%22%s%%22&timeRange=PT1D&authuser=0&project=%s&cursorTimestamp=%s"
+const (
+	gcpFormat       = "https://console.cloud.google.com/logs/query;query=jsonPayload.correlation_id%%3d%%22%s%%22;timeRange=%s%%2f%s?authuser=0&project=%s"
+	timeRangeMargin = 2 * time.Hour
+)
 
 type gcpFormatter struct {
 	Projects map[string]string
@@ -13,7 +16,9 @@ type gcpFormatter struct {
 
 func (f gcpFormatter) format(deliveryID string, ts time.Time, _ int, cluster string) (string, error) {
 	if project, ok := f.Projects[cluster]; ok {
-		return fmt.Sprintf(gcpFormat, deliveryID, project, ts.Format(time.RFC3339)), nil
+		start := ts.Add(-timeRangeMargin)
+		end := ts.Add(timeRangeMargin)
+		return fmt.Sprintf(gcpFormat, deliveryID, start.Format(time.RFC3339), end.Format(time.RFC3339), project), nil
 	}
 	return "", fmt.Errorf("unknown cluster %s", cluster)
 }

@@ -38,7 +38,7 @@ func TestHandleFunc(t *testing.T) {
 			name:     "happy path gcp",
 			url:      fmt.Sprintf("/logs?delivery_id=%s&ts=%d&v=1&cluster=%s", deliveryId, timestamp, cluster),
 			code:     http.StatusTemporaryRedirect,
-			location: "https://console.cloud.google.com/logs/query?query=jsonPayload.correlation_id=%2246a4c277-fa34-4711-b2eb-f6903bb06ce5%22&timeRange=PT1D&authuser=0&project=test-dev-1234&cursorTimestamp=2022-08-29T11:31:34Z",
+			location: "https://console.cloud.google.com/logs/query;query=jsonPayload.correlation_id%3d%2246a4c277-fa34-4711-b2eb-f6903bb06ce5%22;timeRange=2022-08-29T09:31:34Z%2f2022-08-29T13:31:34Z?authuser=0&project=test-dev-1234",
 			cfg:      gcpEnabled,
 		},
 		{
