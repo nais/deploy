@@ -152,21 +152,17 @@ func getGroupsFromConsole(ctx context.Context, id string, key string, url string
 	httpClient := oauth2.NewClient(ctx, src)
 	client := graphql.NewClient(url, httpClient)
 
-	type UsersQuery struct {
-		email string
-	}
 	var q struct {
-		Users struct {
-			Nodes []struct {
-				Email graphql.String
-				Teams []struct {
+		User struct {
+			Teams []struct {
+				Team struct {
 					Slug graphql.String
 				}
 			}
-		} `graphql:"users(query: $query)"`
+		} `graphql:"userByEmail(email: $query)"`
 	}
 	variables := map[string]interface{}{
-		"query": UsersQuery{email: id},
+		"query": id,
 	}
 	err := client.Query(ctx, &q, variables)
 	if err != nil {
@@ -174,10 +170,8 @@ func getGroupsFromConsole(ctx context.Context, id string, key string, url string
 	}
 
 	var groups []string
-	for _, node := range q.Users.Nodes {
-		for _, team := range node.Teams {
-			groups = append(groups, string(team.Slug))
-		}
+	for _, team := range q.User.Teams {
+		groups = append(groups, string(team.Team.Slug))
 	}
 	return groups, nil
 }
