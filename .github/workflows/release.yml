@@ -103,7 +103,7 @@ jobs:
           -d '{"tag_name": "'"$(cat actions/deploy/version)"'"}' \
           -H "Content-Type: application/json" \
           https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases)
-        echo ::set-output name=release_id::$(echo $release | jq .id)
+        echo "release_id=$(echo $release | jq .id)" >> ${GITHUB_OUTPUT}
     - name: Upload Linux Asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
