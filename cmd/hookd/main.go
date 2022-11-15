@@ -52,6 +52,7 @@ var maskedConfig = []string{
 
 const (
 	databaseConnectBackoffInterval = 3 * time.Second
+	preProvisionedApiKeysSeparator = ";"
 )
 
 func run() error {
@@ -171,7 +172,7 @@ func run() error {
 
 	if cfg.PreProvisionedApiKeys != nil {
 		for i, entry := range cfg.PreProvisionedApiKeys {
-			parts := strings.Split(entry, ":")
+			parts := strings.Split(entry, preProvisionedApiKeysSeparator)
 			if len(parts) != 3 {
 				log.Errorf("Invalid format for pre-provisioned-api-key, skipping entry %d", i)
 				continue

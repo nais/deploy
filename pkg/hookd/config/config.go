@@ -157,7 +157,7 @@ func Initialize() *Config {
 	flag.String(AzureTenant, "", "Azure Tenant")
 	flag.String(AzureTeamMembershipAppId, "", "Application ID of canonical team list")
 
-	flag.StringSlice(PreProvisionedApiKeys, nil, "Pre-shared team API keys, comma separated. Each entry uses the format: team:group_id:key")
+	flag.StringSlice(PreProvisionedApiKeys, nil, "Pre-shared team API keys, comma separated. Each entry uses the format: team;group_id;key")
 
 	return &Config{}
 }
