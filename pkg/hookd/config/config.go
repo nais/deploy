@@ -52,6 +52,7 @@ type Config struct {
 	LogLevel               string        `json:"log-level"`
 	MetricsPath            string        `json:"metrics-path"`
 	ProvisionKey           string        `json:"provision-key"`
+	PreProvisionedApiKeys  []string      `json:"pre-provisioned-api-keys"`
 }
 
 func (a *Azure) HasConfig() bool {
@@ -94,6 +95,7 @@ const (
 	LogLevel                  = "log-level"
 	MetricsPath               = "metrics-path"
 	ProvisionKey              = "provision-key"
+	PreProvisionedApiKeys     = "pre-provisioned-api-keys"
 )
 
 // Bind environment variables provided by the NAIS platform
@@ -154,6 +156,8 @@ func Initialize() *Config {
 	flag.String(AzureWellKnownUrl, "", "URL to Azure configuration.")
 	flag.String(AzureTenant, "", "Azure Tenant")
 	flag.String(AzureTeamMembershipAppId, "", "Application ID of canonical team list")
+
+	flag.StringSlice(PreProvisionedApiKeys, nil, "Pre-shared team API keys, comma separated. Each entry uses the format: team:group_id:key")
 
 	return &Config{}
 }

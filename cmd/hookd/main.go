@@ -47,6 +47,7 @@ var maskedConfig = []string{
 	config.DeploydKeys,
 	config.FrontendKeys,
 	config.ProvisionKey,
+	config.PreProvisionedApiKeys,
 }
 
 const (
@@ -166,6 +167,27 @@ func run() error {
 			log.Infof("Using GoogleValidator validator")
 		}
 		groupProvider = api.GroupProviderGoogle
+	}
+
+	if cfg.PreProvisionedApiKeys != nil {
+		for i, entry := range cfg.PreProvisionedApiKeys {
+			parts := strings.Split(entry, ":")
+			if len(parts) != 3 {
+				log.Errorf("Invalid format for pre-provisioned-api-key, skipping entry %d", i)
+				continue
+			}
+			for _, p := range parts {
+				if p == "" {
+					log.Errorf("All parts of a pre-provisioned-api-key must be non-empty, skipping entry %d", i)
+					continue
+				}
+			}
+			err := db.RotateApiKey(ctx, parts[0], parts[1], []byte(parts[2]))
+			if err != nil {
+				log.Errorf("Failed to enter pre-provisioned key for team %s: %v, skipping entry %d", parts[0], err, i)
+				continue
+			}
+		}
 	}
 
 	projects, err := parseKeyVal(cfg.GoogleClusterProjects)
