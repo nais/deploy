@@ -24,7 +24,7 @@ jobs:
     name: Build Docker container
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Generate version tags
       run: |
         echo "version=$(./version.sh)" >> $GITHUB_ENV
@@ -71,7 +71,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Force create tag
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -138,7 +138,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         path: deploy
     - uses: navikt/github-app-token-generator@v1
@@ -148,7 +148,7 @@ jobs:
         app-id: ${{ secrets.NAIS_APP_ID }}
         repo: navikt/nais-yaml
     - name: Checkout nais-yaml
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: navikt/nais-yaml
         token: ${{ steps.get-token.outputs.token }}

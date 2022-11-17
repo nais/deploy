@@ -13,7 +13,7 @@ jobs:
     name: Deploy to NAIS
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: deploy to ${{ github.event.inputs.cluster }}
       uses: nais/deploy/actions/deploy@v1
       env:
