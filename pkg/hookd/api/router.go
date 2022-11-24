@@ -25,13 +25,6 @@ import (
 
 var requestTimeout = time.Second * 10
 
-type GroupProvider int
-
-const (
-	GroupProviderGoogle GroupProvider = iota
-	GroupProviderAzure
-)
-
 type Middleware func(http.Handler) http.Handler
 
 type Config struct {
@@ -47,7 +40,7 @@ type Config struct {
 	ProvisionKey          []byte
 	TeamClient            graphapi.Client
 	TeamRepositoryStorage database.RepositoryTeamStore
-	GroupProvider         GroupProvider
+	GroupProvider         middleware.GroupProvider
 	Projects              map[string]string
 }
 
@@ -59,7 +52,7 @@ func New(cfg Config) chi.Router {
 	}
 
 	var apikeyHandler api_v1_apikey.ApiKeyHandler
-	if cfg.GroupProvider == GroupProviderAzure {
+	if cfg.GroupProvider == middleware.GroupProviderAzure {
 		apikeyHandler = &api_v1_apikey.AzureApiKeyHandler{
 			APIKeyStorage: cfg.ApiKeyStore,
 		}
@@ -73,6 +66,7 @@ func New(cfg Config) chi.Router {
 		APIKeyStorage: cfg.ApiKeyStore,
 		TeamClient:    cfg.TeamClient,
 		SecretKey:     cfg.ProvisionKey,
+		GroupProvider: cfg.GroupProvider,
 	}
 
 	dashboardHandler := &api_v1_dashboard.Handler{

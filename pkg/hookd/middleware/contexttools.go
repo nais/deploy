@@ -1,6 +1,9 @@
 package middleware
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 const contextKeyEmail = "email"
 const contextKeyGroups = "groups"
@@ -10,9 +13,12 @@ func GetEmail(ctx context.Context) string {
 	return email
 }
 
-func GetGroups(ctx context.Context) []string {
-	groups, _ := ctx.Value(contextKeyGroups).([]string)
-	return groups
+func GetGroups(ctx context.Context) ([]string, error) {
+	groups, ok := ctx.Value(contextKeyGroups).([]string)
+	if !ok {
+		return nil, fmt.Errorf("no group claims found in context")
+	}
+	return groups, nil
 }
 
 func WithEmail(ctx context.Context, email string) context.Context {

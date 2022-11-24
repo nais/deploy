@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/nais/deploy/pkg/hookd/middleware"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -126,7 +127,7 @@ func statusSubTest(t *testing.T, folder, file string) {
 	recorder := httptest.NewRecorder()
 	apiKeyStore := apiKeyStorage{}
 	handler := api.New(api.Config{
-		GroupProvider:        api.GroupProviderAzure,
+		GroupProvider:        middleware.GroupProviderAzure,
 		ApiKeyStore:          &apiKeyStore,
 		MetricsPath:          "/metrics",
 		ValidatorMiddlewares: chi.Middlewares{tokenValidatorMiddleware},
