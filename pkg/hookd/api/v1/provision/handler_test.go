@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/nais/deploy/pkg/hookd/middleware"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,7 +52,7 @@ type teamClient struct {
 
 func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
 	switch team {
-	case "new", "unwritable":
+	case "new", "unwritable", "not_found", "azure_error":
 		return nil, database.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
@@ -73,6 +75,10 @@ func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, 
 
 func (t *teamClient) Team(ctx context.Context, name string) (*graphapi.Team, error) {
 	switch name {
+	case "not_found":
+		return nil, graphapi.ErrNotFound
+	case "azure_error":
+		return nil, fmt.Errorf("azure errored")
 	default:
 		return &graphapi.Team{}, nil
 	}
@@ -121,7 +127,7 @@ func fileReader(file string) io.Reader {
 	return f
 }
 
-func statusSubTest(t *testing.T, name string) {
+func statusSubTest(t *testing.T, name string, groupProvider middleware.GroupProvider) {
 	inFile := fmt.Sprintf("testdata/%s", name)
 
 	fixture := fileReader(inFile)
@@ -157,10 +163,11 @@ func statusSubTest(t *testing.T, name string) {
 	teamClient := &teamClient{}
 
 	handler := api.New(api.Config{
-		ApiKeyStore:  apiKeyStore,
-		MetricsPath:  "/metrics",
-		ProvisionKey: provisionKey,
-		TeamClient:   teamClient,
+		ApiKeyStore:   apiKeyStore,
+		MetricsPath:   "/metrics",
+		ProvisionKey:  provisionKey,
+		TeamClient:    teamClient,
+		GroupProvider: groupProvider,
 	})
 
 	handler.ServeHTTP(recorder, request)
@@ -178,9 +185,44 @@ func TestHandler(t *testing.T) {
 		if file.IsDir() {
 			continue
 		}
+		if strings.Contains(file.Name(), "azure") {
+			continue
+		}
+		if strings.Contains(file.Name(), "invalid") {
+			continue
+		}
+		for _, groupProvider := range []middleware.GroupProvider{middleware.GroupProviderAzure, middleware.GroupProviderGoogle} {
+			testName := fmt.Sprintf("%s-%v", file.Name(), groupProvider)
+			t.Run(testName, func(t *testing.T) {
+				statusSubTest(t, file.Name(), groupProvider)
+			})
+		}
+	}
+}
+
+func TestHandler_Azure(t *testing.T) {
+	files, err := ioutil.ReadDir("testdata")
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		if !strings.Contains(file.Name(), "azure") {
+			continue
+		}
 		name := file.Name()
 		t.Run(name, func(t *testing.T) {
-			statusSubTest(t, name)
+			statusSubTest(t, name, middleware.GroupProviderAzure)
 		})
 	}
+}
+
+func TestHandler_Invalid(t *testing.T) {
+	fileName := "invalid.json"
+	t.Run("invalid group provider", func(t *testing.T) {
+		statusSubTest(t, fileName, middleware.GroupProviderInvalid)
+	})
 }

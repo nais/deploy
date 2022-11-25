@@ -149,12 +149,12 @@ func run() error {
 
 	log.Infof("gRPC server started")
 
-	var groupProvider api.GroupProvider
+	var groupProvider middleware.GroupProvider
 	var validators chi.Middlewares
 	if cfg.Azure.HasConfig() {
 		validators = append(validators, middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID))
 		log.Infof("Using Azure validator")
-		groupProvider = api.GroupProviderAzure
+		groupProvider = middleware.GroupProviderAzure
 	} else if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
 		validators = append(validators, middleware.PskValidatorMiddleware(cfg.FrontendKeys))
 		log.Infof("Using PSK validator")
@@ -165,7 +165,7 @@ func run() error {
 			validators = append(validators, googleValidator.Middleware())
 			log.Infof("Using GoogleValidator validator")
 		}
-		groupProvider = api.GroupProviderGoogle
+		groupProvider = middleware.GroupProviderGoogle
 	}
 
 	projects, err := parseKeyVal(cfg.GoogleClusterProjects)

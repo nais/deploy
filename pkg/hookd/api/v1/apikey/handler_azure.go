@@ -22,7 +22,7 @@ func (h *AzureApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) 
 
 	logger.Tracef("Request API keys")
 
-	groups, err := api_v1.GroupClaims(r.Context())
+	groups, err := middleware.GetGroups(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)
@@ -52,7 +52,7 @@ func (h *AzureApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Reques
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
-	groups, err := api_v1.GroupClaims(r.Context())
+	groups, err := middleware.GetGroups(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)
@@ -97,7 +97,7 @@ func (h *AzureApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Req
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
-	groups, err := api_v1.GroupClaims(r.Context())
+	groups, err := middleware.GetGroups(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)

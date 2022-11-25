@@ -22,7 +22,7 @@ func (h *GoogleApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request)
 
 	logger.Tracef("Request API keys")
 
-	groups, err := api_v1.GroupClaims(r.Context())
+	groups, err := middleware.GetGroups(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)
@@ -54,7 +54,7 @@ func (h *GoogleApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Reque
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
-	groups, err := api_v1.GroupClaims(r.Context())
+	groups, err := middleware.GetGroups(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)
@@ -100,7 +100,7 @@ func (h *GoogleApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Re
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
-	groups, err := api_v1.GroupClaims(r.Context())
+	groups, err := middleware.GetGroups(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)

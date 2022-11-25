@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/go-chi/render"
-	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	log "github.com/sirupsen/logrus"
@@ -22,7 +21,7 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fields := middleware.RequestLogFields(r)
 	logger := log.WithFields(fields)
 
-	groups, err := api_v1.GroupClaims(r.Context())
+	groups, err := middleware.GetGroups(r.Context())
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)
