@@ -9,9 +9,9 @@ metadata:
   annotations:
     nais.io/skipDeploymentMessage: "true"
   labels:
-    team: aura
+    team: "{{ namespace }}"
   name: nais-deploy-canary
-  namespace: aura
+  namespace: "{{ namespace }}"
 spec:
   env:
   - name: DEPLOY_START
