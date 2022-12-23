@@ -17,6 +17,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const VerificationTeam = "nais-verification"
+
 type Handler struct {
 	APIKeyStorage database.ApiKeyStore
 	TeamClient    graphapi.Client
@@ -39,7 +41,6 @@ func (r *Response) render(w io.Writer) {
 }
 
 func (r *Request) validate() error {
-
 	if len(r.Team) == 0 {
 		return fmt.Errorf("no team specified")
 	}
@@ -185,6 +186,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		response.Message = "unable to persist API key"
 		response.render(w)
 		logger.Errorf("%s: %s", response.Message, err)
+		return
+	}
+
+	if request.Team == VerificationTeam {
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(
+			struct {
+				ApiKey  api_v1.Key `json:"apiKey,omitempty"`
+				Message string     `json:"message,omitempty"`
+			}{
+				ApiKey:  key,
+				Message: "API key provisioned successfully",
+			})
+		if err != nil {
+			logger.Errorf("encode response: %v", err)
+			return
+		}
+
+		logger.Infof("API key provisioned successfully")
 		return
 	}
 
