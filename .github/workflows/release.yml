@@ -170,3 +170,27 @@ jobs:
         git --no-pager diff --cached
         git commit --no-verify -a -m "Bump deployment orchestrator to version ${version}"
         git push
+
+  rollout:
+    name: Rollout with Fasit
+    if: github.ref == 'refs/heads/master'
+    needs: build
+    permissions:
+      id-token: write
+    runs-on: fasit-deploy
+    steps:
+      - uses: actions/checkout@v3
+      - name: Generate version environment variable
+        run: |
+          version=$(./version.sh)
+          echo "version=${version}" >> $GITHUB_ENV
+      - uses: nais/fasit-deploy@main
+        name: Rollout hookd
+        with:
+          json: '{"backend": {"image": {"tag": "${{ env.version }}"}}}'
+          feature_name: hookd
+      - uses: nais/fasit-deploy@main
+        name: Rollout deployd
+        with:
+          json: '{"image": {"tag": "${{ env.version }}"}}'
+          feature_name: deployd
