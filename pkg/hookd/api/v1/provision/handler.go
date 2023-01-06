@@ -58,15 +58,71 @@ func (r *Request) LogFields() log.Fields {
 	}
 }
 
-func (h *Handler) ServeInternal(w http.ResponseWriter, r *http.Request) {
-	h.serveHTTP(w, r, true)
+func (h *Handler) ApiKey(w http.ResponseWriter, r *http.Request) {
+	var err error
+	var response Response
+
+	fields := middleware.RequestLogFields(r)
+	logger := log.WithFields(fields)
+
+	logger.Tracef("Incoming internal api key request")
+
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response.Message = fmt.Sprintf("unable to read request body: %s", err)
+		response.render(w)
+
+		logger.Error(response.Message)
+		return
+	}
+
+	request := h.validateRequest(w, r, logger, data)
+	if request == nil {
+		return
+	}
+	logger = logger.WithFields(request.LogFields())
+
+	keys, err := h.APIKeyStorage.ApiKeys(r.Context(), request.Team)
+	if err != nil {
+		if database.IsErrNotFound(err) {
+			w.WriteHeader(http.StatusNotFound)
+			response.Message = "no api key found for team"
+			response.render(w)
+			logger.Infof("api key requested for team with no keys")
+			return
+		} else {
+			w.WriteHeader(http.StatusBadGateway)
+			response.Message = "unable to communicate with team API key backend"
+			response.render(w)
+			logger.Errorf("%s: %s", response.Message, err)
+			return
+		}
+	}
+
+	if len(keys.Valid()) != 0 {
+		w.WriteHeader(http.StatusOK)
+		response.ApiKeys = keys.ValidKeys()
+		response.render(w)
+		return
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		response.Message = "no valid keys for team found"
+		response.render(w)
+		logger.Infof("no valid keys found for requested team")
+		return
+	}
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.serveHTTP(w, r, false)
+func (h *Handler) ProvisionInternal(w http.ResponseWriter, r *http.Request) {
+	h.provisionTeam(w, r, true)
 }
 
-func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request, internalRequest bool) {
+func (h *Handler) ProvisionExternal(w http.ResponseWriter, r *http.Request) {
+	h.provisionTeam(w, r, false)
+}
+
+func (h *Handler) provisionTeam(w http.ResponseWriter, r *http.Request, internalRequest bool) {
 	var err error
 	var response Response
 
@@ -85,51 +141,11 @@ func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request, internalRequ
 		return
 	}
 
-	encodedSignature := r.Header.Get(api_v1.SignatureHeader)
-	signature, err := hex.DecodeString(encodedSignature)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		response.Message = "HMAC digest must be hex encoded"
-		response.render(w)
-		logger.Errorf("unable to validate team: %s: %s", response.Message, err)
+	request := h.validateRequest(w, r, logger, data)
+	if request == nil {
 		return
 	}
-
-	logger.Tracef("Request has hex encoded data in signature header")
-
-	request := &Request{}
-	if err := json.Unmarshal(data, request); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		response.Message = fmt.Sprintf("unable to unmarshal request body: %s", err)
-		response.render(w)
-		logger.Error(response.Message)
-		return
-	}
-
 	logger = logger.WithFields(request.LogFields())
-	logger.Tracef("Request has valid JSON")
-
-	err = request.validate()
-
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		response.Message = fmt.Sprintf("invalid provision request: %s", err)
-		response.render(w)
-		logger.Error(response.Message)
-		return
-	}
-
-	logger.Tracef("Request body validated successfully")
-
-	if !api_v1.ValidateMAC(data, signature, h.SecretKey) {
-		w.WriteHeader(http.StatusForbidden)
-		response.Message = api_v1.FailedAuthenticationMsg
-		response.render(w)
-		logger.Errorf("%s: HMAC signature error", api_v1.FailedAuthenticationMsg)
-		return
-	}
-
-	logger.Tracef("HMAC signature validated successfully")
 
 	keys, err := h.APIKeyStorage.ApiKeys(r.Context(), request.Team)
 	if err != nil {
@@ -149,7 +165,7 @@ func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request, internalRequ
 		if internalRequest {
 			w.WriteHeader(http.StatusOK)
 			response.Message = "team exists, returning existing keys"
-			response.ApiKeys = keys.Keys()
+			response.ApiKeys = keys.ValidKeys()
 			response.render(w)
 			return
 		} else {
@@ -212,4 +228,55 @@ func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request, internalRequ
 	}
 	response.render(w)
 	logger.Infof(response.Message)
+}
+
+func (h *Handler) validateRequest(w http.ResponseWriter, r *http.Request, logger *log.Entry, data []byte) *Request {
+	var response Response
+
+	encodedSignature := r.Header.Get(api_v1.SignatureHeader)
+	signature, err := hex.DecodeString(encodedSignature)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response.Message = "HMAC digest must be hex encoded"
+		response.render(w)
+		logger.Errorf("unable to validate team: %s: %s", response.Message, err)
+		return nil
+	}
+
+	logger.Tracef("Request has hex encoded data in signature header")
+
+	request := &Request{}
+	if err := json.Unmarshal(data, request); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response.Message = fmt.Sprintf("unable to unmarshal request body: %s", err)
+		response.render(w)
+		logger.Error(response.Message)
+		return nil
+	}
+
+	logger = logger.WithFields(request.LogFields())
+	logger.Tracef("Request has valid JSON")
+
+	err = request.validate()
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response.Message = fmt.Sprintf("invalid request: %s", err)
+		response.render(w)
+		logger.Error(response.Message)
+		return nil
+	}
+
+	logger.Tracef("Request body validated successfully")
+
+	if !api_v1.ValidateMAC(data, signature, h.SecretKey) {
+		w.WriteHeader(http.StatusForbidden)
+		response.Message = api_v1.FailedAuthenticationMsg
+		response.render(w)
+		logger.Errorf("%s: HMAC signature error", api_v1.FailedAuthenticationMsg)
+		return nil
+	}
+
+	logger.Tracef("HMAC signature validated successfully")
+	return request
 }

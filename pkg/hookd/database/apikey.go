@@ -46,6 +46,16 @@ func (apikeys ApiKeys) Valid() ApiKeys {
 	return valid
 }
 
+func (apikeys ApiKeys) ValidKeys() []api_v1.Key {
+	keys := make([]api_v1.Key, len(apikeys))
+	for _, apikey := range apikeys {
+		if apikey.Expires.After(time.Now()) {
+			keys = append(keys, apikey.Key)
+		}
+	}
+	return keys
+}
+
 const selectApiKeyFields = `key, team, team_azure_id, created, expires`
 
 func (db *Database) decrypt(encrypted string) ([]byte, error) {
