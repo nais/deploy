@@ -138,7 +138,17 @@ func New(cfg Config) chi.Router {
 			log.Error("Refusing to set up team API provisioning endpoint without pre-shared secret; try using --provision-key")
 			log.Error("Note: /api/v1/provision will be unavailable")
 		} else {
-			r.Post("/provision", provisionHandler.ServeHTTP)
+			r.Post("/provision", provisionHandler.ProvisionExternal)
+		}
+	})
+
+	router.Route("/internal/api/v1", func(r chi.Router) {
+		if len(cfg.ProvisionKey) == 0 {
+			log.Error("Refusing to set up internal team API provisioning endpoint without pre-shared secret; try using --provision-key")
+			log.Error("Note: /internal/api/v1/provision will be unavailable")
+		} else {
+			r.Post("/provision", provisionHandler.ProvisionInternal)
+			r.Get("/apikey", provisionHandler.ApiKey)
 		}
 	})
 

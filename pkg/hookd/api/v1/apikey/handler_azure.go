@@ -131,7 +131,7 @@ func (h *AzureApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	newKey, err := api_v1.Keygen(32)
+	newKey, err := api_v1.Keygen(api_v1.KeySize)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Errorf("unable to generate new random api key: %s", err)

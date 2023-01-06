@@ -21,7 +21,7 @@ type ApiKey struct {
 
 type ApiKeyStore interface {
 	ApiKeys(ctx context.Context, id string) (ApiKeys, error)
-	RotateApiKey(ctx context.Context, team, groupId string, key []byte) error
+	RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error
 }
 
 var _ ApiKeyStore = &Database{}
@@ -44,6 +44,16 @@ func (apikeys ApiKeys) Valid() ApiKeys {
 		}
 	}
 	return valid
+}
+
+func (apikeys ApiKeys) ValidKeys() []api_v1.Key {
+	keys := make([]api_v1.Key, len(apikeys))
+	for _, apikey := range apikeys {
+		if apikey.Expires.After(time.Now()) {
+			keys = append(keys, apikey.Key)
+		}
+	}
+	return keys
 }
 
 const selectApiKeyFields = `key, team, team_azure_id, created, expires`
@@ -99,7 +109,7 @@ func (db *Database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *Database) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
+func (db *Database) RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error {
 	var query string
 
 	encrypted, err := crypto.Encrypt(key, db.encryptionKey)
