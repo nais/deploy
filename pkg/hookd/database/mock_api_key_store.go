@@ -4,6 +4,7 @@ package database
 
 import (
 	context "context"
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -37,7 +38,7 @@ func (_m *MockApiKeyStore) ApiKeys(ctx context.Context, id string) (ApiKeys, err
 }
 
 // RotateApiKey provides a mock function with given fields: ctx, team, groupId, key
-func (_m *MockApiKeyStore) RotateApiKey(ctx context.Context, team string, groupId string, key []byte) error {
+func (_m *MockApiKeyStore) RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error {
 	ret := _m.Called(ctx, team, groupId, key)
 
 	var r0 error

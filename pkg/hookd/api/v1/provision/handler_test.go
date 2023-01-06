@@ -64,7 +64,7 @@ func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiK
 	}
 }
 
-func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
+func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error {
 	switch team {
 	case "unwritable", "unwritable_with_rotate":
 		return fmt.Errorf("service unavailable")

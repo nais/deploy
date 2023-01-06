@@ -21,7 +21,7 @@ type ApiKey struct {
 
 type ApiKeyStore interface {
 	ApiKeys(ctx context.Context, id string) (ApiKeys, error)
-	RotateApiKey(ctx context.Context, team, groupId string, key []byte) error
+	RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error
 }
 
 var _ ApiKeyStore = &Database{}
@@ -99,7 +99,7 @@ func (db *Database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *Database) RotateApiKey(ctx context.Context, team, groupId string, key []byte) error {
+func (db *Database) RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error {
 	var query string
 
 	encrypted, err := crypto.Encrypt(key, db.encryptionKey)

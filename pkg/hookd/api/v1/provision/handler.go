@@ -31,7 +31,8 @@ type Request struct {
 }
 
 type Response struct {
-	Message string `json:"message,omitempty"`
+	Message string       `json:"message,omitempty"`
+	ApiKeys []api_v1.Key `json:"apiKey,omitempty"`
 }
 
 func (r *Response) render(w io.Writer) {
@@ -57,7 +58,15 @@ func (r *Request) LogFields() log.Fields {
 	}
 }
 
+func (h *Handler) ServeInternal(w http.ResponseWriter, r *http.Request) {
+	h.serveHTTP(w, r, true)
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.serveHTTP(w, r, false)
+}
+
+func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request, internalRequest bool) {
 	var err error
 	var response Response
 
@@ -137,8 +146,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !request.Rotate && len(keys.Valid()) != 0 {
 		logger.Infof("Not overwriting existing team key which is still valid")
-		w.WriteHeader(http.StatusNoContent)
-		return
+		if internalRequest {
+			w.WriteHeader(http.StatusOK)
+			response.Message = "team exists, returning existing keys"
+			response.ApiKeys = keys.Keys()
+			response.render(w)
+			return
+		} else {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 	}
 
 	key, err := api_v1.Keygen(api_v1.KeySize)
@@ -190,6 +207,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	response.Message = "API key provisioned successfully"
+	if internalRequest {
+		response.ApiKeys = []api_v1.Key{key}
+	}
 	response.render(w)
 	logger.Infof(response.Message)
 }
