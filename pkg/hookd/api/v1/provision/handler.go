@@ -32,7 +32,7 @@ type Request struct {
 
 type Response struct {
 	Message string       `json:"message,omitempty"`
-	ApiKeys []api_v1.Key `json:"apiKey,omitempty"`
+	ApiKeys []api_v1.Key `json:"apiKeys,omitempty"`
 }
 
 func (r *Response) render(w io.Writer) {

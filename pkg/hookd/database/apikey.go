@@ -47,10 +47,10 @@ func (apikeys ApiKeys) Valid() ApiKeys {
 }
 
 func (apikeys ApiKeys) ValidKeys() []api_v1.Key {
-	keys := make([]api_v1.Key, len(apikeys))
-	for _, apikey := range apikeys {
-		if apikey.Expires.After(time.Now()) {
-			keys = append(keys, apikey.Key)
+	keys := make([]api_v1.Key, 0, len(apikeys))
+	for _, apiKey := range apikeys.Valid() {
+		if len(apiKey.Key) > 0 {
+			keys = append(keys, apiKey.Key)
 		}
 	}
 	return keys
