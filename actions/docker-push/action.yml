@@ -1,11 +1,8 @@
 name: "NAIS Docker Push"
 description: "Build and push docker image to the NAIS registry"
 inputs:
-  workload_identity_provider:
-    description: "Workload identity provider"
-    required: true
-  google_service_account:
-    description: "Service account"
+  config:
+    description: "Configuration. See readme for details"
     required: true
   push_image:
     description: "Push image to registry"
@@ -19,32 +16,29 @@ inputs:
     description: "Docker context"
     required: true
     default: "."
-  registry:
-    description: "Registry"
-    required: true
 outputs:
   tag:
     description: "Release tag"
-    value: ${{ steps.new_version.outputs.NEW_VERSION }}
+    value: ${{ steps.setup.outputs.NEW_VERSION }}
   image:
     description: "Image name"
-    value: ${{ inputs.registry }}/${{ steps.new_version.outputs.REPO_NAME }}:${{ steps.new_version.outputs.NEW_VERSION }}
+    value: ${{ steps.setup.outputs.registry }}/${{ steps.setup.outputs.REPO_NAME }}:${{ steps.setup.outputs.NEW_VERSION }}
 runs:
   using: "composite"
   steps:
-    - name: Create new version
+    - name: Setup environment
       shell: bash
-      id: "new_version"
+      id: "setup"
       run: |
-        echo "NEW_VERSION=$(date '+%Y.%-m.%-d')-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        echo "REPO_NAME=${GITHUB_REPOSITORY/$GITHUB_REPOSITORY_OWNER\//}" >> $GITHUB_ENV
-        cat $GITHUB_ENV >> $GITHUB_OUTPUT
+        echo "${{ inputs.config }}" | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' >> $GITHUB_OUTPUT
+        echo "NEW_VERSION=$(date '+%Y.%-m.%-d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "REPO_NAME=${GITHUB_REPOSITORY/$GITHUB_REPOSITORY_OWNER\//}" >> $GITHUB_OUTPUT
     - id: "auth"
       name: "Authenticate to Google Cloud"
       uses: "google-github-actions/auth@v1.0.0"
       with:
-        workload_identity_provider: ${{ inputs.workload_identity_provider }}
-        service_account: ${{ inputs.google_service_account }}
+        workload_identity_provider: ${{ steps.setup.outputs.workload_identity_provider }}
+        service_account: ${{ steps.setup.outputs.google_service_account }}
         token_format: "access_token"
     - name: Set up Docker Buildx
       id: buildx
@@ -52,7 +46,7 @@ runs:
     - name: Login to registry
       uses: docker/login-action@v2
       with:
-        registry: ${{ inputs.registry }}
+        registry: ${{ steps.setup.outputs.registry }}
         username: "oauth2accesstoken"
         password: "${{ steps.auth.outputs.access_token }}"
     - name: Build and push
@@ -62,9 +56,9 @@ runs:
         context: ${{ inputs.docker_context }}
         file: ${{ inputs.dockerfile }}
         push: ${{ inputs.push_image }}
-        tags: ${{ inputs.registry }}/${{ env.REPO_NAME }}:${{ env.NEW_VERSION }}
+        tags: ${{ steps.setup.outputs.registry }}/${{ steps.setup.outputs.REPO_NAME }}:${{ steps.setup.outputs.NEW_VERSION }}
         labels: |
           org.opencontainers.image.revision=${{ github.sha }}
-          org.opencontainers.image.version=${{ env.NEW_VERSION }}
+          org.opencontainers.image.version=${{ steps.setup.outputs.NEW_VERSION }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
