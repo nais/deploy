@@ -22,7 +22,7 @@ outputs:
     value: ${{ steps.setup.outputs.NEW_VERSION }}
   image:
     description: "Image name"
-    value: ${{ steps.setup.outputs.registry }}/${{ steps.setup.outputs.REPO_NAME }}:${{ steps.setup.outputs.NEW_VERSION }}
+    value: ${{ steps.setup.outputs.gar_registry_url }}/${{ steps.setup.outputs.REPO_NAME }}:${{ steps.setup.outputs.NEW_VERSION }}
 runs:
   using: "composite"
   steps:
@@ -46,7 +46,7 @@ runs:
     - name: Login to registry
       uses: docker/login-action@v2
       with:
-        registry: ${{ steps.setup.outputs.registry }}
+        registry: ${{ steps.setup.outputs.gar_registry_url }}
         username: "oauth2accesstoken"
         password: "${{ steps.auth.outputs.access_token }}"
     - name: Build and push
@@ -56,7 +56,7 @@ runs:
         context: ${{ inputs.docker_context }}
         file: ${{ inputs.dockerfile }}
         push: ${{ inputs.push_image }}
-        tags: ${{ steps.setup.outputs.registry }}/${{ steps.setup.outputs.REPO_NAME }}:${{ steps.setup.outputs.NEW_VERSION }}
+        tags: ${{ steps.setup.outputs.gar_registry_url }}/${{ steps.setup.outputs.REPO_NAME }}:${{ steps.setup.outputs.NEW_VERSION }}
         labels: |
           org.opencontainers.image.revision=${{ github.sha }}
           org.opencontainers.image.version=${{ steps.setup.outputs.NEW_VERSION }}
