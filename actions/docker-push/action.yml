@@ -38,7 +38,7 @@ runs:
       uses: "google-github-actions/auth@v1.0.0"
       with:
         workload_identity_provider: ${{ steps.setup.outputs.workload_identity_provider }}
-        service_account: ${{ steps.setup.outputs.google_service_account }}
+        service_account: ${{ steps.setup.outputs.gar_service_account }}
         token_format: "access_token"
     - name: Set up Docker Buildx
       id: buildx
