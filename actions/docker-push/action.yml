@@ -1,0 +1,68 @@
+name: "NAIS Docker Push"
+description: "Build and push docker image to the NAIS registry"
+inputs:
+  workload_identity_provider:
+    description: "Workload identity provider"
+    required: true
+  google_service_account:
+    description: "Service account"
+    required: true
+  push_image:
+    description: "Push image to registry"
+    required: true
+    default: "true"
+  dockerfile:
+    description: "Dockerfile"
+    required: true
+    default: "Dockerfile"
+  docker_context:
+    description: "Docker context"
+    required: true
+    default: "."
+  registry:
+    description: "Registry"
+    required: true
+outputs:
+  tag:
+    description: "Release tag"
+    value: ${{ env.NEW_VERSION }}
+  image:
+    description: "Image name"
+    value: ${{ inputs.registry }}/${{ env.REPO_NAME }}:${{ env.NEW_VERSION }}
+runs:
+  using: "composite"
+  steps:
+    - name: Create new version
+      shell: bash
+      run: |
+        echo "NEW_VERSION=$(date '+%Y.%-m.%-d')-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        echo "REPO_NAME=${GITHUB_REPOSITORY/$GITHUB_REPOSITORY_OWNER\//}" >> $GITHUB_ENV
+    - id: "auth"
+      name: "Authenticate to Google Cloud"
+      uses: "google-github-actions/auth@v1.0.0"
+      with:
+        workload_identity_provider: ${{ inputs.workload_identity_provider }}
+        service_account: ${{ inputs.google_service_account }}
+        token_format: "access_token"
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v2
+    - name: Login to registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ inputs.registry }}
+        username: "oauth2accesstoken"
+        password: "${{ steps.auth.outputs.access_token }}"
+    - name: Build and push
+      if: github.ref == 'refs/heads/main'
+      uses: docker/build-push-action@v3
+      with:
+        context: ${{ inputs.docker_context }}
+        file: ${{ inputs.dockerfile }}
+        push: ${{ inputs.push_image }}
+        tags: ${{ inputs.registry }}/${{ env.REPO_NAME }}:${{ env.NEW_VERSION }}
+        labels: |
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.version=${{ env.NEW_VERSION }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
