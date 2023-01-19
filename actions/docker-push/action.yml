@@ -25,18 +25,20 @@ inputs:
 outputs:
   tag:
     description: "Release tag"
-    value: ${{ env.NEW_VERSION }}
+    value: ${{ steps.new_version.outputs.NEW_VERSION }}
   image:
     description: "Image name"
-    value: ${{ inputs.registry }}/${{ env.REPO_NAME }}:${{ env.NEW_VERSION }}
+    value: ${{ inputs.registry }}/${{ steps.new_version.outputs.REPO_NAME }}:${{ steps.new_version.outputs.NEW_VERSION }}
 runs:
   using: "composite"
   steps:
     - name: Create new version
       shell: bash
+      id: "new_version"
       run: |
         echo "NEW_VERSION=$(date '+%Y.%-m.%-d')-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
         echo "REPO_NAME=${GITHUB_REPOSITORY/$GITHUB_REPOSITORY_OWNER\//}" >> $GITHUB_ENV
+        cat $GITHUB_ENV >> $GITHUB_OUTPUT
     - id: "auth"
       name: "Authenticate to Google Cloud"
       uses: "google-github-actions/auth@v1.0.0"
