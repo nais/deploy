@@ -16,6 +16,9 @@ inputs:
     description: "Docker context"
     required: true
     default: "."
+  tag:
+    description: "Custom docker tag"
+    required: false
 outputs:
   tag:
     description: "Release tag"
@@ -31,7 +34,12 @@ runs:
       id: "setup"
       run: |
         echo '${{ inputs.config }}' | jq -r 'to_entries|map("\(.key)=\(.value|tostring)")|.[]' >> $GITHUB_OUTPUT
-        echo "NEW_VERSION=$(date '+%Y.%-m.%-d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+        if [ -z "${{ inputs.tag }}" ]; then
+          echo "NEW_VERSION=$(date '+%Y.%-m.%-d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        else
+          echo "NEW_VERSION=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+        fi
         echo "REPO_NAME=${GITHUB_REPOSITORY/$GITHUB_REPOSITORY_OWNER\//}" >> $GITHUB_OUTPUT
     - id: "auth"
       name: "Authenticate to Google Cloud"

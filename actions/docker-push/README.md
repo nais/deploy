@@ -4,7 +4,7 @@
 - uses: nais/deploy/actions/docker-push@v2
   id: docker-push
   with:
-    config: ${{ secrets.DOCKER_PUSH_CONFIG }}
+    config: ${{ vars.DOCKER_PUSH_CONFIG }}
 ```
 
 ## Configuration
