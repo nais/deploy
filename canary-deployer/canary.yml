@@ -14,8 +14,8 @@ metadata:
   namespace: "{{ namespace }}"
 spec:
   env:
-  - name: DEPLOY_START
-    value: "{{ now }}"
+    - name: DEPLOY_START
+      value: "{{ now }}"
   image: ghcr.io/nais/testapp/testapp:2020-02-25-f61e7b7
   liveness:
     path: /ping
@@ -35,3 +35,4 @@ spec:
   prometheus:
     enabled: true
     path: /metrics
+  skipCaBundle: true
