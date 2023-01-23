@@ -18,7 +18,7 @@ type TemplateVariables map[string]interface{}
 const (
 	DefaultRef           = "master"
 	DefaultOwner         = "navikt"
-	DefaultDeployServer  = "deploy.nais.io:443"
+	DefaultDeployServer  = "deploy.nav.cloud.nais.io:443"
 	DefaultDeployTimeout = time.Minute * 10
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
@@ -33,7 +33,7 @@ type Deployer struct {
 
 func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 	var err error
-	var templateVariables = make(TemplateVariables)
+	templateVariables := make(TemplateVariables)
 
 	err = cfg.Validate()
 	if err != nil {
