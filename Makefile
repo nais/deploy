@@ -64,12 +64,6 @@ alpine:
 test:
 	go test ./... -count=1
 
-docker:
-	docker build -t navikt/deployment:latest .
-
-upload:
-	docker push navikt/deployment:latest
-
 migration:
 	go generate ./...
 
