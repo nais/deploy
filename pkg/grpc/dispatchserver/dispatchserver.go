@@ -55,6 +55,9 @@ func New(db database.DeploymentStore, githubClient github.Client) DispatchServer
 var _ DispatchServer = &dispatchServer{}
 
 func (s *dispatchServer) onlineClusters() []string {
+	maplock.Lock()
+	defer maplock.Unlock()
+
 	clusters := make([]string, 0, len(s.dispatchStreams))
 	for k := range s.dispatchStreams {
 		clusters = append(clusters, k)
