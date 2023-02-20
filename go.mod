@@ -10,7 +10,6 @@ require (
 	github.com/go-chi/chi v4.0.3+incompatible
 	github.com/go-chi/jwtauth v4.0.4+incompatible
 	github.com/go-chi/render v1.0.1
-	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
@@ -35,6 +34,7 @@ require (
 )
 
 require (
+	github.com/golang-jwt/jwt/v4 v4.1.0
 	github.com/google/go-github/v41 v41.0.0
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/shurcooL/graphql v0.0.0-20220520033453-bdb1221e171e
@@ -65,7 +65,6 @@ require (
 	github.com/go-logr/logr v0.4.0 // indirect
 	github.com/goccy/go-json v0.9.7 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-github/v39 v39.1.0 // indirect

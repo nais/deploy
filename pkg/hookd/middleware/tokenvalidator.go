@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/jwtauth"
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/nais/deploy/pkg/azure/discovery"
 	"github.com/nais/deploy/pkg/azure/validate"
 )
