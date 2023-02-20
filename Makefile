@@ -35,10 +35,9 @@ provision:
 	go build -o bin/provision -ldflags "-s $(LDFLAGS)" cmd/provision/main.go
 
 mocks:
-	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg pkg/hookd/database
-	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg pkg/grpc/deployserver
-	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg pkg/grpc/dispatchserver
-	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg pkg/pb
+	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg ./pkg/hookd/database
+	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg ./pkg/grpc/dispatchserver
+	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg ./pkg/pb
 
 fmt:
 	go run mvdan.cc/gofumpt -w ./
