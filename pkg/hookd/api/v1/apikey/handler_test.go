@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/nais/deploy/pkg/hookd/middleware"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/nais/deploy/pkg/hookd/middleware"
 
 	"github.com/go-chi/chi"
 

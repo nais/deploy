@@ -65,7 +65,6 @@ func detectTeam(resource json.RawMessage) string {
 	}
 	buf := &teamMeta{}
 	err := json.Unmarshal(resource, buf)
-
 	if err != nil {
 		return ""
 	}
@@ -81,7 +80,6 @@ func detectNamespace(resource json.RawMessage) string {
 	}
 	buf := &namespaceMeta{}
 	err := json.Unmarshal(resource, buf)
-
 	if err != nil {
 		return ""
 	}

@@ -116,7 +116,6 @@ func run() error {
 				Cluster:     cfg.Cluster,
 				StartupTime: pb.TimeAsTimestamp(startupTime),
 			})
-
 			if err != nil {
 				log.Errorf("Open hookd deployment stream: %s", err)
 				continue

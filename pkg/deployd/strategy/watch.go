@@ -20,8 +20,7 @@ type WatchStrategy interface {
 	Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus
 }
 
-type NoOp struct {
-}
+type NoOp struct{}
 
 func (c NoOp) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
 	op.Logger.Debugf("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())

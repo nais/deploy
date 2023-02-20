@@ -72,7 +72,6 @@ FROM deployment
 WHERE (cluster = $1 AND created < $2 AND (state = 'in_progress' OR state = 'queued'));
 `
 	rows, err := db.timedQuery(ctx, query, cluster, timestamp)
-
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +80,6 @@ WHERE (cluster = $1 AND created < $2 AND (state = 'in_progress' OR state = 'queu
 	defer rows.Close()
 	for rows.Next() {
 		deployment, err := scanDeployment(rows)
-
 		if err != nil {
 			return nil, err
 		}
@@ -102,7 +100,6 @@ ORDER BY created DESC
 LIMIT $3;
 `
 	rows, err := db.timedQuery(ctx, query, pq.Array(teams), pq.Array(clusters), limit)
-
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +108,6 @@ LIMIT $3;
 	defer rows.Close()
 	for rows.Next() {
 		deployment, err := scanDeployment(rows)
-
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +121,6 @@ LIMIT $3;
 func (db *Database) Deployment(ctx context.Context, id string) (*Deployment, error) {
 	query := `SELECT id, team, created, github_id, github_repository, cluster FROM deployment WHERE id = $1;`
 	rows, err := db.timedQuery(ctx, query, id)
-
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +128,6 @@ func (db *Database) Deployment(ctx context.Context, id string) (*Deployment, err
 	defer rows.Close()
 	for rows.Next() {
 		deployment, err := scanDeployment(rows)
-
 		if err != nil {
 			return nil, err
 		}
@@ -168,7 +162,6 @@ SET github_id = EXCLUDED.github_id, github_repository = EXCLUDED.github_reposito
 func (db *Database) DeploymentStatus(ctx context.Context, deploymentID string) ([]DeploymentStatus, error) {
 	query := `SELECT id, deployment_id, status, message, created FROM deployment_status WHERE deployment_id = $1 ORDER BY created DESC;`
 	rows, err := db.timedQuery(ctx, query, deploymentID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +180,6 @@ func (db *Database) DeploymentStatus(ctx context.Context, deploymentID string) (
 			&status.Message,
 			&status.Created,
 		)
-
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +208,6 @@ VALUES ($1, $2, $3, $4, $5);
 		status.Message,
 		status.Created,
 	)
-
 	if err != nil {
 		return err
 	}
@@ -233,7 +224,6 @@ VALUES ($1, $2, $3, $4, $5);
 func (db *Database) DeploymentResources(ctx context.Context, deploymentID string) ([]DeploymentResource, error) {
 	query := `SELECT id, deployment_id, index, "group", version, kind, name, namespace FROM deployment_resource WHERE deployment_id = $1 ORDER BY index ASC;`
 	rows, err := db.timedQuery(ctx, query, deploymentID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +245,6 @@ func (db *Database) DeploymentResources(ctx context.Context, deploymentID string
 			&resource.Name,
 			&resource.Namespace,
 		)
-
 		if err != nil {
 			return nil, err
 		}

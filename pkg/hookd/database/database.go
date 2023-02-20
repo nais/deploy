@@ -12,9 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	ErrNotFound = fmt.Errorf("database row not found")
-)
+var ErrNotFound = fmt.Errorf("database row not found")
 
 type Database struct {
 	conn          *pgxpool.Pool
@@ -55,7 +53,6 @@ func (db *Database) Migrate(ctx context.Context) error {
 	query := `SELECT MAX(version) FROM migrations`
 	row := db.conn.QueryRow(ctx, query)
 	err := row.Scan(&version)
-
 	if err != nil {
 		// error might be due to no schema.
 		// no way to detect this, so log error and continue with migrations.

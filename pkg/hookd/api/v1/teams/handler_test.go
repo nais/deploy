@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -14,13 +13,14 @@ import (
 	"testing"
 	"time"
 
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
+
 	api_v1_teams "github.com/nais/deploy/pkg/hookd/api/v1/teams"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 )
 
-type apiKeyStorage struct {
-}
+type apiKeyStorage struct{}
 
 type testCase struct {
 	Request  request  `json:"request"`
@@ -72,7 +72,6 @@ func (a *apiKeyStorage) ApiKeys(ctx context.Context, group string) (database.Api
 }
 
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
-
 	body := []api_v1_teams.Team{}
 	json.Unmarshal(recorder.Body.Bytes(), &body)
 	assert.Equal(t, response.Body, body)

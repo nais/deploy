@@ -3,12 +3,13 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"github.com/shurcooL/graphql"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/oauth2"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/shurcooL/graphql"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"

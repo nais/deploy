@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/nais/deploy/pkg/hookd/middleware"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/nais/deploy/pkg/hookd/middleware"
 
 	"github.com/nais/deploy/pkg/azure/graphapi"
 	"github.com/nais/deploy/pkg/hookd/api"
@@ -44,11 +45,9 @@ type testCase struct {
 	Response response `json:"response"`
 }
 
-type apiKeyStorage struct {
-}
+type apiKeyStorage struct{}
 
-type teamClient struct {
-}
+type teamClient struct{}
 
 func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
 	switch team {

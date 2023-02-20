@@ -38,7 +38,6 @@ func (ds *deployServer) uuidgen() (string, error) {
 }
 
 func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.DeploymentRequest) error {
-
 	logger := log.WithFields(request.LogFields())
 
 	resources, err := k8sutils.ResourcesFromDeploymentRequest(request)

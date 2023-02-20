@@ -2,14 +2,17 @@ package logproxy
 
 import (
 	"fmt"
-	"gopkg.in/sakura-internet/go-rison.v3"
 	"time"
+
+	"gopkg.in/sakura-internet/go-rison.v3"
 )
 
-const defaultIndex = "96e648c0-980a-11e9-830a-e17bbd64b4db"
-const kibanaFormat = "https://logs.adeo.no/app/kibana#/discover?_a=%s&_g=%s"
-const searchQueryV0 = "+x_delivery_id:\"%s\" -level:\"Trace\""
-const searchQueryV1 = "+x_correlation_id:\"%s\" -level:\"Trace\" -level:\"Debug\""
+const (
+	defaultIndex  = "96e648c0-980a-11e9-830a-e17bbd64b4db"
+	kibanaFormat  = "https://logs.adeo.no/app/kibana#/discover?_a=%s&_g=%s"
+	searchQueryV0 = "+x_delivery_id:\"%s\" -level:\"Trace\""
+	searchQueryV1 = "+x_correlation_id:\"%s\" -level:\"Trace\" -level:\"Debug\""
+)
 
 type query struct {
 	Language string `json:"language"`

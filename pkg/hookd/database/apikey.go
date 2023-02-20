@@ -101,7 +101,6 @@ func (db *Database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
 
 	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 OR team_azure_id = $1 ORDER BY expires DESC;`
 	rows, err := db.timedQuery(ctx, query, id)
-
 	if err != nil {
 		return nil, err
 	}

@@ -6,9 +6,11 @@ import (
 	"time"
 )
 
-var Revision = "(revision unknown)"        // Git commit hash
-var Date = "(version unknown)"             // Numeric version
-var BuildUnixTime = "(build time unknown)" // Time of build
+var (
+	Revision      = "(revision unknown)"   // Git commit hash
+	Date          = "(version unknown)"    // Numeric version
+	BuildUnixTime = "(build time unknown)" // Time of build
+)
 
 func Version() string {
 	return fmt.Sprintf("%s-%s", Date, Revision)

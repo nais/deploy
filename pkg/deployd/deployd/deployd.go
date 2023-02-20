@@ -2,8 +2,9 @@ package deployd
 
 import (
 	"fmt"
-	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"sync"
+
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/metrics"

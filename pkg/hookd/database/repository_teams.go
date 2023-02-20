@@ -16,7 +16,6 @@ var _ RepositoryTeamStore = &Database{}
 func (db *Database) ReadRepositoryTeams(ctx context.Context, repository string) ([]string, error) {
 	query := `SELECT team FROM team_repositories WHERE repository = $1;`
 	rows, err := db.timedQuery(ctx, query, repository)
-
 	if err != nil {
 		return nil, err
 	}

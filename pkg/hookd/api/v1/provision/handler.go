@@ -40,7 +40,6 @@ func (r *Response) render(w io.Writer) {
 }
 
 func (r *Request) validate() error {
-
 	if len(r.Team) == 0 {
 		return fmt.Errorf("no team specified")
 	}

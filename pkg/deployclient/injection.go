@@ -10,8 +10,10 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const DeployClientVersion = "deploy.nais.io/client-version"
-const GithubWorkflowRunURL = "deploy.nais.io/github-workflow-run-url"
+const (
+	DeployClientVersion  = "deploy.nais.io/client-version"
+	GithubWorkflowRunURL = "deploy.nais.io/github-workflow-run-url"
+)
 
 func InjectAnnotations(resource json.RawMessage, annotations map[string]string) (json.RawMessage, error) {
 	decoded := make(map[string]json.RawMessage)

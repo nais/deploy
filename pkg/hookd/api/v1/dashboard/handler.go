@@ -96,7 +96,6 @@ func (h *Handler) Deployment(w http.ResponseWriter, r *http.Request) {
 	logger := log.WithFields(fields)
 	deploymentID := chi.URLParam(r, "id")
 	fd, err := h.fullDeployment(r.Context(), deploymentID)
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)

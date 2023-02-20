@@ -3,10 +3,11 @@ package strategy
 import (
 	"context"
 	"fmt"
-	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
-	"github.com/nais/liberator/pkg/events"
 	"regexp"
 	"time"
+
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
+	"github.com/nais/liberator/pkg/events"
 
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
@@ -33,7 +34,6 @@ func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstr
 		TimeoutSeconds:  &timeoutSecs,
 		ResourceVersion: "0",
 	})
-
 	if err != nil {
 		return pb.NewErrorStatus(op.Request, fmt.Errorf("unable to set up event watcher: %w", err))
 	}

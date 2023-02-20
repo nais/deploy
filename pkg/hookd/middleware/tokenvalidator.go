@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/golang-jwt/jwt"
 	"github.com/go-chi/jwtauth"
+	"github.com/golang-jwt/jwt"
 	"github.com/nais/deploy/pkg/azure/discovery"
 	"github.com/nais/deploy/pkg/azure/validate"
 )

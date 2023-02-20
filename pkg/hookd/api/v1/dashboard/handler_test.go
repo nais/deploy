@@ -3,10 +3,11 @@ package api_v1_dashboard_test
 import (
 	"encoding/json"
 	"errors"
-	"github.com/go-chi/chi"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/go-chi/chi"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
@@ -17,8 +18,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type request struct {
-}
+type request struct{}
 
 type response struct {
 	StatusCode int

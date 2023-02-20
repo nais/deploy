@@ -5,8 +5,10 @@ import (
 	"fmt"
 )
 
-const contextKeyEmail = "email"
-const contextKeyGroups = "groups"
+const (
+	contextKeyEmail  = "email"
+	contextKeyGroups = "groups"
+)
 
 func GetEmail(ctx context.Context) string {
 	email, _ := ctx.Value(contextKeyEmail).(string)
