@@ -35,10 +35,14 @@ provision:
 	go build -o bin/provision -ldflags "-s $(LDFLAGS)" cmd/provision/main.go
 
 mocks:
-	cd pkg/hookd/database && mockery --inpackage --all --case snake
-	cd pkg/grpc/deployserver && mockery --inpackage --all --case snake
-	cd pkg/grpc/dispatchserver && mockery --inpackage --all --case snake
-	cd pkg/pb && mockery --inpackage --all --case snake
+	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg pkg/hookd/database
+	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg pkg/grpc/deployserver
+	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg pkg/grpc/dispatchserver
+	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg pkg/pb
+
+fmt:
+	go run mvdan.cc/gofumpt -w ./
+
 
 deploy-release-linux:
 	GOOS=linux \
@@ -70,3 +74,7 @@ migration:
 kubebuilder:
 	curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_${os}_${arch}.tar.gz | tar -xz -C /tmp/
 	mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+
+check:
+	go run honnef.co/go/tools/cmd/staticcheck ./...
+	go run golang.org/x/vuln/cmd/govulncheck -v ./...
