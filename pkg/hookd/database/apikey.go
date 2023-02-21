@@ -13,7 +13,6 @@ import (
 
 type ApiKey struct {
 	Team    string     `json:"team"`
-	GroupId string     `json:"groupId"`
 	Key     api_v1.Key `json:"key"`
 	Expires time.Time  `json:"expires"`
 	Created time.Time  `json:"created"`
@@ -21,7 +20,7 @@ type ApiKey struct {
 
 type ApiKeyStore interface {
 	ApiKeys(ctx context.Context, id string) (ApiKeys, error)
-	RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error
+	RotateApiKey(ctx context.Context, team string, key api_v1.Key) error
 }
 
 var _ ApiKeyStore = &Database{}
@@ -56,7 +55,7 @@ func (apikeys ApiKeys) ValidKeys() []api_v1.Key {
 	return keys
 }
 
-const selectApiKeyFields = `key, team, team_azure_id, created, expires`
+const selectApiKeyFields = `key, team, created, expires`
 
 func (db *Database) decrypt(encrypted string) ([]byte, error) {
 	decoded, err := hex.DecodeString(encrypted)
@@ -75,7 +74,7 @@ func (db *Database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
 		var encrypted string
 
 		// see selectApiKeyFields
-		err := rows.Scan(&encrypted, &apiKey.Team, &apiKey.GroupId, &apiKey.Created, &apiKey.Expires)
+		err := rows.Scan(&encrypted, &apiKey.Team, &apiKey.Created, &apiKey.Expires)
 		if err != nil {
 			return nil, err
 		}
@@ -95,12 +94,12 @@ func (db *Database) scanApiKeyRows(rows pgx.Rows) (ApiKeys, error) {
 	return apiKeys, nil
 }
 
-// Read all API keys matching the provided team or azure group ID.
-func (db *Database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
+// Read all API keys matching the provided team
+func (db *Database) ApiKeys(ctx context.Context, team string) (ApiKeys, error) {
 	var err error
 
-	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 OR team_azure_id = $1 ORDER BY expires DESC;`
-	rows, err := db.timedQuery(ctx, query, id)
+	query := `SELECT ` + selectApiKeyFields + ` FROM apikey WHERE team = $1 ORDER BY expires DESC;`
+	rows, err := db.timedQuery(ctx, query, team)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +107,7 @@ func (db *Database) ApiKeys(ctx context.Context, id string) (ApiKeys, error) {
 	return db.scanApiKeyRows(rows)
 }
 
-func (db *Database) RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error {
+func (db *Database) RotateApiKey(ctx context.Context, team string, key api_v1.Key) error {
 	var query string
 
 	encrypted, err := crypto.Encrypt(key, db.encryptionKey)
@@ -121,17 +120,17 @@ func (db *Database) RotateApiKey(ctx context.Context, team, groupId string, key 
 		return fmt.Errorf("unable to start transaction: %s", err)
 	}
 
-	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1 AND team_azure_id = $2;`
-	_, err = tx.Exec(ctx, query, team, groupId)
+	query = `UPDATE apikey SET expires = NOW() WHERE expires > NOW() AND team = $1`
+	_, err = tx.Exec(ctx, query, team)
 	if err != nil {
 		return err
 	}
 
 	query = `
-INSERT INTO apikey (key, team, team_azure_id, created, expires)
+INSERT INTO apikey (key, team, created, expires)
 VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 `
-	_, err = tx.Exec(ctx, query, hex.EncodeToString(encrypted), team, groupId)
+	_, err = tx.Exec(ctx, query, hex.EncodeToString(encrypted), team)
 	if err != nil {
 		return err
 	}

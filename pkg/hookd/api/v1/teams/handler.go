@@ -14,7 +14,6 @@ type TeamsHandler struct {
 }
 type Team struct {
 	Team    string `json:"team"`
-	GroupId string `json:"groupId"`
 }
 
 func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +42,6 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	teams := make([]Team, 0)
 	for _, v := range keys {
 		t := Team{
-			GroupId: v.GroupId,
 			Team:    v.Team,
 		}
 		teams = append(teams, t)

@@ -41,13 +41,13 @@ func (_m *MockApiKeyStore) ApiKeys(ctx context.Context, id string) (ApiKeys, err
 	return r0, r1
 }
 
-// RotateApiKey provides a mock function with given fields: ctx, team, groupId, key
-func (_m *MockApiKeyStore) RotateApiKey(ctx context.Context, team string, groupId string, key api_v1.Key) error {
-	ret := _m.Called(ctx, team, groupId, key)
+// RotateApiKey provides a mock function with given fields: ctx, team, key
+func (_m *MockApiKeyStore) RotateApiKey(ctx context.Context, team string, key api_v1.Key) error {
+	ret := _m.Called(ctx, team, key)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, api_v1.Key) error); ok {
-		r0 = rf(ctx, team, groupId, key)
+	if rf, ok := ret.Get(0).(func(context.Context, string, api_v1.Key) error); ok {
+		r0 = rf(ctx, team, key)
 	} else {
 		r0 = ret.Error(0)
 	}

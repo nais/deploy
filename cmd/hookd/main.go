@@ -25,8 +25,6 @@ import (
 	"github.com/nais/liberator/pkg/conftools"
 
 	gh "github.com/google/go-github/v41/github"
-	"github.com/nais/deploy/pkg/azure/discovery"
-	"github.com/nais/deploy/pkg/azure/graphapi"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 	"github.com/nais/deploy/pkg/hookd/api"
 	"github.com/nais/deploy/pkg/hookd/config"
@@ -40,7 +38,6 @@ import (
 )
 
 var maskedConfig = []string{
-	config.AzureClientSecret,
 	config.GithubClientSecret,
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
@@ -129,19 +126,8 @@ func run() error {
 		githubClient = github.FakeClient()
 	}
 
-	certificates := make(map[string]discovery.CertificateList)
-	if cfg.Azure.HasConfig() {
-		log.Infof("Azure token validation and GraphQL functionality enabled")
-		certificates, err = discovery.FetchCertificates(cfg.Azure)
-		if err != nil {
-			return fmt.Errorf("unable to fetch Azure certificates: %s", err)
-		}
-	}
-
-	graphAPIClient := graphapi.NewClient(cfg.Azure)
-
 	// Set up gRPC server
-	grpcServer, dispatchServer, err := startGrpcServer(*cfg, db, db, githubClient, certificates)
+	grpcServer, dispatchServer, err := startGrpcServer(*cfg, db, db, githubClient)
 	if err != nil {
 		return err
 	}
@@ -149,23 +135,17 @@ func run() error {
 
 	log.Infof("gRPC server started")
 
-	var groupProvider middleware.GroupProvider
 	var validators chi.Middlewares
-	if cfg.Azure.HasConfig() {
-		validators = append(validators, middleware.TokenValidatorMiddleware(certificates, cfg.Azure.ClientID))
-		log.Infof("Using Azure validator")
-		groupProvider = middleware.GroupProviderAzure
-	} else if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
+	if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
 		validators = append(validators, middleware.PskValidatorMiddleware(cfg.FrontendKeys))
 		log.Infof("Using PSK validator")
 		googleValidator, err := middleware.NewGoogleValidator(cfg.GoogleClientId, cfg.ConsoleApiKey, cfg.ConsoleUrl, cfg.GoogleAllowedDomains)
 		if err != nil {
-			log.Errorf("Failed to setup google validator: %v", err)
+      return fmt.Errorf("set up google validator: %w", err)
 		} else {
 			validators = append(validators, googleValidator.Middleware())
 			log.Infof("Using GoogleValidator validator")
 		}
-		groupProvider = middleware.GroupProviderGoogle
 	}
 
 	projects, err := parseKeyVal(cfg.GoogleClusterProjects)
@@ -175,7 +155,6 @@ func run() error {
 	router := api.New(api.Config{
 		ApiKeyStore:           db,
 		BaseURL:               cfg.BaseURL,
-		Certificates:          certificates,
 		DeploymentStore:       db,
 		DispatchServer:        dispatchServer,
 		GithubConfig:          cfg.Github,
@@ -183,9 +162,7 @@ func run() error {
 		MetricsPath:           cfg.MetricsPath,
 		ValidatorMiddlewares:  validators,
 		ProvisionKey:          provisionKey,
-		TeamClient:            graphAPIClient,
 		TeamRepositoryStorage: db,
-		GroupProvider:         groupProvider,
 		Projects:              projects,
 	})
 
@@ -207,7 +184,7 @@ func run() error {
 	return nil
 }
 
-func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore, githubClient github.Client, certificates map[string]discovery.CertificateList) (*grpc.Server, dispatchserver.DispatchServer, error) {
+func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore, githubClient github.Client) (*grpc.Server, dispatchserver.DispatchServer, error) {
 	dispatchServer := dispatchserver.New(db, githubClient)
 	deployServer := deployserver.New(dispatchServer, db)
 	unaryInterceptors := make([]grpc.UnaryServerInterceptor, 0)

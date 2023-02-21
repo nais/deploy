@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/nais/deploy/pkg/azure/graphapi"
 	"github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/hookd/middleware"
@@ -19,9 +18,7 @@ import (
 
 type Handler struct {
 	APIKeyStorage database.ApiKeyStore
-	TeamClient    graphapi.Client
 	SecretKey     []byte
-	GroupProvider middleware.GroupProvider
 }
 
 type Request struct {
@@ -182,36 +179,7 @@ func (h *Handler) provisionTeam(w http.ResponseWriter, r *http.Request, internal
 		return
 	}
 
-	var teamId string
-	switch h.GroupProvider {
-	case middleware.GroupProviderAzure:
-		azureTeam, err := h.TeamClient.Team(r.Context(), request.Team)
-		if err != nil {
-			if h.TeamClient.IsErrNotFound(err) {
-				w.WriteHeader(http.StatusBadRequest)
-				response.Message = "team does not exist in Azure AD"
-				response.render(w)
-				logger.Error(response.Message)
-				return
-			}
-			w.WriteHeader(http.StatusInternalServerError)
-			response.Message = "unable to communicate with Azure AD"
-			response.render(w)
-			logger.Errorf("%s: %s", response.Message, err)
-			return
-		}
-		teamId = azureTeam.AzureUUID
-	case middleware.GroupProviderGoogle:
-		teamId = request.Team
-	default:
-		w.WriteHeader(http.StatusInternalServerError)
-		response.Message = "unable to resolve groups"
-		response.render(w)
-		logger.Errorf("no valid group provider selected")
-		return
-	}
-
-	err = h.APIKeyStorage.RotateApiKey(r.Context(), request.Team, teamId, key)
+	err = h.APIKeyStorage.RotateApiKey(r.Context(), request.Team, key)
 	if err != nil {
 		w.WriteHeader(http.StatusBadGateway)
 		response.Message = "unable to persist API key"

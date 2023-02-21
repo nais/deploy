@@ -8,14 +8,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type Azure struct {
-	ClientID            string `json:"app-client-id"`
-	ClientSecret        string `json:"app-client-secret"`
-	Tenant              string `json:"app-tenant-id"`
-	WellKnownURL        string `json:"app-well-known-url"`
-	TeamMembershipAppID string `json:"team-membership-app-id"`
-}
-
 type Github struct {
 	Enabled       bool   `json:"enabled"`
 	ClientID      string `json:"client-id"`
@@ -33,7 +25,6 @@ type GRPC struct {
 }
 
 type Config struct {
-	Azure                  Azure         `json:"azure"`
 	BaseURL                string        `json:"base-url"`
 	ConsoleApiKey          string        `json:"console-api-key"`
 	ConsoleUrl             string        `json:"console-url"`
@@ -54,20 +45,7 @@ type Config struct {
 	ProvisionKey           string        `json:"provision-key"`
 }
 
-func (a *Azure) HasConfig() bool {
-	return a.ClientID != "" &&
-		a.ClientSecret != "" &&
-		a.Tenant != "" &&
-		a.TeamMembershipAppID != "" &&
-		a.WellKnownURL != ""
-}
-
 const (
-	AzureClientId             = "azure.app-client-id"
-	AzureClientSecret         = "azure.app-client-secret"
-	AzureTeamMembershipAppId  = "azure.team-membership-app-id"
-	AzureTenant               = "azure.app-tenant-id"
-	AzureWellKnownUrl         = "azure.app-well-known-url"
 	BaseUrl                   = "base-url"
 	ConsoleApiKey             = "console-api-key"
 	ConsoleUrl                = "console-url"
@@ -98,11 +76,6 @@ const (
 
 // Bind environment variables provided by the NAIS platform
 func bindNAIS() {
-	viper.BindEnv(AzureClientId, "AZURE_APP_CLIENT_ID")
-	viper.BindEnv(AzureClientSecret, "AZURE_APP_CLIENT_SECRET")
-	viper.BindEnv(AzureTenant, "AZURE_APP_TENANT_ID")
-	viper.BindEnv(AzureWellKnownUrl, "AZURE_APP_WELL_KNOWN_URL")
-
 	viper.BindEnv(DatabaseUrl, "DATABASE_URL")
 
 	viper.BindEnv(DeploydKeys, "DEPLOYD_KEYS")
@@ -148,12 +121,6 @@ func Initialize() *Config {
 	flag.String(GoogleClientId, "", "Google ClientId.")
 	flag.StringSlice(GoogleAllowedDomains, []string{}, "Allowed Google Domains")
 	flag.StringSlice(GoogleClusterProjects, []string{}, "Mapping cluster to google project: cluster1=project1,cluster2=project2")
-
-	flag.String(AzureClientId, "", "Azure ClientId.")
-	flag.String(AzureClientSecret, "", "Azure ClientSecret")
-	flag.String(AzureWellKnownUrl, "", "URL to Azure configuration.")
-	flag.String(AzureTenant, "", "Azure Tenant")
-	flag.String(AzureTeamMembershipAppId, "", "Application ID of canonical team list")
 
 	return &Config{}
 }

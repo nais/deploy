@@ -9,8 +9,6 @@ import (
 	"github.com/go-chi/chi"
 	chi_middleware "github.com/go-chi/chi/middleware"
 	gh "github.com/google/go-github/v41/github"
-	"github.com/nais/deploy/pkg/azure/discovery"
-	"github.com/nais/deploy/pkg/azure/graphapi"
 	api_v1_apikey "github.com/nais/deploy/pkg/hookd/api/v1/apikey"
 	api_v1_dashboard "github.com/nais/deploy/pkg/hookd/api/v1/dashboard"
 	api_v1_provision "github.com/nais/deploy/pkg/hookd/api/v1/provision"
@@ -31,16 +29,13 @@ type Config struct {
 	ApiKeyStore           database.ApiKeyStore
 	BaseURL               string
 	DispatchServer        dispatchserver.DispatchServer
-	Certificates          map[string]discovery.CertificateList
 	DeploymentStore       database.DeploymentStore
 	GithubConfig          config.Github
 	InstallationClient    *gh.Client
 	MetricsPath           string
 	ValidatorMiddlewares  chi.Middlewares
 	ProvisionKey          []byte
-	TeamClient            graphapi.Client
 	TeamRepositoryStorage database.RepositoryTeamStore
-	GroupProvider         middleware.GroupProvider
 	Projects              map[string]string
 }
 
@@ -51,22 +46,13 @@ func New(cfg Config) chi.Router {
 		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
-	var apikeyHandler api_v1_apikey.ApiKeyHandler
-	if cfg.GroupProvider == middleware.GroupProviderAzure {
-		apikeyHandler = &api_v1_apikey.AzureApiKeyHandler{
-			APIKeyStorage: cfg.ApiKeyStore,
-		}
-	} else {
-		apikeyHandler = &api_v1_apikey.GoogleApiKeyHandler{
-			APIKeyStorage: cfg.ApiKeyStore,
-		}
-	}
+  apikeyHandler := &api_v1_apikey.GoogleApiKeyHandler{
+    APIKeyStorage: cfg.ApiKeyStore, 
+  }
 
 	provisionHandler := &api_v1_provision.Handler{
 		APIKeyStorage: cfg.ApiKeyStore,
-		TeamClient:    cfg.TeamClient,
 		SecretKey:     cfg.ProvisionKey,
-		GroupProvider: cfg.GroupProvider,
 	}
 
 	dashboardHandler := &api_v1_dashboard.Handler{
@@ -128,7 +114,7 @@ func New(cfg Config) chi.Router {
 				r.Get("/", teamsHandler.ServeHTTP) // -> ID og navn (Liste over teams brukeren har tilgang til)
 			})
 		} else {
-			log.Error("Refusing to set up team API key retrieval without validating middlewares; try configuring --azure-* or --frontend-keys and --google-client-id")
+			log.Error("Refusing to set up team API key retrieval without validating middlewares; try configuring --frontend-keys and --google-client-id")
 			log.Error("Note: /api/v1/apikey will be unavailable")
 			log.Error("Note: /api/v1/teams will be unavailable")
 		}

@@ -142,28 +142,19 @@ In this case, the deployment key is `20cefcd6bd0e8b8860c4ea90e75d7123019ed7866c6
 ```bash
 psql -U postgres -h localhost -p 5432 hookd <<< EOF
 insert into
-    apikey (key, team, team_azure_id, created, expires)
+    apikey (key, team, created, expires)
     values ('1608bf2caf81bb68d50bfb094a8e0d90de2b27260767a64a0103c6255077eb446f4fabcb7ae94514380b4fdc006bd50dfe2ea73f4b60c0c55891a60f',
-            'aura',
-            '59dbf5e6-8243-471c-bd57-162346f08d75', now(),now()+interval '10 years');
+            'aura', now(),now()+interval '10 years');
 EOF
 ```
 
 ### Hookd
 run `./bin/hookd`
-For local development, hookd will by default start with an insecure listener, Azure AD token validation turned off and github integration disabled.
-secure listener and Azure AD token validation can be turned on passing the following flags:
+For local development, hookd will by default start with an insecure listener and github integration disabled.
+secure listener can be turned on passing the following flags:
 ```
---azure.clientid string              Azure ClientId.
---azure.clientsecret string          Azure ClientSecret
---azure.discoveryurl string          Azure DiscoveryURL (default "https://login.microsoftonline.com/common/discovery/v2.0/keys")
---azure.preAuthorizedApps string     Preauthorized Applications as Json
---azure.teamMembershipAppID string   Application ID of canonical team list
---azure.tenant string                Azure Tenant
 --grpc-authentication                Validate tokens on gRPC connection.
 ```
-If you wish to test with these flags, you should have an application with [Azure AD](https://doc.nais.io/security/auth/azure-ad) enabled.
-
 Github integration can be turned on using the following flags:
 ```
 --github-app-id int                  Github App ID.
@@ -175,11 +166,8 @@ Github integration can be turned on using the following flags:
 ```
 
 ### Deployd
-To enable secure listener and Azure AD token validation on deployd, the following flags apply:
+To enable secure listener in deployd, the following flags apply:
 ```
---azure.clientid string         Azure ClientId.
---azure.clientsecret string     Azure ClientSecret
---azure.tenant string           Azure Tenant
 --grpc-authentication           Use token authentication on gRPC connection.
 --grpc-use-tls                  Use secure connection when connecting to gRPC server.
 ```

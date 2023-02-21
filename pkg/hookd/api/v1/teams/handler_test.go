@@ -38,7 +38,7 @@ type response struct {
 	Body       []api_v1_teams.Team `json:"body"`
 }
 
-func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error {
+func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team string, key api_v1.Key) error {
 	return fmt.Errorf("err")
 }
 
@@ -49,21 +49,18 @@ func (a *apiKeyStorage) ApiKeys(ctx context.Context, group string) (database.Api
 	case "group1-claim":
 		groups = append(groups, database.ApiKey{
 			Team:    "team1",
-			GroupId: "group1-claim",
 			Expires: time.Time{},
 			Created: time.Time{},
 		})
 	case "group2-claim":
 		groups = append(groups, database.ApiKey{
 			Team:    "team2",
-			GroupId: "group2-claim",
 			Expires: time.Time{},
 			Created: time.Time{},
 		})
 	case "group4-claim":
 		groups = append(groups, database.ApiKey{
 			Team:    "team4",
-			GroupId: "group4-claim",
 			Expires: time.Time{},
 			Created: time.Time{},
 		})

@@ -15,9 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nais/deploy/pkg/hookd/middleware"
-
-	"github.com/nais/deploy/pkg/azure/graphapi"
 	"github.com/nais/deploy/pkg/hookd/api"
 	"github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/api/v1/provision"
@@ -51,7 +48,7 @@ type teamClient struct{}
 
 func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
 	switch team {
-	case "new", "unwritable", "not_found", "azure_error":
+	case "new", "unwritable", "not_found":
 		return nil, database.ErrNotFound
 	case "unavailable":
 		return nil, fmt.Errorf("service unavailable")
@@ -63,28 +60,13 @@ func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiK
 	}
 }
 
-func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team, groupId string, key api_v1.Key) error {
+func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team string, key api_v1.Key) error {
 	switch team {
 	case "unwritable", "unwritable_with_rotate":
 		return fmt.Errorf("service unavailable")
 	default:
 		return nil
 	}
-}
-
-func (t *teamClient) Team(ctx context.Context, name string) (*graphapi.Team, error) {
-	switch name {
-	case "not_found":
-		return nil, graphapi.ErrNotFound
-	case "azure_error":
-		return nil, fmt.Errorf("azure errored")
-	default:
-		return &graphapi.Team{}, nil
-	}
-}
-
-func (t *teamClient) IsErrNotFound(err error) bool {
-	return err == graphapi.ErrNotFound
 }
 
 func testStatusResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
@@ -126,7 +108,7 @@ func fileReader(file string) io.Reader {
 	return f
 }
 
-func statusSubTest(t *testing.T, name string, groupProvider middleware.GroupProvider) {
+func statusSubTest(t *testing.T, name string) {
 	inFile := fmt.Sprintf("testdata/%s", name)
 
 	fixture := fileReader(inFile)
@@ -159,14 +141,11 @@ func statusSubTest(t *testing.T, name string, groupProvider middleware.GroupProv
 	}
 
 	apiKeyStore := &apiKeyStorage{}
-	teamClient := &teamClient{}
 
 	handler := api.New(api.Config{
 		ApiKeyStore:   apiKeyStore,
 		MetricsPath:   "/metrics",
 		ProvisionKey:  provisionKey,
-		TeamClient:    teamClient,
-		GroupProvider: groupProvider,
 	})
 
 	handler.ServeHTTP(recorder, request)
@@ -184,44 +163,13 @@ func TestHandler(t *testing.T) {
 		if file.IsDir() {
 			continue
 		}
-		if strings.Contains(file.Name(), "azure") {
-			continue
-		}
 		if strings.Contains(file.Name(), "invalid") {
 			continue
 		}
-		for _, groupProvider := range []middleware.GroupProvider{middleware.GroupProviderAzure, middleware.GroupProviderGoogle} {
-			testName := fmt.Sprintf("%s-%v", file.Name(), groupProvider)
-			t.Run(testName, func(t *testing.T) {
-				statusSubTest(t, file.Name(), groupProvider)
-			})
-		}
+    testName := fmt.Sprintf("%s", file.Name())
+    t.Run(testName, func(t *testing.T) {
+      statusSubTest(t, file.Name())
+    })
 	}
 }
 
-func TestHandler_Azure(t *testing.T) {
-	files, err := ioutil.ReadDir("testdata")
-	if err != nil {
-		t.Error(err)
-		t.Fail()
-	}
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-		if !strings.Contains(file.Name(), "azure") {
-			continue
-		}
-		name := file.Name()
-		t.Run(name, func(t *testing.T) {
-			statusSubTest(t, name, middleware.GroupProviderAzure)
-		})
-	}
-}
-
-func TestHandler_Invalid(t *testing.T) {
-	fileName := "invalid.json"
-	t.Run("invalid group provider", func(t *testing.T) {
-		statusSubTest(t, fileName, middleware.GroupProviderInvalid)
-	})
-}
