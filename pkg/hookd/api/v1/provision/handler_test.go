@@ -43,8 +43,6 @@ type testCase struct {
 
 type apiKeyStorage struct{}
 
-type teamClient struct{}
-
 func (a *apiKeyStorage) ApiKeys(ctx context.Context, team string) (database.ApiKeys, error) {
 	switch team {
 	case "new", "unwritable", "not_found":
