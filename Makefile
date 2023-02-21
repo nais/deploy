@@ -8,9 +8,9 @@ LDFLAGS := -X github.com/nais/deploy/pkg/version.Revision=$(LAST_COMMIT) -X gith
 arch := amd64
 os := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-.PHONY: all proto hookd deployd token-generator deploy provision alpine test docker upload
+.PHONY: all proto hookd deployd token-generator deploy alpine test docker upload
 
-all: hookd deployd deploy provision
+all: hookd deployd deploy
 
 install-protobuf-go:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go
@@ -30,9 +30,6 @@ deploy:
 
 crypt:
 	go build -o bin/crypt -ldflags "-s $(LDFLAGS)" cmd/crypt/main.go
-
-provision:
-	go build -o bin/provision -ldflags "-s $(LDFLAGS)" cmd/provision/main.go
 
 mocks:
 	go run github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg ./pkg/hookd/database
@@ -62,7 +59,6 @@ alpine:
 	go build -a -installsuffix cgo -o bin/hookd -ldflags "-s $(LDFLAGS)" cmd/hookd/main.go
 	go build -a -installsuffix cgo -o bin/deployd -ldflags "-s $(LDFLAGS)" cmd/deployd/main.go
 	go build -a -installsuffix cgo -o bin/deploy -ldflags "-s $(LDFLAGS)" cmd/deploy/main.go
-	go build -a -installsuffix cgo -o bin/provision -ldflags "-s $(LDFLAGS)" cmd/provision/*.go
 
 test:
 	go test ./... -count=1
