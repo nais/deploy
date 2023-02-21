@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
@@ -74,7 +75,7 @@ func run() error {
 
 	dialOptions := make([]grpc.DialOption, 0)
 	if !cfg.GRPC.UseTLS {
-		dialOptions = append(dialOptions, grpc.WithInsecure())
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		tlsOpts := &tls.Config{}
 		cred := credentials.NewTLS(tlsOpts)
