@@ -167,7 +167,6 @@ func run() error {
 		switch {
 		case st == nil:
 			metrics.DeployIgnored.Inc()
-			break
 		case st.GetState() == pb.DeploymentState_error:
 			fallthrough
 		case st.GetState() == pb.DeploymentState_failure:
