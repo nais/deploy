@@ -126,7 +126,7 @@ func (db *Database) Deployment(ctx context.Context, id string) (*Deployment, err
 	}
 
 	defer rows.Close()
-	for rows.Next() {
+	if rows.Next() {
 		deployment, err := scanDeployment(rows)
 		if err != nil {
 			return nil, err
