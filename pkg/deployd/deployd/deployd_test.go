@@ -25,8 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -155,8 +153,6 @@ var tests = []testSpec{
 type testRig struct {
 	kubernetes *envtest.Environment
 	client     client.Client
-	structured kubernetes.Interface
-	dynamic    dynamic.Interface
 	statusChan chan *pb.DeploymentStatus
 	kubeclient kubeclient.Interface
 	scheme     *runtime.Scheme
