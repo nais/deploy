@@ -32,7 +32,7 @@ type testCase struct {
 	Setup    func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore)
 }
 
-var genericError = errors.New("oops")
+var errGeneric = errors.New("oops")
 
 var timestamp = time.Now().UTC().Truncate(time.Microsecond)
 
@@ -104,7 +104,7 @@ var tests = []testCase{
 	{
 		Name: "Database failing on first query",
 		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
-			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return(nil, genericError)
+			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return(nil, errGeneric)
 		},
 		Response: response{
 			StatusCode: 500,
@@ -115,7 +115,7 @@ var tests = []testCase{
 		Name: "Database failing on deployment query",
 		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
-			deployStore.On("Deployment", mock.Anything, "1").Return(nil, genericError)
+			deployStore.On("Deployment", mock.Anything, "1").Return(nil, errGeneric)
 		},
 		Response: response{
 			StatusCode: 500,
@@ -127,7 +127,7 @@ var tests = []testCase{
 		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
 			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
 			deployStore.On("Deployment", mock.Anything, "1").Return(&database.Deployment{ID: "1", Created: timestamp}, nil).Once()
-			deployStore.On("DeploymentStatus", mock.Anything, "1").Return(nil, genericError)
+			deployStore.On("DeploymentStatus", mock.Anything, "1").Return(nil, errGeneric)
 		},
 		Response: response{
 			StatusCode: 500,
@@ -140,7 +140,7 @@ var tests = []testCase{
 			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
 			deployStore.On("Deployment", mock.Anything, "1").Return(&database.Deployment{ID: "1", Created: timestamp}, nil).Once()
 			deployStore.On("DeploymentStatus", mock.Anything, "1").Return([]database.DeploymentStatus{{ID: "1.1", Created: timestamp}}, nil).Once()
-			deployStore.On("DeploymentResources", mock.Anything, "1").Return(nil, genericError).Once()
+			deployStore.On("DeploymentResources", mock.Anything, "1").Return(nil, errGeneric).Once()
 		},
 		Response: response{
 			StatusCode: 500,
