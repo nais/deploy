@@ -17,7 +17,6 @@ func PskValidatorMiddleware(keys []string) func(next http.Handler) http.Handler 
 			}
 			w.WriteHeader(http.StatusForbidden)
 			fmt.Fprintf(w, "Unauthorized access: Invalid key")
-			return
 		}
 		return http.HandlerFunc(fn)
 	}
