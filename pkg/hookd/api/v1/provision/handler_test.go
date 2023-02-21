@@ -163,8 +163,7 @@ func TestHandler(t *testing.T) {
 		if strings.Contains(file.Name(), "invalid") {
 			continue
 		}
-		testName := fmt.Sprintf("%s", file.Name())
-		t.Run(testName, func(t *testing.T) {
+		t.Run(file.Name(), func(t *testing.T) {
 			statusSubTest(t, file.Name())
 		})
 	}
