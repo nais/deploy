@@ -5,9 +5,10 @@ import (
 	"fmt"
 )
 
+type requestContextValidIdentifier string
 const (
-	contextKeyEmail  = "email"
-	contextKeyGroups = "groups"
+	contextKeyEmail  requestContextValidIdentifier = "email"
+	contextKeyGroups requestContextValidIdentifier = "groups"
 )
 
 func GetEmail(ctx context.Context) string {

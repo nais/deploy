@@ -13,6 +13,7 @@ import (
 	"time"
 
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/middleware"
 
 	api_v1_teams "github.com/nais/deploy/pkg/hookd/api/v1/teams"
 	"github.com/nais/deploy/pkg/hookd/database"
@@ -110,7 +111,7 @@ func statusSubTest(t *testing.T, name string) {
 	}
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("GET", "/api/v1/teams", bytes.NewReader(test.Request.Body))
-	request = request.WithContext(context.WithValue(request.Context(), "groups", test.Request.Groups))
+	request = request.WithContext(middleware.WithGroups(request.Context(), test.Request.Groups))
 
 	for key, val := range test.Request.Headers {
 		request.Header.Set(key, val)
