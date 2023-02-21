@@ -26,7 +26,7 @@ func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstr
 
 	eventsClient := a.client.Kubernetes().CoreV1().Events(resource.GetNamespace())
 	deadline, _ := op.Context.Deadline()
-	timeoutSecs := int64(deadline.Sub(time.Now()).Seconds())
+	timeoutSecs := int64(time.Until(deadline).Seconds())
 	ctx, cancel := context.WithCancel(op.Context)
 	defer cancel()
 
