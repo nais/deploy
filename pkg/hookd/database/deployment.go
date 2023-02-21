@@ -139,9 +139,7 @@ func (db *Database) Deployment(ctx context.Context, id string) (*Deployment, err
 }
 
 func (db *Database) WriteDeployment(ctx context.Context, deployment Deployment) error {
-	var query string
-
-	query = `
+  query := `
 INSERT INTO deployment (id, team, created, github_id, github_repository, cluster)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (id) DO UPDATE
@@ -256,9 +254,7 @@ func (db *Database) DeploymentResources(ctx context.Context, deploymentID string
 }
 
 func (db *Database) WriteDeploymentResource(ctx context.Context, resource DeploymentResource) error {
-	var query string
-
-	query = `
+  query := `
 INSERT INTO deployment_resource (id, deployment_id, index, "group", version, kind, name, namespace)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 `
