@@ -79,7 +79,7 @@ func (t *ServerInterceptor) authenticate(ctx context.Context, auth authData) err
 }
 
 func withinTimeRange(t time.Time) bool {
-	return math.Abs(time.Now().Sub(t).Seconds()) < api_v1.MaxTimeSkew
+	return math.Abs(time.Since(t).Seconds()) < api_v1.MaxTimeSkew
 }
 
 func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {

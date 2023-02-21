@@ -89,7 +89,7 @@ func UpdateQueue(status *pb.DeploymentStatus) {
 	case pb.DeploymentState_success:
 
 		// In case of successful deployment, report the lead time.
-		ttd := float64(time.Now().Sub(status.Timestamp()))
+		ttd := float64(time.Since(status.Timestamp()))
 		leadTime.With(labels).Observe(ttd)
 
 		fallthrough
