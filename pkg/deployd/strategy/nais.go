@@ -95,7 +95,7 @@ func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentS
 	}
 
 	if event.ReportingController == "naiserator" {
-		id, _ := event.GetAnnotations()[nais_io_v1.DeploymentCorrelationIDAnnotation]
+		id := event.GetAnnotations()[nais_io_v1.DeploymentCorrelationIDAnnotation]
 		if id != status.GetRequest().GetID() {
 			return nil // not a status that applies to our request id
 		}
