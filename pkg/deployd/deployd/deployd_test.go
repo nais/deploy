@@ -3,7 +3,7 @@ package deployd_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -203,7 +203,7 @@ func newTestRig() (*testRig, error) {
 }
 
 func resources(path string) (*pb.Kubernetes, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}

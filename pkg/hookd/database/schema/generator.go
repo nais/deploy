@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strconv"
@@ -27,7 +26,7 @@ var footer = `
 `
 
 func textify(fn string, w io.Writer) error {
-	file, err := ioutil.ReadFile(fn)
+	file, err := os.ReadFile(fn)
 	if err != nil {
 		return err
 	}
@@ -43,7 +42,7 @@ func textify(fn string, w io.Writer) error {
 }
 
 func main() {
-	files, err := ioutil.ReadDir("./")
+	files, err := os.ReadDir("./")
 	if err != nil {
 		log.Fatal(err)
 	}

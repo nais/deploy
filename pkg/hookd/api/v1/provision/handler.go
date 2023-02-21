@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/nais/deploy/pkg/hookd/api/v1"
@@ -63,7 +62,7 @@ func (h *Handler) ApiKey(w http.ResponseWriter, r *http.Request) {
 
 	logger.Tracef("Incoming internal api key request")
 
-	data, err := ioutil.ReadAll(r.Body)
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		response.Message = fmt.Sprintf("unable to read request body: %s", err)
@@ -127,7 +126,7 @@ func (h *Handler) provisionTeam(w http.ResponseWriter, r *http.Request, internal
 
 	logger.Tracef("Incoming provision request")
 
-	data, err := ioutil.ReadAll(r.Body)
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		response.Message = fmt.Sprintf("unable to read request body: %s", err)

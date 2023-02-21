@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -112,7 +111,7 @@ func statusSubTest(t *testing.T, name string) {
 	inFile := fmt.Sprintf("testdata/%s", name)
 
 	fixture := fileReader(inFile)
-	data, err := ioutil.ReadAll(fixture)
+	data, err := io.ReadAll(fixture)
 	if err != nil {
 		t.Error(data)
 		t.Fail()
@@ -154,7 +153,7 @@ func statusSubTest(t *testing.T, name string) {
 }
 
 func TestHandler(t *testing.T) {
-	files, err := ioutil.ReadDir("testdata")
+	files, err := os.ReadDir("testdata")
 	if err != nil {
 		t.Error(err)
 		t.Fail()

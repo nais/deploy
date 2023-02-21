@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -123,7 +122,7 @@ func run() (ExitCode, error) {
 		return ExitFailure, err
 	}
 
-	data, _ = ioutil.ReadAll(resp.Body)
+	data, _ = io.ReadAll(resp.Body)
 	response := &api_v1_provision.Response{}
 	err = json.Unmarshal(data, response)
 	if err != nil {

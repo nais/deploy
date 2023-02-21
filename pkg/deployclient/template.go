@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/aymerick/raymond"
@@ -14,7 +14,7 @@ import (
 )
 
 func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMessage, error) {
-	file, err := ioutil.ReadFile(path)
+	file, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: open file: %s", path, err)
 	}
@@ -110,7 +110,7 @@ func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
 }
 
 func templateVariablesFromFile(path string) (TemplateVariables, error) {
-	file, err := ioutil.ReadFile(path)
+	file, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: open file: %s", path, err)
 	}
