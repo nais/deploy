@@ -138,7 +138,7 @@ func (h *GoogleApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Re
 		}
 	}
 	if keyToRotate == nil {
-		keyToRotate = &database.ApiKey{Team: team }
+		keyToRotate = &database.ApiKey{Team: team}
 	}
 
 	newKey, err := api_v1.Keygen(api_v1.KeySize)
@@ -147,7 +147,7 @@ func (h *GoogleApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.Re
 		logger.Errorf("unable to generate new random api key: %s", err)
 		return
 	}
-	logger.Infof("generated new api key for %s", keyToRotate.Team )
+	logger.Infof("generated new api key for %s", keyToRotate.Team)
 	err = h.APIKeyStorage.RotateApiKey(r.Context(), keyToRotate.Team, newKey)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

@@ -38,9 +38,9 @@ type response struct {
 }
 
 var (
-  key1 = []byte("abcdef")
+	key1 = []byte("abcdef")
 	key2 = []byte("123456")
-  key4 = api_v1.Key{0x00}             // not used
+	key4 = api_v1.Key{0x00} // not used
 )
 
 func tokenValidatorMiddleware(next http.Handler) http.Handler {
@@ -63,8 +63,8 @@ func (a *apiKeyStorage) ApiKeys(ctx context.Context, id string) (database.ApiKey
 		return database.ApiKeys{{
 			Team: "team4",
 			Key:  key4,
-		}}, nil	
-  default:
+		}}, nil
+	default:
 		return nil, fmt.Errorf("err")
 	}
 }
@@ -105,26 +105,26 @@ func TestApiKeyHandler(t *testing.T) {
 
 	t.Run("get apikey for team", func(t *testing.T) {
 		t.Run("team member", func(t *testing.T) {
-      request := httptest.NewRequest("GET", "/api/v1/apikey/team2", nil)
-      request = request.WithContext(middleware.WithGroups(request.Context(), []string{"team1", "team2", "team6"}))
+			request := httptest.NewRequest("GET", "/api/v1/apikey/team2", nil)
+			request = request.WithContext(middleware.WithGroups(request.Context(), []string{"team1", "team2", "team6"}))
 
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, request)
 
 			body := string(recorder.Body.Bytes())
-        
+
 			assert.Equal(t, http.StatusOK, recorder.Code)
 			assert.Equal(t, `[{"team":"team2","key":"313233343536","expires":"0001-01-01T00:00:00Z","created":"0001-01-01T00:00:00Z"}]`+"\n", body)
 		})
 		t.Run("not team member", func(t *testing.T) {
-      request := httptest.NewRequest("GET", "/api/v1/apikey/team5", nil)
-      request = request.WithContext(middleware.WithGroups(request.Context(), []string{"team1", "team2", "team6"}))
+			request := httptest.NewRequest("GET", "/api/v1/apikey/team5", nil)
+			request = request.WithContext(middleware.WithGroups(request.Context(), []string{"team1", "team2", "team6"}))
 
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, request)
 
 			body := string(recorder.Body.Bytes())
-        
+
 			assert.Equal(t, http.StatusForbidden, recorder.Code)
 			assert.Equal(t, `not authorized to view this team's keys`, body)
 		})
@@ -132,5 +132,4 @@ func TestApiKeyHandler(t *testing.T) {
 	// t.Run("rotate team", func(t *testing.T) {
 	// 	request := httptest.NewRequest("POST", "/api/v1/apikey/team1", nil)
 	// })
-
 }

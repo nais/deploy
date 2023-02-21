@@ -10,8 +10,27 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type LogLinkFormatter int
+
+const (
+	LogLinkFormatterKibana LogLinkFormatter = iota
+	LogLinkFormatterGCP
+)
+
+func ParseLogLinkFormatter(in string) LogLinkFormatter {
+	switch in {
+	case "GCP":
+		return LogLinkFormatterGCP
+	case "KIBANA":
+		return LogLinkFormatterKibana
+	default:
+		return LogLinkFormatterKibana
+	}
+}
+
 type Config struct {
-	Projects map[string]string
+	Projects         map[string]string
+	LogLinkFormatter LogLinkFormatter
 }
 
 var uuidRegex = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$")
@@ -22,7 +41,7 @@ func MakeURL(baseURL, deliveryID string, timestamp time.Time, cluster string) st
 
 func MakeHandler(cfg Config) http.HandlerFunc {
 	var formatterFunc func(deliveryID string, ts time.Time, version int, cluster string) (string, error)
-	if len(cfg.Projects) > 0 {
+	if cfg.LogLinkFormatter == LogLinkFormatterGCP {
 		formatter := gcpFormatter{Projects: cfg.Projects}
 		formatterFunc = formatter.format
 		log.Infof("Configured logproxy to target Google Logs Explorer")

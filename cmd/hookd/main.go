@@ -30,6 +30,7 @@ import (
 	"github.com/nais/deploy/pkg/hookd/config"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/hookd/github"
+	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
@@ -141,7 +142,7 @@ func run() error {
 		log.Infof("Using PSK validator")
 		googleValidator, err := middleware.NewGoogleValidator(cfg.GoogleClientId, cfg.ConsoleApiKey, cfg.ConsoleUrl, cfg.GoogleAllowedDomains)
 		if err != nil {
-      return fmt.Errorf("set up google validator: %w", err)
+			return fmt.Errorf("set up google validator: %w", err)
 		} else {
 			validators = append(validators, googleValidator.Middleware())
 			log.Infof("Using GoogleValidator validator")
@@ -164,6 +165,7 @@ func run() error {
 		ProvisionKey:          provisionKey,
 		TeamRepositoryStorage: db,
 		Projects:              projects,
+		LogLinkFormatter:      logproxy.ParseLogLinkFormatter(cfg.LogLinkFormatter),
 	})
 
 	go func() {

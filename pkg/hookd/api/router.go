@@ -37,6 +37,7 @@ type Config struct {
 	ProvisionKey          []byte
 	TeamRepositoryStorage database.RepositoryTeamStore
 	Projects              map[string]string
+	LogLinkFormatter      logproxy.LogLinkFormatter
 }
 
 func New(cfg Config) chi.Router {
@@ -46,9 +47,9 @@ func New(cfg Config) chi.Router {
 		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
-  apikeyHandler := &api_v1_apikey.GoogleApiKeyHandler{
-    APIKeyStorage: cfg.ApiKeyStore, 
-  }
+	apikeyHandler := &api_v1_apikey.GoogleApiKeyHandler{
+		APIKeyStorage: cfg.ApiKeyStore,
+	}
 
 	provisionHandler := &api_v1_provision.Handler{
 		APIKeyStorage: cfg.ApiKeyStore,
@@ -86,7 +87,7 @@ func New(cfg Config) chi.Router {
 	router.Get(cfg.MetricsPath, promhttp.Handler().ServeHTTP)
 
 	// Deployment logs accessible via shorthand URL
-	router.HandleFunc("/logs", logproxy.MakeHandler(logproxy.Config{Projects: cfg.Projects}))
+	router.HandleFunc("/logs", logproxy.MakeHandler(logproxy.Config{Projects: cfg.Projects, LogLinkFormatter: cfg.LogLinkFormatter}))
 
 	// Mount /api/v1 for API requests
 	// Only application/json content type allowed

@@ -143,9 +143,9 @@ func statusSubTest(t *testing.T, name string) {
 	apiKeyStore := &apiKeyStorage{}
 
 	handler := api.New(api.Config{
-		ApiKeyStore:   apiKeyStore,
-		MetricsPath:   "/metrics",
-		ProvisionKey:  provisionKey,
+		ApiKeyStore:  apiKeyStore,
+		MetricsPath:  "/metrics",
+		ProvisionKey: provisionKey,
 	})
 
 	handler.ServeHTTP(recorder, request)
@@ -166,10 +166,9 @@ func TestHandler(t *testing.T) {
 		if strings.Contains(file.Name(), "invalid") {
 			continue
 		}
-    testName := fmt.Sprintf("%s", file.Name())
-    t.Run(testName, func(t *testing.T) {
-      statusSubTest(t, file.Name())
-    })
+		testName := fmt.Sprintf("%s", file.Name())
+		t.Run(testName, func(t *testing.T) {
+			statusSubTest(t, file.Name())
+		})
 	}
 }
-

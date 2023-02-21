@@ -13,7 +13,7 @@ type TeamsHandler struct {
 	APIKeyStorage database.ApiKeyStore
 }
 type Team struct {
-	Team    string `json:"team"`
+	Team string `json:"team"`
 }
 
 func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +42,7 @@ func (h *TeamsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	teams := make([]Team, 0)
 	for _, v := range keys {
 		t := Team{
-			Team:    v.Team,
+			Team: v.Team,
 		}
 		teams = append(teams, t)
 	}

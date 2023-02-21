@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/liberator/pkg/conftools"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -41,6 +43,7 @@ type Config struct {
 	ListenAddress          string        `json:"listen-address"`
 	LogFormat              string        `json:"log-format"`
 	LogLevel               string        `json:"log-level"`
+	LogLinkFormatter       string        `json:"log-link-formatter"`
 	MetricsPath            string        `json:"metrics-path"`
 	ProvisionKey           string        `json:"provision-key"`
 }
@@ -70,6 +73,7 @@ const (
 	ListenAddress             = "listen-address"
 	LogFormat                 = "log-format"
 	LogLevel                  = "log-level"
+	LogLinkFormatter          = "log-link-formatter"
 	MetricsPath               = "metrics-path"
 	ProvisionKey              = "provision-key"
 )
@@ -100,6 +104,7 @@ func Initialize() *Config {
 	flag.String(ListenAddress, "127.0.0.1:8080", "IP:PORT")
 	flag.String(LogFormat, "text", "Log format, either 'json' or 'text'.")
 	flag.String(LogLevel, "debug", "Logging verbosity level.")
+	flag.String(LogLinkFormatter, "GCP", "Which format to generate deploy log links. Valid values are GCP or KIBANA")
 	flag.String(ProvisionKey, "", "Pre-shared key for /api/v1/provision endpoint.")
 	flag.String(MetricsPath, "/metrics", "HTTP endpoint for exposed metrics.")
 

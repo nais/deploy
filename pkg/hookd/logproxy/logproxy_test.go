@@ -21,6 +21,7 @@ func TestHandleFunc(t *testing.T) {
 		Projects: map[string]string{
 			cluster: project,
 		},
+		LogLinkFormatter: LogLinkFormatterGCP,
 	}
 	tests := []struct {
 		name     string
