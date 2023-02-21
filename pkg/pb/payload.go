@@ -1,11 +1,10 @@
 package pb
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
-	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // We must use the jsonpb package to unmarshal data into a []*structpb.Struct data structure.
@@ -25,9 +24,8 @@ func KubernetesFromJSONResources(resources json.RawMessage) (*Kubernetes, error)
 		return nil, fmt.Errorf("unable to wrap kubernetes resources: %s", err)
 	}
 	kube := &Kubernetes{}
-	reader := bytes.NewReader(sr)
 
-	if err := jsonpb.Unmarshal(reader, kube); err != nil {
+	if err := protojson.Unmarshal(sr, kube); err != nil {
 		return nil, fmt.Errorf("unable to unmarshal kubernetes resources: %s", err)
 	}
 
@@ -35,9 +33,8 @@ func KubernetesFromJSONResources(resources json.RawMessage) (*Kubernetes, error)
 }
 
 func KubernetesFromJSON(data []byte) (*Kubernetes, error) {
-	r := bytes.NewReader(data)
 	k := &Kubernetes{}
-	err := jsonpb.Unmarshal(r, k)
+	err := protojson.Unmarshal(data, k)
 	if err != nil {
 		return nil, err
 	}
@@ -47,14 +44,13 @@ func KubernetesFromJSON(data []byte) (*Kubernetes, error) {
 func (m *Kubernetes) JSONResources() ([]json.RawMessage, error) {
 	resources := m.GetResources()
 	msgs := make([]json.RawMessage, len(resources))
-	mar := jsonpb.Marshaler{}
 
 	for i, r := range resources {
-		s, err := mar.MarshalToString(r)
+		s, err := protojson.Marshal(r)
 		if err != nil {
 			return nil, err
 		}
-		msgs[i] = []byte(s)
+		msgs[i] = s
 	}
 
 	return msgs, nil
