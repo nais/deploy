@@ -1,10 +1,8 @@
 package config
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/liberator/pkg/conftools"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
