@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/nais/deploy/pkg/deployclient"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/version"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -66,11 +67,7 @@ func run() error {
 	}
 
 	if cfg.PrintPayload {
-		marsh := jsonpb.Marshaler{Indent: "  "}
-		err = marsh.Marshal(os.Stdout, request)
-		if err != nil {
-			log.Errorf("print payload: %s", err)
-		}
+		fmt.Println(protojson.Format(request))
 	}
 
 	if cfg.DryRun {
