@@ -19,24 +19,6 @@ import (
 
 type apiKeyStorage struct{}
 
-type testCase struct {
-	Request  request  `json:"request"`
-	Response response `json:"Response"`
-}
-
-type request struct {
-	Headers      map[string]string
-	Body         json.RawMessage
-	Groups       []string
-	Team         string
-	RouteContext map[string]string
-}
-
-type response struct {
-	StatusCode int               `json:"statusCode"`
-	Body       []database.ApiKey `json:"body"`
-}
-
 var (
 	key1 = []byte("abcdef")
 	key2 = []byte("123456")
