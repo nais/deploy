@@ -1,9 +1,18 @@
-FROM golang:1.17-alpine as builder
+FROM golang:1.20-alpine as builder
 RUN apk add --no-cache git make curl
 ENV GOOS=linux
 ENV CGO_ENABLED=0
-COPY . /src
+
 WORKDIR /src
+
+# Copy dependency info
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
+# Copy rest
+COPY . .
+
 RUN make kubebuilder
 RUN make test
 RUN make alpine
