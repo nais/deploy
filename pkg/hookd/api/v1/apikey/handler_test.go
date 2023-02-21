@@ -93,7 +93,7 @@ func TestApiKeyHandler(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, request)
 
-			body := string(recorder.Body.Bytes())
+			body := recorder.Body.String()
 
 			assert.Equal(t, http.StatusOK, recorder.Code)
 			assert.Equal(t, `[{"team":"team2","key":"313233343536","expires":"0001-01-01T00:00:00Z","created":"0001-01-01T00:00:00Z"}]`+"\n", body)
@@ -105,7 +105,7 @@ func TestApiKeyHandler(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, request)
 
-			body := string(recorder.Body.Bytes())
+			body := recorder.Body.String()
 
 			assert.Equal(t, http.StatusForbidden, recorder.Code)
 			assert.Equal(t, `not authorized to view this team's keys`, body)
