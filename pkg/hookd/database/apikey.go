@@ -128,7 +128,7 @@ func (db *Database) RotateApiKey(ctx context.Context, team string, key api_v1.Ke
 
 	query = `
 INSERT INTO apikey (key, team, created, expires)
-VALUES ($1, $2, $3, NOW(), NOW()+MAKE_INTERVAL(years := 5));
+VALUES ($1, $2, NOW(), NOW()+MAKE_INTERVAL(years := 5));
 `
 	_, err = tx.Exec(ctx, query, hex.EncodeToString(encrypted), team)
 	if err != nil {
