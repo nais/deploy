@@ -6,6 +6,7 @@ import (
 )
 
 type requestContextValidIdentifier string
+
 const (
 	contextKeyEmail  requestContextValidIdentifier = "email"
 	contextKeyGroups requestContextValidIdentifier = "groups"
