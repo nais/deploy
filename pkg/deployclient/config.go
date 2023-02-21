@@ -37,8 +37,6 @@ type Config struct {
 }
 
 func InitConfig(cfg *Config) {
-	flag.ErrHelp = fmt.Errorf("\ndeploy prepares and submits Kubernetes resources to a NAIS cluster.\n")
-
 	flag.BoolVar(&cfg.Actions, "actions", getEnvBool("ACTIONS", false), "Use GitHub Actions compatible error and warning messages. (env ACTIONS)")
 	flag.StringVar(&cfg.APIKey, "apikey", os.Getenv("APIKEY"), "NAIS Deploy API key. (env APIKEY)")
 	flag.StringVar(&cfg.Cluster, "cluster", os.Getenv("CLUSTER"), "NAIS cluster to deploy into. (env CLUSTER)")
