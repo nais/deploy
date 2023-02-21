@@ -146,11 +146,15 @@ func (s *dispatchServer) createGithubDeploymentStatus(status *pb.DeploymentStatu
 }
 
 func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
-	err := s.clusterOnline(request.Cluster)
-	if err != nil {
-		return err
-	}
-	err = s.dispatchStreams[request.Cluster].Send(request)
+  s.dispatchStreamsLock.RLock()
+  stream, online := s.dispatchStreams[request.Cluster]
+  if !online{
+    s.dispatchStreamsLock.RUnlock()
+    return status.Errorf(codes.Unavailable, "cluster '%s' is offline", request.Cluster)
+  }
+  s.dispatchStreamsLock.RUnlock()
+
+  err := stream.Send(request)
 	if err != nil {
 		return err
 	}
@@ -161,20 +165,12 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 	return nil
 }
 
-func (s *dispatchServer) clusterOnline(clusterName string) error {
-	_, ok := s.dispatchStreams[clusterName]
-	if !ok {
-		return status.Errorf(codes.Unavailable, "cluster '%s' is offline", clusterName)
-	}
-	return nil
-}
-
 func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.DeploymentStatus) error {
-	maplock.Lock()
+  s.statusStreamsLock.RLock()
 	for _, ch := range s.statusStreams {
 		ch <- st
 	}
-	maplock.Unlock()
+  s.statusStreamsLock.RUnlock()
 
 	dbStatus := database_mapper.DeploymentStatus(st)
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)

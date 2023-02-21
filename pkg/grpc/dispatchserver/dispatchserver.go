@@ -18,8 +18,6 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 )
 
-var maplock sync.Mutex
-
 type DispatchServer interface {
 	pb.DispatchServer
 	SendDeploymentRequest(ctx context.Context, deployment *pb.DeploymentRequest) error
@@ -28,8 +26,11 @@ type DispatchServer interface {
 }
 
 type dispatchServer struct {
+
 	pb.UnimplementedDispatchServer
+  dispatchStreamsLock sync.RWMutex
 	dispatchStreams map[string]pb.Dispatch_DeploymentsServer
+  statusStreamsLock sync.RWMutex
 	statusStreams   map[context.Context]chan<- *pb.DeploymentStatus
 	db              database.DeploymentStore
 	githubClient    github.Client
@@ -55,8 +56,8 @@ func New(db database.DeploymentStore, githubClient github.Client) DispatchServer
 var _ DispatchServer = &dispatchServer{}
 
 func (s *dispatchServer) onlineClusters() []string {
-	maplock.Lock()
-	defer maplock.Unlock()
+	s.dispatchStreamsLock.RLock()
+	defer s.dispatchStreamsLock.RUnlock()
 
 	clusters := make([]string, 0, len(s.dispatchStreams))
 	for k := range s.dispatchStreams {
@@ -88,19 +89,22 @@ func (s *dispatchServer) invalidateHistoric(ctx context.Context, cluster string,
 }
 
 func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispatch_DeploymentsServer) error {
-	err := s.clusterOnline(opts.Cluster)
-	if err == nil {
+	s.dispatchStreamsLock.RLock()
+  _, clusterAlreadyConnected := s.dispatchStreams[opts.Cluster]
+	if clusterAlreadyConnected {
 		log.Warnf("Rejected connection from cluster '%s': already connected", opts.Cluster)
 		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
 	}
-	maplock.Lock()
+	s.dispatchStreamsLock.RUnlock()
+
+	s.dispatchStreamsLock.Lock()
 	s.dispatchStreams[opts.Cluster] = stream
 	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
-	maplock.Unlock()
+	s.dispatchStreamsLock.Unlock()
 	s.reportOnlineClusters()
 
 	// invalidate older deployments
-	err = s.invalidateHistoric(stream.Context(), opts.GetCluster(), opts.GetStartupTime().AsTime())
+  err := s.invalidateHistoric(stream.Context(), opts.GetCluster(), opts.GetStartupTime().AsTime())
 	if err != nil {
 		return status.Errorf(codes.Unavailable, err.Error())
 	}
@@ -108,10 +112,10 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 	// wait for disconnect
 	<-stream.Context().Done()
 
-	maplock.Lock()
+  s.dispatchStreamsLock.Lock()
 	delete(s.dispatchStreams, opts.Cluster)
 	log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
-	maplock.Unlock()
+  s.dispatchStreamsLock.Unlock()
 	s.reportOnlineClusters()
 
 	return nil
@@ -123,14 +127,15 @@ func (s *dispatchServer) ReportStatus(ctx context.Context, status *pb.Deployment
 
 // Send all status updates belonging to a specific request
 func (s *dispatchServer) StreamStatus(ctx context.Context, channel chan<- *pb.DeploymentStatus) {
-	maplock.Lock()
+	s.statusStreamsLock.Lock()
 	s.statusStreams[ctx] = channel
-	maplock.Unlock()
+	s.statusStreamsLock.Unlock()
 
 	<-ctx.Done()
 
-	maplock.Lock()
+	s.statusStreamsLock.Lock()
 	delete(s.statusStreams, ctx)
+	s.statusStreamsLock.Unlock()
+
 	close(channel)
-	maplock.Unlock()
 }
