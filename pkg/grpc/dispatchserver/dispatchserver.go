@@ -66,7 +66,7 @@ func (s *dispatchServer) onlineClusters() []string {
 }
 
 func (s *dispatchServer) reportOnlineClusters() {
-  clusters := s.onlineClusters()
+	clusters := s.onlineClusters()
 	metrics.SetConnectedClusters(clusters)
 	log.Infof("Online clusters: %s", strings.Join(clusters, ", "))
 }

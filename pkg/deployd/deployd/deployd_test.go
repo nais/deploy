@@ -206,23 +206,23 @@ func resources(path string) (*pb.Kubernetes, error) {
 	return pb.KubernetesFromJSONResources(data)
 }
 
-func compareStatus(expected, actual *pb.DeploymentStatus) error {
+func compareStatus(expected, actual *pb.DeploymentStatus, fixture string) error {
 	if expected.GetState() != actual.GetState() {
 		return fmt.Errorf("expected state '%s' but got '%s'", expected.GetState(), actual.GetState())
 	}
 	if len(expected.GetMessage()) > 0 && expected.GetMessage() != actual.GetMessage() {
-		return fmt.Errorf("expected status message '%s' but got '%s'", expected.GetMessage(), actual.GetMessage())
+		return fmt.Errorf("expected status message '%s' but got '%s' for fixture %q", expected.GetMessage(), actual.GetMessage(), fixture)
 	}
 	return nil
 }
 
-func waitFinish(statusChan <-chan *pb.DeploymentStatus, expectedStatus *pb.DeploymentStatus) error {
+func waitFinish(statusChan <-chan *pb.DeploymentStatus, expectedStatus *pb.DeploymentStatus, fixture string) error {
 	for status := range statusChan {
 		state := status.GetState()
-		log.Infof("Deployment status '%s': %s", state, status.GetMessage())
+		log.WithField("fixture", fixture).Infof("Deployment status '%s': %s", state, status.GetMessage())
 		if state.Finished() {
-			log.Infof("Deploy reached finished state")
-			return compareStatus(expectedStatus, status)
+			log.WithField("fixture", fixture).Infof("Deploy reached finished state")
+			return compareStatus(expectedStatus, status, fixture)
 		}
 	}
 	return fmt.Errorf("channel closed but no end state")
@@ -438,7 +438,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 	}
 	deployd.Run(op, teamClient)
 
-	err = waitFinish(rig.statusChan, test.endStatus)
+	err = waitFinish(rig.statusChan, test.endStatus, test.fixture)
 	assert.NoError(t, err)
 
 	wg.Wait()
