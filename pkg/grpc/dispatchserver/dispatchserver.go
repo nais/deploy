@@ -91,11 +91,11 @@ func (s *dispatchServer) invalidateHistoric(ctx context.Context, cluster string,
 func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispatch_DeploymentsServer) error {
 	s.dispatchStreamsLock.RLock()
 	_, clusterAlreadyConnected := s.dispatchStreams[opts.Cluster]
+	s.dispatchStreamsLock.RUnlock()
 	if clusterAlreadyConnected {
 		log.Warnf("Rejected connection from cluster '%s': already connected", opts.Cluster)
 		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
 	}
-	s.dispatchStreamsLock.RUnlock()
 
 	s.dispatchStreamsLock.Lock()
 	s.dispatchStreams[opts.Cluster] = stream
