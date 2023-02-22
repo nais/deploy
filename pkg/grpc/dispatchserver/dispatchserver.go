@@ -66,8 +66,9 @@ func (s *dispatchServer) onlineClusters() []string {
 }
 
 func (s *dispatchServer) reportOnlineClusters() {
-	metrics.SetConnectedClusters(s.onlineClusters())
-	log.Infof("Online clusters: %s", strings.Join(s.onlineClusters(), ", "))
+  clusters := s.onlineClusters()
+	metrics.SetConnectedClusters(clusters)
+	log.Infof("Online clusters: %s", strings.Join(clusters, ", "))
 }
 
 func (s *dispatchServer) invalidateHistoric(ctx context.Context, cluster string, timestamp time.Time) error {
