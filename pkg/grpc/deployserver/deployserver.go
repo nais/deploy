@@ -151,6 +151,8 @@ func (ds *deployServer) Status(request *pb.DeploymentRequest, server pb.Deploy_S
 		}
 		err := server.Send(st)
 		if err != nil {
+			logger := log.WithFields(st.LogFields())
+			logger.WithError(err).Error("send status to client")
 			return err
 		}
 	}
