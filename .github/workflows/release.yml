@@ -74,8 +74,8 @@ jobs:
           push: ${{ github.actor != 'dependabot[bot]' }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
       - name: Save image_ref to env
         run: echo "image_ref=${{ env.REGISTRY }}/${{ matrix.image }}@${{ steps.build_push.outputs.digest }}" >> $GITHUB_ENV
       - name: Sign image
