@@ -1,137 +1,154 @@
 name: NAIS deploy release pipeline
-
 on:
   push:
+    branches:
+      - master
     paths-ignore:
-    - '.github/workflows/codeql-analysis.yml'
-    - '.github/workflows/job.yaml'
-    - '.github/workflows/naisjob-without-schedule.yaml'
-    - '.github/workflows/naisjob.yaml'
-    - 'deploy/testdata/naisjob.yaml'
-    - 'deploy/testdata/job.yaml'
-    - 'deploy/testdata/naisjob-without-schedule.yaml'
-
+      - '.github/workflows/codeql-analysis.yml'
+      - '.github/workflows/job.yaml'
+      - '.github/workflows/naisjob-without-schedule.yaml'
+      - '.github/workflows/naisjob.yaml'
+      - 'deploy/testdata/naisjob.yaml'
+      - 'deploy/testdata/job.yaml'
+      - 'deploy/testdata/naisjob-without-schedule.yaml'
+      - '*.md'
 env:
+  registry: ghcr.io
   image: ghcr.io/${{ github.repository }}/deploy
   hookd_image: ghcr.io/${{ github.repository }}/hookd
   deployd_image: ghcr.io/${{ github.repository }}/deployd
   canary_deployer_image: ghcr.io/${{ github.repository }}/canary-deployer
   dockerhub_image: navikt/deployment
-
 jobs:
-
   build:
     name: Build Docker container
     runs-on: ubuntu-latest
+    outputs:
+      deploy_digest: ${{ steps.ghpush.outputs.deploy_digest }}
+      hookd_digest: ${{ steps.ghpush.outputs.hookd_digest }}
+      deployd_digest: ${{ steps.ghpush.outputs.deployd_digest }}
+      canarydeployer_digest: ${{ steps.ghpush.outputs.canarydeployer_digest }}
+      dockerhub_digest: ${{ steps.dockerhubpush.outputs.dockerhub_digest }}
     steps:
-    - uses: actions/checkout@v3
-    - name: Generate version tags
-      run: |
-        echo "version=$(./version.sh)" >> $GITHUB_ENV
-        echo "deploy_action_api_version=$(cat actions/deploy/version)" >> $GITHUB_ENV
-    - name: Build Docker images
-      run: |
-        docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
-        docker build --tag ${hookd_image}:${version} --tag ${hookd_image}:latest -f Dockerfile.hookd .
-        docker build --tag ${deployd_image}:${version} --tag ${deployd_image}:latest -f Dockerfile.deployd .
-        docker build --tag ${canary_deployer_image}:${version} --tag ${canary_deployer_image}:latest canary-deployer
-    - name: Push versioned Docker image to GitHub
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        docker login ghcr.io -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
-        docker push ${image}:${version}
-        docker push ${hookd_image}:${version}
-        docker push ${deployd_image}:${version}
-        docker push ${canary_deployer_image}:${version}
-    - name: Push production Docker image to GitHub
-      if: github.ref == 'refs/heads/master'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        docker login ghcr.io -u ${GITHUB_REPOSITORY} -p ${GITHUB_TOKEN}
-        docker push ${image}:${deploy_action_api_version}
-        docker push ${image}:latest
-        docker push ${hookd_image}:latest
-        docker push ${deployd_image}:latest
-        docker push ${canary_deployer_image}:latest
-    - name: Push production Docker image to Dockerhub
-      if: github.ref == 'refs/heads/master'
-      env:
-        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-        DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-      run: |
-        docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD}
-        docker tag ${image}:latest ${dockerhub_image}:${deploy_action_api_version}-grpc
-        docker push ${dockerhub_image}:${deploy_action_api_version}-grpc
-
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
+      - name: Generate version tags
+        run: |
+          echo "version=$(./version.sh)" >> $GITHUB_ENV
+          echo "deploy_action_api_version=$(cat actions/deploy/version)" >> $GITHUB_ENV
+      - name: Build Docker images
+        run: |
+          docker build --tag ${image}:${version} --tag ${image}:latest --tag ${image}:${deploy_action_api_version} .
+          docker build --tag ${hookd_image}:${version} --tag ${hookd_image}:latest -f Dockerfile.hookd .
+          docker build --tag ${deployd_image}:${version} --tag ${deployd_image}:latest -f Dockerfile.deployd .
+          docker build --tag ${canary_deployer_image}:${version} --tag ${canary_deployer_image}:latest canary-deployer
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
+        with:
+          registry: ${{ env.registry }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push versioned Docker image to GitHub
+        id: ghpush
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker push ${image}:${version}
+          docker push ${hookd_image}:${version}
+          docker push ${deployd_image}:${version}
+          docker push ${canary_deployer_image}:${version}
+          echo "deploy_digest=$(docker inspect ${image}:${version}) | jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
+          echo "hookd_digest=$(docker inspect ${hookd_image}:${version}) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
+          echo "deployd_digest=$(docker inspect {deployd_image}:${version}) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
+          echo "canarydeployer_digest=$(docker inspect ${canary_deployer_image}:${version}) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
+      - name: Push production Docker image to GitHub
+        if: github.ref == 'refs/heads/master'
+        run: |
+          docker push ${image}:${deploy_action_api_version}
+          docker push ${image}:latest
+          docker push ${hookd_image}:latest
+          docker push ${deployd_image}:latest
+          docker push ${canary_deployer_image}:latest
+      - name: Login to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Push production Docker image to Dockerhub
+        id: dockerhubpush
+        if: github.ref == 'refs/heads/master'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: |
+          docker tag ${image}:latest ${dockerhub_image}:${deploy_action_api_version}-grpc
+          docker push ${dockerhub_image}:${deploy_action_api_version}-grpc
+          echo "dockerhub_digest=$(docker inspect ${dockerhub_image}:${deploy_action_api_version}-grpc) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
   release:
     name: Release versioned GitHub Action
     if: github.ref == 'refs/heads/master'
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Force create tag
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        git remote set-url origin "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-        git tag -f $(cat actions/deploy/version)
-        git push -f --tags
-    - name: Create deploy binaries
-      run: |
-        make deploy-release-linux
-        make deploy-release-darwin
-        make deploy-release-windows
-    - name: Delete release if exists
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        latest=$(curl https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest)
-        tag=$(echo $latest | jq .tag_name | xargs) # xargs strips quotes
-        if grep -q "$tag" actions/deploy/version; then
-          release_id=$(echo $latest | jq .id)
-          curl -X DELETE https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}
-        fi
-    - name: Create Release
-      id: create_release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        release=$(curl -X POST \
-          -d '{"tag_name": "'"$(cat actions/deploy/version)"'"}' \
-          -H "Content-Type: application/json" \
-          https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases)
-        echo "release_id=$(echo $release | jq .id)" >> ${GITHUB_OUTPUT}
-    - name: Upload Linux Asset
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        BINARY: deploy-linux
-      run: |
-        curl -X POST \
-        -H 'Content-Type: application/x-executable' \
-        --data-binary @${BINARY} \
-        https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
-    - name: Upload Darwin Asset
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        BINARY: deploy-darwin
-      run: |
-        curl -X POST \
-        -H 'Content-Type: application/x-executable' \
-        --data-binary @${BINARY} \
-        https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
-    - name: Upload Windows Asset
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        BINARY: deploy-windows
-      run: |
-        curl -X POST \
-        -H 'Content-Type: application/x-executable' \
-        --data-binary @${BINARY} \
-        https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
-
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
+      - name: Force create tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git remote set-url origin "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git tag -f $(cat actions/deploy/version)
+          git push -f --tags
+      - name: Create deploy binaries
+        run: |
+          make deploy-release-linux
+          make deploy-release-darwin
+          make deploy-release-windows
+      - name: Delete release if exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(curl https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest)
+          tag=$(echo $latest | jq .tag_name | xargs) # xargs strips quotes
+          if grep -q "$tag" actions/deploy/version; then
+            release_id=$(echo $latest | jq .id)
+            curl -X DELETE https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}
+          fi
+      - name: Create Release
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          release=$(curl -X POST \
+            -d '{"tag_name": "'"$(cat actions/deploy/version)"'"}' \
+            -H "Content-Type: application/json" \
+            https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases)
+          echo "release_id=$(echo $release | jq .id)" >> ${GITHUB_OUTPUT}
+      - name: Upload Linux Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BINARY: deploy-linux
+        run: |
+          curl -X POST \
+          -H 'Content-Type: application/x-executable' \
+          --data-binary @${BINARY} \
+          https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
+      - name: Upload Darwin Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BINARY: deploy-darwin
+        run: |
+          curl -X POST \
+          -H 'Content-Type: application/x-executable' \
+          --data-binary @${BINARY} \
+          https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
+      - name: Upload Windows Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BINARY: deploy-windows
+        run: |
+          curl -X POST \
+          -H 'Content-Type: application/x-executable' \
+          --data-binary @${BINARY} \
+          https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
   rollout:
     name: Rollout with Fasit
     if: github.ref == 'refs/heads/master'
@@ -140,18 +157,101 @@ jobs:
       id-token: write
     runs-on: fasit-deploy
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
       - name: Generate version environment variable
         run: |
           version=$(./version.sh)
           echo "version=${version}" >> $GITHUB_ENV
-      - uses: nais/fasit-deploy@main
+      - uses: nais/fasit-deploy@b2c0b6d049b53bef41b321eec406fe66938576fd # ratchet:nais/fasit-deploy@main
         name: Rollout hookd
         with:
           json: '{"backend": {"image": {"tag": "${{ env.version }}"}}}'
           feature_name: hookd
-      - uses: nais/fasit-deploy@main
+      - uses: nais/fasit-deploy@b2c0b6d049b53bef41b321eec406fe66938576fd # ratchet:nais/fasit-deploy@main
         name: Rollout deployd
         with:
           json: '{"image": {"tag": "${{ env.version }}"}}'
           feature_name: deployd
+  slsafy:
+    name: Sign and attest the images
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      GITHUB-REGISTRY: ghcr.io
+      DEPLOY_DIGEST: ${{ needs.build.outputs.deploy_digest }}
+      HOOKD_DIGEST: ${{ needs.build.outputs.hookd_digest }}
+      DEPLOYD_DIGEST: ${{ needs.build.outputs.deployd_digest }}
+      CANARYDEPLOYER_DIGEST: ${{ needs.build.outputs.canarydeployer_digest }}
+      DOCKERHUB_DIGEST: ${{ needs.build.outputs.dockerhub_digest }}
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@c3667d99424e7e6047999fb6246c0da843953c65 # ratchet:sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v2.0.0'
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
+        with:
+          registry: ${{ env.GITHUB-REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Sign the container images
+        run: echo "y" | cosign sign ${{ env.IMG }}
+      - name: Create SBOM for deploy image
+        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          format: 'cyclonedx'
+          output: 'deploy.sbom.json'
+          image-ref: ${{ env.DEPLOY_DIGEST }}
+      - name: Create SBOM for hookd image
+        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          format: 'cyclonedx'
+          output: 'hookd.sbom.json'
+          image-ref: ${{ env.HOOKD_DIGEST }}
+      - name: Create SBOM for deployd image
+        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          format: 'cyclonedx'
+          output: 'deployd.sbom.json'
+          image-ref: ${{ env.DEPLOYD_DIGEST }}
+      - name: Create SBOM for canary deployer image
+        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          format: 'cyclonedx'
+          output: 'canarydeployer.sbom.json'
+          image-ref: ${{ env.CANARYDEPLOYER_DIGEST }}
+      - name: Create SBOM for dockerhub image
+        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          format: 'cyclonedx'
+          output: 'dockerhub.sbom.json'
+          image-ref: ${{ env.DOCKERHUB_DIGEST }}
+      - name: Sign the container images
+        run: |
+          echo "y" | cosign sign ${{ env.DEPLOY_DIGEST }}
+          echo "y" | cosign sign ${{ env.HOOKD_DIGEST }}
+          echo "y" | cosign sign ${{ env.DEPLOYD_DIGEST }}
+          echo "y" | cosign sign ${{ env.CANARYDEPLOYER_DIGEST }}
+          echo "y" | cosign sign ${{ env.DOCKERHUB_DIGEST }}
+      - name: Attest images
+        run: |
+          echo "y" | cosign attest --predicate deploy.sbom.json --type cyclonedx ${{ env.DEPLOY_DIGEST }}
+          echo "y" | cosign attest --predicate hookd.sbom.json --type cyclonedx ${{ env.HOOKD_DIGEST }}
+          echo "y" | cosign attest --predicate deployd.sbom.json --type cyclonedx ${{ env.DEPLOYD_DIGEST }}
+          echo "y" | cosign attest --predicate canarydeployer.sbom.json --type cyclonedx ${{ env.CANARYDEPLOYER_DIGEST }}
+          echo "y" | cosign attest --predicate dockerhub.sbom.json --type cyclonedx ${{ env.DOCKERHUB_DIGEST }}
