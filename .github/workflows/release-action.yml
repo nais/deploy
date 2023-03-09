@@ -151,20 +151,16 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Sign the container images
-        run: echo "y" | cosign sign ${{ env.IMG }}
+        run: cosign sign --yes ${{ env.image_digest }}
 
       - name: Create SBOM for image
         uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
         with:
           scan-type: 'image'
           format: 'cyclonedx'
-          output: 'image.sbom.json'
+          output: 'cyclone.sbom.json'
           image-ref: ${{ env.image_digest }}
-
-      - name: Sign the container images
-        run: |
-          echo "y" | cosign sign ${{ env.image_digest }}
 
       - name: Attest images
         run: |
-          echo "y" | cosign attest --predicate image.sbom.json --type cyclonedx ${{ env.image_digest }}
+          cosign attest --yes --predicate cyclone.sbom.json --type cyclonedx ${{ env.image_digest }}
