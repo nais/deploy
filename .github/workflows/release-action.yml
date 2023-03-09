@@ -52,7 +52,7 @@ jobs:
           docker push ${IMAGE}:${version}
           docker push ${IMAGE}:${deploy_action_api_version}-grpc
           docker push ${IMAGE}:latest
-          echo "image_digest=$(docker inspect ${IMAGE}:${deploy_action_api_version}-grpc) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
+          echo "image_digest=$(docker inspect ${IMAGE}:${deploy_action_api_version}-grpc | jq -r '.[].RepoDigests[]')" >> $GITHUB_OUTPUT
 
   release:
     name: Release versioned GitHub Action
