@@ -33,6 +33,7 @@ jobs:
       - uses: nais/build-push-sign@main
         id: build-push-sign
         with:
+          dockerfile: Dockerfile.${{ matrix.image }}
           name: ${{ matrix.image }}
           google_service_account: gh-deploy
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
