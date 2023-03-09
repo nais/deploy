@@ -62,7 +62,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96 # ratchet:docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/deploy
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
           tags: |
             type=raw,value=${{ needs.version.outputs.version }}
             type=sha
