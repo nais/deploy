@@ -186,5 +186,27 @@ Once the above components are running and configured, you can deploy using the f
     --wait \
 ;
 ```
+
 ```
-`./bin/deploy --resource res.yaml --cluster local --apikey 20cefcd6bd0e8b8860c4ea90e75d7123019ed7866c61bd09e23821948878a11d --deploy-server http://localhost:8080 --wait`
+./bin/deploy --resource res.yaml --cluster local --apikey 20cefcd6bd0e8b8860c4ea90e75d7123019ed7866c61bd09e23821948878a11d --deploy-server http://localhost:8080 --wait
+```
+
+## Verifying the deploy images and their contents
+
+The images are signed "keylessly" (is that a word?) using [Sigstore cosign](https://github.com/sigstore/cosign).
+To verify their authenticity run
+```
+cosign verify \
+--certificate-identity "https://github.com/nais/deploy/.github/workflows/release.yml@refs/heads/master" \
+--certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+europe-north1-docker.pkg.dev/nais-io/nais/images/deploy@sha256:<shasum>
+```
+
+The images are also attested with SBOMs in the [CycloneDX](https://cyclonedx.org/) format.
+You can verify these by running
+```
+cosign verify-attestation --type cyclonedx  \
+--certificate-identity "https://github.com/nais/deploy/.github/workflows/release.yml@refs/heads/master" \
+--certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+europe-north1-docker.pkg.dev/nais-io/nais/images/deploy@sha256:<shasum>
+```
