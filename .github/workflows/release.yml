@@ -15,19 +15,8 @@ on:
 env:
   REGISTRY: europe-north1-docker.pkg.dev/nais-io/nais/images
 jobs:
-  version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.generate_version.outputs.version }}
-    steps:
-      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
-      - name: Generate version tags
-        run: |
-          echo "version=$(./version.sh)" >> $GITHUB_OUTPUT
-  build_push:
-    name: Build and push Docker image
-    needs:
-      - version
+  build-push-sign:
+    name: Build, push and sign images
     runs-on: ubuntu-latest
     permissions:
       contents: "read"
@@ -41,61 +30,19 @@ jobs:
           - canary-deployer
     steps:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
-      - name: Install cosign
-        uses: sigstore/cosign-installer@c3667d99424e7e6047999fb6246c0da843953c65 # ratchet:sigstore/cosign-installer@main
+      - uses: nais/build-push-sign@main
+        id: build-push-sign
         with:
-          cosign-release: 'v2.0.0'
-      - id: "auth"
-        name: "Authenticate to Google Cloud"
-        uses: "google-github-actions/auth@ef5d53e30bbcd8d0836f4288f5e50ff3e086997d" # ratchet:google-github-actions/auth@v1.0.0
-        with:
+          name: ${{ matrix.image }}
+          google_service_account: gh-deploy
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: "gh-deploy@nais-io.iam.gserviceaccount.com"
-          token_format: "access_token"
-      - name: Login to registry
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: "oauth2accesstoken"
-          password: "${{ steps.auth.outputs.access_token }}"
-      - name: Docker meta
-        id: metadata
-        uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96 # ratchet:docker/metadata-action@v4
-        with:
-          images: ${{ env.REGISTRY }}/${{ matrix.image }}
-          tags: |
-            type=raw,value=${{ needs.version.outputs.version }}
-            type=sha
-      - name: Build and push
-        id: build_push
-        uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # ratchet:docker/build-push-action@v3
-        with:
-          context: .
-          file: Dockerfile.${{ matrix.image }}
           push: ${{ github.actor != 'dependabot[bot]' }}
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
-          # cache-from: type=gha
-          # cache-to: type=gha,mode=max
-      - name: Save image_ref to env
-        run: echo "image_ref=${{ env.REGISTRY }}/${{ matrix.image }}@${{ steps.build_push.outputs.digest }}" >> $GITHUB_ENV
-      - name: Sign image
-        run: cosign sign --yes "${{ env.image_ref }}"
-      - name: Create SBOM
-        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          format: 'cyclonedx'
-          output: 'cyclone.sbom.json'
-          image-ref: "${{ env.image_ref }}"
-      - name: Attest image
-        run: |
-          cosign attest --yes --predicate cyclone.sbom.json --type cyclonedx "${{ env.image_ref }}"
+    outputs:
+      version: "${{ steps.build-push-sign.outputs.version }}"
   rollout:
     name: Rollout with Fasit
     needs:
-      - build_push
-      - version
+      - build-push-sign
     permissions:
       id-token: write
     runs-on: fasit-deploy
@@ -104,10 +51,10 @@ jobs:
       - uses: nais/fasit-deploy@b2c0b6d049b53bef41b321eec406fe66938576fd # ratchet:nais/fasit-deploy@main
         name: Rollout hookd
         with:
-          json: '{"backend": {"image": {"tag": "${{ needs.version.outputs.version }}"}}}'
+          json: '{"backend": {"image": {"tag": "${{ needs.build-push-sign.outputs.version }}"}}}'
           feature_name: hookd
       - uses: nais/fasit-deploy@b2c0b6d049b53bef41b321eec406fe66938576fd # ratchet:nais/fasit-deploy@main
         name: Rollout deployd
         with:
-          json: '{"image": {"tag": "${{ needs.version.outputs.version }}"}}'
+          json: '{"image": {"tag": "${{ needs.build-push-sign.outputs.version }}"}}'
           feature_name: deployd
