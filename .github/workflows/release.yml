@@ -70,7 +70,7 @@ jobs:
         uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8b6 # ratchet:docker/build-push-action@v3
         with:
           context: .
-          file: Dockerfile_${{ matrix.image }}
+          file: Dockerfile.${{ matrix.image }}
           push: ${{ github.actor != 'dependabot[bot]' }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
