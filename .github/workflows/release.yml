@@ -56,10 +56,10 @@ jobs:
           docker push ${hookd_image}:${version}
           docker push ${deployd_image}:${version}
           docker push ${canary_deployer_image}:${version}
-          echo "deploy_digest=$(docker inspect ${image}:${version}) | jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
-          echo "hookd_digest=$(docker inspect ${hookd_image}:${version}) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
-          echo "deployd_digest=$(docker inspect ${deployd_image}:${version}) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
-          echo "canarydeployer_digest=$(docker inspect ${canary_deployer_image}:${version}) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
+          echo "deploy_digest=$(docker inspect ${image}:${version} | jq -r '.[].RepoDigests[]')" >> $GITHUB_OUTPUT
+          echo "hookd_digest=$(docker inspect ${hookd_image}:${version} | jq -r '.[].RepoDigests[]')" >> $GITHUB_OUTPUT
+          echo "deployd_digest=$(docker inspect ${deployd_image}:${version} | jq -r '.[].RepoDigests[]')" >> $GITHUB_OUTPUT
+          echo "canarydeployer_digest=$(docker inspect ${canary_deployer_image}:${version} | jq -r '.[].RepoDigests[]')" >> $GITHUB_OUTPUT
       - name: Push production Docker image to GitHub
         if: github.ref == 'refs/heads/master'
         run: |
@@ -82,7 +82,7 @@ jobs:
         run: |
           docker tag ${image}:latest ${dockerhub_image}:${deploy_action_api_version}-grpc
           docker push ${dockerhub_image}:${deploy_action_api_version}-grpc
-          echo "dockerhub_digest=$(docker inspect ${dockerhub_image}:${deploy_action_api_version}-grpc) jq -r '.[].RepoDigests[]'" >> $GITHUB_OUTPUT
+          echo "dockerhub_digest=$(docker inspect ${dockerhub_image}:${deploy_action_api_version}-grpc | jq -r '.[].RepoDigests[]')" >> $GITHUB_OUTPUT
   release:
     name: Release versioned GitHub Action
     if: github.ref == 'refs/heads/master'
