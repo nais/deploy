@@ -37,7 +37,7 @@ jobs:
       - name: Build Docker images
         run: |
           docker build \
-            -f Dockerfile.deploy
+            -f Dockerfile.deploy \
             --tag ${IMAGE}:${version} \
             --tag ${IMAGE}:${deploy_action_api_version}-grpc \
             --tag ${IMAGE}:latest \
