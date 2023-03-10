@@ -5,12 +5,8 @@ on:
       - master
     paths-ignore:
       - '.github/workflows/codeql-analysis.yml'
-      - '.github/workflows/job.yaml'
-      - '.github/workflows/naisjob-without-schedule.yaml'
-      - '.github/workflows/naisjob.yaml'
-      - 'deploy/testdata/naisjob.yaml'
-      - 'deploy/testdata/job.yaml'
-      - 'deploy/testdata/naisjob-without-schedule.yaml'
+      - '.github/workflows/test-*.yaml'
+      - 'deploy/testdata/*'
       - '*.md'
 env:
   REGISTRY: europe-north1-docker.pkg.dev/nais-io/nais/images
