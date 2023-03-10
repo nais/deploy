@@ -1,0 +1,98 @@
+name: Dockerhub images
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '.github/workflows/codeql-analysis.yml'
+      - '.github/workflows/job.yaml'
+      - '.github/workflows/naisjob-without-schedule.yaml'
+      - '.github/workflows/naisjob.yaml'
+      - 'deploy/testdata/naisjob.yaml'
+      - 'deploy/testdata/job.yaml'
+      - 'deploy/testdata/naisjob-without-schedule.yaml'
+      - '*.md'
+env:
+  IMAGE: "navikt/deployment"
+jobs:
+  build-push:
+    name: Build and push Docker image
+    runs-on: ubuntu-latest
+    outputs:
+      image_digest: ${{ steps.push.outputs.image_digest }}
+    steps:
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
+
+      - name: Generate version tags
+        run: |
+          echo "version=$(./version.sh)" >> $GITHUB_ENV
+          echo "deploy_action_api_version=$(cat actions/deploy/version)" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t deploy:local-base \
+             .
+
+          docker build \
+            -f Dockerfile.deploy \
+            --build-arg BASE=deploy:local-base \
+            --tag ${IMAGE}:${version} \
+            --tag ${IMAGE}:${deploy_action_api_version}-grpc \
+            --tag ${IMAGE}:latest \
+            .
+
+      - name: Push Docker image
+        id: push
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: |
+          docker push ${IMAGE}:${version}
+          docker push ${IMAGE}:${deploy_action_api_version}-grpc
+          docker push ${IMAGE}:latest
+          echo "image_digest=$(docker inspect ${IMAGE}:${deploy_action_api_version}-grpc | jq -r '.[].RepoDigests[]')" >> $GITHUB_OUTPUT
+
+  slsafy:
+    name: Sign and attest the images
+    needs:
+      - build-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      image_digest: ${{ needs.build-push.outputs.image_digest }}
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@c3667d99424e7e6047999fb6246c0da843953c65 # ratchet:sigstore/cosign-installer@main
+        with:
+          cosign-release: 'v2.0.0'
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Sign the container images
+        run: cosign sign --yes ${{ env.image_digest }}
+
+      - name: Create SBOM for image
+        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          format: 'cyclonedx'
+          output: 'cyclone.sbom.json'
+          image-ref: ${{ env.image_digest }}
+
+      - name: Attest images
+        run: |
+          cosign attest --yes --predicate cyclone.sbom.json --type cyclonedx ${{ env.image_digest }}

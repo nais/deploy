@@ -1,2 +1,10 @@
-FROM ghcr.io/nais/deploy/deploy:latest
+ARG BASE
+FROM $BASE as base
+FROM alpine:3.17
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=base /hookd .
+
 CMD ["/app/hookd"]

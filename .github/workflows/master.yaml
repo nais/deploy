@@ -1,4 +1,4 @@
-name: NAIS deploy action + dockerhub
+name: Google Artifact Registry images -> Rollout | GitHub Release
 on:
   push:
     branches:
@@ -13,50 +13,77 @@ on:
       - 'deploy/testdata/naisjob-without-schedule.yaml'
       - '*.md'
 env:
-  IMAGE: "navikt/deployment"
+  REGISTRY: europe-north1-docker.pkg.dev/nais-io/nais/images
 jobs:
-  build:
-    name: Build Docker container
-    runs-on: ubuntu-latest
-    outputs:
-      image_digest: ${{ steps.push.outputs.image_digest }}
+  build-base:
+    permissions:
+      contents: "read"
+      id-token: "write"
     steps:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
-
-      - name: Generate version tags
-        run: |
-          echo "version=$(./version.sh)" >> $GITHUB_ENV
-          echo "deploy_action_api_version=$(cat actions/deploy/version)" >> $GITHUB_ENV
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
+      - uses: nais/build-push-sign@main
+        id: build-push-sign
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          name: deploy-base
+          google_service_account: gh-deploy
+          workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
+          push: ${{ github.actor != 'dependabot[bot]' }}
+    outputs:
+      tag: "${{ steps.build-push-sign.outputs.tag }}"
 
-      - name: Build Docker images
-        run: |
-          docker build \
-            -f Dockerfile.deploy \
-            --tag ${IMAGE}:${version} \
-            --tag ${IMAGE}:${deploy_action_api_version}-grpc \
-            --tag ${IMAGE}:latest \
-            .
+  build-push-sign:
+    needs:
+      - build-base
+    name: Build, push and sign images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "read"
+      id-token: "write"
+    strategy:
+      matrix:
+        image:
+          - hookd
+          - deploy
+          - deployd
+          - canary-deployer
+    steps:
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
+      - uses: nais/build-push-sign@main
+        id: build-push-sign
+        with:
+          dockerfile: Dockerfile.${{ matrix.image }}
+          name: ${{ matrix.image }}
+          build-args:
+            - BASE=${{ needs.build-base.outptus.tag }}
+          google_service_account: gh-deploy
+          workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
+          push: ${{ github.actor != 'dependabot[bot]' }}
+    outputs:
+      version: "${{ steps.build-push-sign.outputs.version }}"
 
-      - name: Push Docker image
-        id: push
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-        run: |
-          docker push ${IMAGE}:${version}
-          docker push ${IMAGE}:${deploy_action_api_version}-grpc
-          docker push ${IMAGE}:latest
-          echo "image_digest=$(docker inspect ${IMAGE}:${deploy_action_api_version}-grpc | jq -r '.[].RepoDigests[]')" >> $GITHUB_OUTPUT
+  rollout:
+    name: Rollout with Fasit
+    needs:
+      - build-push-sign
+    permissions:
+      id-token: write
+    runs-on: fasit-deploy
+    steps:
+      - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
+      - uses: nais/fasit-deploy@b2c0b6d049b53bef41b321eec406fe66938576fd # ratchet:nais/fasit-deploy@main
+        name: Rollout hookd
+        with:
+          json: '{"backend": {"image": {"tag": "${{ needs.build-push-sign.outputs.version }}"}}}'
+          feature_name: hookd
+      - uses: nais/fasit-deploy@b2c0b6d049b53bef41b321eec406fe66938576fd # ratchet:nais/fasit-deploy@main
+        name: Rollout deployd
+        with:
+          json: '{"image": {"tag": "${{ needs.build-push-sign.outputs.version }}"}}'
+          feature_name: deployd
 
   release:
-    name: Release versioned GitHub Action
-    needs: build
+    name: Release GitHub Action / binaries
+    needs: build-push-sign
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # ratchet:actions/checkout@v3
@@ -126,41 +153,3 @@ jobs:
           -H 'Content-Type: application/x-executable' \
           --data-binary @${BINARY} \
           https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
-
-  slsafy:
-    name: Sign and attest the images
-    needs:
-      - build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    env:
-      image_digest: ${{ needs.build.outputs.image_digest }}
-    steps:
-      - name: Install cosign
-        uses: sigstore/cosign-installer@c3667d99424e7e6047999fb6246c0da843953c65 # ratchet:sigstore/cosign-installer@main
-        with:
-          cosign-release: 'v2.0.0'
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # ratchet:docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Sign the container images
-        run: cosign sign --yes ${{ env.image_digest }}
-
-      - name: Create SBOM for image
-        uses: aquasecurity/trivy-action@8bd2f9fbda2109502356ff8a6a89da55b1ead252 # ratchet:aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          format: 'cyclonedx'
-          output: 'cyclone.sbom.json'
-          image-ref: ${{ env.image_digest }}
-
-      - name: Attest images
-        run: |
-          cosign attest --yes --predicate cyclone.sbom.json --type cyclonedx ${{ env.image_digest }}

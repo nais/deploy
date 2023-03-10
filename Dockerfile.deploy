@@ -1,27 +1,10 @@
-FROM golang:1.20-alpine as builder
-RUN apk add --no-cache git make curl
-ENV GOOS=linux
-ENV CGO_ENABLED=0
-
-WORKDIR /src
-
-# Copy dependency info
-COPY go.mod .
-COPY go.sum .
-RUN go mod download
-
-# Copy rest
-COPY . .
-
-RUN make kubebuilder
-RUN make test
-RUN make alpine
-
-FROM alpine:3.14
-RUN apk add --no-cache ca-certificates git curl
-RUN curl -L -f https://github.com/mikefarah/yq/releases/download/2.4.1/yq_linux_amd64 > /usr/local/bin/yq && chmod +x /usr/local/bin/yq
-RUN export PATH=$PATH:/app
+ARG BASE
+FROM $BASE as base
+FROM alpine:3.17
 WORKDIR /app
-COPY --from=builder /src/bin/hookd /app/hookd
-COPY --from=builder /src/bin/deployd /app/deployd
-COPY --from=builder /src/bin/deploy /app/deploy
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=base /deploy:.
+
+CMD ["/app/deploy"]

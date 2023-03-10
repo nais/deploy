@@ -1,5 +1,14 @@
-FROM ghcr.io/nais/deploy/deploy:latest
+ARG BASE
+FROM $BASE as base
+FROM alpine:3.17
+WORKDIR /app
+
+RUN apk add --no-cache ca-certificates
+RUN curl -L -f https://github.com/mikefarah/yq/releases/download/2.4.1/yq_linux_amd64 > /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+
+COPY --from=base /deploy .
 ADD canary-deployer/deployer.sh /canary/deployer.sh
 ADD canary-deployer/canary.yml /canary/resource.yml
 ENV RESOURCE=/canary/resource.yml
+
 CMD ["/canary/deployer.sh"]
