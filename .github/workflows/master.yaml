@@ -55,8 +55,8 @@ jobs:
         with:
           dockerfile: Dockerfile.${{ matrix.image }}
           name: ${{ matrix.image }}
-          build-args:
-            - BASE=${{ needs.build-base.outptus.tag }}
+          build-args: |
+            BASE=${{ needs.build-base.outptus.tag }}
           google_service_account: gh-deploy
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
           push: ${{ github.actor != 'dependabot[bot]' }}
