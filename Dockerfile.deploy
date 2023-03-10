@@ -5,6 +5,6 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=base /deploy:.
+COPY --from=base /deploy .
 
 CMD ["/app/deploy"]
