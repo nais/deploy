@@ -133,6 +133,9 @@ source <(setup-envtest use -p env)
 ```
 
 ## Running locally
+
+For a combination of more tools running locally ([hookd](https://github.com/nais/deploy), [Console frontend](https://github.com/nais/console-frontend) and more), check out the [nais/features-dev](https://github.com/nais/features-dev) repo. 
+
 ### Postgres
 Start the database by running `docker-compose up`. This will start an empty local database.
 When you start `hookd`, the schema will be patched to current version.
