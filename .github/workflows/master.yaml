@@ -16,6 +16,8 @@ env:
   REGISTRY: europe-north1-docker.pkg.dev/nais-io/nais/images
 jobs:
   build-base:
+    name: Build base image
+    runs-on: ubuntu-latest
     permissions:
       contents: "read"
       id-token: "write"
