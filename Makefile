@@ -66,10 +66,6 @@ test:
 migration:
 	go generate ./...
 
-kubebuilder:
-	curl -L https://github.com/kubernetes-sigs/kubebuilder/releases/download/v2.3.1/kubebuilder_2.3.1_${os}_${arch}.tar.gz | tar -xz -C /tmp/
-	mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
-
 check:
 	go run honnef.co/go/tools/cmd/staticcheck ./...
 	go run golang.org/x/vuln/cmd/govulncheck -v ./...
