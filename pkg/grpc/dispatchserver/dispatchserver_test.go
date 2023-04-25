@@ -9,7 +9,6 @@ import (
 
 	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	"github.com/nais/deploy/pkg/hookd/database"
-	"github.com/nais/deploy/pkg/hookd/github"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
@@ -42,7 +41,7 @@ func TestInterceptors(t *testing.T) {
 	deploymentStore.On("WriteDeploymentStatus", mock.Anything, mock.Anything).Return(nil)
 	deploymentStore.On("Deployment", mock.Anything, mock.Anything).Return(mockDeployment, nil)
 
-	ds := New(&deploymentStore, github.FakeClient())
+	ds := New(&deploymentStore)
 
 	presharedkeyInterceptor := &presharedkey_interceptor.ServerInterceptor{
 		Keys: []string{CorrectPassword},
