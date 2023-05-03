@@ -65,7 +65,5 @@ func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.Depl
 		logger.Infof("Deployment finished")
 	}
 
-	s.statuses <- st
-
 	return nil
 }

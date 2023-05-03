@@ -32,7 +32,6 @@ type dispatchServer struct {
 	statusStreams       map[context.Context]chan<- *pb.DeploymentStatus
 	db                  database.DeploymentStore
 	requests            chan *pb.DeploymentRequest
-	statuses            chan *pb.DeploymentStatus
 }
 
 func New(db database.DeploymentStore) DispatchServer {
@@ -41,7 +40,6 @@ func New(db database.DeploymentStore) DispatchServer {
 		statusStreams:   make(map[context.Context]chan<- *pb.DeploymentStatus),
 		db:              db,
 		requests:        make(chan *pb.DeploymentRequest, 4096),
-		statuses:        make(chan *pb.DeploymentStatus, 4096),
 	}
 
 	return server
