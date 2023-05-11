@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/nais/deploy/pkg/hookd/api"
-	"github.com/nais/deploy/pkg/hookd/api/v1"
-	"github.com/nais/deploy/pkg/hookd/api/v1/provision"
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
+	api_v1_provision "github.com/nais/deploy/pkg/hookd/api/v1/provision"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 )
@@ -143,6 +143,9 @@ func statusSubTest(t *testing.T, name string) {
 		ApiKeyStore:  apiKeyStore,
 		MetricsPath:  "/metrics",
 		ProvisionKey: provisionKey,
+		PSKValidator: func(h http.Handler) http.Handler {
+			return h
+		},
 	})
 
 	handler.ServeHTTP(recorder, request)

@@ -34,6 +34,7 @@ type Config struct {
 	InstallationClient    *gh.Client
 	MetricsPath           string
 	ValidatorMiddlewares  chi.Middlewares
+	PSKValidator          func(http.Handler) http.Handler
 	ProvisionKey          []byte
 	TeamRepositoryStorage database.RepositoryTeamStore
 	Projects              map[string]string
@@ -136,6 +137,11 @@ func New(cfg Config) chi.Router {
 		} else {
 			r.Post("/provision", provisionHandler.ProvisionInternal)
 			r.Post("/apikey", provisionHandler.ApiKey)
+			r.Route("/console", func(r chi.Router) {
+				r.Use(cfg.PSKValidator)
+				r.Get("/apikey/{team}", provisionHandler.TeamApiKey)
+				r.Post("/apikey/{team}", provisionHandler.RotateTeamApiKey)
+			})
 		}
 	})
 
