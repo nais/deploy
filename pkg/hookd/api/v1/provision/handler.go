@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/nais/deploy/pkg/hookd/api/v1"
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/hookd/middleware"
 

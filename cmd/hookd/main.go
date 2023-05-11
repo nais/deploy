@@ -145,6 +145,7 @@ func run() error {
 		GithubConfig:          cfg.Github,
 		MetricsPath:           cfg.MetricsPath,
 		ValidatorMiddlewares:  validators,
+		PSKValidator:          middleware.PskValidatorMiddleware(cfg.FrontendKeys),
 		ProvisionKey:          provisionKey,
 		TeamRepositoryStorage: db,
 		Projects:              projects,

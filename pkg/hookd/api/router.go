@@ -34,6 +34,7 @@ type Config struct {
 	InstallationClient    *gh.Client
 	MetricsPath           string
 	ValidatorMiddlewares  chi.Middlewares
+	PSKValidator          func(http.Handler) http.Handler
 	ProvisionKey          []byte
 	TeamRepositoryStorage database.RepositoryTeamStore
 	Projects              map[string]string
@@ -47,7 +48,11 @@ func New(cfg Config) chi.Router {
 		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
-	apikeyHandler := &api_v1_apikey.GoogleApiKeyHandler{
+	googleAPIKeyHandler := &api_v1_apikey.GoogleApiKeyHandler{
+		APIKeyStorage: cfg.ApiKeyStore,
+	}
+
+	apiKeyHandler := &api_v1_apikey.DefaultApiKeyHandler{
 		APIKeyStorage: cfg.ApiKeyStore,
 	}
 
@@ -106,9 +111,9 @@ func New(cfg Config) chi.Router {
 		if cfg.ValidatorMiddlewares != nil {
 			r.Route("/apikey", func(r chi.Router) {
 				r.Use(cfg.ValidatorMiddlewares...)
-				r.Get("/", apikeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
-				r.Get("/{team}", apikeyHandler.GetTeamApiKey)     // -> apikey til dette spesifikke teamet
-				r.Post("/{team}", apikeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
+				r.Get("/", googleAPIKeyHandler.GetApiKeys)              // -> apikey til alle teams brukeren er autorisert for å se
+				r.Get("/{team}", googleAPIKeyHandler.GetTeamApiKey)     // -> apikey til dette spesifikke teamet
+				r.Post("/{team}", googleAPIKeyHandler.RotateTeamApiKey) // -> rotate key (Validere at brukeren er owner av gruppa som eier keyen)
 			})
 			r.Route("/teams", func(r chi.Router) {
 				r.Use(cfg.ValidatorMiddlewares...)
@@ -136,6 +141,11 @@ func New(cfg Config) chi.Router {
 		} else {
 			r.Post("/provision", provisionHandler.ProvisionInternal)
 			r.Post("/apikey", provisionHandler.ApiKey)
+			r.Route("/console", func(r chi.Router) {
+				r.Use(cfg.PSKValidator)
+				r.Get("/apikey/{team}", apiKeyHandler.GetTeamApiKey)
+				r.Post("/apikey/{team}", apiKeyHandler.RotateTeamApiKey)
+			})
 		}
 	})
 
