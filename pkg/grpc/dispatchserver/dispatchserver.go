@@ -9,7 +9,6 @@ import (
 
 	"github.com/nais/deploy/pkg/hookd/database"
 	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
-	"github.com/nais/deploy/pkg/hookd/github"
 	"github.com/nais/deploy/pkg/hookd/metrics"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -32,22 +31,16 @@ type dispatchServer struct {
 	statusStreamsLock   sync.RWMutex
 	statusStreams       map[context.Context]chan<- *pb.DeploymentStatus
 	db                  database.DeploymentStore
-	githubClient        github.Client
 	requests            chan *pb.DeploymentRequest
-	statuses            chan *pb.DeploymentStatus
 }
 
-func New(db database.DeploymentStore, githubClient github.Client) DispatchServer {
+func New(db database.DeploymentStore) DispatchServer {
 	server := &dispatchServer{
 		dispatchStreams: make(map[string]pb.Dispatch_DeploymentsServer),
 		statusStreams:   make(map[context.Context]chan<- *pb.DeploymentStatus),
 		db:              db,
-		githubClient:    githubClient,
 		requests:        make(chan *pb.DeploymentRequest, 4096),
-		statuses:        make(chan *pb.DeploymentStatus, 4096),
 	}
-
-	go server.githubLoop()
 
 	return server
 }

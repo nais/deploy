@@ -24,12 +24,10 @@ import (
 	switch_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/switch"
 	"github.com/nais/liberator/pkg/conftools"
 
-	gh "github.com/google/go-github/v41/github"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 	"github.com/nais/deploy/pkg/hookd/api"
 	"github.com/nais/deploy/pkg/hookd/config"
 	"github.com/nais/deploy/pkg/hookd/database"
-	"github.com/nais/deploy/pkg/hookd/github"
 	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	"github.com/nais/deploy/pkg/logging"
@@ -113,22 +111,8 @@ func run() error {
 		return fmt.Errorf("migrating database: %s", err)
 	}
 
-	var installationClient *gh.Client
-	var githubClient github.Client
-
-	if cfg.Github.Enabled {
-		installationClient, err = github.InstallationClient(cfg.Github.ApplicationID, cfg.Github.InstallID, cfg.Github.KeyFile)
-		if err != nil {
-			return fmt.Errorf("cannot instantiate Github installation client: %s", err)
-		}
-		log.Infof("Posting deployment statuses to GitHub")
-		githubClient = github.New(installationClient, cfg.BaseURL)
-	} else {
-		githubClient = github.FakeClient()
-	}
-
 	// Set up gRPC server
-	grpcServer, dispatchServer, err := startGrpcServer(*cfg, db, db, githubClient)
+	grpcServer, dispatchServer, err := startGrpcServer(*cfg, db, db)
 	if err != nil {
 		return err
 	}
@@ -159,7 +143,6 @@ func run() error {
 		DeploymentStore:       db,
 		DispatchServer:        dispatchServer,
 		GithubConfig:          cfg.Github,
-		InstallationClient:    installationClient,
 		MetricsPath:           cfg.MetricsPath,
 		ValidatorMiddlewares:  validators,
 		PSKValidator:          middleware.PskValidatorMiddleware(cfg.FrontendKeys),
@@ -187,8 +170,8 @@ func run() error {
 	return nil
 }
 
-func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore, githubClient github.Client) (*grpc.Server, dispatchserver.DispatchServer, error) {
-	dispatchServer := dispatchserver.New(db, githubClient)
+func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore) (*grpc.Server, dispatchserver.DispatchServer, error) {
+	dispatchServer := dispatchserver.New(db)
 	deployServer := deployserver.New(dispatchServer, db)
 	unaryInterceptors := make([]grpc.UnaryServerInterceptor, 0)
 	streamInterceptors := make([]grpc.StreamServerInterceptor, 0)

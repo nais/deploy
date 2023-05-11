@@ -60,7 +60,7 @@ var tests = []testSpec{
 	// Check that deploy times out
 	{
 		fixture: "testdata/application-timeout.json",
-		timeout: 2 * time.Second,
+		timeout: 3 * time.Second,
 		endStatus: &pb.DeploymentStatus{
 			State:   pb.DeploymentState_failure,
 			Message: "timeout while waiting for deployment to succeed (total of 1 errors)",
