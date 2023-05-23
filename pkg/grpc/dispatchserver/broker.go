@@ -34,7 +34,6 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 		return err
 	}
 
-	s.requests <- request
 	log.WithFields(request.LogFields()).Debugf("Deployment request sent to deployd")
 
 	return nil

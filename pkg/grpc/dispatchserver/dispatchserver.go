@@ -31,7 +31,6 @@ type dispatchServer struct {
 	statusStreamsLock   sync.RWMutex
 	statusStreams       map[context.Context]chan<- *pb.DeploymentStatus
 	db                  database.DeploymentStore
-	requests            chan *pb.DeploymentRequest
 }
 
 func New(db database.DeploymentStore) DispatchServer {
@@ -39,7 +38,6 @@ func New(db database.DeploymentStore) DispatchServer {
 		dispatchStreams: make(map[string]pb.Dispatch_DeploymentsServer),
 		statusStreams:   make(map[context.Context]chan<- *pb.DeploymentStatus),
 		db:              db,
-		requests:        make(chan *pb.DeploymentRequest, 4096),
 	}
 
 	return server
