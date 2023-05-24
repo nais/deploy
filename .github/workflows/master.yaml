@@ -57,8 +57,14 @@ jobs:
           google_service_account: gh-deploy
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
           push: ${{ github.actor != 'dependabot[bot]' }}
+      - id: version-hack
+        run: |
+          if [[ "${{ matrix.image }}" == "hookd" || "${{ matrix.image }}" == "deployd" ]]; then
+            echo "version-${{ matrix.image }}=${{ steps.build-push-sign.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
     outputs:
-      version: "${{ steps.build-push-sign.outputs.version }}"
+      version-hookd: "${{ steps.build-push-sign.outputs.version }}"
+      version-deployd: "${{ steps.build-push-sign.outputs.version }}"
 
   rollout:
     name: Rollout with Fasit
@@ -72,12 +78,12 @@ jobs:
       - uses: nais/fasit-deploy@main
         name: Rollout hookd
         with:
-          json: '{"backend": {"image": {"tag": "${{ needs.build-push-sign.outputs.version }}"}}}'
+          json: '{"backend": {"image": {"tag": "${{ needs.build-push-sign.outputs.version-hookd }}"}}}'
           feature_name: hookd
       - uses: nais/fasit-deploy@main
         name: Rollout deployd
         with:
-          json: '{"image": {"tag": "${{ needs.build-push-sign.outputs.version }}"}}'
+          json: '{"image": {"tag": "${{ needs.build-push-sign.outputs.version-deployd }}"}}'
           feature_name: deployd
 
   release:
