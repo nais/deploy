@@ -63,8 +63,8 @@ jobs:
             echo "version-${{ matrix.image }}=${{ steps.build-push-sign.outputs.version }}" >> $GITHUB_OUTPUT
           fi
     outputs:
-      version-hookd: "${{ steps.build-push-sign.outputs.version }}"
-      version-deployd: "${{ steps.build-push-sign.outputs.version }}"
+      version-hookd: "${{ steps.version-hack.outputs.version-hookd }}"
+      version-deployd: "${{ steps.version-hack.outputs.version-deployd }}"
 
   rollout:
     name: Rollout with Fasit
