@@ -145,6 +145,7 @@ func New(cfg Config) chi.Router {
 				r.Use(cfg.PSKValidator)
 				r.Get("/apikey/{team}", apiKeyHandler.GetTeamApiKey)
 				r.Post("/apikey/{team}", apiKeyHandler.RotateTeamApiKey)
+				r.Get("/deployments", dashboardHandler.Deployments)
 			})
 		}
 	})
