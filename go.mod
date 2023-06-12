@@ -4,7 +4,6 @@ go 1.20
 
 require (
 	github.com/aymerick/raymond v2.0.2+incompatible
-	github.com/bradleyfalzon/ghinstallation/v2 v2.0.3
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.0.3+incompatible
@@ -24,7 +23,7 @@ require (
 	golang.org/x/oauth2 v0.5.0
 	google.golang.org/grpc v1.52.1
 	google.golang.org/protobuf v1.28.1
-	gopkg.in/sakura-internet/go-rison.v3 v3.1.0
+	gopkg.in/sakura-internet/go-rison.v3 v3.2.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.26.1
@@ -38,6 +37,7 @@ require (
 	github.com/shurcooL/graphql v0.0.0-20220520033453-bdb1221e171e
 	github.com/vektra/mockery/v2 v2.20.0
 	golang.org/x/vuln v0.0.0-20230217204342-b91abcc5ae3c
+	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	honnef.co/go/tools v0.4.2
 	mvdan.cc/gofumpt v0.4.0
 )
@@ -57,11 +57,9 @@ require (
 	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/goccy/go-json v0.9.7 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/go-github/v39 v39.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -119,7 +117,6 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230124163310-31e0e69b6fc2 // indirect
-	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
