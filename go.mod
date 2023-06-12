@@ -10,7 +10,6 @@ require (
 	github.com/go-chi/render v1.0.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.3.0
-	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jackc/pgx/v4 v4.18.0
 	github.com/lib/pq v1.10.7
 	github.com/nais/liberator v0.0.0-20211001113024-dfe14e16ec83

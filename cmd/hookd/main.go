@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-chi/chi"
 
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	unauthenticated_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/unauthenticated"
 	"github.com/nais/deploy/pkg/version"
 	"google.golang.org/grpc/keepalive"
@@ -177,8 +176,6 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 	streamInterceptors := make([]grpc.StreamServerInterceptor, 0)
 
 	serverOpts := make([]grpc.ServerOption, 0)
-	unaryInterceptors = append(unaryInterceptors, grpc_prometheus.UnaryServerInterceptor)
-	streamInterceptors = append(streamInterceptors, grpc_prometheus.StreamServerInterceptor)
 
 	if cfg.GRPC.CliAuthentication || cfg.GRPC.DeploydAuthentication {
 		interceptor := switch_interceptor.NewServerInterceptor()
@@ -222,9 +219,6 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 
 	pb.RegisterDispatchServer(grpcServer, dispatchServer)
 	pb.RegisterDeployServer(grpcServer, deployServer)
-
-	grpc_prometheus.Register(grpcServer)
-	grpc_prometheus.EnableHandlingTimeHistogram()
 
 	grpcListener, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
