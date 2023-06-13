@@ -35,9 +35,9 @@ require (
 	github.com/lestrrat-go/jwx v1.2.25
 	github.com/shurcooL/graphql v0.0.0-20220520033453-bdb1221e171e
 	github.com/vektra/mockery/v2 v2.20.0
-	golang.org/x/vuln v0.0.0-20230217204342-b91abcc5ae3c
+	golang.org/x/vuln v0.1.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
-	honnef.co/go/tools v0.4.2
+	honnef.co/go/tools v0.4.3
 	mvdan.cc/gofumpt v0.5.0
 )
 
@@ -104,7 +104,6 @@ require (
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
-	golang.org/x/exp v0.0.0-20230213192124-5e25df0256eb // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230213192124-5e25df0256eb // indirect
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
@@ -113,7 +112,7 @@ require (
 	golang.org/x/term v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.8.0 // indirect
+	golang.org/x/tools v0.8.1-0.20230421161920-b9619ee54b47 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
