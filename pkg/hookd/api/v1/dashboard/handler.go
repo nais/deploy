@@ -3,6 +3,7 @@ package api_v1_dashboard
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -10,10 +11,6 @@ import (
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	log "github.com/sirupsen/logrus"
-)
-
-const (
-	maxRows = 30
 )
 
 type DeploymentsResponse struct {
@@ -66,8 +63,20 @@ func (h *Handler) Deployments(w http.ResponseWriter, r *http.Request) {
 	}
 	teams := strings.FieldsFunc(queries.Get("team"), splitFn)
 	clusters := strings.FieldsFunc(queries.Get("cluster"), splitFn)
+	var limit int
+	if queries.Get("limit") == "" {
+		limit = 30
+	} else {
+		var err error
+		limit, err = strconv.Atoi(queries.Get("limit"))
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			logger.Error(err)
+			return
+		}
+	}
 
-	deployments, err := h.DeploymentStore.Deployments(r.Context(), teams, clusters, maxRows)
+	deployments, err := h.DeploymentStore.Deployments(r.Context(), teams, clusters, limit)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)
