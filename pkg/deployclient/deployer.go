@@ -155,9 +155,15 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		})
 
 		if err != nil {
+			code := grpcErrorCode(err)
 			err = fmt.Errorf(formatGrpcError(err))
 			if ctx.Err() != nil {
 				return Errorf(ExitTimeout, "deployment timed out: %w", ctx.Err())
+			}
+			if code == codes.Unauthenticated {
+				if !strings.HasSuffix(cfg.Environment, ":"+cfg.Team) {
+					log.Warnf("hint: team %q does not match namespace in %q", cfg.Team, cfg.Environment)
+				}
 			}
 			return ErrorWrap(ExitNoDeployment, err)
 		}
