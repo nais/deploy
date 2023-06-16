@@ -1,0 +1,12 @@
+name: 'Hello OIDC World'
+description: 'Testing the APIs for retrieving workflow identity tokens from GitHub'
+inputs:
+  aud:
+    description: 'The desired audience for the token'
+    required: true
+outputs:
+  result:
+    description: 'Some arbitraty output'
+runs:
+  using: 'node16'
+  main: 'index.js'
