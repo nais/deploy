@@ -1,8 +1,9 @@
 const core = require('@actions/core')
 
-function decode(token) {
-	return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-}
+const decode = (token) => [
+	JSON.parse(Buffer.from(token.split('.')[0], 'base64').toString()),
+	JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
+]
 
 try {
 	const aud = core.getInput('aud')
