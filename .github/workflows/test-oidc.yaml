@@ -1,0 +1,19 @@
+name: 'Hello OIDC world'
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-oidc-stuff:
+    runs-on: ubuntu-latest
+    name: Test retrieving OIDC tokens
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: The OIDC stuff
+        uses: ./deploy/actions/testoidc
+        id: 'hello-oidc'
+        with:
+          aud: 'bogus-aud'
+      - name: Get the output
+        run: echo "Got result ${{ steps.hello-oidc.outputs.result }}"
