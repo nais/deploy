@@ -92,25 +92,25 @@ func (_m *MockDeploymentStore) DeploymentStatus(ctx context.Context, deploymentI
 	return r0, r1
 }
 
-// Deployments provides a mock function with given fields: ctx, teams, clusters, limit
-func (_m *MockDeploymentStore) Deployments(ctx context.Context, teams []string, clusters []string, limit int) ([]*Deployment, error) {
-	ret := _m.Called(ctx, teams, clusters, limit)
+// Deployments provides a mock function with given fields: ctx, teams, clusters, ignoreTeams, limit
+func (_m *MockDeploymentStore) Deployments(ctx context.Context, teams []string, clusters []string, ignoreTeams []string, limit int) ([]*Deployment, error) {
+	ret := _m.Called(ctx, teams, clusters, ignoreTeams, limit)
 
 	var r0 []*Deployment
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []string, []string, int) ([]*Deployment, error)); ok {
-		return rf(ctx, teams, clusters, limit)
+	if rf, ok := ret.Get(0).(func(context.Context, []string, []string, []string, int) ([]*Deployment, error)); ok {
+		return rf(ctx, teams, clusters, ignoreTeams, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []string, []string, int) []*Deployment); ok {
-		r0 = rf(ctx, teams, clusters, limit)
+	if rf, ok := ret.Get(0).(func(context.Context, []string, []string, []string, int) []*Deployment); ok {
+		r0 = rf(ctx, teams, clusters, ignoreTeams, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*Deployment)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []string, []string, int) error); ok {
-		r1 = rf(ctx, teams, clusters, limit)
+	if rf, ok := ret.Get(1).(func(context.Context, []string, []string, []string, int) error); ok {
+		r1 = rf(ctx, teams, clusters, ignoreTeams, limit)
 	} else {
 		r1 = ret.Error(1)
 	}

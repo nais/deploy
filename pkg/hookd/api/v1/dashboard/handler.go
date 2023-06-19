@@ -63,6 +63,7 @@ func (h *Handler) Deployments(w http.ResponseWriter, r *http.Request) {
 	}
 	teams := strings.FieldsFunc(queries.Get("team"), splitFn)
 	clusters := strings.FieldsFunc(queries.Get("cluster"), splitFn)
+	ignoreTeams := strings.FieldsFunc(queries.Get("ignoreTeam"), splitFn)
 	var limit int
 	if queries.Get("limit") == "" {
 		limit = 30
@@ -76,7 +77,7 @@ func (h *Handler) Deployments(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	deployments, err := h.DeploymentStore.Deployments(r.Context(), teams, clusters, limit)
+	deployments, err := h.DeploymentStore.Deployments(r.Context(), teams, clusters, ignoreTeams, limit)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.Error(err)

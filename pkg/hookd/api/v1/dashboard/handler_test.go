@@ -41,7 +41,7 @@ var tests = []testCase{
 	{
 		Name: "Get all deployments",
 		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
-			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return([]*database.Deployment{
+			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, []string{}, 30).Return([]*database.Deployment{
 				{ID: "1", Created: timestamp},
 				{ID: "2", Created: timestamp},
 			}, nil).Once()
@@ -104,7 +104,7 @@ var tests = []testCase{
 	{
 		Name: "Database failing on first query",
 		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
-			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return(nil, errGeneric)
+			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, []string{}, 30).Return(nil, errGeneric)
 		},
 		Response: response{
 			StatusCode: 500,
@@ -114,7 +114,7 @@ var tests = []testCase{
 	{
 		Name: "Database failing on deployment query",
 		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
-			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
+			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
 			deployStore.On("Deployment", mock.Anything, "1").Return(nil, errGeneric)
 		},
 		Response: response{
@@ -125,7 +125,7 @@ var tests = []testCase{
 	{
 		Name: "Database failing on status query",
 		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
-			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
+			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
 			deployStore.On("Deployment", mock.Anything, "1").Return(&database.Deployment{ID: "1", Created: timestamp}, nil).Once()
 			deployStore.On("DeploymentStatus", mock.Anything, "1").Return(nil, errGeneric)
 		},
@@ -137,7 +137,7 @@ var tests = []testCase{
 	{
 		Name: "Database failing on deployment query",
 		Setup: func(server *dispatchserver.MockDispatchServer, apiKeyStore *database.MockApiKeyStore, deployStore *database.MockDeploymentStore) {
-			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
+			deployStore.On("Deployments", mock.Anything, []string{}, []string{}, []string{}, 30).Return([]*database.Deployment{{ID: "1", Created: timestamp}}, nil).Once()
 			deployStore.On("Deployment", mock.Anything, "1").Return(&database.Deployment{ID: "1", Created: timestamp}, nil).Once()
 			deployStore.On("DeploymentStatus", mock.Anything, "1").Return([]database.DeploymentStatus{{ID: "1.1", Created: timestamp}}, nil).Once()
 			deployStore.On("DeploymentResources", mock.Anything, "1").Return(nil, errGeneric).Once()
