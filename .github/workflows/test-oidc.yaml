@@ -3,6 +3,10 @@ name: 'Hello OIDC world'
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   test-oidc-stuff:
     runs-on: ubuntu-latest
