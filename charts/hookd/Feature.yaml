@@ -1,0 +1,95 @@
+dependencies:
+  - allOf:
+      - teams-backend
+environmentKinds:
+  - management
+values:
+  consoleAPIKey:
+    description: API-key used to get groups from console
+    displayName: Console API-key
+    computed:
+      template: '"{{.Management.hookd_console_api_key}}"'
+  database.encryptionKey:
+    description: Database encryption key used to encrypt deploy api keys
+    computed:
+      template: '"{{.Management.hookd_database_encryption_key}}"'
+  database.instance:
+    displayName: Database instance
+    computed:
+      template: '"{{.Management.hookd_database_instance}}"'
+  database.name:
+    displayName: Database name
+    computed:
+      template: '"{{.Management.hookd_database_name}}"'
+  database.user:
+    displayName: Database user
+    computed:
+      template: '"{{.Management.hookd_database_user}}"'
+  github.appId:
+    config:
+      type: string
+      secret: true
+  github.clientId:
+    config:
+      type: string
+      secret: true
+  github.clientSecret:
+    config:
+      type: string
+      secret: true
+  github.enabled:
+    config:
+      type: string
+  github.installId:
+    config:
+      type: string
+      secret: true
+  github.privateKeyPemBase64:
+    config:
+      type: string
+      secret: true
+  github.webhookSecret:
+    config:
+      type: string
+      secret: true
+  googleClusterProjects:
+    description: Mapping from cluster name to google project ('cluster1=project1,cluster2=project2')
+    displayName: Google Cluster Projects
+    computed:
+      template: '"{{ mapOf "name" "project_id" .Envs | mapJoin "=" | join "," }}"'
+  googleServiceAccountEmail:
+    description: The service account email that is used to access the postgres-database, set up by terraform.
+    displayName: Google service account
+    computed:
+      template: '"{{.Management.hookd_google_service_account_email}}"'
+  image.imagePullPolicy:
+    config:
+      type: string
+  image.repository:
+    config:
+      type: string
+  image.tag:
+    config:
+      type: string
+  logLinkFormatter:
+    config:
+      type: string
+  provisionKey:
+    computed:
+      template: '"{{.Management.hookd_provision_key}}"'
+  deploydPreSharedKeys:
+    computed:
+      template: '"{{ eachOf .Envs "deployd_pre_shared_key" | join "," }}"'
+  googleClient.id:
+    description: Google OAuth 2.0 Client ID, see https://handbook.nais.io/technical/tenant-setup/#set-up-oauth-client
+    config:
+      type: string
+  googleClient.secret:
+    description: Google OAuth 2.0 Client Secret, see https://handbook.nais.io/technical/tenant-setup/#set-up-oauth-client
+    config:
+      type: string
+      secret: true
+  ingress.host:
+    displayName: Ingress URL
+    computed:
+      template: '"{{ subdomain . "deploy" }}"'

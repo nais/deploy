@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "hookd.name" . }}
+  labels:
+    {{- include "hookd.labels" . | nindent 4 }}
+spec:
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 34.88.176.78/32
+    - ipBlock:
+        cidr: 34.88.4.118/32
+    - ipBlock:
+        cidr: 34.88.161.247/32
+    - ipBlock:
+        cidr: 35.228.252.151/32
+    - ipBlock:
+        cidr: 34.88.111.83/32
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: nais-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: teams-backend
+          app.kubernetes.io/name: teams-backend
+  podSelector:
+    matchLabels:
+      {{- include "hookd.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Egress

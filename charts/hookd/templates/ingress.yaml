@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "hookd.name" . }}
+  labels:
+    {{- include "hookd.labels" . | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTP
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /(api|logs|events)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "hookd.name" . }}
+                port:
+                  number: 80

@@ -1,0 +1,45 @@
+# Default values for hookd.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+ingress:
+  host: "" # mapped by fasit
+  className: "nais-ingress-external"
+
+deploydPreSharedKeys: # mapped by fasit
+googleClient:
+  id: # mapped by fasit
+  secret: # mapped by fasit
+
+logLinkFormatter: "GCP"
+googleServiceAccountName: # mapped by fasit
+googleClusterProjects: # mapped by fasit
+consoleAPIKey: # mapped by fasit
+provisionKey: # mapped by fasit
+database:
+  name: # mapped by fasit
+  user: # mapped by fasit
+  instance: # mapped by fasit
+  encryptionKey: # mapped by fasit
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1069
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+image:
+  repository: europe-north1-docker.pkg.dev/nais-io/nais/images/hookd
+  pullPolicy: IfNotPresent
+  tag: latest
+
+imagePullSecrets: []

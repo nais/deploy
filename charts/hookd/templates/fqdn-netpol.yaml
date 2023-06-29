@@ -1,0 +1,28 @@
+{{- if .Capabilities.APIVersions.Has "networking.gke.io/v1alpha3" }}
+apiVersion: networking.gke.io/v1alpha3
+kind: FQDNNetworkPolicy
+metadata:
+  name: {{ include "hookd.name" . }}
+  labels:
+    {{- include "hookd.labels" . | nindent 4 }}
+spec:
+  egress:
+  - ports:
+    - port: 80
+      protocol: TCP
+    to:
+    - fqdns:
+      - metadata.google.internal
+  - ports:
+    - port: 443
+      protocol: TCP
+    to:
+    - fqdns:
+      - accounts.google.com
+      - private.googleapis.com
+  podSelector:
+    matchLabels:
+      {{- include "hookd.selectorLabels" . | nindent 6 }}
+  policyTypes:
+  - Egress
+{{- end }}
