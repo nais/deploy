@@ -1,14 +1,29 @@
-ARG BASE
-FROM $BASE as base
+FROM golang:1.20-alpine as builder
+
+RUN apk add --no-cache git make curl
+ENV GOOS=linux
+ENV CGO_ENABLED=0
+
+WORKDIR /src
+
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
+
+RUN make kubebuilder
+RUN make test
+RUN make deploy-alpine
+
+
 FROM alpine:3.17
+
 WORKDIR /app
-
 ENV TZ="Europe/Oslo"
-
 RUN apk add --no-cache ca-certificates curl
 RUN curl -L -f https://github.com/mikefarah/yq/releases/download/2.4.1/yq_linux_amd64 > /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
-COPY --from=base /deploy .
+COPY --from=builder /src/bin/deploy .
 COPY actions/deploy/entrypoint.sh /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

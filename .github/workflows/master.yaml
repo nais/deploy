@@ -12,27 +12,7 @@ on:
 env:
   REGISTRY: europe-north1-docker.pkg.dev/nais-io/nais/images
 jobs:
-  build-base:
-    name: Build base image
-    runs-on: ubuntu-latest
-    permissions:
-      contents: "read"
-      id-token: "write"
-    steps:
-      - uses: actions/checkout@v3
-      - uses: nais/platform-build-push-sign@main
-        id: build-push-sign
-        with:
-          name: deploy-base
-          google_service_account: gh-deploy
-          workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
-          push: ${{ github.actor != 'dependabot[bot]' }}
-    outputs:
-      tag: "${{ steps.build-push-sign.outputs.tag }}"
-
   build-push-sign:
-    needs:
-      - build-base
     name: Build, push and sign images
     runs-on: ubuntu-latest
     permissions:
@@ -53,8 +33,6 @@ jobs:
         with:
           dockerfile: Dockerfile.${{ matrix.image }}
           name: ${{ matrix.image }}
-          build_args: |
-            BASE=${{ needs.build-base.outputs.tag }}
           google_service_account: gh-deploy
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
           push: ${{ github.actor != 'dependabot[bot]' }}
@@ -67,25 +45,25 @@ jobs:
       version-hookd: "${{ steps.version-hack.outputs.version-hookd }}"
       version-deployd: "${{ steps.version-hack.outputs.version-deployd }}"
 
-  rollout:
-    name: Rollout with Fasit
-    needs:
-      - build-push-sign
-    permissions:
-      id-token: write
-    runs-on: fasit-deploy
-    steps:
-      - uses: actions/checkout@v3
-      - uses: nais/fasit-deploy@main
-        name: Rollout hookd
-        with:
-          json: '{"backend": {"image": {"tag": "${{ needs.build-push-sign.outputs.version-hookd }}"}}}'
-          feature_name: hookd
-      - uses: nais/fasit-deploy@main
-        name: Rollout deployd
-        with:
-          json: '{"image": {"tag": "${{ needs.build-push-sign.outputs.version-deployd }}"}}'
-          feature_name: deployd
+  # rollout:
+  #   name: Rollout with Fasit
+  #   needs:
+  #     - build-push-sign
+  #   permissions:
+  #     id-token: write
+  #   runs-on: fasit-deploy
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: nais/fasit-deploy@main
+  #       name: Rollout hookd
+  #       with:
+  #         json: '{"backend": {"image": {"tag": "${{ needs.build-push-sign.outputs.version-hookd }}"}}}'
+  #         feature_name: hookd
+  #     - uses: nais/fasit-deploy@main
+  #       name: Rollout deployd
+  #       with:
+  #         json: '{"image": {"tag": "${{ needs.build-push-sign.outputs.version-deployd }}"}}'
+  #         feature_name: deployd
 
   release:
     name: Release GitHub Action / binaries

@@ -8,7 +8,7 @@ LDFLAGS := -X github.com/nais/deploy/pkg/version.Revision=$(LAST_COMMIT) -X gith
 arch := amd64
 os := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-.PHONY: all proto hookd deployd token-generator deploy alpine test docker upload
+.PHONY: all proto hookd deployd token-generator deploy alpine test docker upload deploy-alpine hookd-alpine deployd-alpine
 
 all: hookd deployd deploy
 
@@ -73,3 +73,12 @@ kubebuilder:
 check:
 	go run honnef.co/go/tools/cmd/staticcheck ./...
 	go run golang.org/x/vuln/cmd/govulncheck -v ./...
+
+deployd-alpine:
+	go build -a -installsuffix cgo -o bin/deployd -ldflags "-s $(LDFLAGS)" ./cmd/deployd/
+
+hookd-alpine:
+	go build -a -installsuffix cgo -o bin/hookd -ldflags "-s $(LDFLAGS)" ./cmd/hookd/
+
+deploy-alpine:
+	go build -a -installsuffix cgo -o bin/deploy -ldflags "-s $(LDFLAGS)" ./cmd/deploy/

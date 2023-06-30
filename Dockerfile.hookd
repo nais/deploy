@@ -1,10 +1,24 @@
-ARG BASE
-FROM $BASE as base
+FROM golang:1.20-alpine as builder
+
+RUN apk add --no-cache git make curl
+ENV GOOS=linux
+ENV CGO_ENABLED=0
+
+WORKDIR /src
+
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
+
+RUN make kubebuilder
+RUN make test
+RUN make hookd-alpine
+
+
 FROM alpine:3.17
+
 WORKDIR /app
-
 RUN apk add --no-cache ca-certificates
-
-COPY --from=base /hookd .
-
+COPY --from=builder /src/bin/hookd .
 CMD ["/app/hookd"]

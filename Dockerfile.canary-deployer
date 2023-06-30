@@ -1,13 +1,27 @@
-ARG BASE
-FROM $BASE as base
+FROM golang:1.20-alpine as builder
+
+RUN apk add --no-cache git make curl
+ENV GOOS=linux
+ENV CGO_ENABLED=0
+
+WORKDIR /src
+
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
+
+RUN make kubebuilder
+RUN make test
+RUN make deploy-alpine
+
+
 FROM alpine:3.17
+
 WORKDIR /app
-
 RUN apk add --no-cache ca-certificates
-
-COPY --from=base /deploy .
+COPY --from=builder /src/bin/deploy .
 ADD canary-deployer/deployer.sh /canary/deployer.sh
 ADD canary-deployer/canary.yml /canary/resource.yml
 ENV RESOURCE=/canary/resource.yml
-
 CMD ["/canary/deployer.sh"]
