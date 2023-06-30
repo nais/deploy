@@ -2,7 +2,7 @@
 apiVersion: networking.gke.io/v1alpha3
 kind: FQDNNetworkPolicy
 metadata:
-  name: {{ include "hookd.name" . }}
+  name: {{ include "hookd.name" . }}-fqdn
   labels:
     {{- include "hookd.labels" . | nindent 4 }}
 spec:
