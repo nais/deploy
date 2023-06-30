@@ -26,31 +26,36 @@ type DispatchServer interface {
 
 type dispatchServer struct {
 	pb.UnimplementedDispatchServer
-	dispatchStreamsLock sync.RWMutex
-	dispatchStreams     map[string]pb.Dispatch_DeploymentsServer
-	statusStreamsLock   sync.RWMutex
-	statusStreams       map[context.Context]chan<- *pb.DeploymentStatus
-	db                  database.DeploymentStore
+	onlineClustersLock sync.RWMutex
+	onlineClustersMap  map[string]chan<- *requestWithWait
+	statusStreamsLock  sync.RWMutex
+	statusStreams      map[context.Context]chan<- *pb.DeploymentStatus
+	db                 database.DeploymentStore
+}
+
+var _ DispatchServer = &dispatchServer{}
+
+type requestWithWait struct {
+	request *pb.DeploymentRequest
+	wait    chan error
 }
 
 func New(db database.DeploymentStore) DispatchServer {
 	server := &dispatchServer{
-		dispatchStreams: make(map[string]pb.Dispatch_DeploymentsServer),
-		statusStreams:   make(map[context.Context]chan<- *pb.DeploymentStatus),
-		db:              db,
+		onlineClustersMap: make(map[string]chan<- *requestWithWait),
+		statusStreams:     make(map[context.Context]chan<- *pb.DeploymentStatus),
+		db:                db,
 	}
 
 	return server
 }
 
-var _ DispatchServer = &dispatchServer{}
-
 func (s *dispatchServer) onlineClusters() []string {
-	s.dispatchStreamsLock.RLock()
-	defer s.dispatchStreamsLock.RUnlock()
+	s.onlineClustersLock.RLock()
+	defer s.onlineClustersLock.RUnlock()
 
-	clusters := make([]string, 0, len(s.dispatchStreams))
-	for k := range s.dispatchStreams {
+	clusters := make([]string, 0, len(s.onlineClustersMap))
+	for k := range s.onlineClustersMap {
 		clusters = append(clusters, k)
 	}
 	return clusters
@@ -80,18 +85,19 @@ func (s *dispatchServer) invalidateHistoric(ctx context.Context, cluster string,
 }
 
 func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispatch_DeploymentsServer) error {
-	s.dispatchStreamsLock.RLock()
-	_, clusterAlreadyConnected := s.dispatchStreams[opts.Cluster]
-	s.dispatchStreamsLock.RUnlock()
+	c := make(chan *requestWithWait)
+	s.onlineClustersLock.RLock()
+	_, clusterAlreadyConnected := s.onlineClustersMap[opts.Cluster]
+	s.onlineClustersLock.RUnlock()
 	if clusterAlreadyConnected {
 		log.Warnf("Rejected connection from cluster '%s': already connected", opts.Cluster)
 		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
 	}
 
-	s.dispatchStreamsLock.Lock()
-	s.dispatchStreams[opts.Cluster] = stream
+	s.onlineClustersLock.Lock()
+	s.onlineClustersMap[opts.Cluster] = c
 	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
-	s.dispatchStreamsLock.Unlock()
+	s.onlineClustersLock.Unlock()
 	s.reportOnlineClusters()
 
 	// invalidate older deployments
@@ -100,16 +106,26 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 		return status.Errorf(codes.Unavailable, err.Error())
 	}
 
-	// wait for disconnect
-	<-stream.Context().Done()
+	defer func() {
+		s.onlineClustersLock.Lock()
+		delete(s.onlineClustersMap, opts.Cluster)
+		s.onlineClustersLock.Unlock()
+		s.reportOnlineClusters()
+	}()
 
-	s.dispatchStreamsLock.Lock()
-	delete(s.dispatchStreams, opts.Cluster)
-	log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
-	s.dispatchStreamsLock.Unlock()
-	s.reportOnlineClusters()
-
-	return nil
+	for {
+		select {
+		case <-stream.Context().Done():
+			log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
+			return nil
+		case req := <-c:
+			err := stream.Send(req.request)
+			req.wait <- err
+		case <-time.After(30 * time.Minute):
+			log.Warnf("Connection from cluster '%s' timed out", opts.Cluster)
+			return fmt.Errorf("timeout")
+		}
+	}
 }
 
 func (s *dispatchServer) ReportStatus(ctx context.Context, status *pb.DeploymentStatus) (*pb.ReportStatusOpts, error) {

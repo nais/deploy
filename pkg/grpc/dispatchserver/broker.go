@@ -22,16 +22,17 @@ var (
 )
 
 func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
-	s.dispatchStreamsLock.RLock()
-	stream, online := s.dispatchStreams[request.Cluster]
-	s.dispatchStreamsLock.RUnlock()
+	s.onlineClustersLock.RLock()
+	c, online := s.onlineClustersMap[request.Cluster]
+	s.onlineClustersLock.RUnlock()
 	if !online {
 		return status.Errorf(codes.Unavailable, "cluster '%s' is offline", request.Cluster)
 	}
 
-	err := stream.Send(request)
-	if err != nil {
-		return err
+	wait := make(chan error, 1)
+	c <- &requestWithWait{request: request, wait: wait}
+	if err := <-wait; err != nil {
+		return fmt.Errorf("send deployment request: %w", err)
 	}
 
 	log.WithFields(request.LogFields()).Debugf("Deployment request sent to deployd")
