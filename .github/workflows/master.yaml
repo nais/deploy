@@ -33,13 +33,13 @@ jobs:
           - component: deployd
             chart: true
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3 # ratchet:exclude
       - uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # ratchet:azure/setup-helm@v3
         if: ${{ matrix.chart }}
         with:
           version: "v3.11.1"
       - name: "Build and push image"
-        uses: nais/platform-build-push-sign@main
+        uses: nais/platform-build-push-sign@main # ratchet:exclude
         id: build_push_sign
         with:
           dockerfile: Dockerfile.${{ matrix.component }}
@@ -124,9 +124,9 @@ jobs:
     name: Release GitHub Action / binaries
     needs:
       - build_and_push
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3 # ratchet:exclude
 
       - name: Force create tag
         env:
