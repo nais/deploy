@@ -28,9 +28,9 @@ jobs:
           - canary-deployer
           - deploy-action
         include:
-          - hookd:
+          - component: hookd
             chart: true
-          - deployd:
+          - component: deployd
             chart: true
     steps:
       - uses: actions/checkout@v3
