@@ -73,10 +73,9 @@ jobs:
           echo "${{ matrix.component }}_version=$chart_version" >> $GITHUB_OUTPUT
           echo "archive=$name-$chart_version.tgz" >> $GITHUB_OUTPUT
 
-      - name: "Auth with Google"
+      - name: "Authenticate to Google Cloud"
         id: "auth"
         if: ${{ matrix.chart }} && github.ref == 'refs/heads/master'
-        name: "Authenticate to Google Cloud"
         uses: "google-github-actions/auth@v1" # ratchet:exclude
         with:
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
