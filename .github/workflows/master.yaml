@@ -68,7 +68,7 @@ jobs:
           helm package "${{ env.CHART_PATH }}" --destination .
 
           name=$(yq '.name' < "${{ env.CHART_PATH }}/Chart.yaml")
-          echo "=${{ steps.build-push-sign.outputs.version }}" >> $GITHUB_OUTPUT
+          echo "=${{ steps.build_push_sign.outputs.version }}" >> $GITHUB_OUTPUT
           echo "${{ matrix.component }}_name=$name" >> $GITHUB_OUTPUT
           echo "${{ matrix.component }}_version=$chart_version" >> $GITHUB_OUTPUT
           echo "archive=$name-$chart_version.tgz" >> $GITHUB_OUTPUT
@@ -122,7 +122,8 @@ jobs:
 
   release:
     name: Release GitHub Action / binaries
-    needs: build-push-sign
+    needs:
+      - build_and_push
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
