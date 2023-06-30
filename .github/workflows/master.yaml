@@ -74,8 +74,8 @@ jobs:
           echo "archive=$name-$chart_version.tgz" >> $GITHUB_OUTPUT
 
       - name: "Authenticate to Google Cloud"
+        if: ${{ matrix.chart && github.ref == 'refs/heads/master' }}
         id: "auth"
-        if: ${{ matrix.chart }} && github.ref == 'refs/heads/master'
         uses: "google-github-actions/auth@v1" # ratchet:exclude
         with:
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
@@ -83,12 +83,12 @@ jobs:
           token_format: "access_token"
 
       - name: "Log in to Google Artifact Registry"
-        if: ${{ matrix.chart }} && github.ref == 'refs/heads/master'
+        if: ${{ matrix.chart && github.ref == 'refs/heads/master' }}
         run: |-
           echo '${{ steps.auth.outputs.access_token }}' | docker login -u oauth2accesstoken --password-stdin https://${{ env.GOOGLE_REGISTRY }}
 
       - name: "Push Chart"
-        if: ${{ matrix.chart }} && github.ref == 'refs/heads/master'
+        if: ${{ matrix.chart && github.ref == 'refs/heads/master' }}
         run: |-
           chart="${{ steps.package_chart.outputs.archive }}"
           echo "Pushing: $chart"
@@ -108,14 +108,14 @@ jobs:
     steps:
       - name: "Rollout hookd"
         uses: nais/fasit-deploy@v2 # ratchet:exclude
-        if: github.ref == 'refs/heads/master'
+        if: ${{ github.ref == 'refs/heads/master' }}
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.hookd_chart_name }}
           version: ${{ needs.build_and_push.outputs.hookd_chart_version }}
 
       - name: "Rollout deployd"
         uses: nais/fasit-deploy@v2 # ratchet:exclude
-        if: github.ref == 'refs/heads/master'
+        if: ${{ github.ref == 'refs/heads/master' }}
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.deployd_chart_name }}
           version: ${{ needs.build_and_push.outputs.deployd_chart_version }}
