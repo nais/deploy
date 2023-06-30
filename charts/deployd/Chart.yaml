@@ -1,0 +1,7 @@
+apiVersion: v2
+type: application
+name: deployd
+description: Retrieves deployment instructions from hookd and deploys to cluster
+sources:
+  - https://github.com/nais/deploy/tree/master/charts/deployd
+version: 0.0.1

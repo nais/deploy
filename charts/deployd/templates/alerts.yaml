@@ -1,0 +1,34 @@
+{{- if .Values.canaryAlert }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-canary-deploy
+spec:
+  groups:
+    - name: deployd
+      rules:
+        - alert: NAIS deploy canary does not sing
+          expr: |
+            min(nais_testapp_time_since_deploy{app="nais-deploy-canary",namespace="nais-verification"}) > 900
+          for: 5m
+          labels:
+            namespace: nais-system
+            severity: danger
+          annotations:
+            summary: |
+              Problem with NAIS deploy
+
+              Canary application should deploy every 5 minutes, but has not been deployed successfully in over 20 minutes.
+            consequence: NAIS deploy is probably unavailable. Some or all users might not be able to deploy
+            action: |
+              * `kubectl --context management -n nais-system describe job -l app=canary-deployer`
+              * `kubectl --context management -n nais-system describe deploy hookd`
+              * Ensure deployd is running in cluster that alerts
+              * Ensure that hookd and deployd can talk to each other using gRPC
+              * Check *hookd*, *deployd* and *naiserator* error logs
+
+              Documentation: https://github.com/nais/deploy
+              Logs: https://logs.adeo.no/goto/cb6b89c655dcb051fa633ce35070d385
+              Instrumentation: https://grafana.nais.io/d/Ehcyf6UZk/canary?orgId=1
+              2nd line: @nais-features
+{{- end }}

@@ -3,5 +3,5 @@ type: application
 name: hookd
 description: Receives deploy instructions, verifies authenticity and sends to deployd in the desired cluster.
 sources:
-  - https://github.com/nais/helm-charts/tree/main/charts/hookd
+  - https://github.com/nais/deploy/tree/master/charts/hookd
 version: 0.0.1

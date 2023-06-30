@@ -1,0 +1,67 @@
+dependencies:
+  - allOf:
+      - nais-roles
+      - nais-crds
+environmentKinds:
+  - tenant
+  - onprem
+  - legacy
+values:
+  caBundle:
+    description: Mounts NAV CA bundle
+    displayName: Enable CA bundle
+    config:
+      type: bool
+  canaryAlert:
+    description: Enable canary alert
+    displayName: Enable canary alert
+    config:
+      type: bool
+  cluster:
+    computed:
+      template: '"{{.Env.name}}"'
+  deploymentEventRelays.image.tag:
+    config:
+      type: string
+  deploymentEventRelays.influxdb.password:
+    description: Influx DB password for deployment metrics
+    displayName: InfluxDB password
+    config:
+      type: string
+      secret: true
+  extraEnv.HTTPS_PROXY:
+    displayName: HTTPS proxy
+    config:
+      type: string
+    ignoreKind:
+      - tenant
+  extraEnv.NO_PROXY:
+    displayName: NO_PROXY
+    config:
+      type: string
+    ignoreKind:
+      - tenant
+  hookdHost:
+    description: Host for hookd
+    displayName: hookd host
+    computed:
+      template: '"deploy.{{.Tenant.Name}}.cloud.nais.io"'
+    config:
+      type: string
+  image.imagePullPolicy:
+    config:
+      type: string
+  image.repository:
+    config:
+      type: string
+  image.tag:
+    config:
+      type: string
+  preSharedKey:
+    description: API-key used to communicate with hookd
+    displayName: deployd pre-shared key
+    computed:
+      template: '"{{.Env.deployd_pre_shared_key}}"'
+    config:
+      type: string
+      secret: true
