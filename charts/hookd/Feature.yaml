@@ -25,33 +25,6 @@ values:
     displayName: Database user
     computed:
       template: '"{{.Management.hookd_database_user}}"'
-  github.appId:
-    config:
-      type: string
-      secret: true
-  github.clientId:
-    config:
-      type: string
-      secret: true
-  github.clientSecret:
-    config:
-      type: string
-      secret: true
-  github.enabled:
-    config:
-      type: string
-  github.installId:
-    config:
-      type: string
-      secret: true
-  github.privateKeyPemBase64:
-    config:
-      type: string
-      secret: true
-  github.webhookSecret:
-    config:
-      type: string
-      secret: true
   googleClusterProjects:
     description: Mapping from cluster name to google project ('cluster1=project1,cluster2=project2')
     displayName: Google Cluster Projects
