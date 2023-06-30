@@ -8,15 +8,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type Github struct {
-	Enabled       bool   `json:"enabled"`
-	ClientID      string `json:"client-id"`
-	ClientSecret  string `json:"client-secret"`
-	ApplicationID int    `json:"app-id"`
-	InstallID     int    `json:"install-id"`
-	KeyFile       string `json:"key-file"`
-}
-
 type GRPC struct {
 	Address               string        `json:"address"`
 	CliAuthentication     bool          `json:"cli-authentication"`
@@ -33,7 +24,6 @@ type Config struct {
 	DatabaseConnectTimeout time.Duration `json:"database-connect-timeout"`
 	DeploydKeys            []string      `json:"deployd-keys"`
 	FrontendKeys           []string      `json:"frontend-keys"`
-	Github                 Github        `json:"github"`
 	GoogleClientId         string        `json:"google-client-id"`
 	GoogleAllowedDomains   []string      `json:"google-allowed-domains"`
 	GoogleClusterProjects  []string      `json:"google-cluster-projects"`
@@ -55,12 +45,6 @@ const (
 	DatabaseUrl               = "database-url"
 	DeploydKeys               = "deployd-keys"
 	FrontendKeys              = "frontend-keys"
-	GithubAppId               = "github.app-id"
-	GithubClientId            = "github.client-id"
-	GithubClientSecret        = "github.client-secret"
-	GithubEnabled             = "github.enabled"
-	GithubInstallId           = "github.install-id"
-	GithubKeyFile             = "github.key-file"
 	GoogleClientId            = "google-client-id"
 	GoogleAllowedDomains      = "google-allowed-domains"
 	GoogleClusterProjects     = "google-cluster-projects"
@@ -91,13 +75,6 @@ func Initialize() *Config {
 	bindNAIS()
 
 	// Provide command-line flags
-	flag.Bool(GithubEnabled, false, "Enable connections to Github.")
-	flag.Int(GithubAppId, 0, "Github App ID.")
-	flag.Int(GithubInstallId, 0, "Github App installation ID.")
-	flag.String(GithubKeyFile, "private-key.pem", "Path to PEM key owned by Github App.")
-	flag.String(GithubClientId, "", "Client ID of the Github App.")
-	flag.String(GithubClientSecret, "", "Client secret of the GitHub App.")
-
 	flag.String(BaseUrl, "http://localhost:8080", "Base URL where hookd can be reached.")
 	flag.String(ListenAddress, "127.0.0.1:8080", "IP:PORT")
 	flag.String(LogFormat, "text", "Log format, either 'json' or 'text'.")

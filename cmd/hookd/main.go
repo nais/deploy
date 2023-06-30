@@ -36,7 +36,6 @@ import (
 )
 
 var maskedConfig = []string{
-	config.GithubClientSecret,
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
 	config.DeploydKeys,
@@ -70,10 +69,6 @@ func run() error {
 
 	for _, line := range conftools.Format(maskedConfig) {
 		log.Info(line)
-	}
-
-	if cfg.Github.Enabled && (cfg.Github.ApplicationID == 0 || cfg.Github.InstallID == 0) {
-		return fmt.Errorf("--github-install-id and --github-app-id must be specified when --github-enabled=true")
 	}
 
 	provisionKey, err := hex.DecodeString(cfg.ProvisionKey)
@@ -141,7 +136,6 @@ func run() error {
 		BaseURL:               cfg.BaseURL,
 		DeploymentStore:       db,
 		DispatchServer:        dispatchServer,
-		GithubConfig:          cfg.Github,
 		MetricsPath:           cfg.MetricsPath,
 		ValidatorMiddlewares:  validators,
 		PSKValidator:          middleware.PskValidatorMiddleware(cfg.FrontendKeys),

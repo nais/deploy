@@ -13,7 +13,6 @@ import (
 	api_v1_dashboard "github.com/nais/deploy/pkg/hookd/api/v1/dashboard"
 	api_v1_provision "github.com/nais/deploy/pkg/hookd/api/v1/provision"
 	api_v1_teams "github.com/nais/deploy/pkg/hookd/api/v1/teams"
-	"github.com/nais/deploy/pkg/hookd/config"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/deploy/pkg/hookd/middleware"
@@ -30,7 +29,6 @@ type Config struct {
 	BaseURL               string
 	DispatchServer        dispatchserver.DispatchServer
 	DeploymentStore       database.DeploymentStore
-	GithubConfig          config.Github
 	InstallationClient    *gh.Client
 	MetricsPath           string
 	ValidatorMiddlewares  chi.Middlewares
