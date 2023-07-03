@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	println("Yo, s'up?")
 	err := run()
 	if err == nil {
 		return
