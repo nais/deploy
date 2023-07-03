@@ -34,7 +34,7 @@ require (
 	github.com/google/go-github/v41 v41.0.0
 	github.com/lestrrat-go/jwx v1.2.26
 	github.com/shurcooL/graphql v0.0.0-20220520033453-bdb1221e171e
-	github.com/vektra/mockery/v2 v2.20.0
+	github.com/vektra/mockery/v2 v2.30.1
 	golang.org/x/vuln v0.1.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	honnef.co/go/tools v0.4.3
@@ -45,7 +45,7 @@ require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/chigopher/pathlib v0.12.0 // indirect
+	github.com/chigopher/pathlib v0.15.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
@@ -63,6 +63,7 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/iancoleman/strcase v0.2.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
@@ -73,6 +74,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgtype v1.14.0 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
+	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
