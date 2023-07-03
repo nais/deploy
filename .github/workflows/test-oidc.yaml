@@ -1,6 +1,7 @@
 name: 'Hello OIDC world'
 
 on:
+  pull_request:
   workflow_dispatch:
 
 permissions:
