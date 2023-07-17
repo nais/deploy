@@ -15,13 +15,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: The OIDC stuff
-        uses: ./actions/testoidc
-        id: 'hello-oidc'
-        with:
-          aud: 'bogus-aud'
-      - name: Get the output
-        run: echo "Got result ${{ steps.hello-oidc.outputs.result }}"
       - name: Print Git config
         run: git config -l
       - name: do stuff
@@ -32,3 +25,10 @@ jobs:
           else 
             echo "yes, its available" 
           fi
+      - name: The OIDC stuff
+        uses: ./actions/testoidc
+        id: 'hello-oidc'
+        with:
+          aud: 'bogus-aud'
+      - name: Get the output
+        run: echo "Got result ${{ steps.hello-oidc.outputs.result }}"
