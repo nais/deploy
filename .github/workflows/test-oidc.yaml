@@ -22,3 +22,5 @@ jobs:
           aud: 'bogus-aud'
       - name: Get the output
         run: echo "Got result ${{ steps.hello-oidc.outputs.result }}"
+      - name: Print Git config
+        run: git config -l
