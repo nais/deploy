@@ -24,3 +24,11 @@ jobs:
         run: echo "Got result ${{ steps.hello-oidc.outputs.result }}"
       - name: Print Git config
         run: git config -l
+      - name: do stuff
+        run: |
+          if [ -z $GITHUB_TOKEN ]: 
+          then 
+            echo "no bueno" 
+          else 
+            echo "yes, its available" 
+          fi
