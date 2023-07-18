@@ -11,6 +11,8 @@ try {
 		const claims = decode(token)
 		core.setOutput('result', claims)
 	})
+	const tokenURL = process.env.ACTIONS_ID_TOKEN_REQUEST_URL
+	core.setOutput('tokenURL', tokenURL)
 } catch (err) {
 	core.setFailed(err.message)
 }
