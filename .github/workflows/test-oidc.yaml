@@ -21,6 +21,8 @@ jobs:
         with:
           aud: 'bogus-aud'
       - name: Get the output
-        run: echo "Got result ${{ steps.hello-oidc.outputs.result }}"
+        run: |
+          echo "Got result ${{ steps.hello-oidc.outputs.result }}"
+          echo "Got tokenURL ${{ steps.hello-oidc.outputs.tokenURL }}"
       - name: Print Git config
         run: git config -l
