@@ -9,21 +9,21 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi"
-
-	unauthenticated_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/unauthenticated"
-	"github.com/nais/deploy/pkg/version"
+	"github.com/nais/liberator/pkg/conftools"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/nais/deploy/pkg/grpc/deployserver"
+	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
 	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	switch_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/switch"
-	"github.com/nais/liberator/pkg/conftools"
-
-	"github.com/nais/deploy/pkg/grpc/dispatchserver"
+	unauthenticated_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/unauthenticated"
 	"github.com/nais/deploy/pkg/hookd/api"
 	"github.com/nais/deploy/pkg/hookd/config"
 	"github.com/nais/deploy/pkg/hookd/database"
@@ -31,8 +31,7 @@ import (
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
-	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
+	"github.com/nais/deploy/pkg/version"
 )
 
 var maskedConfig = []string{
@@ -155,7 +154,7 @@ func run() error {
 	log.Infof("Ready to accept connections")
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-signals
 
 	log.Infof("Received signal %s (%d), exiting...", sig, sig)
