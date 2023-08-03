@@ -35,6 +35,7 @@ import (
 )
 
 var maskedConfig = []string{
+	config.ConsoleApiKey,
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
 	config.DeploydKeys,
