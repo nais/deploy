@@ -7,12 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nais/deploy/pkg/hookd/database"
-	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
-	"github.com/nais/deploy/pkg/hookd/metrics"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/nais/deploy/pkg/hookd/database"
+	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
+	"github.com/nais/deploy/pkg/hookd/metrics"
 
 	"github.com/nais/deploy/pkg/pb"
 )
@@ -100,18 +101,18 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 	s.onlineClustersLock.Unlock()
 	s.reportOnlineClusters()
 
-	// invalidate older deployments
-	err := s.invalidateHistoric(stream.Context(), opts.GetCluster(), opts.GetStartupTime().AsTime())
-	if err != nil {
-		return status.Errorf(codes.Unavailable, err.Error())
-	}
-
 	defer func() {
 		s.onlineClustersLock.Lock()
 		delete(s.onlineClustersMap, opts.Cluster)
 		s.onlineClustersLock.Unlock()
 		s.reportOnlineClusters()
 	}()
+
+	// invalidate older deployments
+	err := s.invalidateHistoric(stream.Context(), opts.GetCluster(), opts.GetStartupTime().AsTime())
+	if err != nil {
+		return status.Errorf(codes.Unavailable, err.Error())
+	}
 
 	for {
 		select {
