@@ -29,6 +29,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "hookd.name" . }}
+      terminationGracePeriodSeconds: 30
       containers:
         - name: cloud-sql-proxy
           image: gcr.io/cloudsql-docker/gce-proxy:1.28.0 # make sure the use the latest version
@@ -37,6 +38,7 @@ spec:
             - "-log_debug_stdout"
             - "-instances={{ .Values.database.instance }}=tcp:5432"
             - "-enable_iam_login"
+            - "-term_timeout=30s"
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
