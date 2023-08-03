@@ -205,9 +205,16 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		grpc.ChainStreamInterceptor(streamInterceptors...),
 	)
 
-	serverOpts = append(serverOpts, grpc.KeepaliveParams(keepalive.ServerParameters{
-		Time: cfg.GRPC.KeepaliveInterval,
-	}))
+	serverOpts = append(
+		serverOpts,
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time: cfg.GRPC.KeepaliveInterval,
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	)
 
 	grpcServer := grpc.NewServer(serverOpts...)
 
