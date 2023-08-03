@@ -7,7 +7,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/nais/liberator/pkg/conftools"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 
 	"github.com/nais/deploy/pkg/deployd/config"
 	"github.com/nais/deploy/pkg/deployd/deployd"
@@ -18,14 +28,6 @@ import (
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/version"
-	"github.com/nais/liberator/pkg/conftools"
-	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -100,9 +102,9 @@ func run() error {
 
 	defer grpcConnection.Close()
 
-	// Trap SIGINT to trigger a shutdown.
+	// Trap SIGINT and SIGTERM to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	startupTime := time.Now()
 	statusChan := make(chan *pb.DeploymentStatus, 1024)
@@ -214,7 +216,8 @@ func run() error {
 		case <-time.NewTimer(statusQueueReportInterval).C:
 			reportAllInQueue()
 
-		case <-signals:
+		case sig := <-signals:
+			log.Infof("Received signal %s (%d), exiting...", sig, sig)
 			return nil
 		}
 	}
