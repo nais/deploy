@@ -90,7 +90,12 @@ func run() error {
 			Key:        cfg.HookdKey,
 		}
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
-		dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 10 * time.Second, PermitWithoutStream: true}))
+
+		// Client-side parameters should be kept in sync with the server-side settings to avoid throttling (GOAWAY/ENHANCE_YOUR_CALM).
+		dialOptions = append(dialOptions, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                10 * time.Second,
+			PermitWithoutStream: true,
+		}))
 	}
 
 	grpcConnection, err := grpc.Dial(cfg.GRPC.Server, dialOptions...)

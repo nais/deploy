@@ -210,8 +210,9 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Time: cfg.GRPC.KeepaliveInterval,
 		}),
+		// Server-side enforcement policy MUST match or be more lenient than client-side settings to avoid throttling (GOAWAY/ENHANCE_YOUR_CALM).
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             10 * time.Second,
+			MinTime:             5 * time.Second,
 			PermitWithoutStream: true,
 		}),
 	)
