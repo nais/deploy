@@ -3,7 +3,7 @@
     "kind": "Application",
     "apiVersion": "nais.io/v1alpha1",
     "metadata": {
-      "name": "myapplication-unknown-fields-update",
+      "name": "myapplication",
       "namespace": "aura"
     },
     "spec": {

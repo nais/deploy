@@ -3,7 +3,6 @@ package kubeclient
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -25,9 +24,6 @@ type Interface interface {
 
 	// Return a new client of the same type, but using the team's credentials
 	Impersonate(team string) (Interface, error)
-
-	// Return a new client of the same type, but with a WarningHandler configured.
-	WarningHandler(correlationID string, logger *log.Entry, resource unstructured.Unstructured) (Interface, error)
 }
 
 type client struct {
@@ -48,18 +44,6 @@ func (c *client) Impersonate(team string) (Interface, error) {
 		return nil, err
 	}
 	return New(config)
-}
-
-func (c *client) WarningHandler(correlationID string, logger *log.Entry, resource unstructured.Unstructured) (Interface, error) {
-	config := *c.config
-	config.WarningHandler = &warningHandler{
-		client:        c.static,
-		correlationID: correlationID,
-		logger:        logger,
-		resource:      resource,
-	}
-
-	return New(&config)
 }
 
 // Given a unstructured Kubernetes resource, return a dynamic client that knows how to apply it to the cluster.
