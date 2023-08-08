@@ -11,6 +11,7 @@ metadata:
       grpc_read_timeout 86400s;
       grpc_send_timeout 86400s;
       client_body_timeout 86400s;
+      grpc_next_upstream_tries 5;
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
