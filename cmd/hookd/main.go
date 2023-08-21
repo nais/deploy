@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	auth_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/auth"
 	"net"
 	"net/http"
 	"os"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/nais/deploy/pkg/grpc/deployserver"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
-	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
 	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	switch_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/switch"
 	unauthenticated_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/unauthenticated"
@@ -179,7 +179,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, unauthenticatedInterceptor)
 
 		if cfg.GRPC.CliAuthentication {
-			apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
+			apikeyInterceptor := &auth_interceptor.ServerInterceptor{
 				APIKeyStore: apikeys,
 			}
 			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)

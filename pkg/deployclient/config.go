@@ -3,6 +3,7 @@ package deployclient
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/lestrrat-go/jwx/jwt"
 	"os"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 type Config struct {
 	APIKey             string
+	OidcToken          string
 	Actions            bool
 	Cluster            string
 	DeployServerURL    string
@@ -39,6 +41,7 @@ type Config struct {
 func InitConfig(cfg *Config) {
 	flag.BoolVar(&cfg.Actions, "actions", getEnvBool("ACTIONS", false), "Use GitHub Actions compatible error and warning messages. (env ACTIONS)")
 	flag.StringVar(&cfg.APIKey, "apikey", os.Getenv("APIKEY"), "NAIS Deploy API key. (env APIKEY)")
+	flag.StringVar(&cfg.OidcToken, "oidc-token", os.Getenv("DEPLOY_TOKEN"), "NAIS Deploy OIDC token. (env DEPLOY_TOKEN)")
 	flag.StringVar(&cfg.Cluster, "cluster", os.Getenv("CLUSTER"), "NAIS cluster to deploy into. (env CLUSTER)")
 	flag.StringVar(&cfg.DeployServerURL, "deploy-server", getEnv("DEPLOY_SERVER", DefaultDeployServer), "URL to API server. (env DEPLOY_SERVER)")
 	flag.BoolVar(&cfg.DryRun, "dry-run", getEnvBool("DRY_RUN", false), "Run templating, but don't actually make any requests. (env DRY_RUN)")
@@ -119,8 +122,12 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf(ClusterRequiredMsg)
 	}
 
-	if len(cfg.APIKey) == 0 {
-		return fmt.Errorf(APIKeyRequiredMsg)
+	if !xor(cfg.APIKey, cfg.OidcToken) {
+		return fmt.Errorf(AuthRequiredMsg)
+	}
+
+	if !isValid(cfg.OidcToken) {
+		return fmt.Errorf(AuthRequiredMsg)
 	}
 
 	_, err := hex.DecodeString(cfg.APIKey)
@@ -129,4 +136,14 @@ func (cfg *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func xor(first, second string) bool {
+	return (len(first) != 0 && len(second) == 0) ||
+		(len(first) == 0 && len(second) != 0)
+}
+
+func isValid(oidcToken string) bool {
+	_, err := jwt.Parse([]byte(oidcToken))
+	return err != nil
 }

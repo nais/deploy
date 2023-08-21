@@ -22,7 +22,7 @@ const (
 	DefaultDeployTimeout = time.Minute * 10
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
-	APIKeyRequiredMsg   = "API key required"
+	AuthRequiredMsg     = "a valid OIDC token or an API key is required (not both)"
 	ClusterRequiredMsg  = "cluster required; see https://doc.nais.io/clusters"
 	MalformedAPIKeyMsg  = "API key must be a hex encoded string"
 )
