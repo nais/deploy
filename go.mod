@@ -34,7 +34,7 @@ require (
 	github.com/google/go-github/v41 v41.0.0
 	github.com/lestrrat-go/jwx v1.2.26
 	github.com/shurcooL/graphql v0.0.0-20220520033453-bdb1221e171e
-	github.com/vektra/mockery/v2 v2.32.0
+	github.com/vektra/mockery/v2 v2.33.0
 	golang.org/x/vuln v1.0.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
 	honnef.co/go/tools v0.4.3
