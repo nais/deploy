@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/nais/liberator/pkg/conftools"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -171,6 +173,14 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 
 	serverOpts := make([]grpc.ServerOption, 0)
 
+	serverMetrics := grpc_prometheus.NewServerMetrics(
+		grpc_prometheus.WithServerHandlingTimeHistogram(),
+	)
+	prometheus.MustRegister(serverMetrics)
+
+	unaryInterceptors = append(unaryInterceptors, serverMetrics.UnaryServerInterceptor())
+	streamInterceptors = append(streamInterceptors, serverMetrics.StreamServerInterceptor())
+
 	if cfg.GRPC.CliAuthentication || cfg.GRPC.DeploydAuthentication {
 		interceptor := switch_interceptor.NewServerInterceptor()
 
@@ -221,6 +231,8 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 
 	pb.RegisterDispatchServer(grpcServer, dispatchServer)
 	pb.RegisterDeployServer(grpcServer, deployServer)
+
+	serverMetrics.InitializeMetrics(grpcServer)
 
 	grpcListener, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
