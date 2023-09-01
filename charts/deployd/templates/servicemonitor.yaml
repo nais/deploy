@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "deployd.fullname" . }}
+  labels:
+    {{- include "deployd.labels" . | nindent 4 }}
+spec:
+  endpoints:
+  - interval: 1m
+    port: http
+    scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      {{- include "deployd.selectorLabels" . | nindent 6 }}
