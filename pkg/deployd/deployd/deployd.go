@@ -6,14 +6,15 @@ import (
 
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 
+	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/metrics"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/deployd/strategy"
 	"github.com/nais/deploy/pkg/k8sutils"
 	"github.com/nais/deploy/pkg/pb"
-	log "github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Annotate a resource with the deployment correlation ID.
@@ -59,7 +60,15 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			"gvk":       identifier.GroupVersionKind,
 		})
 
-		resourceInterface, err := client.ResourceInterface(&resource)
+		deployclient, err := client.WarningHandler(op.Request.GetID(), logger, resource)
+		if err != nil {
+			err = fmt.Errorf("%s: creating deploy client: %s", identifier.String(), err)
+			logger.Error(err)
+			errors <- err
+			break
+		}
+
+		resourceInterface, err := deployclient.ResourceInterface(&resource)
 		if err == nil {
 			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource)
 		}

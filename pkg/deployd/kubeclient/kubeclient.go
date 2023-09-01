@@ -3,7 +3,7 @@ package kubeclient
 import (
 	"fmt"
 
-	"github.com/nais/deploy/pkg/deployd/teamconfig"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -11,6 +11,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // Needed for auth side effect
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+
+	"github.com/nais/deploy/pkg/deployd/teamconfig"
 )
 
 // Provide a Kubernetes client that knows how to deal with unstructured resources and team impersonation.
@@ -23,6 +25,9 @@ type Interface interface {
 
 	// Return a new client of the same type, but using the team's credentials
 	Impersonate(team string) (Interface, error)
+
+	// Return a new client of the same type, but with a WarningHandler configured.
+	WarningHandler(correlationID string, logger *log.Entry, resource unstructured.Unstructured) (Interface, error)
 }
 
 type client struct {
@@ -43,6 +48,18 @@ func (c *client) Impersonate(team string) (Interface, error) {
 		return nil, err
 	}
 	return New(config)
+}
+
+func (c *client) WarningHandler(correlationID string, logger *log.Entry, resource unstructured.Unstructured) (Interface, error) {
+	config := *c.config
+	config.WarningHandler = &warningHandler{
+		client:        c.static,
+		correlationID: correlationID,
+		logger:        logger,
+		resource:      resource,
+	}
+
+	return New(&config)
 }
 
 // Given a unstructured Kubernetes resource, return a dynamic client that knows how to apply it to the cluster.

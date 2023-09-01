@@ -25,9 +25,11 @@ type createOrUpdateStrategy struct {
 func (c createOrUpdateStrategy) Deploy(ctx context.Context, resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	existing, err := c.client.Get(ctx, resource.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
-		deployed, err := c.client.Create(ctx, &resource, metav1.CreateOptions{})
+		deployed, err := c.client.Create(ctx, &resource, metav1.CreateOptions{
+			FieldValidation: metav1.FieldValidationWarn,
+		})
 		if err != nil {
-			return nil, fmt.Errorf("get existing resource: %s", err)
+			return nil, fmt.Errorf("creating resource: %s", err)
 		}
 		return deployed, nil
 	} else if err != nil {
@@ -35,5 +37,11 @@ func (c createOrUpdateStrategy) Deploy(ctx context.Context, resource unstructure
 	}
 
 	resource.SetResourceVersion(existing.GetResourceVersion())
-	return c.client.Update(ctx, &resource, metav1.UpdateOptions{})
+	updated, err := c.client.Update(ctx, &resource, metav1.UpdateOptions{
+		FieldValidation: metav1.FieldValidationWarn,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("updating resource: %s", err)
+	}
+	return updated, nil
 }

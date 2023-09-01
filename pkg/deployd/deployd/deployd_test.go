@@ -9,12 +9,6 @@ import (
 	"time"
 
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
-	rbac_v1 "k8s.io/api/rbac/v1"
-
-	"github.com/nais/deploy/pkg/deployd/deployd"
-	"github.com/nais/deploy/pkg/deployd/kubeclient"
-	"github.com/nais/deploy/pkg/deployd/operation"
-	"github.com/nais/deploy/pkg/pb"
 	nais_io_v1alpha1 "github.com/nais/liberator/pkg/apis/nais.io/v1alpha1"
 	"github.com/nais/liberator/pkg/crd"
 	"github.com/nais/liberator/pkg/events"
@@ -23,10 +17,16 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
+	rbac_v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/nais/deploy/pkg/deployd/deployd"
+	"github.com/nais/deploy/pkg/deployd/kubeclient"
+	"github.com/nais/deploy/pkg/deployd/operation"
+	"github.com/nais/deploy/pkg/pb"
 )
 
 type processCallback func(ctx context.Context, rig *testRig, test testSpec) error
@@ -146,6 +146,48 @@ var tests = []testSpec{
 		},
 		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
 			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedPrepare, "oops", "myapplication-failedprepare"))
+		},
+	},
+
+	// Create Application with unknown fields
+	{
+		fixture: "testdata/application-unknownfields-create.json",
+		timeout: 2 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_success,
+			Message: "Deployment completed successfully.",
+		},
+		deployedResources: []client.Object{
+			&nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-unknown-fields",
+					Namespace: "aura",
+				},
+			},
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "myapplication-unknown-fields"))
+		},
+	},
+
+	// Update existing Application with unknown fields
+	{
+		fixture: "testdata/application-unknownfields-update.json",
+		timeout: 2 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_success,
+			Message: "Deployment completed successfully.",
+		},
+		deployedResources: []client.Object{
+			&nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-unknown-fields-update",
+					Namespace: "aura",
+				},
+			},
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "myapplication-unknown-fields-update"))
 		},
 	},
 }

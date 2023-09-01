@@ -1,0 +1,19 @@
+[
+  {
+    "kind": "Application",
+    "apiVersion": "nais.io/v1alpha1",
+    "metadata": {
+      "name": "myapplication-unknown-fields-update",
+      "namespace": "aura"
+    },
+    "spec": {
+      "image": "foo/bar",
+      "nestedField": {
+        "yolo": {
+          "cat": "meow"
+        }
+      },
+      "unknownField": "baz"
+    }
+  }
+]
