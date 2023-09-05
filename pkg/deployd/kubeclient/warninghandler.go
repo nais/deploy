@@ -85,7 +85,7 @@ func (w *warningHandler) makeNewEvent(name, message string) *v1.Event {
 			ResourceVersion: w.resource.GetResourceVersion(),
 		},
 		Reason:         "FailedValidation",
-		Message:        message,
+		Message:        fmt.Sprintf("%s: this field will not have any effect and should either be corrected or removed; ignoring validation failure for now...", message),
 		FirstTimestamp: t,
 		LastTimestamp:  t,
 		Count:          1,
