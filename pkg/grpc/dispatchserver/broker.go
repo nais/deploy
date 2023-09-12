@@ -5,7 +5,6 @@ package dispatchserver
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/nais/deploy/pkg/hookd/database"
 	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
@@ -14,11 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-)
-
-var (
-	requestTimeout  = time.Second * 5
-	errNoRepository = fmt.Errorf("no repository specified")
 )
 
 func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
