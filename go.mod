@@ -36,7 +36,7 @@ require (
 	github.com/vektra/mockery/v2 v2.33.2
 	golang.org/x/vuln v1.0.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
-	honnef.co/go/tools v0.4.3
+	honnef.co/go/tools v0.4.5
 	mvdan.cc/gofumpt v0.5.0
 )
 
