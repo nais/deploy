@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"github.com/lestrrat-go/jwx/v2/jws"
 	"net/http"
 	"strings"
 	"time"
@@ -11,8 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 
-	"github.com/lestrrat-go/jwx/jwk"
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
 const (
@@ -25,7 +26,7 @@ type GoogleValidator struct {
 	consoleApiKey  string
 	consoleUrl     string
 	allowedDomains []string
-	jwkAutoRefresh *jwk.AutoRefresh
+	jwkCache       *jwk.Cache
 }
 
 func NewGoogleValidator(clientID, consoleApiKey, consoleUrl string, allowedDomains []string) (*GoogleValidator, error) {
@@ -46,16 +47,18 @@ func NewGoogleValidator(clientID, consoleApiKey, consoleUrl string, allowedDomai
 func (g *GoogleValidator) setupJwkAutoRefresh() error {
 	ctx := context.Background()
 
-	ar := jwk.NewAutoRefresh(ctx)
-	ar.Configure(googleDiscoveryURL, jwk.WithMinRefreshInterval(time.Hour))
-
-	// trigger initial token fetch
-	_, err := ar.Refresh(ctx, googleDiscoveryURL)
+	cache := jwk.NewCache(ctx)
+	err := cache.Register(googleDiscoveryURL, jwk.WithRefreshInterval(time.Hour))
 	if err != nil {
-		return fmt.Errorf("fetch jwks: %w", err)
+		return fmt.Errorf("jwks caching: %w", err)
 	}
+	// force initial refresh
+	_, err = cache.Refresh(ctx, googleDiscoveryURL)
+	if err != nil {
+		return fmt.Errorf("jwks caching: %w", err)
+	}
+	g.jwkCache = cache
 
-	g.jwkAutoRefresh = ar
 	return nil
 }
 
@@ -63,16 +66,14 @@ func (g *GoogleValidator) KeySetFrom(t jwt.Token) (jwk.Set, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	return g.jwkAutoRefresh.Fetch(ctx, googleDiscoveryURL)
+	return g.jwkCache.Get(ctx, googleDiscoveryURL)
 }
 
 func (g *GoogleValidator) jwtOptions() []jwt.ParseOption {
 	return []jwt.ParseOption{
 		jwt.WithValidate(true),
-		jwt.InferAlgorithmFromKey(true),
 		jwt.WithAcceptableSkew(5 * time.Second),
 		jwt.WithIssuer(googleIssuer),
-		jwt.WithKeySetProvider(g),
 		jwt.WithAudience(g.clientID),
 		jwt.WithRequiredClaim("email"),
 		jwt.WithRequiredClaim("hd"),
@@ -109,7 +110,13 @@ func (g *GoogleValidator) Middleware() func(next http.Handler) http.Handler {
 }
 
 func (g *GoogleValidator) parseAndValidateToken(token string) (string, error) {
-	tok, err := jwt.ParseString(token, g.jwtOptions()...)
+	pubKeys, err := g.jwkCache.Get(context.Background(), googleDiscoveryURL)
+	if err != nil {
+		return "", fmt.Errorf("parse token: %w", err)
+	}
+	keySetOpts := jwt.WithKeySet(pubKeys, jws.WithInferAlgorithmFromKey(true))
+	otherParseOpts := g.jwtOptions()
+	tok, err := jwt.Parse([]byte(token), append(otherParseOpts, keySetOpts)...)
 	if err != nil {
 		return "", fmt.Errorf("parse token: %w", err)
 	}

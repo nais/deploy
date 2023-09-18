@@ -31,7 +31,7 @@ require (
 
 require (
 	github.com/google/go-github/v41 v41.0.0
-	github.com/lestrrat-go/jwx v1.2.26
+	github.com/lestrrat-go/jwx/v2 v2.0.12
 	github.com/shurcooL/graphql v0.0.0-20220520033453-bdb1221e171e
 	github.com/vektra/mockery/v2 v2.33.2
 	golang.org/x/vuln v1.0.1
@@ -78,9 +78,9 @@ require (
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
+	github.com/lestrrat-go/httprc v1.0.4 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -101,6 +101,7 @@ require (
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/rs/zerolog v1.30.0 // indirect
+	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
