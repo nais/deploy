@@ -42,4 +42,6 @@ image:
   pullPolicy: IfNotPresent
   tag: latest
 
+frontendPreSharedKey: # mapped by fasit
+
 imagePullSecrets: []

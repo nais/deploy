@@ -66,3 +66,8 @@ values:
     displayName: Ingress URL
     computed:
       template: '"{{ subdomain . "deploy" }}"'
+  frontendPreSharedKey:
+    displayName: "console-backend pre-shared key"
+    computed:
+      template: "{{.Management.hookd_frontend_pre_shared_key | quote}}"
+    description: "The pre-shared key used to authenticate the console-backend"
