@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/nais/deploy/pkg/grpc/interceptor/oidc"
 	"net"
 	"net/http"
 	"os"
@@ -194,6 +195,15 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 			}
 			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)
 			log.Infof("Authentication enabled for deployment requests")
+		}
+
+		if cfg.GRPC.OidcAuthentication {
+			oidcInterceptor, err := oidc.NewOidcServerInterceptor()
+			if err != nil {
+				return nil, nil, err
+			}
+			interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, oidcInterceptor)
+			log.Infof("OIDC authentication enabled for deployment requests")
 		}
 
 		if cfg.GRPC.DeploydAuthentication {

@@ -12,6 +12,7 @@ type GRPC struct {
 	Address               string        `json:"address"`
 	CliAuthentication     bool          `json:"cli-authentication"`
 	DeploydAuthentication bool          `json:"deployd-authentication"`
+	OidcAuthentication    bool          `json:"oidc-authentication"`
 	KeepaliveInterval     time.Duration `json:"keepalive-interval"`
 }
 
