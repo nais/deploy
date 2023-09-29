@@ -31,11 +31,10 @@ securityContext:
 
 resources:
   limits:
-    cpu: 100m
     memory: 128Mi
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 64Mi
 
 image:
   repository: europe-north1-docker.pkg.dev/nais-io/nais/images/hookd
