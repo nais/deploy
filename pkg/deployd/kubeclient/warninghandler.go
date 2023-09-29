@@ -68,6 +68,20 @@ func (w *warningHandler) HandleWarningHeader(_ int, _ string, message string) {
 func (w *warningHandler) makeNewEvent(name, message string) *v1.Event {
 	t := metav1.NewTime(time.Now())
 
+	docs := map[string]string{
+		"nais.io/v1alpha1, Kind=Application": "https://doc.nais.io/nais-application/application/",
+		"nais.io/v1, Kind=Naisjob":           "https://doc.nais.io/naisjob/reference/",
+	}
+
+	msg := &strings.Builder{}
+	msg.WriteString(message + "; it might be misspelled or incorrectly indented, or unsupported by the resource API specifications.\n")
+	msg.WriteString("\tPlease verify your resource against the API reference")
+	if u, ok := docs[w.resource.GroupVersionKind().String()]; ok {
+		msg.WriteString(" documentation at " + u)
+	}
+	msg.WriteString(".\n")
+	msg.WriteString("\tThis is a validation warning only. Validation is not enforced and will not cause a deployment failure. However, the defined field will have no effect because it is invalid.")
+
 	return &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -84,8 +98,8 @@ func (w *warningHandler) makeNewEvent(name, message string) *v1.Event {
 			APIVersion:      w.resource.GetAPIVersion(),
 			ResourceVersion: w.resource.GetResourceVersion(),
 		},
-		Reason:         "FailedValidation",
-		Message:        fmt.Sprintf("%s: this field will not have any effect and should either be corrected or removed; ignoring validation failure for now...", message),
+		Reason:         "UnknownFieldWarning",
+		Message:        msg.String(),
 		FirstTimestamp: t,
 		LastTimestamp:  t,
 		Count:          1,
