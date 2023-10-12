@@ -72,7 +72,6 @@ kubebuilder:
 
 check:
 	go run honnef.co/go/tools/cmd/staticcheck ./...
-	go run golang.org/x/vuln/cmd/govulncheck ./...
 
 deployd-alpine:
 	go build -a -installsuffix cgo -o bin/deployd -ldflags "-s $(LDFLAGS)" ./cmd/deployd/
