@@ -198,7 +198,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		}
 
 		if cfg.GRPC.OidcAuthentication {
-			oidcInterceptor, err := oidc.NewOidcServerInterceptor()
+			oidcInterceptor, err := oidc.NewServerInterceptor()
 			if err != nil {
 				return nil, nil, err
 			}

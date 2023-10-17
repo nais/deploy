@@ -19,3 +19,6 @@
 # Local test data
 /testdata
 .env
+
+# Mac stuff
+.DS_Store
