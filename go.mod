@@ -8,7 +8,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.3
 	github.com/golang/protobuf v1.5.3
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0-rc.0.0.20230628165249-e895693d1a25
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/lib/pq v1.10.9
@@ -19,7 +19,7 @@ require (
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/oauth2 v0.11.0
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/sakura-internet/go-rison.v3 v3.2.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -36,7 +36,7 @@ require (
 	github.com/vektra/mockery/v2 v2.33.2
 	golang.org/x/vuln v1.0.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
-	honnef.co/go/tools v0.4.5
+	honnef.co/go/tools v0.4.6
 	mvdan.cc/gofumpt v0.5.0
 )
 
@@ -120,7 +120,7 @@ require (
 	golang.org/x/tools v0.13.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231016165738-49dd2c1f3d0b // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
