@@ -63,7 +63,7 @@ func New(cfg Config) chi.Router {
 		DeploymentStore: cfg.DeploymentStore,
 	}
 
-	goneHandler := func(w http.ResponseWriter, r *http.Request) {
+	goneHandler := func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusGone)
 	}
 
@@ -82,7 +82,7 @@ func New(cfg Config) chi.Router {
 		chi_middleware.StripSlashes,
 	)
 
-	router.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/events", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusGone)
 	})
 
