@@ -99,13 +99,6 @@ func New(cfg Config) chi.Router {
 			chi_middleware.AllowContentType("application/json"),
 			chi_middleware.Timeout(requestTimeout),
 		)
-		r.Route("/dashboard", func(r chi.Router) {
-			if cfg.ValidatorMiddlewares != nil {
-				r.Use(cfg.ValidatorMiddlewares...)
-			}
-			r.Get("/deployments", dashboardHandler.Deployments)
-			r.Get("/deployments/{id}", dashboardHandler.Deployments)
-		})
 		if cfg.ValidatorMiddlewares != nil {
 			r.Route("/apikey", func(r chi.Router) {
 				r.Use(cfg.ValidatorMiddlewares...)
