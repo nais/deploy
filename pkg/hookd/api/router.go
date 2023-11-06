@@ -132,6 +132,12 @@ func New(cfg Config) chi.Router {
 		} else {
 			r.Post("/provision", provisionHandler.ProvisionInternal)
 			r.Post("/apikey", provisionHandler.ApiKey)
+		}
+
+		if cfg.PSKValidator == nil {
+			log.Error("Refusing to set up internal console API endpoint without psk validator; try configuring --frontend-keys")
+			log.Error("Note: /internal/api/v1/console will be unavailable")
+		} else {
 			r.Route("/console", func(r chi.Router) {
 				r.Use(cfg.PSKValidator)
 				r.Get("/apikey/{team}", apiKeyHandler.GetTeamApiKey)

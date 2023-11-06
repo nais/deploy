@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 	"github.com/nais/deploy/pkg/hookd/api"
-	api_v1_dashboard "github.com/nais/deploy/pkg/hookd/api/v1/console"
+	"github.com/nais/deploy/pkg/hookd/api/v1/console"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -22,7 +22,7 @@ type request struct{}
 
 type response struct {
 	StatusCode int
-	Body       api_v1_dashboard.DeploymentsResponse
+	Body       api_v1_console.DeploymentsResponse
 }
 
 type testCase struct {
@@ -66,8 +66,8 @@ var tests = []testCase{
 		},
 		Response: response{
 			StatusCode: 200,
-			Body: api_v1_dashboard.DeploymentsResponse{
-				Deployments: []api_v1_dashboard.FullDeployment{
+			Body: api_v1_console.DeploymentsResponse{
+				Deployments: []api_v1_console.FullDeployment{
 					{
 						Deployment: database.Deployment{
 							ID:      "1",
@@ -150,7 +150,7 @@ var tests = []testCase{
 
 func subTest(t *testing.T, test testCase) {
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest("GET", "/api/v1/dashboard/deployments", nil)
+	request := httptest.NewRequest("GET", "/internal/api/v1/console/deployments", nil)
 	request.Header.Set("content-type", "application/json")
 
 	apiKeyStore := &database.MockApiKeyStore{}
@@ -166,6 +166,7 @@ func subTest(t *testing.T, test testCase) {
 		DispatchServer:       deployServer,
 		DeploymentStore:      deployStore,
 		ValidatorMiddlewares: chi.Middlewares{middleware.WithValue("foo", nil)},
+		PSKValidator:         middleware.WithValue("foo", nil),
 		MetricsPath:          "/metrics",
 	})
 
@@ -175,14 +176,15 @@ func subTest(t *testing.T, test testCase) {
 }
 
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
-	decodedBody := api_v1_dashboard.DeploymentsResponse{}
+	t.Helper()
+	decodedBody := api_v1_console.DeploymentsResponse{}
 	_ = json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
 	assert.Equal(t, response.StatusCode, recorder.Code)
 	assert.Equal(t, response.Body.Deployments, decodedBody.Deployments)
 }
 
 // Deployment server integration tests using mocks; see table tests definitions above.
-func TestDashboardHandler_Deployments(t *testing.T) {
+func TestConsoleHandler_Deployments(t *testing.T) {
 	for _, test := range tests {
 		t.Logf("Running test: %s", test.Name)
 		subTest(t, test)
