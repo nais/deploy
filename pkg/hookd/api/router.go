@@ -10,7 +10,7 @@ import (
 	chi_middleware "github.com/go-chi/chi/middleware"
 	gh "github.com/google/go-github/v41/github"
 	api_v1_apikey "github.com/nais/deploy/pkg/hookd/api/v1/apikey"
-	api_v1_dashboard "github.com/nais/deploy/pkg/hookd/api/v1/dashboard"
+	api_v1_console "github.com/nais/deploy/pkg/hookd/api/v1/console"
 	api_v1_provision "github.com/nais/deploy/pkg/hookd/api/v1/provision"
 	api_v1_teams "github.com/nais/deploy/pkg/hookd/api/v1/teams"
 	"github.com/nais/deploy/pkg/hookd/database"
@@ -59,7 +59,7 @@ func New(cfg Config) chi.Router {
 		SecretKey:     cfg.ProvisionKey,
 	}
 
-	dashboardHandler := &api_v1_dashboard.Handler{
+	consoleHandler := &api_v1_console.Handler{
 		DeploymentStore: cfg.DeploymentStore,
 	}
 
@@ -136,7 +136,7 @@ func New(cfg Config) chi.Router {
 				r.Use(cfg.PSKValidator)
 				r.Get("/apikey/{team}", apiKeyHandler.GetTeamApiKey)
 				r.Post("/apikey/{team}", apiKeyHandler.RotateTeamApiKey)
-				r.Get("/deployments", dashboardHandler.Deployments)
+				r.Get("/deployments", consoleHandler.Deployments)
 			})
 		}
 	})

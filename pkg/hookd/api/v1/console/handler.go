@@ -1,4 +1,4 @@
-package api_v1_dashboard
+package api_v1_console
 
 import (
 	"context"
