@@ -1,4 +1,4 @@
-package api_v1_console_test
+package api_v1_deployment_test
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 	"github.com/nais/deploy/pkg/hookd/api"
-	"github.com/nais/deploy/pkg/hookd/api/v1/console"
+	"github.com/nais/deploy/pkg/hookd/api/v1/deployment"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -22,7 +22,7 @@ type request struct{}
 
 type response struct {
 	StatusCode int
-	Body       api_v1_console.DeploymentsResponse
+	Body       api_v1_deployment.DeploymentsResponse
 }
 
 type testCase struct {
@@ -66,8 +66,8 @@ var tests = []testCase{
 		},
 		Response: response{
 			StatusCode: 200,
-			Body: api_v1_console.DeploymentsResponse{
-				Deployments: []api_v1_console.FullDeployment{
+			Body: api_v1_deployment.DeploymentsResponse{
+				Deployments: []api_v1_deployment.FullDeployment{
 					{
 						Deployment: database.Deployment{
 							ID:      "1",
@@ -177,14 +177,14 @@ func subTest(t *testing.T, test testCase) {
 
 func testResponse(t *testing.T, recorder *httptest.ResponseRecorder, response response) {
 	t.Helper()
-	decodedBody := api_v1_console.DeploymentsResponse{}
+	decodedBody := api_v1_deployment.DeploymentsResponse{}
 	_ = json.Unmarshal(recorder.Body.Bytes(), &decodedBody)
 	assert.Equal(t, response.StatusCode, recorder.Code)
 	assert.Equal(t, response.Body.Deployments, decodedBody.Deployments)
 }
 
 // Deployment server integration tests using mocks; see table tests definitions above.
-func TestConsoleHandler_Deployments(t *testing.T) {
+func TestDeploymentHandler_Deployments(t *testing.T) {
 	for _, test := range tests {
 		t.Logf("Running test: %s", test.Name)
 		subTest(t, test)

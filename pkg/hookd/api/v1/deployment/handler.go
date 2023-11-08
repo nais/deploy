@@ -1,4 +1,4 @@
-package api_v1_console
+package api_v1_deployment
 
 import (
 	"context"

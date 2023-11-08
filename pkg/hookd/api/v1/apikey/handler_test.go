@@ -2,18 +2,18 @@ package api_v1_apikey_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi"
 
 	"github.com/nais/deploy/pkg/hookd/api"
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
-	"github.com/nais/deploy/pkg/hookd/middleware"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,18 +33,21 @@ func (a *apiKeyStorage) ApiKeys(ctx context.Context, id string) (database.ApiKey
 	switch id {
 	case "team1":
 		return database.ApiKeys{{
-			Team: "team1",
-			Key:  key1,
+			Team:    "team1",
+			Key:     key1,
+			Expires: time.Now().Add(1 * time.Minute),
 		}}, nil
 	case "team2":
 		return database.ApiKeys{{
-			Team: "team2",
-			Key:  key2,
+			Team:    "team2",
+			Key:     key2,
+			Expires: time.Now().Add(1 * time.Minute),
 		}}, nil
 	case "team4":
 		return database.ApiKeys{{
-			Team: "team4",
-			Key:  key4,
+			Team:    "team4",
+			Key:     key4,
+			Expires: time.Now().Add(1 * time.Minute),
 		}}, nil
 	default:
 		return nil, fmt.Errorf("err")
@@ -65,53 +68,33 @@ func TestApiKeyHandler(t *testing.T) {
 		ApiKeyStore:          &apiKeyStore,
 		MetricsPath:          "/metrics",
 		ValidatorMiddlewares: chi.Middlewares{tokenValidatorMiddleware},
-	})
-
-	t.Run("get teams", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest("GET", "/api/v1/teams", nil)
-		request = request.WithContext(middleware.WithGroups(request.Context(), []string{"team1", "team2", "team6"}))
-		handler.ServeHTTP(recorder, request)
-
-		var apikeys database.ApiKeys
-		err := json.NewDecoder(recorder.Body).Decode(&apikeys)
-		assert.NoError(t, err)
-
-		assert.Equal(t, http.StatusOK, recorder.Code)
-		assert.Len(t, apikeys, 2)
-		assert.Equal(t, "team1", apikeys[0].Team)
-		assert.Equal(t, "team2", apikeys[1].Team)
-		assert.Equal(t, api_v1.Key(nil), apikeys[0].Key)
-		assert.Equal(t, api_v1.Key(nil), apikeys[1].Key)
+		PSKValidator: func(h http.Handler) http.Handler {
+			return h
+		},
 	})
 
 	t.Run("get apikey for team", func(t *testing.T) {
-		t.Run("team member", func(t *testing.T) {
-			request := httptest.NewRequest("GET", "/api/v1/apikey/team2", nil)
-			request = request.WithContext(middleware.WithGroups(request.Context(), []string{"team1", "team2", "team6"}))
+		request := httptest.NewRequest("GET", "/internal/api/v1/console/apikey/team2", nil)
 
-			recorder := httptest.NewRecorder()
-			handler.ServeHTTP(recorder, request)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
 
-			body := recorder.Body.String()
+		body := recorder.Body.String()
 
-			assert.Equal(t, http.StatusOK, recorder.Code)
-			assert.Equal(t, `[{"team":"team2","key":"313233343536","expires":"0001-01-01T00:00:00Z","created":"0001-01-01T00:00:00Z"}]`+"\n", body)
-		})
-		t.Run("not team member", func(t *testing.T) {
-			request := httptest.NewRequest("GET", "/api/v1/apikey/team5", nil)
-			request = request.WithContext(middleware.WithGroups(request.Context(), []string{"team1", "team2", "team6"}))
-
-			recorder := httptest.NewRecorder()
-			handler.ServeHTTP(recorder, request)
-
-			body := recorder.Body.String()
-
-			assert.Equal(t, http.StatusForbidden, recorder.Code)
-			assert.Equal(t, `not authorized to view this team's keys`, body)
-		})
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Regexp(t, regexp.MustCompile(`{"team":"team2","key":"313233343536","expires":"\d{4}-\d{2}-[^"]+","created":"0001-01-01T00:00:00Z"}`), body)
 	})
-	// t.Run("rotate team", func(t *testing.T) {
-	// 	request := httptest.NewRequest("POST", "/api/v1/apikey/team1", nil)
+
+	// t.Run("get apikey for team", func(t *testing.T) {
+	// 	request := httptest.NewRequest("GET", "/internal/api/v1/apikey/team2", nil)
+	// 	request = request.WithContext(middleware.WithGroups(request.Context(), []string{"team1", "team2", "team6"}))
+	//
+	// 	recorder := httptest.NewRecorder()
+	// 	handler.ServeHTTP(recorder, request)
+	//
+	// 	body := recorder.Body.String()
+	//
+	// 	assert.Equal(t, http.StatusOK, recorder.Code)
+	// 	assert.Equal(t, `[{"team":"team2","key":"313233343536","expires":"0001-01-01T00:00:00Z","created":"0001-01-01T00:00:00Z"}]`+"\n", body)
 	// })
 }

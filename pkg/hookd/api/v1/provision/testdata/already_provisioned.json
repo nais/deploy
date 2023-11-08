@@ -5,6 +5,11 @@
     }
   },
   "response": {
-    "statusCode": 204
+    "statusCode": 200,
+    "body": {
+      "team": "nobody",
+      "apiKeys": ["1234567890"],
+      "message": "team exists, returning existing keys"
+    }
   }
 }

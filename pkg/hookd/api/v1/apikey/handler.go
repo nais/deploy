@@ -13,7 +13,6 @@ import (
 
 type ApiKeyHandler interface {
 	GetTeamApiKey(w http.ResponseWriter, r *http.Request)
-	GetApiKeys(w http.ResponseWriter, r *http.Request)
 	RotateTeamApiKey(w http.ResponseWriter, r *http.Request)
 }
 
@@ -78,8 +77,4 @@ func (d *DefaultApiKeyHandler) RotateTeamApiKey(w http.ResponseWriter, r *http.R
 	}
 
 	w.WriteHeader(http.StatusOK)
-}
-
-func (d *DefaultApiKeyHandler) GetApiKeys(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
 }

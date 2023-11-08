@@ -109,15 +109,7 @@ func (h *Handler) ApiKey(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) ProvisionInternal(w http.ResponseWriter, r *http.Request) {
-	h.provisionTeam(w, r, true)
-}
-
-func (h *Handler) ProvisionExternal(w http.ResponseWriter, r *http.Request) {
-	h.provisionTeam(w, r, false)
-}
-
-func (h *Handler) provisionTeam(w http.ResponseWriter, r *http.Request, internalRequest bool) {
+func (h *Handler) Provision(w http.ResponseWriter, r *http.Request) {
 	var err error
 	var response Response
 
@@ -157,16 +149,11 @@ func (h *Handler) provisionTeam(w http.ResponseWriter, r *http.Request, internal
 
 	if !request.Rotate && len(keys.Valid()) != 0 {
 		logger.Infof("Not overwriting existing team key which is still valid")
-		if internalRequest {
-			w.WriteHeader(http.StatusOK)
-			response.Message = "team exists, returning existing keys"
-			response.ApiKeys = keys.ValidKeys()
-			response.render(w)
-			return
-		} else {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+		w.WriteHeader(http.StatusOK)
+		response.Message = "team exists, returning existing keys"
+		response.ApiKeys = keys.ValidKeys()
+		response.render(w)
+		return
 	}
 
 	key, err := api_v1.Keygen(api_v1.KeySize)
@@ -189,9 +176,7 @@ func (h *Handler) provisionTeam(w http.ResponseWriter, r *http.Request, internal
 
 	w.WriteHeader(http.StatusCreated)
 	response.Message = "API key provisioned successfully"
-	if internalRequest {
-		response.ApiKeys = []api_v1.Key{key}
-	}
+	response.ApiKeys = []api_v1.Key{key}
 	response.render(w)
 	logger.Infof(response.Message)
 }

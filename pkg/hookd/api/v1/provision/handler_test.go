@@ -124,7 +124,7 @@ func statusSubTest(t *testing.T, name string) {
 
 	body := addTimestampToBody(test.Request.Body, 0)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest("POST", "/api/v1/provision", bytes.NewReader(body))
+	request := httptest.NewRequest("POST", "/internal/api/v1/provision", bytes.NewReader(body))
 	request.Header.Set("content-type", "application/json")
 
 	for key, val := range test.Request.Headers {
