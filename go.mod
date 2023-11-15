@@ -9,7 +9,7 @@ require (
 	github.com/go-chi/render v1.0.3
 	github.com/golang/protobuf v1.5.3
 	github.com/google/uuid v1.3.1
-	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0-rc.0.0.20230628165249-e895693d1a25
+	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/lib/pq v1.10.9
 	github.com/nais/liberator v0.0.0-20230807082713-b3572ceadac6
