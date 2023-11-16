@@ -60,6 +60,12 @@ func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstr
 				continue
 			}
 
+			eventCorrelationID, eventHasCorrelationID := event.GetAnnotations()[nais_io_v1.DeploymentCorrelationIDAnnotation]
+			if eventHasCorrelationID && eventCorrelationID != op.Request.GetID() {
+				op.Logger.Tracef("Ignoring event with different correlation id %s", event.Name)
+				continue // the event is annotated with a correlation id, but it's not the one we're rolling out. ignore it
+			}
+
 			if event.LastTimestamp.Time.Before(watchStart) {
 				op.Logger.Tracef("Ignoring old event %s", event.Name)
 				continue
