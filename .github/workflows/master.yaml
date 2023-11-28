@@ -47,7 +47,7 @@ jobs:
           name: ${{ matrix.component }}
           google_service_account: gh-deploy
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
-          push: ${{ github.actor != 'dependabot[bot]' }}
+          push: ${{ github.actor != 'dependabot[bot]' && github.ref == 'refs/heads/master' }}
 
       - name: "Package chart"
         if: matrix.chart
