@@ -121,6 +121,7 @@ jobs:
 
   release:
     name: Release GitHub Action / binaries
+    if: github.ref == 'refs/heads/master'
     needs:
       - build_and_push
     runs-on: ubuntu-22.04
