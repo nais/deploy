@@ -1,5 +1,6 @@
 name: Google Artifact Registry images -> Chart -> Rollout | GitHub Release
 on:
+  pull_request:
   push:
     branches:
       - master
@@ -35,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3 # ratchet:exclude
       - uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # ratchet:azure/setup-helm@v3
-        if: ${{ matrix.chart }}
+        if: matrix.chart
         with:
           version: "v3.11.1"
       - name: "Build and push image"
@@ -49,7 +50,7 @@ jobs:
           push: ${{ github.actor != 'dependabot[bot]' }}
 
       - name: "Package chart"
-        if: ${{ matrix.chart }}
+        if: matrix.chart
         id: package_chart
         env:
           CHART_PATH: ./charts/${{ matrix.component }}
@@ -73,7 +74,7 @@ jobs:
           echo "archive=$name-$chart_version.tgz" >> $GITHUB_OUTPUT
 
       - name: "Authenticate to Google Cloud"
-        if: ${{ matrix.chart && github.ref == 'refs/heads/master' }}
+        if: matrix.chart && github.ref == 'refs/heads/master'
         id: "auth"
         uses: "google-github-actions/auth@v1" # ratchet:exclude
         with:
@@ -82,12 +83,12 @@ jobs:
           token_format: "access_token"
 
       - name: "Log in to Google Artifact Registry"
-        if: ${{ matrix.chart && github.ref == 'refs/heads/master' }}
+        if: matrix.chart && github.ref == 'refs/heads/master'
         run: |-
           echo '${{ steps.auth.outputs.access_token }}' | docker login -u oauth2accesstoken --password-stdin https://${{ env.GOOGLE_REGISTRY }}
 
       - name: "Push Chart"
-        if: ${{ matrix.chart && github.ref == 'refs/heads/master' }}
+        if: matrix.chart && github.ref == 'refs/heads/master'
         run: |-
           chart="${{ steps.package_chart.outputs.archive }}"
           echo "Pushing: $chart"
@@ -100,6 +101,7 @@ jobs:
 
   rollout:
     runs-on: fasit-deploy
+    if: github.ref == 'refs/heads/master'
     permissions:
       id-token: write
     needs:
@@ -107,14 +109,12 @@ jobs:
     steps:
       - name: "Rollout hookd"
         uses: nais/fasit-deploy@v2 # ratchet:exclude
-        if: ${{ github.ref == 'refs/heads/master' }}
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.hookd_chart_name }}
           version: ${{ needs.build_and_push.outputs.hookd_chart_version }}
 
       - name: "Rollout deployd"
         uses: nais/fasit-deploy@v2 # ratchet:exclude
-        if: ${{ github.ref == 'refs/heads/master' }}
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.deployd_chart_name }}
           version: ${{ needs.build_and_push.outputs.deployd_chart_version }}
