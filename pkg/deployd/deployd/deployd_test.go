@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	go_runtime "runtime"
 	"sync"
 	"testing"
 	"time"
@@ -180,10 +182,20 @@ type testRig struct {
 	scheme     *runtime.Scheme
 }
 
+func testBinDirectory() string {
+	_, filename, _, _ := go_runtime.Caller(0)
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "../../../.testbin/"))
+}
+
 func newTestRig() (*testRig, error) {
 	var err error
 
 	rig := &testRig{}
+
+	err = os.Setenv("KUBEBUILDER_ASSETS", testBinDirectory())
+	if err != nil {
+		return nil, fmt.Errorf("failed to set environment variable: %w", err)
+	}
 
 	rig.scheme, err = scheme.All()
 	if err != nil {
