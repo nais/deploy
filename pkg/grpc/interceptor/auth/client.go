@@ -28,6 +28,7 @@ func (t *ClientInterceptor) GetRequestMetadata(ctx context.Context, uri ...strin
 		"authorization": sign([]byte(timestamp), t.APIKey),
 		"timestamp":     timestamp,
 		"team":          t.Team,
+		"jwt":           "eySomething",
 	}, nil
 }
 

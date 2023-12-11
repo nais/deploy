@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 
-	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
+	auth_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -26,7 +26,7 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 		if err != nil {
 			return nil, Errorf(ExitInvocationFailure, "%s: %s", MalformedAPIKeyMsg, err)
 		}
-		intercept := &apikey_interceptor.ClientInterceptor{
+		intercept := &auth_interceptor.ClientInterceptor{
 			APIKey:     decoded,
 			RequireTLS: cfg.GrpcUseTLS,
 			Team:       cfg.Team,
