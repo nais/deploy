@@ -1,4 +1,4 @@
-package apikey_interceptor
+package auth_interceptor
 
 import (
 	"context"
