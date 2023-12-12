@@ -24,7 +24,6 @@ type authData struct {
 	hmac      []byte
 	timestamp string
 	team      string
-	jwt       string
 }
 
 func extractAuthFromContext(ctx context.Context) (*authData, error) {
@@ -48,11 +47,6 @@ func extractAuthFromContext(ctx context.Context) (*authData, error) {
 		return nil, status.Errorf(codes.Unauthenticated, "team is not provided in API key signature metadata")
 	}
 
-	jwt := md["jwt"]
-	if len(jwt) == 0 {
-		return nil, status.Errorf(codes.Unauthenticated, "JWT is not provided in API key signature metadata")
-	}
-
 	mac, err := hex.DecodeString(hmac[0])
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "wrong API key signature format")
@@ -62,7 +56,6 @@ func extractAuthFromContext(ctx context.Context) (*authData, error) {
 		hmac:      mac,
 		timestamp: timestamp[0],
 		team:      team[0],
-		jwt:       jwt[0],
 	}, nil
 }
 
