@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/pb"
@@ -17,7 +18,17 @@ import (
 )
 
 type ServerInterceptor struct {
-	APIKeyStore database.ApiKeyStore
+	APIKeyStore    database.ApiKeyStore
+	TokenValidator TokenValidator
+	TeamsClient    TeamsClient
+}
+
+type TokenValidator interface {
+	Validate(token string) (jwt.Token, error)
+}
+
+type TeamsClient interface {
+	IsAuthorized(repo, team string) bool
 }
 
 type authData struct {
@@ -59,8 +70,8 @@ func extractAuthFromContext(ctx context.Context) (*authData, error) {
 	}, nil
 }
 
-func (t *ServerInterceptor) authenticate(ctx context.Context, auth authData) error {
-	apiKeys, err := t.APIKeyStore.ApiKeys(ctx, auth.team)
+func (s *ServerInterceptor) authenticate(ctx context.Context, auth authData) error {
+	apiKeys, err := s.APIKeyStore.ApiKeys(ctx, auth.team)
 	if err != nil {
 		log.Errorf("Fetch API keys for team %s: %s", auth.team, err)
 		if database.IsErrNotFound(err) {
@@ -82,10 +93,41 @@ func withinTimeRange(t time.Time) bool {
 	return math.Abs(time.Since(t).Seconds()) < api_v1.MaxTimeSkew
 }
 
-func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	request, ok := req.(*pb.DeploymentRequest)
 	if !ok {
 		return nil, status.Errorf(codes.InvalidArgument, "requests to this endpoint must be DeploymentRequest")
+	}
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid metadata in request")
+	}
+
+	jwt := get("jwt", md)
+
+	if jwt != "" {
+		t, err := s.TokenValidator.Validate(jwt)
+		if err != nil {
+			return nil, status.Errorf(codes.Unauthenticated, "invalid JWT token")
+		}
+
+		r, ok := t.Get("repository")
+		if !ok {
+			return nil, status.Errorf(codes.Unauthenticated, "missing repository in JWT token")
+		}
+		repo := r.(string)
+
+		team := get("team", md)
+		if team == "" {
+			return nil, status.Errorf(codes.Unauthenticated, "missing team in metadata")
+		}
+
+		if s.TeamsClient.IsAuthorized(repo, team) {
+			return handler(ctx, req)
+		} else {
+			return nil, status.Errorf(codes.PermissionDenied, "repo not authorized by team")
+		}
 	}
 
 	auth, err := extractAuthFromContext(ctx)
@@ -100,30 +142,39 @@ func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 		return nil, status.Errorf(codes.DeadlineExceeded, "signature is too old")
 	}
 
-	err = t.authenticate(ctx, *auth)
+	err = s.authenticate(ctx, *auth)
 	if err != nil {
 		return nil, err
 	}
+
 	return handler(ctx, req)
 }
 
-func (t *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
-	return t.UnaryServerInterceptor
+func get(key string, md metadata.MD) string {
+	_, ok := md[key]
+	if ok && len(md[key]) == 1 {
+		return md[key][0]
+	}
+	return ""
 }
 
-func (t *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (s *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
+	return s.UnaryServerInterceptor
+}
+
+func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	auth, err := extractAuthFromContext(ss.Context())
 	if err != nil {
 		return err
 	}
 
-	err = t.authenticate(ss.Context(), *auth)
+	err = s.authenticate(ss.Context(), *auth)
 	if err != nil {
 		return err
 	}
 	return handler(srv, ss)
 }
 
-func (t *ServerInterceptor) Stream() grpc.StreamServerInterceptor {
-	return t.StreamServerInterceptor
+func (s *ServerInterceptor) Stream() grpc.StreamServerInterceptor {
+	return s.StreamServerInterceptor
 }

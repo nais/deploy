@@ -189,9 +189,17 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, unauthenticatedInterceptor)
 
 		if cfg.GRPC.CliAuthentication {
-			authInterceptor := &auth_interceptor.ServerInterceptor{
-				APIKeyStore: apikeys,
+			ghValidator, err := auth_interceptor.NewGithubValidator()
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to set up github validator: %w", err)
 			}
+
+			authInterceptor := &auth_interceptor.ServerInterceptor{
+				APIKeyStore:    apikeys,
+				TokenValidator: ghValidator,
+				TeamsClient:    auth_interceptor.New("teamsurl", "apikey"), // TODO make configurable
+			}
+
 			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, authInterceptor)
 			log.Infof("Authentication enabled for deployment requests")
 		}

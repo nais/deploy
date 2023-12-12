@@ -2,10 +2,12 @@ package auth_interceptor
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/pb"
@@ -52,8 +54,8 @@ func TestServerInterceptorApiKey(t *testing.T) {
 			t.Fatal("got nil, want error")
 		}
 
-		if !strings.HasSuffix(err.Error(), "HMAC signature error") {
-			t.Fatalf("got %s, want HMAC signature error", err.Error())
+		if !strings.HasSuffix(err.Error(), "failed authentication") {
+			t.Fatalf("got %s, want failed authentication", err.Error())
 		}
 	})
 
@@ -77,26 +79,71 @@ func TestServerInterceptorApiKey(t *testing.T) {
 	})
 }
 
-// func TestServerInterceptorJWT(t *testing.T) {
-// 	i := &ServerInterceptor{APIKeyStore: &mockAPIKeyStore{}}
-//
-// 	req := &pb.DeploymentRequest{
-// 		Team: "team",
-// 	}
-//
-// 	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
-// 		"authorization": []string{"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZWFtIjoidGVhbSIsInRpbWVzdGFtcCI6IjIwMjAtMDctMjBUMTc6MjE6MjAuMjA0WiIsInRlYW0iOiJ0ZWFtIn0.1WZ7M4U3BQ3zXWYkU8J7JXVQ5h3Uw5h2c0q5Q8kKs8k"},
-// 	})
-//
-// 	handler := func(ctx context.Context, req any) (any, error) {
-// 		return nil, nil
-// 	}
-//
-// 	_, err := i.UnaryServerInterceptor(ctx, req, nil, handler)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// }
+func TestServerInterceptorJWT(t *testing.T) {
+	i := &ServerInterceptor{
+		APIKeyStore: &mockAPIKeyStore{},
+		TokenValidator: &mockTokenValidator{
+			repo:  "repo",
+			valid: "valid",
+		},
+		TeamsClient: &mockTeamsClient{
+			authorized: map[string]string{"repo": "team"},
+		},
+	}
+
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+		"jwt":  []string{"valid"},
+		"team": []string{"team"},
+	})
+
+	t.Run("happy path", func(t *testing.T) {
+		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{}, nil, handler)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("invalid jwt", func(t *testing.T) {
+		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+			"jwt":  []string{"invalid"},
+			"team": []string{"team"},
+		})
+
+		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{}, nil, handler)
+
+		want := "invalid JWT token"
+		if !strings.HasSuffix(err.Error(), want) {
+			t.Fatalf("got %s, want suffix %s ", err.Error(), want)
+		}
+	})
+
+	t.Run("missing team from metadata", func(t *testing.T) {
+		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+			"jwt": []string{"valid"},
+		})
+
+		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{}, nil, handler)
+
+		want := "missing team in metadata"
+		if !strings.HasSuffix(err.Error(), want) {
+			t.Fatalf("got %s, want suffix %s ", err.Error(), want)
+		}
+	})
+
+	t.Run("repo not authorized by team", func(t *testing.T) {
+		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+			"jwt":  []string{"valid"},
+			"team": []string{"wrong_team"},
+		})
+
+		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{}, nil, handler)
+
+		want := "repo not authorized by team"
+		if !strings.HasSuffix(err.Error(), want) {
+			t.Fatalf("got %s, want suffix %s ", err.Error(), want)
+		}
+	})
+}
 
 type mockAPIKeyStore struct{}
 
@@ -112,4 +159,29 @@ func (m *mockAPIKeyStore) ApiKeys(ctx context.Context, id string) (database.ApiK
 
 func (m *mockAPIKeyStore) RotateApiKey(ctx context.Context, team string, key api_v1.Key) error {
 	return nil
+}
+
+type mockTokenValidator struct {
+	repo  string
+	valid string
+}
+
+func (m *mockTokenValidator) Validate(token string) (jwt.Token, error) {
+	if token != m.valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	return jwt.NewBuilder().Claim("repository", m.repo).Build()
+}
+
+type mockTeamsClient struct {
+	authorized map[string]string
+}
+
+func (m *mockTeamsClient) IsAuthorized(repo, team string) bool {
+	return m.authorized[repo] == team
+}
+
+func handler(ctx context.Context, req any) (any, error) {
+	return nil, nil
 }
