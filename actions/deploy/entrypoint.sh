@@ -4,11 +4,13 @@
 echo "::add-mask::$APIKEY"
 
 if [ -z "$OWNER" ]; then
-    export OWNER=`echo $GITHUB_REPOSITORY | cut -f1 -d/`
+    OWNER=$(echo "$GITHUB_REPOSITORY" | cut -f1 -d/)
+    export OWNER
 fi
 
 if [ -z "$REPOSITORY" ]; then
-    export REPOSITORY=`echo $GITHUB_REPOSITORY | cut -f2 -d/`
+    REPOSITORY=$(echo "$GITHUB_REPOSITORY" | cut -f2 -d/)
+    export REPOSITORY
 fi
 
 if [ -z "$REF" ]; then
@@ -23,13 +25,14 @@ fi
 # If the file doesn't exist, it is created. The original file is left untouched.
 if [ ! -z "$IMAGE" ]; then
     export VARS_ORIGINAL="$VARS"
-    export VARS=`mktemp`
+    VARS=$(mktemp)
+    export VARS
     if [ -z "$VARS_ORIGINAL" ]; then
         echo "---" > $VARS
     else
-        cat $VARS_ORIGINAL > $VARS
+        cat "$VARS_ORIGINAL" > "$VARS"
     fi
-    yq w --inplace $VARS image "$IMAGE"
+    yq w --inplace "$VARS" image "$IMAGE"
 fi
 
 
