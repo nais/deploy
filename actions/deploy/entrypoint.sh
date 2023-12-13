@@ -23,12 +23,12 @@ fi
 
 # Inject "image" as a template variable to a new copy of the vars file.
 # If the file doesn't exist, it is created. The original file is left untouched.
-if [ ! -z "$IMAGE" ]; then
+if [ -n "$IMAGE" ]; then
     export VARS_ORIGINAL="$VARS"
     VARS=$(mktemp)
     export VARS
     if [ -z "$VARS_ORIGINAL" ]; then
-        echo "---" > $VARS
+        echo "---" > "$VARS"
     else
         cat "$VARS_ORIGINAL" > "$VARS"
     fi
