@@ -121,8 +121,8 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf(ClusterRequiredMsg)
 	}
 
-	if len(cfg.APIKey) == 0 {
-		return fmt.Errorf(APIKeyRequiredMsg)
+	if len(cfg.APIKey) == 0 && len(cfg.GithubToken) == 0 {
+		return fmt.Errorf(AuthRequiredMsg)
 	}
 
 	_, err := hex.DecodeString(cfg.APIKey)

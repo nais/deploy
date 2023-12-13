@@ -66,6 +66,11 @@ values:
     displayName: Ingress URL
     computed:
       template: '"{{ subdomain . "deploy" }}"'
+  teamsAPIKey:
+    displayName: "teams api key"
+    computed:
+      template: "{{.Management.hookd_teams_api_key | quote}}"
+    description: "API key used for teams integration"
   frontendPreSharedKey:
     displayName: "console-backend pre-shared key"
     computed:

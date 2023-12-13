@@ -1,4 +1,4 @@
-package auth_interceptor
+package teams
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type teamsClient struct {
@@ -44,17 +46,16 @@ func (t *teamsClient) IsAuthorized(repo, team string) bool {
 	}{}
 
 	if err := t.teamsQuery(context.Background(), query, vars, &respBody); err != nil {
-		// TODO: log + error metrics
+		log.WithError(err).Error("checking repo authorization in teams")
+		// TODO: error metrics
 		return false
 	}
 
 	if len(respBody.Errors) > 0 {
-		// TODO: log + error metrics
+		log.Errorf("checking repo authorization in teams: %v", respBody.Errors)
+		// TODO: error metrics
 		return false
 	}
-
-	fmt.Println("is authorized?", respBody.Data.IsRepositoryAuthorized)
-	fmt.Println("data", respBody.Data)
 
 	return respBody.Data.IsRepositoryAuthorized
 }

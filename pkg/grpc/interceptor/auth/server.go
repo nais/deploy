@@ -3,6 +3,7 @@ package auth_interceptor
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -37,6 +39,30 @@ type authData struct {
 	team      string
 }
 
+func NewServerInterceptor(apiKeyStore database.ApiKeyStore, tokenValidator TokenValidator, teamsClient TeamsClient) *ServerInterceptor {
+	prometheus.MustRegister(promReq)
+	return &ServerInterceptor{
+		APIKeyStore:    apiKeyStore,
+		TokenValidator: tokenValidator,
+		TeamsClient:    teamsClient,
+	}
+}
+
+var (
+	promReq = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "hookd_auth_interceptor_requests",
+			Help: "Number of requests to the auth interceptor",
+		},
+		[]string{"type"})
+	promErr = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "hookd_auth_interceptor_requests",
+			Help: "Number of requests to the auth interceptor",
+		},
+		[]string{"type"})
+)
+
 func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	_, ok := req.(*pb.DeploymentRequest)
 	if !ok {
@@ -51,8 +77,10 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 	jwt := get("jwt", md)
 
 	if jwt != "" {
+		promReq.WithLabelValues("jwt").Inc()
 		t, err := s.TokenValidator.Validate(jwt)
 		if err != nil {
+			promErr.WithLabelValues("invalid_jwt").Inc()
 			return nil, status.Errorf(codes.Unauthenticated, "invalid JWT token")
 		}
 
@@ -70,10 +98,12 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 		if s.TeamsClient.IsAuthorized(repo, team) {
 			return handler(ctx, req)
 		} else {
-			return nil, status.Errorf(codes.PermissionDenied, "repo not authorized by team")
+			promErr.WithLabelValues("unauthorized_repo").Inc()
+			return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
 		}
 	}
 
+	promReq.WithLabelValues("api-key").Inc()
 	auth, err := extractAuthFromContext(ctx)
 	if err != nil {
 		return nil, err

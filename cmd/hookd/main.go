@@ -33,6 +33,7 @@ import (
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/teams"
 	"github.com/nais/deploy/pkg/version"
 )
 
@@ -194,11 +195,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 				return nil, nil, fmt.Errorf("unable to set up github validator: %w", err)
 			}
 
-			authInterceptor := &auth_interceptor.ServerInterceptor{
-				APIKeyStore:    apikeys,
-				TokenValidator: ghValidator,
-				TeamsClient:    auth_interceptor.New("teamsurl", "apikey"), // TODO make configurable
-			}
+			authInterceptor := auth_interceptor.NewServerInterceptor(apikeys, ghValidator, teams.New(cfg.TeamsURL, cfg.TeamsAPIKey))
 
 			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, authInterceptor)
 			log.Infof("Authentication enabled for deployment requests")

@@ -138,7 +138,7 @@ func TestServerInterceptorJWT(t *testing.T) {
 
 		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{}, nil, handler)
 
-		want := "repo not authorized by team"
+		want := "repo \"repo\" not authorized by team \"wrong_team\""
 		if !strings.HasSuffix(err.Error(), want) {
 			t.Fatalf("got %s, want suffix %s ", err.Error(), want)
 		}

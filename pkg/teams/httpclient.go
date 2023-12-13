@@ -1,4 +1,4 @@
-package auth_interceptor
+package teams
 
 import (
 	"net/http"

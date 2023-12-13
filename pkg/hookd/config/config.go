@@ -19,21 +19,23 @@ type Config struct {
 	BaseURL                string        `json:"base-url"`
 	ConsoleApiKey          string        `json:"console-api-key"`
 	ConsoleUrl             string        `json:"console-url"`
+	DatabaseConnectTimeout time.Duration `json:"database-connect-timeout"`
 	DatabaseEncryptionKey  string        `json:"database-encryption-key"`
 	DatabaseURL            string        `json:"database-url"`
-	DatabaseConnectTimeout time.Duration `json:"database-connect-timeout"`
 	DeploydKeys            []string      `json:"deployd-keys"`
 	FrontendKeys           []string      `json:"frontend-keys"`
-	GoogleClientId         string        `json:"google-client-id"`
-	GoogleAllowedDomains   []string      `json:"google-allowed-domains"`
-	GoogleClusterProjects  []string      `json:"google-cluster-projects"`
 	GRPC                   GRPC          `json:"grpc"`
+	GoogleAllowedDomains   []string      `json:"google-allowed-domains"`
+	GoogleClientId         string        `json:"google-client-id"`
+	GoogleClusterProjects  []string      `json:"google-cluster-projects"`
 	ListenAddress          string        `json:"listen-address"`
 	LogFormat              string        `json:"log-format"`
 	LogLevel               string        `json:"log-level"`
 	LogLinkFormatter       string        `json:"log-link-formatter"`
 	MetricsPath            string        `json:"metrics-path"`
 	ProvisionKey           string        `json:"provision-key"`
+	TeamsAPIKey            string        `json:"teams-api-key"`
+	TeamsURL               string        `json:"teams-url"`
 }
 
 const (
@@ -45,8 +47,8 @@ const (
 	DatabaseUrl               = "database-url"
 	DeploydKeys               = "deployd-keys"
 	FrontendKeys              = "frontend-keys"
-	GoogleClientId            = "google-client-id"
 	GoogleAllowedDomains      = "google-allowed-domains"
+	GoogleClientId            = "google-client-id"
 	GoogleClusterProjects     = "google-cluster-projects"
 	GrpcAddress               = "grpc.address"
 	GrpcCliAuthentication     = "grpc.cli-authentication"
@@ -58,6 +60,8 @@ const (
 	LogLinkFormatter          = "log-link-formatter"
 	MetricsPath               = "metrics-path"
 	ProvisionKey              = "provision-key"
+	TeamsAPIKey               = "teams-api-key"
+	TeamsURL                  = "teams-url"
 )
 
 // Bind environment variables provided by the NAIS platform
@@ -101,6 +105,9 @@ func Initialize() *Config {
 	flag.String(GoogleClientId, "", "Google ClientId.")
 	flag.StringSlice(GoogleAllowedDomains, []string{}, "Allowed Google Domains")
 	flag.StringSlice(GoogleClusterProjects, []string{}, "Mapping cluster to google project: cluster1=project1,cluster2=project2")
+
+	flag.String(TeamsAPIKey, "", "Teams API Key")
+	flag.String(TeamsURL, "http://teams-backend/query", "Teams URL")
 
 	return &Config{}
 }
