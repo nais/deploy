@@ -52,13 +52,13 @@ var (
 	promReq = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "hookd_auth_interceptor_requests",
-			Help: "Number of requests to the auth interceptor",
+			Help: "Number of requests by type in auth interceptor",
 		},
 		[]string{"type"})
 	promErr = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "hookd_auth_interceptor_requests",
-			Help: "Number of requests to the auth interceptor",
+			Name: "hookd_auth_interceptor_errors",
+			Help: "Number of errors in auth interceptor",
 		},
 		[]string{"type"})
 )
