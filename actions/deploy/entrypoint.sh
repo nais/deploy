@@ -32,6 +32,21 @@ if [ ! -z "$IMAGE" ]; then
     yq w --inplace $VARS image "$IMAGE"
 fi
 
+
+# if no apikey is set, use use the id-token to get a jwt token for the deploy CLI
+if [ -z "$APIKEY" ]; then
+    if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] && [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+        echo "APIKEY or id-token permissions must be set"
+        exit 1
+    fi
+
+    payload=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=hookd")
+    jwt=$(echo "$payload" | jq -r '.value')
+
+    export JWT="$jwt"
+fi
+
 export ACTIONS="true"
+
 
 /app/deploy

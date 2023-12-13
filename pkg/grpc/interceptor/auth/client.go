@@ -9,8 +9,9 @@ import (
 )
 
 type ClientInterceptor struct {
-	RequireTLS bool
 	APIKey     []byte
+	JWT        string
+	RequireTLS bool
 	Team       string
 }
 
@@ -22,13 +23,19 @@ func sign(data, key []byte) string {
 	return hex.EncodeToString(sum)
 }
 
-func (t *ClientInterceptor) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (c *ClientInterceptor) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	if c.JWT != "" {
+		return map[string]string{
+			"jwt":  c.JWT,
+			"team": c.Team,
+		}, nil
+	}
+
 	timestamp := time.Now().Format(time.RFC3339Nano)
 	return map[string]string{
-		"authorization": sign([]byte(timestamp), t.APIKey),
+		"authorization": sign([]byte(timestamp), c.APIKey),
 		"timestamp":     timestamp,
-		"team":          t.Team,
-		"jwt":           "eySomething",
+		"team":          c.Team,
 	}, nil
 }
 

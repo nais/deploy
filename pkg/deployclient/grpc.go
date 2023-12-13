@@ -22,16 +22,25 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 	}
 
 	if cfg.GrpcAuthentication {
-		decoded, err := hex.DecodeString(cfg.APIKey)
-		if err != nil {
-			return nil, Errorf(ExitInvocationFailure, "%s: %s", MalformedAPIKeyMsg, err)
+		var interceptor *auth_interceptor.ClientInterceptor
+		if cfg.GithubToken != "" {
+			interceptor = &auth_interceptor.ClientInterceptor{
+				JWT:        cfg.GithubToken,
+				RequireTLS: cfg.GrpcUseTLS,
+				Team:       cfg.Team,
+			}
+		} else {
+			decoded, err := hex.DecodeString(cfg.APIKey)
+			if err != nil {
+				return nil, Errorf(ExitInvocationFailure, "%s: %s", MalformedAPIKeyMsg, err)
+			}
+			interceptor = &auth_interceptor.ClientInterceptor{
+				APIKey:     decoded,
+				RequireTLS: cfg.GrpcUseTLS,
+				Team:       cfg.Team,
+			}
 		}
-		intercept := &auth_interceptor.ClientInterceptor{
-			APIKey:     decoded,
-			RequireTLS: cfg.GrpcUseTLS,
-			Team:       cfg.Team,
-		}
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(interceptor))
 	}
 
 	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)

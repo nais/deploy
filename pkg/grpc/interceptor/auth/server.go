@@ -37,64 +37,8 @@ type authData struct {
 	team      string
 }
 
-func extractAuthFromContext(ctx context.Context) (*authData, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "request is not signed with API key; metadata is missing from request headers")
-	}
-
-	hmac := md["authorization"]
-	if len(hmac) == 0 {
-		return nil, status.Errorf(codes.Unauthenticated, "request is not signed with API key")
-	}
-
-	timestamp := md["timestamp"]
-	if len(timestamp) == 0 {
-		return nil, status.Errorf(codes.Unauthenticated, "API key signature timestamp is not provided")
-	}
-
-	team := md["team"]
-	if len(team) == 0 {
-		return nil, status.Errorf(codes.Unauthenticated, "team is not provided in API key signature metadata")
-	}
-
-	mac, err := hex.DecodeString(hmac[0])
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "wrong API key signature format")
-	}
-
-	return &authData{
-		hmac:      mac,
-		timestamp: timestamp[0],
-		team:      team[0],
-	}, nil
-}
-
-func (s *ServerInterceptor) authenticate(ctx context.Context, auth authData) error {
-	apiKeys, err := s.APIKeyStore.ApiKeys(ctx, auth.team)
-	if err != nil {
-		log.Errorf("Fetch API keys for team %s: %s", auth.team, err)
-		if database.IsErrNotFound(err) {
-			return status.Errorf(codes.Unauthenticated, "failed authentication")
-		}
-		return status.Errorf(codes.Unavailable, "something wrong happened when communicating with api key service")
-	}
-
-	err = api_v1.ValidateAnyMAC([]byte(auth.timestamp), auth.hmac, apiKeys.Valid().Keys())
-	if err != nil {
-		log.Errorf("Validate HMAC signature of team %s: %s", auth.team, err)
-		return status.Errorf(codes.PermissionDenied, "failed authentication")
-	}
-
-	return nil
-}
-
-func withinTimeRange(t time.Time) bool {
-	return math.Abs(time.Since(t).Seconds()) < api_v1.MaxTimeSkew
-}
-
 func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	request, ok := req.(*pb.DeploymentRequest)
+	_, ok := req.(*pb.DeploymentRequest)
 	if !ok {
 		return nil, status.Errorf(codes.InvalidArgument, "requests to this endpoint must be DeploymentRequest")
 	}
@@ -135,8 +79,6 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 		return nil, err
 	}
 
-	auth.team = request.GetTeam()
-
 	requestTime, _ := time.Parse(time.RFC3339Nano, auth.timestamp)
 	if !withinTimeRange(requestTime) {
 		return nil, status.Errorf(codes.DeadlineExceeded, "signature is too old")
@@ -158,23 +100,70 @@ func get(key string, md metadata.MD) string {
 	return ""
 }
 
+func (s *ServerInterceptor) authenticate(ctx context.Context, auth authData) error {
+	apiKeys, err := s.APIKeyStore.ApiKeys(ctx, auth.team)
+	if err != nil {
+		log.Errorf("Fetch API keys for team %s: %s", auth.team, err)
+		if database.IsErrNotFound(err) {
+			return status.Errorf(codes.Unauthenticated, "failed authentication")
+		}
+		return status.Errorf(codes.Unavailable, "something wrong happened when communicating with api key service")
+	}
+
+	err = api_v1.ValidateAnyMAC([]byte(auth.timestamp), auth.hmac, apiKeys.Valid().Keys())
+	if err != nil {
+		log.Errorf("Validate HMAC signature of team %s: %s", auth.team, err)
+		return status.Errorf(codes.PermissionDenied, "failed authentication")
+	}
+
+	return nil
+}
+
+func withinTimeRange(t time.Time) bool {
+	return math.Abs(time.Since(t).Seconds()) < api_v1.MaxTimeSkew
+}
+
 func (s *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 	return s.UnaryServerInterceptor
 }
 
 func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	auth, err := extractAuthFromContext(ss.Context())
-	if err != nil {
-		return err
-	}
-
-	err = s.authenticate(ss.Context(), *auth)
-	if err != nil {
-		return err
-	}
-	return handler(srv, ss)
+	return status.Errorf(codes.Unimplemented, "streaming not supported")
 }
 
 func (s *ServerInterceptor) Stream() grpc.StreamServerInterceptor {
 	return s.StreamServerInterceptor
+}
+
+func extractAuthFromContext(ctx context.Context) (*authData, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "request is not signed with API key; metadata is missing from request headers")
+	}
+
+	hmac := md["authorization"]
+	if len(hmac) == 0 {
+		return nil, status.Errorf(codes.Unauthenticated, "request is not signed with API key")
+	}
+
+	timestamp := md["timestamp"]
+	if len(timestamp) == 0 {
+		return nil, status.Errorf(codes.Unauthenticated, "API key signature timestamp is not provided")
+	}
+
+	team := md["team"]
+	if len(team) == 0 {
+		return nil, status.Errorf(codes.Unauthenticated, "team is not provided in API key signature metadata")
+	}
+
+	mac, err := hex.DecodeString(hmac[0])
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "wrong API key signature format")
+	}
+
+	return &authData{
+		hmac:      mac,
+		timestamp: timestamp[0],
+		team:      team[0],
+	}, nil
 }
