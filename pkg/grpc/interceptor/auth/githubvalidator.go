@@ -54,7 +54,7 @@ func (g *GithubValidator) validate(token string) (jwt.Token, error) {
 func (g *GithubValidator) jwtOptions() []jwt.ParseOption {
 	return []jwt.ParseOption{
 		jwt.WithValidate(true),
-		jwt.WithAcceptableSkew(250 * time.Hour), // TODO fixme
+		jwt.WithAcceptableSkew(30 * time.Second),
 		jwt.WithIssuer("https://token.actions.githubusercontent.com"),
 		jwt.WithAudience(Audience),
 	}
