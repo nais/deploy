@@ -22,9 +22,9 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 	}
 
 	if cfg.GrpcAuthentication {
-		var interceptor *auth_interceptor.ClientInterceptor
+		var interceptor auth_interceptor.ClientInterceptor
 		if cfg.GithubToken != "" {
-			interceptor = &auth_interceptor.ClientInterceptor{
+			interceptor = &auth_interceptor.JWTInterceptor{
 				JWT:        cfg.GithubToken,
 				RequireTLS: cfg.GrpcUseTLS,
 				Team:       cfg.Team,
@@ -34,7 +34,7 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 			if err != nil {
 				return nil, Errorf(ExitInvocationFailure, "%s: %s", MalformedAPIKeyMsg, err)
 			}
-			interceptor = &auth_interceptor.ClientInterceptor{
+			interceptor = &auth_interceptor.APIKeyInterceptor{
 				APIKey:     decoded,
 				RequireTLS: cfg.GrpcUseTLS,
 				Team:       cfg.Team,
