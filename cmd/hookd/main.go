@@ -195,7 +195,8 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 				return nil, nil, fmt.Errorf("unable to set up github validator: %w", err)
 			}
 
-			authInterceptor := auth_interceptor.NewServerInterceptor(apikeys, ghValidator, teams.New(cfg.TeamsURL, cfg.TeamsAPIKey))
+			teamsClient := teams.New(cfg.TeamsURL, cfg.TeamsAPIKey)
+			authInterceptor := auth_interceptor.NewServerInterceptor(apikeys, ghValidator, teamsClient)
 
 			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, authInterceptor)
 			log.Infof("Authentication enabled for deployment requests")
