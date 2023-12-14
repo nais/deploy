@@ -15,8 +15,6 @@ type ClientInterceptor interface {
 
 var _ ClientInterceptor = &APIKeyInterceptor{}
 
-var _ ClientInterceptor = &APIKeyInterceptor{}
-
 type APIKeyInterceptor struct {
 	APIKey     []byte
 	RequireTLS bool
