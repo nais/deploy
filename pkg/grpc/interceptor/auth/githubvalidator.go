@@ -28,15 +28,6 @@ func NewGithubValidator() (*GithubValidator, error) {
 }
 
 func (g *GithubValidator) Validate(token string) (jwt.Token, error) {
-	t, err := g.validate(token)
-	if err != nil {
-		return nil, fmt.Errorf("parse and validate token: %w", err)
-	}
-
-	return t, err
-}
-
-func (g *GithubValidator) validate(token string) (jwt.Token, error) {
 	pubKeys, err := g.jwkCache.Get(context.Background(), GithubOIDCDiscoveryURL)
 	if err != nil {
 		return nil, fmt.Errorf("getting jwks from cache: %w", err)
