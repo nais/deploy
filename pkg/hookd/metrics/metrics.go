@@ -1,12 +1,12 @@
 package metrics
 
 import (
-	"strconv"
 	"sync"
 	"time"
 
-	"github.com/nais/deploy/pkg/pb"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/nais/deploy/pkg/pb"
 )
 
 const (
@@ -17,11 +17,13 @@ const (
 	StatusError = "error"
 
 	LabelStatus          = "status"
-	LabelStatusCode      = "status_code"
 	LabelDeploymentState = "deployment_state"
 	Repository           = "repository"
 	Team                 = "team"
 	Cluster              = "cluster"
+
+	LabelType  = "type"
+	LabelError = "error"
 )
 
 var (
@@ -30,12 +32,82 @@ var (
 	qlock              = &sync.Mutex{}
 )
 
-func GitHubRequest(statusCode int, repository, team string) {
-	githubRequests.With(prometheus.Labels{
-		LabelStatusCode: strconv.Itoa(statusCode),
-		Repository:      repository,
-		Team:            team,
-	}).Inc()
+var (
+	databaseQueries = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:      "database_queries",
+		Help:      "time to execute database queries",
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Buckets:   prometheus.LinearBuckets(0.005, 0.005, 20),
+	},
+		[]string{
+			LabelStatus,
+		},
+	)
+
+	stateTransitions = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "state_transition",
+		Help:      "deployment state transitions",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			LabelDeploymentState,
+			Repository,
+			Team,
+			Cluster,
+		},
+	)
+
+	queueSize = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:      "queue_size",
+		Help:      "number of unfinished deployments",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	})
+
+	clusterStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:      "cluster_status",
+		Help:      "0 if cluster is down, 1 if cluster is up",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			Cluster,
+		},
+	)
+
+	leadTime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+		Name:      "lead_time_seconds",
+		Help:      "the time it takes from a deploy is made to it is running in the cluster",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{
+			LabelDeploymentState,
+			Repository,
+			Team,
+			Cluster,
+		},
+	)
+
+	interceptorRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "auth_interceptor_requests",
+		Help:      "Number of requests by type in auth interceptor",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	},
+		[]string{LabelType, LabelError},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(databaseQueries)
+	prometheus.MustRegister(stateTransitions)
+	prometheus.MustRegister(queueSize)
+	prometheus.MustRegister(leadTime)
+	prometheus.MustRegister(clusterStatus)
+	prometheus.MustRegister(interceptorRequests)
 }
 
 func SetConnectedClusters(clusters []string) {
@@ -108,84 +180,9 @@ func UpdateQueue(status *pb.DeploymentStatus) {
 	queueSize.Set(float64(len(deployQueue)))
 }
 
-var (
-	databaseQueries = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:      "database_queries",
-		Help:      "time to execute database queries",
-		Namespace: namespace,
-		Subsystem: subsystem,
-		Buckets:   prometheus.LinearBuckets(0.005, 0.005, 20),
-	},
-		[]string{
-			LabelStatus,
-		},
-	)
-
-	githubRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:      "github_requests",
-		Help:      "number of Github requests made",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
-		[]string{
-			LabelStatusCode,
-			Repository,
-			Team,
-		},
-	)
-
-	stateTransitions = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:      "state_transition",
-		Help:      "deployment state transitions",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
-		[]string{
-			LabelDeploymentState,
-			Repository,
-			Team,
-			Cluster,
-		},
-	)
-
-	queueSize = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name:      "queue_size",
-		Help:      "number of unfinished deployments",
-		Namespace: namespace,
-		Subsystem: subsystem,
+func InterceptorRequest(requestType string, errType string) {
+	interceptorRequests.With(prometheus.Labels{
+		LabelType:  requestType,
+		LabelError: errType,
 	})
-
-	clusterStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "cluster_status",
-		Help:      "0 if cluster is down, 1 if cluster is up",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
-		[]string{
-			Cluster,
-		},
-	)
-
-	leadTime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Name:      "lead_time_seconds",
-		Help:      "the time it takes from a deploy is made to it is running in the cluster",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
-		[]string{
-			LabelDeploymentState,
-			Repository,
-			Team,
-			Cluster,
-		},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(databaseQueries)
-	prometheus.MustRegister(githubRequests)
-	prometheus.MustRegister(stateTransitions)
-	prometheus.MustRegister(queueSize)
-	prometheus.MustRegister(leadTime)
-	prometheus.MustRegister(clusterStatus)
 }

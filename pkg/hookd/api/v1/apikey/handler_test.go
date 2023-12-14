@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi"
-
 	"github.com/nais/deploy/pkg/hookd/api"
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
@@ -24,10 +22,6 @@ var (
 	key2 = []byte("123456")
 	key4 = api_v1.Key{0x00} // not used
 )
-
-func tokenValidatorMiddleware(next http.Handler) http.Handler {
-	return next
-}
 
 func (a *apiKeyStorage) ApiKeys(ctx context.Context, id string) (database.ApiKeys, error) {
 	switch id {
@@ -65,9 +59,8 @@ func (a *apiKeyStorage) RotateApiKey(ctx context.Context, team string, key api_v
 func TestApiKeyHandler(t *testing.T) {
 	apiKeyStore := apiKeyStorage{}
 	handler := api.New(api.Config{
-		ApiKeyStore:          &apiKeyStore,
-		MetricsPath:          "/metrics",
-		ValidatorMiddlewares: chi.Middlewares{tokenValidatorMiddleware},
+		ApiKeyStore: &apiKeyStore,
+		MetricsPath: "/metrics",
 		PSKValidator: func(h http.Handler) http.Handler {
 			return h
 		},

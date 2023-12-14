@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi"
-
 	"github.com/go-chi/chi/middleware"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 	"github.com/nais/deploy/pkg/hookd/api"
@@ -162,12 +160,11 @@ func subTest(t *testing.T, test testCase) {
 	}
 
 	handler := api.New(api.Config{
-		ApiKeyStore:          apiKeyStore,
-		DispatchServer:       deployServer,
-		DeploymentStore:      deployStore,
-		ValidatorMiddlewares: chi.Middlewares{middleware.WithValue("foo", nil)},
-		PSKValidator:         middleware.WithValue("foo", nil),
-		MetricsPath:          "/metrics",
+		ApiKeyStore:     apiKeyStore,
+		DispatchServer:  deployServer,
+		DeploymentStore: deployStore,
+		PSKValidator:    middleware.WithValue("foo", nil),
+		MetricsPath:     "/metrics",
 	})
 
 	handler.ServeHTTP(recorder, request)

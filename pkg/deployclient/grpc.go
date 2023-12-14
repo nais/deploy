@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 
-	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
+	auth_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -22,16 +22,25 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 	}
 
 	if cfg.GrpcAuthentication {
-		decoded, err := hex.DecodeString(cfg.APIKey)
-		if err != nil {
-			return nil, Errorf(ExitInvocationFailure, "%s: %s", MalformedAPIKeyMsg, err)
+		var interceptor auth_interceptor.ClientInterceptor
+		if cfg.GithubToken != "" {
+			interceptor = &auth_interceptor.JWTInterceptor{
+				JWT:        cfg.GithubToken,
+				RequireTLS: cfg.GrpcUseTLS,
+				Team:       cfg.Team,
+			}
+		} else {
+			decoded, err := hex.DecodeString(cfg.APIKey)
+			if err != nil {
+				return nil, Errorf(ExitInvocationFailure, "%s: %s", MalformedAPIKeyMsg, err)
+			}
+			interceptor = &auth_interceptor.APIKeyInterceptor{
+				APIKey:     decoded,
+				RequireTLS: cfg.GrpcUseTLS,
+				Team:       cfg.Team,
+			}
 		}
-		intercept := &apikey_interceptor.ClientInterceptor{
-			APIKey:     decoded,
-			RequireTLS: cfg.GrpcUseTLS,
-			Team:       cfg.Team,
-		}
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(intercept))
+		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(interceptor))
 	}
 
 	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)

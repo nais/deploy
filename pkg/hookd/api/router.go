@@ -30,7 +30,6 @@ type Config struct {
 	DeploymentStore       database.DeploymentStore
 	InstallationClient    *gh.Client
 	MetricsPath           string
-	ValidatorMiddlewares  chi.Middlewares
 	PSKValidator          func(http.Handler) http.Handler
 	ProvisionKey          []byte
 	TeamRepositoryStorage database.RepositoryTeamStore

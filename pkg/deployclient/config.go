@@ -18,6 +18,7 @@ type Config struct {
 	DeployServerURL    string
 	DryRun             bool
 	Environment        string
+	GithubToken        string
 	GrpcAuthentication bool
 	GrpcUseTLS         bool
 	Owner              string
@@ -38,6 +39,7 @@ type Config struct {
 
 func InitConfig(cfg *Config) {
 	flag.BoolVar(&cfg.Actions, "actions", getEnvBool("ACTIONS", false), "Use GitHub Actions compatible error and warning messages. (env ACTIONS)")
+	flag.StringVar(&cfg.GithubToken, "github-token", os.Getenv("GITHUB_TOKEN"), "Github JWT. (env GITHUB_TOKEN)")
 	flag.StringVar(&cfg.APIKey, "apikey", os.Getenv("APIKEY"), "NAIS Deploy API key. (env APIKEY)")
 	flag.StringVar(&cfg.Cluster, "cluster", os.Getenv("CLUSTER"), "NAIS cluster to deploy into. (env CLUSTER)")
 	flag.StringVar(&cfg.DeployServerURL, "deploy-server", getEnv("DEPLOY_SERVER", DefaultDeployServer), "URL to API server. (env DEPLOY_SERVER)")
@@ -119,8 +121,8 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf(ClusterRequiredMsg)
 	}
 
-	if len(cfg.APIKey) == 0 {
-		return fmt.Errorf(APIKeyRequiredMsg)
+	if len(cfg.APIKey) == 0 && len(cfg.GithubToken) == 0 {
+		return fmt.Errorf(AuthRequiredMsg)
 	}
 
 	_, err := hex.DecodeString(cfg.APIKey)

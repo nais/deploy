@@ -4,11 +4,6 @@ dependencies:
 environmentKinds:
   - management
 values:
-  consoleAPIKey:
-    description: API-key used to get groups from console
-    displayName: Console API-key
-    computed:
-      template: '"{{.Management.hookd_console_api_key}}"'
   database.encryptionKey:
     description: Database encryption key used to encrypt deploy api keys
     computed:
@@ -66,6 +61,11 @@ values:
     displayName: Ingress URL
     computed:
       template: '"{{ subdomain . "deploy" }}"'
+  teamsAPIKey:
+    displayName: "teams api key"
+    computed:
+      template: "{{.Management.hookd_teams_api_key | quote}}"
+    description: "API key used for teams integration"
   frontendPreSharedKey:
     displayName: "console-backend pre-shared key"
     computed:

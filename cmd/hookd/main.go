@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,7 +21,7 @@ import (
 
 	"github.com/nais/deploy/pkg/grpc/deployserver"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
-	apikey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/apikey"
+	auth_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/auth"
 	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	switch_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/switch"
 	unauthenticated_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/unauthenticated"
@@ -33,11 +32,11 @@ import (
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/teams"
 	"github.com/nais/deploy/pkg/version"
 )
 
 var maskedConfig = []string{
-	config.ConsoleApiKey,
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
 	config.DeploydKeys,
@@ -116,19 +115,6 @@ func run() error {
 
 	log.Infof("gRPC server started")
 
-	var validators chi.Middlewares
-	if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
-		validators = append(validators, middleware.PskValidatorMiddleware(cfg.FrontendKeys))
-		log.Infof("Using PSK validator")
-		googleValidator, err := middleware.NewGoogleValidator(cfg.GoogleClientId, cfg.ConsoleApiKey, cfg.ConsoleUrl, cfg.GoogleAllowedDomains)
-		if err != nil {
-			return fmt.Errorf("set up google validator: %w", err)
-		} else {
-			validators = append(validators, googleValidator.Middleware())
-			log.Infof("Using GoogleValidator validator")
-		}
-	}
-
 	projects, err := parseKeyVal(cfg.GoogleClusterProjects)
 	if err != nil {
 		return fmt.Errorf("unable to parse google cluster projects: %v", err)
@@ -139,7 +125,6 @@ func run() error {
 		DeploymentStore:       db,
 		DispatchServer:        dispatchServer,
 		MetricsPath:           cfg.MetricsPath,
-		ValidatorMiddlewares:  validators,
 		PSKValidator:          middleware.PskValidatorMiddleware(cfg.FrontendKeys),
 		ProvisionKey:          provisionKey,
 		TeamRepositoryStorage: db,
@@ -189,10 +174,15 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 		interceptor.Add(pb.Dispatch_ServiceDesc.ServiceName, unauthenticatedInterceptor)
 
 		if cfg.GRPC.CliAuthentication {
-			apikeyInterceptor := &apikey_interceptor.ServerInterceptor{
-				APIKeyStore: apikeys,
+			ghValidator, err := auth_interceptor.NewGithubValidator()
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to set up github validator: %w", err)
 			}
-			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, apikeyInterceptor)
+
+			teamsClient := teams.New(cfg.TeamsURL, cfg.TeamsAPIKey)
+			authInterceptor := auth_interceptor.NewServerInterceptor(apikeys, ghValidator, teamsClient)
+
+			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, authInterceptor)
 			log.Infof("Authentication enabled for deployment requests")
 		}
 
