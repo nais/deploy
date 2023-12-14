@@ -38,7 +38,7 @@ fi
 
 # if no apikey is set, use use the id-token to get a jwt token for the deploy CLI
 if [ -z "$APIKEY" ]; then
-    if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] && [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+    if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
         echo "APIKEY or id-token permissions must be set"
         exit 1
     fi
