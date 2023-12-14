@@ -11,7 +11,6 @@ import (
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/pb"
-	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,11 +25,11 @@ type ServerInterceptor struct {
 }
 
 type TokenValidator interface {
-	Validate(token string) (jwt.Token, error)
+	Validate(ctx context.Context, token string) (jwt.Token, error)
 }
 
 type TeamsClient interface {
-	IsAuthorized(repo, team string) bool
+	IsAuthorized(ctx context.Context, repo, team string) bool
 }
 
 type authData struct {
@@ -40,28 +39,12 @@ type authData struct {
 }
 
 func NewServerInterceptor(apiKeyStore database.ApiKeyStore, tokenValidator TokenValidator, teamsClient TeamsClient) *ServerInterceptor {
-	prometheus.MustRegister(promReq)
 	return &ServerInterceptor{
 		APIKeyStore:    apiKeyStore,
 		TokenValidator: tokenValidator,
 		TeamsClient:    teamsClient,
 	}
 }
-
-var (
-	promReq = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "hookd_auth_interceptor_requests",
-			Help: "Number of requests by type in auth interceptor",
-		},
-		[]string{"type"})
-	promErr = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "hookd_auth_interceptor_errors",
-			Help: "Number of errors in auth interceptor",
-		},
-		[]string{"type"})
-)
 
 func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 	_, ok := req.(*pb.DeploymentRequest)
@@ -77,46 +60,44 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 	jwt := get("jwt", md)
 
 	if jwt != "" {
-		promReq.WithLabelValues("jwt").Inc()
-		t, err := s.TokenValidator.Validate(jwt)
+		// promReq.WithLabelValues("jwt").Inc()
+		t, err := s.TokenValidator.Validate(ctx, jwt)
 		if err != nil {
-			promErr.WithLabelValues("invalid_jwt").Inc()
+			// promErr.WithLabelValues("invalid_jwt").Inc()
 			return nil, status.Errorf(codes.Unauthenticated, "invalid JWT token")
 		}
 
 		r, ok := t.Get("repository")
 		if !ok {
-			return nil, status.Errorf(codes.Unauthenticated, "missing repository in JWT token")
+			return nil, status.Errorf(codes.InvalidArgument, "missing repository in JWT token")
 		}
 		repo := r.(string)
 
 		team := get("team", md)
 		if team == "" {
-			return nil, status.Errorf(codes.Unauthenticated, "missing team in metadata")
+			return nil, status.Errorf(codes.InvalidArgument, "missing team in metadata")
 		}
 
-		if s.TeamsClient.IsAuthorized(repo, team) {
-			return handler(ctx, req)
-		} else {
-			promErr.WithLabelValues("unauthorized_repo").Inc()
+		if !s.TeamsClient.IsAuthorized(ctx, repo, team) {
 			return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
+			// promErr.WithLabelValues("unauthorized_repo").Inc()
 		}
-	}
+	} else {
+		// promReq.WithLabelValues("api-key").Inc()
+		auth, err := extractAuthFromContext(ctx)
+		if err != nil {
+			return nil, err
+		}
 
-	promReq.WithLabelValues("api-key").Inc()
-	auth, err := extractAuthFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
+		requestTime, _ := time.Parse(time.RFC3339Nano, auth.timestamp)
+		if !withinTimeRange(requestTime) {
+			return nil, status.Errorf(codes.DeadlineExceeded, "signature is too old")
+		}
 
-	requestTime, _ := time.Parse(time.RFC3339Nano, auth.timestamp)
-	if !withinTimeRange(requestTime) {
-		return nil, status.Errorf(codes.DeadlineExceeded, "signature is too old")
-	}
-
-	err = s.authenticate(ctx, *auth)
-	if err != nil {
-		return nil, err
+		err = s.authenticate(ctx, *auth)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return handler(ctx, req)

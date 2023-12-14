@@ -13,6 +13,7 @@ import (
 const (
 	Audience               = "hookd"
 	GithubOIDCDiscoveryURL = "https://token.actions.githubusercontent.com/.well-known/jwks"
+	Issuer                 = "https://token.actions.githubusercontent.com"
 )
 
 type GithubValidator struct {
@@ -27,10 +28,10 @@ func NewGithubValidator() (*GithubValidator, error) {
 	return g, nil
 }
 
-func (g *GithubValidator) Validate(token string) (jwt.Token, error) {
-	pubKeys, err := g.jwkCache.Get(context.Background(), GithubOIDCDiscoveryURL)
+func (g *GithubValidator) Validate(ctx context.Context, token string) (jwt.Token, error) {
+	pubKeys, err := g.jwkCache.Get(ctx, GithubOIDCDiscoveryURL)
 	if err != nil {
-		return nil, fmt.Errorf("getting jwks from cache: %w", err)
+		panic(fmt.Errorf("get jwk from cache: %w", err))
 	}
 	keySetOpts := jwt.WithKeySet(pubKeys, jws.WithInferAlgorithmFromKey(true))
 	otherParseOpts := g.jwtOptions()
@@ -45,8 +46,8 @@ func (g *GithubValidator) Validate(token string) (jwt.Token, error) {
 func (g *GithubValidator) jwtOptions() []jwt.ParseOption {
 	return []jwt.ParseOption{
 		jwt.WithValidate(true),
-		jwt.WithAcceptableSkew(30 * time.Second),
-		jwt.WithIssuer("https://token.actions.githubusercontent.com"),
+		jwt.WithAcceptableSkew(5 * time.Second),
+		jwt.WithIssuer(Issuer),
 		jwt.WithAudience(Audience),
 	}
 }
@@ -65,6 +66,11 @@ func (g *GithubValidator) setupJwkAutoRefresh() error {
 		return fmt.Errorf("jwks caching: %w", err)
 	}
 	g.jwkCache = cache
+
+	_, err = g.jwkCache.Get(context.Background(), GithubOIDCDiscoveryURL)
+	if err != nil {
+		return fmt.Errorf("get jwk from cache: %w", err)
+	}
 
 	return nil
 }

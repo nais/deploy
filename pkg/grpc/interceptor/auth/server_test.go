@@ -166,7 +166,7 @@ type mockTokenValidator struct {
 	valid string
 }
 
-func (m *mockTokenValidator) Validate(token string) (jwt.Token, error) {
+func (m *mockTokenValidator) Validate(ctx context.Context, token string) (jwt.Token, error) {
 	if token != m.valid {
 		return nil, fmt.Errorf("invalid token")
 	}
@@ -178,7 +178,7 @@ type mockTeamsClient struct {
 	authorized map[string]string
 }
 
-func (m *mockTeamsClient) IsAuthorized(repo, team string) bool {
+func (m *mockTeamsClient) IsAuthorized(ctx context.Context, repo, team string) bool {
 	return m.authorized[repo] == team
 }
 

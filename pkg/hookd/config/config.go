@@ -17,8 +17,6 @@ type GRPC struct {
 
 type Config struct {
 	BaseURL                string        `json:"base-url"`
-	ConsoleApiKey          string        `json:"console-api-key"`
-	ConsoleUrl             string        `json:"console-url"`
 	DatabaseConnectTimeout time.Duration `json:"database-connect-timeout"`
 	DatabaseEncryptionKey  string        `json:"database-encryption-key"`
 	DatabaseURL            string        `json:"database-url"`
@@ -40,8 +38,6 @@ type Config struct {
 
 const (
 	BaseUrl                   = "base-url"
-	ConsoleApiKey             = "console-api-key"
-	ConsoleUrl                = "console-url"
 	DatabaseConnectTimeout    = "database-connect-timeout"
 	DatabaseEncryptionKey     = "database-encryption-key"
 	DatabaseUrl               = "database-url"
@@ -99,15 +95,12 @@ func Initialize() *Config {
 	flag.StringSlice(DeploydKeys, nil, "Pre-shared deployd keys, comma separated")
 	flag.StringSlice(FrontendKeys, nil, "Pre-shared frontend keys, comma separated")
 
-	flag.String(ConsoleApiKey, "", "Console Api Key")
-	flag.String(ConsoleUrl, "http://localhost:3000/query", "Console URL")
-
 	flag.String(GoogleClientId, "", "Google ClientId.")
 	flag.StringSlice(GoogleAllowedDomains, []string{}, "Allowed Google Domains")
 	flag.StringSlice(GoogleClusterProjects, []string{}, "Mapping cluster to google project: cluster1=project1,cluster2=project2")
 
 	flag.String(TeamsAPIKey, "", "Teams API Key")
-	flag.String(TeamsURL, "http://teams-backend/query", "Teams URL")
+	flag.String(TeamsURL, "http://localhost:3000/query", "Teams URL")
 
 	return &Config{}
 }

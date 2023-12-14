@@ -179,6 +179,18 @@ var (
 			Cluster,
 		},
 	)
+
+	interceptorRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "hookd_auth_interceptor_requests",
+		Help: "Number of requests by type in auth interceptor",
+	},
+		[]string{"type"})
+
+	interceptorErrors = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "hookd_auth_interceptor_errors",
+		Help: "Number of errors in auth interceptor",
+	},
+		[]string{"type"})
 )
 
 func init() {
@@ -188,4 +200,6 @@ func init() {
 	prometheus.MustRegister(queueSize)
 	prometheus.MustRegister(leadTime)
 	prometheus.MustRegister(clusterStatus)
+	prometheus.MustRegister(interceptorRequests)
+	prometheus.MustRegister(interceptorErrors)
 }

@@ -27,7 +27,7 @@ func New(url, apiToken string) *teamsClient {
 	}
 }
 
-func (t *teamsClient) IsAuthorized(repo, team string) bool {
+func (t *teamsClient) IsAuthorized(ctx context.Context, repo, team string) bool {
 	query := `query ($repoName: String! $teamSlug: Slug! $authorization: RepositoryAuthorization!) {
        isRepositoryAuthorized(repoName: $repoName, teamSlug: $teamSlug, authorization: $authorization)
 	}`
@@ -45,7 +45,7 @@ func (t *teamsClient) IsAuthorized(repo, team string) bool {
 		Errors []map[string]any `json:"errors"`
 	}{}
 
-	if err := t.teamsQuery(context.Background(), query, vars, &respBody); err != nil {
+	if err := t.teamsQuery(ctx, query, vars, &respBody); err != nil {
 		log.WithError(err).Error("checking repo authorization in teams")
 		return false
 	}
@@ -85,7 +85,7 @@ func (t *teamsClient) teamsQuery(ctx context.Context, query string, vars map[str
 
 	if resp.StatusCode != http.StatusOK {
 		io.Copy(os.Stdout, resp.Body)
-		return fmt.Errorf("teams: %v", resp.Status)
+		return fmt.Errorf(resp.Status)
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
