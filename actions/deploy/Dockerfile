@@ -1,1 +1,1 @@
-FROM europe-north1-docker.pkg.dev/nais-io/nais/images/deploy-action:2023-08-24-105454-ef68bd7
+FROM europe-north1-docker.pkg.dev/nais-io/nais/images/deploy-action:2023-12-14-204854-2a6e26f
