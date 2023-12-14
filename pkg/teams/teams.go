@@ -47,13 +47,11 @@ func (t *teamsClient) IsAuthorized(repo, team string) bool {
 
 	if err := t.teamsQuery(context.Background(), query, vars, &respBody); err != nil {
 		log.WithError(err).Error("checking repo authorization in teams")
-		// TODO: error metrics
 		return false
 	}
 
 	if len(respBody.Errors) > 0 {
 		log.Errorf("checking repo authorization in teams: %v", respBody.Errors)
-		// TODO: error metrics
 		return false
 	}
 
