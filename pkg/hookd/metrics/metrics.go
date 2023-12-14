@@ -21,6 +21,9 @@ const (
 	Repository           = "repository"
 	Team                 = "team"
 	Cluster              = "cluster"
+
+	LabelType  = "type"
+	LabelError = "error"
 )
 
 var (
@@ -94,7 +97,8 @@ var (
 		Namespace: namespace,
 		Subsystem: subsystem,
 	},
-		[]string{"type", "status"})
+		[]string{LabelType, LabelError},
+	)
 )
 
 func init() {
@@ -178,7 +182,7 @@ func UpdateQueue(status *pb.DeploymentStatus) {
 
 func InterceptorRequest(requestType string, errType string) {
 	interceptorRequests.With(prometheus.Labels{
-		"type":  requestType,
-		"error": errType,
+		LabelType:  requestType,
+		LabelError: errType,
 	})
 }
