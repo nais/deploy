@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/prometheus/client_golang/prometheus"
@@ -38,7 +37,6 @@ import (
 )
 
 var maskedConfig = []string{
-	config.ConsoleApiKey,
 	config.DatabaseEncryptionKey,
 	config.DatabaseUrl,
 	config.DeploydKeys,
@@ -117,19 +115,6 @@ func run() error {
 
 	log.Infof("gRPC server started")
 
-	var validators chi.Middlewares
-	if cfg.GoogleClientId != "" && len(cfg.FrontendKeys) > 0 {
-		validators = append(validators, middleware.PskValidatorMiddleware(cfg.FrontendKeys))
-		log.Infof("Using PSK validator")
-		googleValidator, err := middleware.NewGoogleValidator(cfg.GoogleClientId, cfg.ConsoleApiKey, cfg.ConsoleUrl, cfg.GoogleAllowedDomains)
-		if err != nil {
-			return fmt.Errorf("set up google validator: %w", err)
-		} else {
-			validators = append(validators, googleValidator.Middleware())
-			log.Infof("Using GoogleValidator validator")
-		}
-	}
-
 	projects, err := parseKeyVal(cfg.GoogleClusterProjects)
 	if err != nil {
 		return fmt.Errorf("unable to parse google cluster projects: %v", err)
@@ -140,7 +125,6 @@ func run() error {
 		DeploymentStore:       db,
 		DispatchServer:        dispatchServer,
 		MetricsPath:           cfg.MetricsPath,
-		ValidatorMiddlewares:  validators,
 		PSKValidator:          middleware.PskValidatorMiddleware(cfg.FrontendKeys),
 		ProvisionKey:          provisionKey,
 		TeamRepositoryStorage: db,
