@@ -8,14 +8,16 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
-	"github.com/nais/deploy/pkg/hookd/database"
-	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
+	"github.com/nais/deploy/pkg/hookd/database"
+	"github.com/nais/deploy/pkg/hookd/metrics"
+	"github.com/nais/deploy/pkg/pb"
 )
 
 type ServerInterceptor struct {
@@ -59,45 +61,74 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 
 	jwt := get("jwt", md)
 
+	const requestTypeJWT = "jwt"
+	const requestTypeApiKey = "api_key"
+
 	if jwt != "" {
-		// promReq.WithLabelValues("jwt").Inc()
+		const errInvalidJWT = "invalid_jwt"
+		const errMissingRepository = "no_repository"
+		const errMissingTeam = "no_team"
+		const errRepoNotAuthorized = "repo_not_authorized"
+
 		t, err := s.TokenValidator.Validate(ctx, jwt)
 		if err != nil {
-			// promErr.WithLabelValues("invalid_jwt").Inc()
+			metrics.InterceptorRequest(requestTypeJWT, errInvalidJWT)
 			return nil, status.Errorf(codes.Unauthenticated, "invalid JWT token")
 		}
 
 		r, ok := t.Get("repository")
 		if !ok {
+			metrics.InterceptorRequest(requestTypeJWT, errMissingRepository)
 			return nil, status.Errorf(codes.InvalidArgument, "missing repository in JWT token")
 		}
 		repo := r.(string)
 
 		team := get("team", md)
 		if team == "" {
+			metrics.InterceptorRequest(requestTypeJWT, errMissingTeam)
 			return nil, status.Errorf(codes.InvalidArgument, "missing team in metadata")
 		}
 
 		if !s.TeamsClient.IsAuthorized(ctx, repo, team) {
+			metrics.InterceptorRequest(requestTypeJWT, errRepoNotAuthorized)
 			return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
-			// promErr.WithLabelValues("unauthorized_repo").Inc()
 		}
+
+		metrics.InterceptorRequest(requestTypeJWT, "")
 	} else {
-		// promReq.WithLabelValues("api-key").Inc()
+		const invalidAuthMetadata = "invalid_auth_metadata"
+		const signatureTooOld = "signature_expired"
+		const teamNotFound = "team_not_found"
+		const invalidApiKey = "invalid_api_key"
+		const databaseError = "database_error"
+
 		auth, err := extractAuthFromContext(ctx)
 		if err != nil {
+			metrics.InterceptorRequest(requestTypeApiKey, invalidAuthMetadata)
 			return nil, err
 		}
 
 		requestTime, _ := time.Parse(time.RFC3339Nano, auth.timestamp)
 		if !withinTimeRange(requestTime) {
+			metrics.InterceptorRequest(requestTypeApiKey, signatureTooOld)
 			return nil, status.Errorf(codes.DeadlineExceeded, "signature is too old")
 		}
 
 		err = s.authenticate(ctx, *auth)
 		if err != nil {
+			gerr := status.Convert(err)
+			switch gerr.Code() {
+			case codes.Unauthenticated:
+				metrics.InterceptorRequest(requestTypeApiKey, teamNotFound)
+			case codes.PermissionDenied:
+				metrics.InterceptorRequest(requestTypeApiKey, invalidApiKey)
+			case codes.Unavailable:
+				metrics.InterceptorRequest(requestTypeApiKey, databaseError)
+			}
 			return nil, err
 		}
+
+		metrics.InterceptorRequest(requestTypeApiKey, "")
 	}
 
 	return handler(ctx, req)
