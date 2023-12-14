@@ -56,7 +56,7 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid metadata in request")
+		return nil, status.Errorf(codes.InvalidArgument, "invalid metadata in request")
 	}
 
 	jwt := get("jwt", md)
@@ -170,7 +170,51 @@ func (s *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 }
 
 func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	return status.Errorf(codes.Unimplemented, "streaming not supported")
+	md, ok := metadata.FromIncomingContext(ss.Context())
+	if !ok {
+		return status.Errorf(codes.InvalidArgument, "invalid metadata in request")
+	}
+
+	jwt := get("jwt", md)
+
+	if jwt != "" {
+		t, err := s.TokenValidator.Validate(ss.Context(), jwt)
+		if err != nil {
+			return status.Errorf(codes.Unauthenticated, "invalid JWT token")
+		}
+
+		r, ok := t.Get("repository")
+		if !ok {
+			return status.Errorf(codes.InvalidArgument, "missing repository in JWT token")
+		}
+		repo := r.(string)
+
+		team := get("team", md)
+		if team == "" {
+			return status.Errorf(codes.InvalidArgument, "missing team in metadata")
+		}
+
+		if !s.TeamsClient.IsAuthorized(ss.Context(), repo, team) {
+			return status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
+		}
+	} else {
+		auth, err := extractAuthFromContext(ss.Context())
+		if err != nil {
+			return err
+		}
+
+		requestTime, _ := time.Parse(time.RFC3339Nano, auth.timestamp)
+		if !withinTimeRange(requestTime) {
+			return status.Errorf(codes.DeadlineExceeded, "signature is too old")
+		}
+
+		err = s.authenticate(ss.Context(), *auth)
+		if err != nil {
+			return err
+		}
+	}
+
+	return handler(srv, ss)
 }
 
 func (s *ServerInterceptor) Stream() grpc.StreamServerInterceptor {
