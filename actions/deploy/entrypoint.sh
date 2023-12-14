@@ -1,7 +1,9 @@
 #!/bin/sh
 # vi: se et:
 
-echo "::add-mask::$APIKEY"
+if [ -n "$APIKEY" ]; then
+    echo "::add-mask::$APIKEY"
+fi
 
 if [ -z "$OWNER" ]; then
     OWNER=$(echo "$GITHUB_REPOSITORY" | cut -f1 -d/)
@@ -50,6 +52,5 @@ if [ -z "$APIKEY" ]; then
 fi
 
 export ACTIONS="true"
-
 
 /app/deploy
