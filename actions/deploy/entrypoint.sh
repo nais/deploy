@@ -46,7 +46,7 @@ if [ -z "$APIKEY" ]; then
     payload=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=hookd")
     jwt=$(echo "$payload" | jq -r '.value')
 
-    export JWT="$jwt"
+    export GITHUB_TOKEN="$jwt"
 fi
 
 export ACTIONS="true"
