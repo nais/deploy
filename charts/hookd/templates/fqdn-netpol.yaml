@@ -18,6 +18,7 @@ spec:
       protocol: TCP
     to:
     - fqdns:
+      - token.actions.githubusercontent.com
       - accounts.google.com
       - private.googleapis.com
   podSelector:
