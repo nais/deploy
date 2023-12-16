@@ -184,5 +184,5 @@ func InterceptorRequest(requestType string, errType string) {
 	interceptorRequests.With(prometheus.Labels{
 		LabelType:  requestType,
 		LabelError: errType,
-	})
+	}).Inc()
 }
