@@ -20,6 +20,11 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 )
 
+const (
+	requestTypeApiKey = "api_key"
+	requestTypeJWT    = "jwt"
+)
+
 type ServerInterceptor struct {
 	APIKeyStore    database.ApiKeyStore
 	TokenValidator TokenValidator
@@ -61,70 +66,47 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 
 	jwt := get("jwt", md)
 
-	const requestTypeJWT = "jwt"
-	const requestTypeApiKey = "api_key"
-
 	if jwt != "" {
-		const errInvalidJWT = "invalid_jwt"
-		const errMissingRepository = "no_repository"
-		const errMissingTeam = "no_team"
-		const errRepoNotAuthorized = "repo_not_authorized"
-
 		t, err := s.TokenValidator.Validate(ctx, jwt)
 		if err != nil {
-			metrics.InterceptorRequest(requestTypeJWT, errInvalidJWT)
+			metrics.InterceptorRequest(requestTypeJWT, "invalid_jwt")
 			return nil, status.Errorf(codes.Unauthenticated, "invalid JWT token")
 		}
 
 		r, ok := t.Get("repository")
 		if !ok {
-			metrics.InterceptorRequest(requestTypeJWT, errMissingRepository)
+			metrics.InterceptorRequest(requestTypeJWT, "no_repository")
 			return nil, status.Errorf(codes.InvalidArgument, "missing repository in JWT token")
 		}
 		repo := r.(string)
 
 		team := get("team", md)
 		if team == "" {
-			metrics.InterceptorRequest(requestTypeJWT, errMissingTeam)
+			metrics.InterceptorRequest(requestTypeJWT, "no_team")
 			return nil, status.Errorf(codes.InvalidArgument, "missing team in metadata")
 		}
 
 		if !s.TeamsClient.IsAuthorized(ctx, repo, team) {
-			metrics.InterceptorRequest(requestTypeJWT, errRepoNotAuthorized)
+			metrics.InterceptorRequest(requestTypeJWT, "repo_not_authorized")
 			return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
 		}
 
 		metrics.InterceptorRequest(requestTypeJWT, "")
 	} else {
-		const invalidAuthMetadata = "invalid_auth_metadata"
-		const signatureTooOld = "signature_expired"
-		const teamNotFound = "team_not_found"
-		const invalidApiKey = "invalid_api_key"
-		const databaseError = "database_error"
-
 		auth, err := extractAuthFromContext(ctx)
 		if err != nil {
-			metrics.InterceptorRequest(requestTypeApiKey, invalidAuthMetadata)
+			metrics.InterceptorRequest(requestTypeApiKey, "invalid_auth_metadata")
 			return nil, err
 		}
 
 		requestTime, _ := time.Parse(time.RFC3339Nano, auth.timestamp)
 		if !withinTimeRange(requestTime) {
-			metrics.InterceptorRequest(requestTypeApiKey, signatureTooOld)
-			return nil, status.Errorf(codes.DeadlineExceeded, "signature is too old")
+			metrics.InterceptorRequest(requestTypeApiKey, "signature_expired")
+			return nil, status.Errorf(codes.DeadlineExceeded, "signature expired")
 		}
 
 		err = s.authenticate(ctx, *auth)
 		if err != nil {
-			gerr := status.Convert(err)
-			switch gerr.Code() {
-			case codes.Unauthenticated:
-				metrics.InterceptorRequest(requestTypeApiKey, teamNotFound)
-			case codes.PermissionDenied:
-				metrics.InterceptorRequest(requestTypeApiKey, invalidApiKey)
-			case codes.Unavailable:
-				metrics.InterceptorRequest(requestTypeApiKey, databaseError)
-			}
 			return nil, err
 		}
 
@@ -147,14 +129,17 @@ func (s *ServerInterceptor) authenticate(ctx context.Context, auth authData) err
 	if err != nil {
 		log.Errorf("Fetch API keys for team %s: %s", auth.team, err)
 		if database.IsErrNotFound(err) {
+			metrics.InterceptorRequest(requestTypeApiKey, "team_not_found")
 			return status.Errorf(codes.Unauthenticated, "failed authentication")
 		}
+		metrics.InterceptorRequest(requestTypeApiKey, "database_error")
 		return status.Errorf(codes.Unavailable, "something wrong happened when communicating with api key service")
 	}
 
 	err = api_v1.ValidateAnyMAC([]byte(auth.timestamp), auth.hmac, apiKeys.Valid().Keys())
 	if err != nil {
 		log.Errorf("Validate HMAC signature of team %s: %s", auth.team, err)
+		metrics.InterceptorRequest(requestTypeApiKey, "invalid_api_key")
 		return status.Errorf(codes.PermissionDenied, "failed authentication")
 	}
 

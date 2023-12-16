@@ -54,12 +54,13 @@ func TestServerInterceptorApiKey(t *testing.T) {
 			t.Fatal("got nil, want error")
 		}
 
-		if !strings.HasSuffix(err.Error(), "failed authentication") {
-			t.Fatalf("got %s, want failed authentication", err.Error())
+		want := "failed authentication"
+		if !strings.HasSuffix(err.Error(), want) {
+			t.Fatalf("got %s, want %s", err.Error(), want)
 		}
 	})
 
-	t.Run("signature too old", func(t *testing.T) {
+	t.Run("signature expired", func(t *testing.T) {
 		timestamp := time.Now().Add((api_v1.MaxTimeSkew + 1) * time.Second).Format(time.RFC3339Nano)
 
 		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
@@ -73,8 +74,9 @@ func TestServerInterceptorApiKey(t *testing.T) {
 			t.Fatal("got nil, want error")
 		}
 
-		if !strings.HasSuffix(err.Error(), "signature is too old") {
-			t.Fatalf("got %s, want signature is too old", err.Error())
+		want := "signature expired"
+		if !strings.HasSuffix(err.Error(), want) {
+			t.Fatalf("got %s, want %s", err.Error(), want)
 		}
 	})
 }
