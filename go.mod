@@ -8,7 +8,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.3
 	github.com/golang/protobuf v1.5.3
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.5.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/lib/pq v1.10.9
@@ -18,7 +18,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/oauth2 v0.14.0
+	golang.org/x/oauth2 v0.14.0 // indirect
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/sakura-internet/go-rison.v3 v3.2.0
@@ -32,7 +32,6 @@ require (
 require (
 	github.com/google/go-github/v41 v41.0.0
 	github.com/lestrrat-go/jwx/v2 v2.0.17
-	github.com/shurcooL/graphql v0.0.0-20220520033453-bdb1221e171e
 	github.com/vektra/mockery/v2 v2.38.0
 	golang.org/x/vuln v1.0.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
