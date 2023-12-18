@@ -69,6 +69,7 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 	if jwt != "" {
 		t, err := s.TokenValidator.Validate(ctx, jwt)
 		if err != nil {
+			log.WithError(err).Infof("validating token")
 			metrics.InterceptorRequest(requestTypeJWT, "invalid_jwt")
 			return nil, status.Errorf(codes.Unauthenticated, "invalid JWT token")
 		}
@@ -138,7 +139,7 @@ func (s *ServerInterceptor) authenticate(ctx context.Context, auth authData) err
 
 	err = api_v1.ValidateAnyMAC([]byte(auth.timestamp), auth.hmac, apiKeys.Valid().Keys())
 	if err != nil {
-		log.Errorf("Validate HMAC signature of team %s: %s", auth.team, err)
+		log.WithError(err).Infof("Validate HMAC signature of team %s", auth.team)
 		metrics.InterceptorRequest(requestTypeApiKey, "invalid_api_key")
 		return status.Errorf(codes.PermissionDenied, "failed authentication")
 	}
