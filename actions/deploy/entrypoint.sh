@@ -4,6 +4,9 @@
 if [ -n "$APIKEY" ]; then
     echo "::add-mask::$APIKEY"
 fi
+if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+    echo "::add-mask::$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+fi
 
 if [ -z "$OWNER" ]; then
     OWNER=$(echo "$GITHUB_REPOSITORY" | cut -f1 -d/)
@@ -41,7 +44,9 @@ fi
 # if no apikey is set, use use the id-token to get a jwt token for the deploy CLI
 if [ -z "$APIKEY" ]; then
     if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
-        echo "APIKEY or id-token permissions must be set"
+        echo "Missing id-token permissions. This must be set either globally in the workflow, or for the specific job performing the deploy."
+        echo "For more info see https://doc.nais.io/deployment/github-action/ and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
+
         exit 1
     fi
 
