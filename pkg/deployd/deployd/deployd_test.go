@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	go_runtime "runtime"
 	"sync"
 	"testing"
 	"time"
@@ -154,20 +156,10 @@ var tests = []testSpec{
 		fixture: "testdata/application-unknownfields-create.json",
 		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
-			State:   pb.DeploymentState_success,
-			Message: "Deployment completed successfully.",
+			State:   pb.DeploymentState_failure,
+			Message: "nais.io/v1alpha1, Kind=Application, Namespace=aura, Name=myapplication-unknown-fields: creating resource: strict decoding error:\n| ⚠️ unknown field \"spec.nestedField\"\n| ⚠️ unknown field \"spec.unknownField\"\n| The fields might be misspelled, incorrectly indented, or unsupported.\n| Please verify your resource against the reference documentation at https://doc.nais.io/nais-application/application/ (total of 1 errors)",
 		},
-		deployedResources: []client.Object{
-			&nais_io_v1alpha1.Application{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "myapplication-unknown-fields",
-					Namespace: "aura",
-				},
-			},
-		},
-		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
-			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "myapplication-unknown-fields"))
-		},
+		deployedResources: nil,
 	},
 
 	// Update existing Application with unknown fields
@@ -175,20 +167,10 @@ var tests = []testSpec{
 		fixture: "testdata/application-unknownfields-update.json",
 		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
-			State:   pb.DeploymentState_success,
-			Message: "Deployment completed successfully.",
+			State:   pb.DeploymentState_failure,
+			Message: "nais.io/v1alpha1, Kind=Application, Namespace=aura, Name=myapplication: updating resource: strict decoding error:\n| ⚠️ unknown field \"spec.nestedField\"\n| ⚠️ unknown field \"spec.unknownField\"\n| The fields might be misspelled, incorrectly indented, or unsupported.\n| Please verify your resource against the reference documentation at https://doc.nais.io/nais-application/application/ (total of 1 errors)",
 		},
-		deployedResources: []client.Object{
-			&nais_io_v1alpha1.Application{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "myapplication-unknown-fields-update",
-					Namespace: "aura",
-				},
-			},
-		},
-		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
-			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "myapplication-unknown-fields-update"))
-		},
+		deployedResources: nil,
 	},
 }
 
@@ -200,10 +182,20 @@ type testRig struct {
 	scheme     *runtime.Scheme
 }
 
+func testBinDirectory() string {
+	_, filename, _, _ := go_runtime.Caller(0)
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "../../../.testbin/"))
+}
+
 func newTestRig() (*testRig, error) {
 	var err error
 
 	rig := &testRig{}
+
+	err = os.Setenv("KUBEBUILDER_ASSETS", testBinDirectory())
+	if err != nil {
+		return nil, fmt.Errorf("failed to set environment variable: %w", err)
+	}
 
 	rig.scheme, err = scheme.All()
 	if err != nil {

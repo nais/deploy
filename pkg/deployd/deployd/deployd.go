@@ -60,15 +60,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			"gvk":       identifier.GroupVersionKind,
 		})
 
-		deployclient, err := client.WarningHandler(op.Request.GetID(), logger, resource)
-		if err != nil {
-			err = fmt.Errorf("%s: creating deploy client: %s", identifier.String(), err)
-			logger.Error(err)
-			errors <- err
-			break
-		}
-
-		resourceInterface, err := deployclient.ResourceInterface(&resource)
+		resourceInterface, err := client.ResourceInterface(&resource)
 		if err == nil {
 			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource)
 		}
