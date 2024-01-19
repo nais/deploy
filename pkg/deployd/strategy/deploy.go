@@ -94,7 +94,7 @@ func transformStrictDecodingError(resource unstructured.Unstructured, err error)
 	if len(errs) > 1 {
 		s.WriteString("s")
 	}
-	s.WriteString(" might be misspelled, incorrectly indented, or unsupported.")
+	s.WriteString(" might be misspelled, incorrectly indented, or unsupported. Fields are case sensitive.")
 
 	s.WriteString("\n| Please verify your resource against the reference documentation")
 	if u, ok := docs[resource.GroupVersionKind().String()]; ok {
