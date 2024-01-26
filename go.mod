@@ -31,7 +31,7 @@ require (
 
 require (
 	github.com/google/go-github/v41 v41.0.0
-	github.com/lestrrat-go/jwx/v2 v2.0.17
+	github.com/lestrrat-go/jwx/v2 v2.0.19
 	github.com/vektra/mockery/v2 v2.38.0
 	golang.org/x/vuln v1.0.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
