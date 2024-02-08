@@ -23,7 +23,7 @@ const (
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
 	AuthRequiredMsg     = "Github token or API key required"
-	ClusterRequiredMsg  = "cluster required; see https://doc.nais.io/clusters"
+	ClusterRequiredMsg  = "cluster required; see reference section in the documentation for available environments"
 	MalformedAPIKeyMsg  = "API key must be a hex encoded string"
 )
 

@@ -69,15 +69,15 @@ func transformStrictDecodingError(resource unstructured.Unstructured, err error)
 	}
 
 	docs := map[string]string{
-		"aiven.io/v1alpha1, Kind=OpenSearch":            "https://doc.nais.io/persistence/open-search/#creating-a-opensearch-instance",
-		"aiven.io/v1alpha1, Kind=Redis":                 "https://doc.nais.io/persistence/redis/#creating-a-redis-instance-explicitly",
-		"aiven.io/v1alpha1, Kind=ServiceIntegration":    "https://doc.nais.io/persistence/open-search/#serviceintegration",
-		"kafka.nais.io/v1, Kind=Topic":                  "https://doc.nais.io/persistence/kafka/topic/",
-		"krakend.nais.io/v1, Kind=ApiEndpoints":         "https://doc.nais.io/security/apigateway/",
-		"monitoring.coreos.com/v1, Kind=PrometheusRule": "https://doc.nais.io/observability/alerts/#kubernetes-resources",
-		"nais.io/v1alpha1, Kind=Application":            "https://doc.nais.io/nais-application/application/",
-		"nais.io/v1, Kind=Naisjob":                      "https://doc.nais.io/naisjob/reference/",
-		"unleash.nais.io/v1, Kind=ApiToken":             "https://doc.nais.io/addons/unleash-next/#creating-a-new-api-token",
+		"aiven.io/v1alpha1, Kind=OpenSearch":            "https://doc.nais.io/how-to-guides/persistence/opensearch/create/",
+		"aiven.io/v1alpha1, Kind=Redis":                 "https://doc.nais.io/how-to-guides/persistence/redis/",
+		"aiven.io/v1alpha1, Kind=ServiceIntegration":    "https://doc.nais.io/how-to-guides/persistence/opensearch/create/#serviceintegration",
+		"kafka.nais.io/v1, Kind=Topic":                  "https://doc.nais.io/how-to-guides/persistence/kafka/create/",
+		"krakend.nais.io/v1, Kind=ApiEndpoints":         "https://doc.nais.io/explanation/auth/apigateway/",
+		"monitoring.coreos.com/v1, Kind=PrometheusRule": "https://doc.nais.io/how-to-guides/observability/alerts/prometheus-basic/",
+		"nais.io/v1alpha1, Kind=Application":            "https://doc.nais.io/reference/application-spec/",
+		"nais.io/v1, Kind=Naisjob":                      "https://doc.nais.io/reference/naisjob-spec/",
+		"unleash.nais.io/v1, Kind=ApiToken":             "https://doc.nais.io/explanation/feature-toggling/?h=#creating-a-new-api-token",
 	}
 
 	s := &strings.Builder{}
