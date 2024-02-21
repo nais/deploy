@@ -6,6 +6,8 @@ K8S_VERSION := 1.27.1
 LAST_COMMIT = $(shell git rev-parse --short HEAD)
 VERSION ?= $(DATE)-$(LAST_COMMIT)
 LDFLAGS := -X github.com/nais/deploy/pkg/version.Revision=$(LAST_COMMIT) -X github.com/nais/deploy/pkg/version.Date=$(DATE) -X github.com/nais/deploy/pkg/version.BuildUnixTime=$(BUILDTIME)
+NAIS_API_COMMIT_SHA := 0f2590f0befcdc5473474007174bb4a5d0b1f97e
+NAIS_API_TARGET_DIR=pkg/naisapi/protoapi
 arch := $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
 os := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 testbin_dir := ./.testbin/
@@ -88,3 +90,23 @@ hookd-alpine:
 
 deploy-alpine:
 	go build -a -installsuffix cgo -o bin/deploy -ldflags "-s $(LDFLAGS)" ./cmd/deploy/
+
+generate-nais-api:
+	mkdir -p ./$(NAIS_API_TARGET_DIR)
+	wget -O ./$(NAIS_API_TARGET_DIR)/teams.proto https://raw.githubusercontent.com/nais/api/$(NAIS_API_COMMIT_SHA)/pkg/protoapi/schema/teams.proto
+	wget -O ./$(NAIS_API_TARGET_DIR)/users.proto https://raw.githubusercontent.com/nais/api/$(NAIS_API_COMMIT_SHA)/pkg/protoapi/schema/users.proto
+	wget -O ./$(NAIS_API_TARGET_DIR)/pagination.proto https://raw.githubusercontent.com/nais/api/$(NAIS_API_COMMIT_SHA)/pkg/protoapi/schema/pagination.proto
+	$(PROTOC) \
+		--proto_path=$(NAIS_API_TARGET_DIR) \
+		--go_opt=Mpagination.proto=github.com/nais/deploy/$(NAIS_API_TARGET_DIR) \
+		--go_opt=Musers.proto=github.com/nais/deploy/$(NAIS_API_TARGET_DIR) \
+		--go_opt=Mteams.proto=github.com/nais/deploy/$(NAIS_API_TARGET_DIR) \
+		--go_opt=paths=source_relative \
+		--go_out=$(NAIS_API_TARGET_DIR) \
+		--go-grpc_opt=Mpagination.proto=github.com/nais/deploy/$(NAIS_API_TARGET_DIR) \
+		--go-grpc_opt=Musers.proto=github.com/nais/deploy/$(NAIS_API_TARGET_DIR) \
+		--go-grpc_opt=Mteams.proto=github.com/nais/deploy/$(NAIS_API_TARGET_DIR) \
+		--go-grpc_opt=paths=source_relative \
+		--go-grpc_out=$(NAIS_API_TARGET_DIR) \
+		$(NAIS_API_TARGET_DIR)/*.proto
+	rm -f $(NAIS_API_TARGET_DIR)/*.proto
