@@ -16,7 +16,7 @@ spec:
   env:
     - name: DEPLOY_START
       value: "{{ now }}"
-  image: ghcr.io/nais/testapp/testapp:2020-02-25-f61e7b7
+  image: europe-north1-docker.pkg.dev/nais-io/nais/images/testapp:2024.2.19-ab1896b
   liveness:
     path: /ping
   port: 8080
