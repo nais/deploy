@@ -45,5 +45,5 @@ frontendPreSharedKey: # mapped by fasit
 imagePullSecrets: []
 
 naisAPI:
-  target: "nais-api:3001"
-  insecure: "false"
+  address: "nais-api:3001"
+  insecureConnection: "false"

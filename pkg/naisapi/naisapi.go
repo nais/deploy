@@ -14,7 +14,7 @@ type Client struct {
 	client protoapi.TeamsClient
 }
 
-func New(target string, insecureConnection bool) (*Client, error) {
+func NewClient(target string, insecureConnection bool) (*Client, error) {
 	opts := []grpc.DialOption{}
 	if insecureConnection {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))

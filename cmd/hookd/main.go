@@ -179,7 +179,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 				return nil, nil, fmt.Errorf("unable to set up github validator: %w", err)
 			}
 
-			apiClient, err := naisapi.New(cfg.NaisAPITarget, cfg.NaisAPIInsecure)
+			apiClient, err := naisapi.NewClient(cfg.NaisAPIAddress, cfg.NaisAPIInsecureConnection)
 			if err != nil {
 				return nil, nil, fmt.Errorf("unable to set up nais-api client: %w", err)
 			}
