@@ -88,7 +88,7 @@ func TestServerInterceptorJWT(t *testing.T) {
 			repo:  "repo",
 			valid: "valid",
 		},
-		TeamsClient: &mockTeamsClient{
+		APIClient: &mockTeamsClient{
 			authorized: map[string]string{"repo": "team"},
 		},
 	}

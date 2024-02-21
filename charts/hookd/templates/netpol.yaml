@@ -25,8 +25,7 @@ spec:
           kubernetes.io/metadata.name: nais-system
       podSelector:
         matchLabels:
-          app.kubernetes.io/instance: teams-backend
-          app.kubernetes.io/name: teams-backend
+          app: nais-api
   podSelector:
     matchLabels:
       {{- include "hookd.selectorLabels" . | nindent 6 }}

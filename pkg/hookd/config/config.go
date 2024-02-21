@@ -32,8 +32,8 @@ type Config struct {
 	LogLinkFormatter       string        `json:"log-link-formatter"`
 	MetricsPath            string        `json:"metrics-path"`
 	ProvisionKey           string        `json:"provision-key"`
-	TeamsAPIKey            string        `json:"teams-api-key"`
-	TeamsURL               string        `json:"teams-url"`
+	NaisAPITarget          string        `json:"nais-api-target"`
+	NaisAPIInsecure        bool          `json:"nais-api-insecure"`
 }
 
 const (
@@ -56,8 +56,8 @@ const (
 	LogLinkFormatter          = "log-link-formatter"
 	MetricsPath               = "metrics-path"
 	ProvisionKey              = "provision-key"
-	TeamsAPIKey               = "teams-api-key"
-	TeamsURL                  = "teams-url"
+	NaisAPITarget             = "nais-api-target"
+	NaisAPIInsecure           = "nais-api-insecure"
 )
 
 // Bind environment variables provided by the NAIS platform
@@ -99,8 +99,8 @@ func Initialize() *Config {
 	flag.StringSlice(GoogleAllowedDomains, []string{}, "Allowed Google Domains")
 	flag.StringSlice(GoogleClusterProjects, []string{}, "Mapping cluster to google project: cluster1=project1,cluster2=project2")
 
-	flag.String(TeamsAPIKey, "", "Teams API Key")
-	flag.String(TeamsURL, "http://localhost:3000/query", "Teams URL")
+	flag.Bool(NaisAPIInsecure, false, "Insecure connection to API server")
+	flag.String(NaisAPITarget, "localhost:3001", "NAIS API target")
 
 	return &Config{}
 }

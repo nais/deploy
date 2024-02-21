@@ -28,14 +28,14 @@ const (
 type ServerInterceptor struct {
 	APIKeyStore    database.ApiKeyStore
 	TokenValidator TokenValidator
-	TeamsClient    TeamsClient
+	APIClient      NaisAPIClient
 }
 
 type TokenValidator interface {
 	Validate(ctx context.Context, token string) (jwt.Token, error)
 }
 
-type TeamsClient interface {
+type NaisAPIClient interface {
 	IsAuthorized(ctx context.Context, repo, team string) bool
 }
 
@@ -45,11 +45,11 @@ type authData struct {
 	team      string
 }
 
-func NewServerInterceptor(apiKeyStore database.ApiKeyStore, tokenValidator TokenValidator, teamsClient TeamsClient) *ServerInterceptor {
+func NewServerInterceptor(apiKeyStore database.ApiKeyStore, tokenValidator TokenValidator, apiClient NaisAPIClient) *ServerInterceptor {
 	return &ServerInterceptor{
 		APIKeyStore:    apiKeyStore,
 		TokenValidator: tokenValidator,
-		TeamsClient:    teamsClient,
+		APIClient:      apiClient,
 	}
 }
 
@@ -87,7 +87,7 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 			return nil, status.Errorf(codes.InvalidArgument, "missing team in metadata")
 		}
 
-		if !s.TeamsClient.IsAuthorized(ctx, repo, team) {
+		if !s.APIClient.IsAuthorized(ctx, repo, team) {
 			metrics.InterceptorRequest(requestTypeJWT, "repo_not_authorized")
 			return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
 		}
@@ -180,7 +180,7 @@ func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 			return status.Errorf(codes.InvalidArgument, "missing team in metadata")
 		}
 
-		if !s.TeamsClient.IsAuthorized(ss.Context(), repo, team) {
+		if !s.APIClient.IsAuthorized(ss.Context(), repo, team) {
 			return status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
 		}
 	} else {

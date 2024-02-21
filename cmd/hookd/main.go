@@ -31,8 +31,8 @@ import (
 	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	"github.com/nais/deploy/pkg/logging"
+	"github.com/nais/deploy/pkg/naisapi"
 	"github.com/nais/deploy/pkg/pb"
-	"github.com/nais/deploy/pkg/teams"
 	"github.com/nais/deploy/pkg/version"
 )
 
@@ -179,8 +179,11 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 				return nil, nil, fmt.Errorf("unable to set up github validator: %w", err)
 			}
 
-			teamsClient := teams.New(cfg.TeamsURL, cfg.TeamsAPIKey)
-			authInterceptor := auth_interceptor.NewServerInterceptor(apikeys, ghValidator, teamsClient)
+			apiClient, err := naisapi.New(cfg.NaisAPITarget, cfg.NaisAPIInsecure)
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to set up nais-api client: %w", err)
+			}
+			authInterceptor := auth_interceptor.NewServerInterceptor(apikeys, ghValidator, apiClient)
 
 			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, authInterceptor)
 			log.Infof("Authentication enabled for deployment requests")
