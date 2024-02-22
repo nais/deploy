@@ -44,5 +44,6 @@ frontendPreSharedKey: # mapped by fasit
 
 imagePullSecrets: []
 
-teamsAPIKey: # mapped by fasit
-teamsURL: "http://teams-backend/query"
+naisAPI:
+  address: "nais-api:3001"
+  insecureConnection: "false"

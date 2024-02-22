@@ -16,24 +16,24 @@ type GRPC struct {
 }
 
 type Config struct {
-	BaseURL                string        `json:"base-url"`
-	DatabaseConnectTimeout time.Duration `json:"database-connect-timeout"`
-	DatabaseEncryptionKey  string        `json:"database-encryption-key"`
-	DatabaseURL            string        `json:"database-url"`
-	DeploydKeys            []string      `json:"deployd-keys"`
-	FrontendKeys           []string      `json:"frontend-keys"`
-	GRPC                   GRPC          `json:"grpc"`
-	GoogleAllowedDomains   []string      `json:"google-allowed-domains"`
-	GoogleClientId         string        `json:"google-client-id"`
-	GoogleClusterProjects  []string      `json:"google-cluster-projects"`
-	ListenAddress          string        `json:"listen-address"`
-	LogFormat              string        `json:"log-format"`
-	LogLevel               string        `json:"log-level"`
-	LogLinkFormatter       string        `json:"log-link-formatter"`
-	MetricsPath            string        `json:"metrics-path"`
-	ProvisionKey           string        `json:"provision-key"`
-	TeamsAPIKey            string        `json:"teams-api-key"`
-	TeamsURL               string        `json:"teams-url"`
+	BaseURL                   string        `json:"base-url"`
+	DatabaseConnectTimeout    time.Duration `json:"database-connect-timeout"`
+	DatabaseEncryptionKey     string        `json:"database-encryption-key"`
+	DatabaseURL               string        `json:"database-url"`
+	DeploydKeys               []string      `json:"deployd-keys"`
+	FrontendKeys              []string      `json:"frontend-keys"`
+	GRPC                      GRPC          `json:"grpc"`
+	GoogleAllowedDomains      []string      `json:"google-allowed-domains"`
+	GoogleClientId            string        `json:"google-client-id"`
+	GoogleClusterProjects     []string      `json:"google-cluster-projects"`
+	ListenAddress             string        `json:"listen-address"`
+	LogFormat                 string        `json:"log-format"`
+	LogLevel                  string        `json:"log-level"`
+	LogLinkFormatter          string        `json:"log-link-formatter"`
+	MetricsPath               string        `json:"metrics-path"`
+	ProvisionKey              string        `json:"provision-key"`
+	NaisAPIAddress            string        `json:"nais-api-address"`
+	NaisAPIInsecureConnection bool          `json:"nais-api-insecure-connection"`
 }
 
 const (
@@ -56,8 +56,8 @@ const (
 	LogLinkFormatter          = "log-link-formatter"
 	MetricsPath               = "metrics-path"
 	ProvisionKey              = "provision-key"
-	TeamsAPIKey               = "teams-api-key"
-	TeamsURL                  = "teams-url"
+	NaisAPIAddress            = "nais-api-address"
+	NaisAPIInsecureConnection = "nais-api-insecure-connection"
 )
 
 // Bind environment variables provided by the NAIS platform
@@ -99,8 +99,8 @@ func Initialize() *Config {
 	flag.StringSlice(GoogleAllowedDomains, []string{}, "Allowed Google Domains")
 	flag.StringSlice(GoogleClusterProjects, []string{}, "Mapping cluster to google project: cluster1=project1,cluster2=project2")
 
-	flag.String(TeamsAPIKey, "", "Teams API Key")
-	flag.String(TeamsURL, "http://localhost:3000/query", "Teams URL")
+	flag.Bool(NaisAPIInsecureConnection, false, "Insecure connection to API server")
+	flag.String(NaisAPIAddress, "localhost:3001", "NAIS API target")
 
 	return &Config{}
 }
