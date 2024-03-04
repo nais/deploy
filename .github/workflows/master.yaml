@@ -34,7 +34,7 @@ jobs:
           - component: deployd
             chart: true
     steps:
-      - uses: actions/checkout@v3 # ratchet:exclude
+      - uses: actions/checkout@v4 # ratchet:exclude
       - uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # ratchet:azure/setup-helm@v3
         if: matrix.chart
         with:
@@ -126,7 +126,11 @@ jobs:
       - build_and_push
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3 # ratchet:exclude
+      - uses: actions/checkout@v4 # ratchet:exclude
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
 
       - name: Force create tag
         env:
