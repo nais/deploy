@@ -45,7 +45,7 @@ fi
 if [ -z "$APIKEY" ]; then
     if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
         echo "Missing id-token permissions. This must be set either globally in the workflow, or for the specific job performing the deploy."
-        echo "For more info see https://doc.nais.io/deployment/github-action/ and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
+        echo "For more info see https://doc.nais.io/how-to-guides/github-action and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
 
         exit 1
     fi
