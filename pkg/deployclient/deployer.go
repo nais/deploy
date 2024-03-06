@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nais/deploy/pkg/hookd/logproxy"
-	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
+
+	"github.com/nais/deploy/pkg/hookd/logproxy"
+	"github.com/nais/deploy/pkg/pb"
 )
 
 type TemplateVariables map[string]interface{}

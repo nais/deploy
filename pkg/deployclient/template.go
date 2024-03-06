@@ -14,12 +14,12 @@ import (
 )
 
 func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMessage, error) {
-	file, err := os.ReadFile(path)
+	fileContents, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("%s: open file: %s", path, err)
 	}
 
-	templated, err := templatedFile(file, ctx)
+	templated, err := templatedFile(fileContents, ctx)
 	if err != nil {
 		errMsg := strings.ReplaceAll(err.Error(), "\n", ": ")
 		return nil, fmt.Errorf("%s: %s", path, errMsg)
@@ -117,6 +117,11 @@ func templateVariablesFromFile(path string) (TemplateVariables, error) {
 
 	vars := TemplateVariables{}
 	err = yaml.Unmarshal(file, &vars)
+
+	// This function MUST return a non-nil map to avoid panics later on.
+	if vars == nil {
+		vars = TemplateVariables{}
+	}
 
 	return vars, err
 }
