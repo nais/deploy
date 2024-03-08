@@ -9,12 +9,13 @@ import (
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"github.com/nais/liberator/pkg/events"
 
-	"github.com/nais/deploy/pkg/deployd/kubeclient"
-	"github.com/nais/deploy/pkg/deployd/operation"
-	"github.com/nais/deploy/pkg/pb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/nais/deploy/pkg/deployd/kubeclient"
+	"github.com/nais/deploy/pkg/deployd/operation"
+	"github.com/nais/deploy/pkg/pb"
 )
 
 type naisResource struct {
@@ -107,6 +108,8 @@ func StatusFromEvent(event *v1.Event, req *pb.DeploymentRequest) *pb.DeploymentS
 		}
 		switch event.Reason {
 		case events.FailedPrepare:
+			fallthrough
+		case events.FailedGenerate:
 			fallthrough
 		case events.FailedSynchronization:
 			status.State = pb.DeploymentState_failure
