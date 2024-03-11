@@ -1,8 +1,12 @@
 name: "Upload to CDN"
 description: "Upload static assets to CDN"
 inputs:
-  team-name:
-    description: "CDN team name"
+  team:
+    description: "Team slug"
+    required: true
+  tenant:
+    description: "Tenant slug"
+    default: "nav"
     required: true
   source:
     description: "Source directory"
@@ -10,87 +14,79 @@ inputs:
   destination:
     description: "Destination directory"
     required: true
-  cache-invalidation:
+  source_keep_parent_name:
+    description: "Keep parent directory name when uploading"
+    required: false
+    default: "true"
+  cache_invalidation:
     description: "Cache invalidation"
     required: false
     default: "false"
-  no-cache-paths:
+  no_cache_paths:
     description: "Comma separated list of paths that should not be cached"
     required: false
     default: ""
-  nais_management_project_id:
+  project_id:
+    description: "Google Cloud project ID where buckets are hosted"
     required: true
-  nais_workload_identity_provider:
+  identity_provider:
+    description: "Google Workload Identity Provider"
     required: true
 
 outputs:
   uploaded:
     description: "Uploaded files"
     value: ${{ steps.upload-file.outputs.uploaded }}
+
 runs:
   using: "composite"
   steps:
     - id: "cdn"
       shell: bash
       run: |
-        if [ -z "${{ inputs.team-name }}" ]; then
+        if [ -z "${{ inputs.team }}" ]; then
           echo "::error ::team not set. Please provide as input."
           exit 1
         fi
 
-        function slugify() {
-          slug=${{ inputs.team-name }}
-          prefix="$1"
-          maxLength=30
+        function slug_hash_prefix_truncate() {
+          # synopsis:
+          #
+          # slug_hash_prefix_truncate kimfoo nais-cdn 30
+          #   or
+          # slug_hash_prefix_truncate nav-kimfoo cdn 30
+          #
+          # when editing this code, make sure its output corresponds with
+          # SlugHashPrefixTruncate from the api-reconcilers project.
 
-          hash=$(echo -n "$slug" | sha256sum | cut -d ' ' -f 1)
+          tenantTeam="$1"
+          prefix="$2"
+          maxLength="$3"
 
+          # hash is the first 4 characters of the sha256sum of the part that gets truncated.
+          hash=$(echo -n "${tenantTeam}" | sha256sum | cut -d ' ' -f 1 | cut -b 1-4)
+
+          # truncate the middle part (not tenant nor prefix)
+          # for a total output string length of $maxLength.
           prefixLength=${#prefix}
-          hashLength=4
-          slugLength=$((maxLength - prefixLength - hashLength - 2))
+          maxLength=$((maxLength - prefixLength - hashLength - 2))
+          truncatedTenantTeam=$(echo -n "${tenantTeam:0:$maxLength}")
 
-          # Remove hyphens only if they are at the end after truncation
-          truncatedSlug=$(echo -n "${slug:0:$slugLength}" | sed 's/-\}$//')
-
-          # Generate a new truncated hash for each call
-          truncatedHash=$(echo -n "$hash" | head -c $hashLength)
-
-          echo "$truncatedSlug-$truncatedHash"
+          echo "$prefix-$truncatedTenantTeam-$hash"
         }
 
+        principal=$(slug_hash_prefix_truncate ${{ inputs.team }} "cdn" 30)
+        bucket_name=$(slug_hash_prefix_truncate "${{ inputs.tenant }}-${{ inputs.team }}" "nais-cdn" 63)
 
-        function slugifyBucket() {
-          slug="$1"
+        echo "SA_EMAIL=${principal}@${{ inputs.project_id }}.iam.gserviceaccount.com" >> $GITHUB_ENV
+        echo "BUCKET_NAME=${bucket_name}" >> $GITHUB_ENV
 
-          hash=$(echo -n "$slug" | sha256sum | cut -d ' ' -f 1)
-
-          hashLength=4
-
-          # Remove hyphens only if they are at the end after truncation
-          truncatedSlug=$(echo -n $slug | sed 's/-\}$//')
-
-          # Generate a new truncated hash for each call
-          truncatedHash=$(echo -n "$hash" | head -c $hashLength)
-
-          echo "$truncatedSlug-$truncatedHash"
-        }
-
-        echo "LOGICAL_NAME=nais-cdn" >> $GITHUB_ENV
-        slugify "cdn"
-        slug_result=$(slugify "cdn")
-        echo "SA_EMAIL=cdn-$slug_result@${{ inputs.nais_management_project_id }}.iam.gserviceaccount.com" >> $GITHUB_ENV
-
-        # TODO: tenant-domain is currently hard-coded
-        # nais-cdn-{replace(tenant-domain, '.', '-')}-{team-name}-{hash}
-        slugifyBucket "nav-${{ inputs.team-name }}"
-        slug_result=$(slugifyBucket "nav-${{ inputs.team-name }}")
-        echo "BUCKET_NAME=nais-cdn-$slug_result" >> $GITHUB_ENV
     # Authenticate with Google Cloud using Workload Identity Federation
     - id: "auth"
       name: "Authenticate to Google Cloud"
       uses: "google-github-actions/auth@v2.1.0"
       with:
-        workload_identity_provider: ${{ inputs.nais_workload_identity_provider }}
+        workload_identity_provider: ${{ inputs.identity_provider }}
         service_account: ${{ env.SA_EMAIL }}
         token_format: "access_token"
 
@@ -102,7 +98,7 @@ runs:
         ::error ::Failed to authenticate to Google Cloud.
         EOF
 
-        echo "Ensure that your team has write access to the Github-repository." >> $GITHUB_STEP_SUMMARY
+        echo "Ensure that your team has write access to the GitHub repository." >> $GITHUB_STEP_SUMMARY
         echo "Ensure that you grant the following permissions in your workflow:" >> $GITHUB_STEP_SUMMARY
         echo '```yaml' >> $GITHUB_STEP_SUMMARY
         echo "permissions:" >> $GITHUB_STEP_SUMMARY
@@ -115,43 +111,28 @@ runs:
       uses: "google-github-actions/upload-cloud-storage@v2"
       with:
         path: "${{ inputs.source }}"
-        parent: "true"
-        destination: "${{ env.BUCKET_NAME }}/${{ inputs.team-name }}/${{ inputs.destination }}"
+        parent: '${{ inputs.source_keep_parent_name }}'
+        destination: "${{ env.BUCKET_NAME }}/${{ inputs.team }}/${{ inputs.destination }}"
 
-    # Invalidate cache if cache-invalidation is set to true
+    # Invalidate cache if cache_invalidation is set to true
     - name: "Set up Cloud SDK"
-      if: ${{ inputs.cache-invalidation == 'true' || inputs.no-cache-paths != '' }}
+      if: ${{ inputs.cache_invalidation == 'true' || inputs.no_cache_paths != '' }}
       uses: "google-github-actions/setup-gcloud@v1"
     - name: "Invalidating cache"
-      if: ${{ inputs.cache-invalidation == 'true' }}
+      if: ${{ inputs.cache_invalidation == 'true' }}
       shell: bash
       run: |
-        path="/${{ inputs.team-name }}/${{ inputs.destination }}"
+        path="/${{ inputs.team }}/${{ inputs.destination }}"
         path="${path%/}/*"
 
-        gcloud compute url-maps invalidate-cdn-cache ${{ env.LOGICAL_NAME }} --global --async --path $path
-    - if: ${{ inputs.cache-invalidation == 'true' }}
-      shell: bash
-      run: |
-        path="/${{ inputs.team-name }}/${{ inputs.destination }}"
-        path="${path%/}/*"
-
-        base_url="https://console.cloud.google.com/net-services/loadbalancing/details/httpAdvanced"
-        console_url="$base_url/${{ env.LOGICAL_NAME }}?project=${{ inputs.nais_management_project_id }}"
-
-        echo "### CDN Cache Invalidation" >> $GITHUB_STEP_SUMMARY
-        echo "Path: \`$path\`" >> $GITHUB_STEP_SUMMARY
-        echo "Cache invalidation is running in the background. It may take up to `15 minutes` \
-              before the cache is invalidated. You can check the status of the invalidation in \
-              [Google Cloud Console]($console_url) → Caching." >> $GITHUB_STEP_SUMMARY
-
+        gcloud compute url-maps invalidate-cdn-cache nais-cdn --global --async --path $path
     - name: Set no-cache metadata
-      if: ${{ inputs.no-cache-paths != '' }}
+      if: ${{ inputs.no_cache_paths != '' }}
       shell: bash
       run: |
-        paths=(${{ inputs.no-cache-paths }})
+        paths=(${{ inputs.no_cache_paths }})
         IFS=','
 
         for path in $paths; do
-          gsutil setmeta -h "Cache-Control:no-store" "gs://${BUCKET_NAME}/${{ inputs.team-name }}/$path"
+          gsutil setmeta -h "Cache-Control:no-store" "gs://${BUCKET_NAME}/${{ inputs.team }}/$path"
         done
