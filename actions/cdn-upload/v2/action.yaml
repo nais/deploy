@@ -36,103 +36,17 @@ inputs:
 outputs:
   uploaded:
     description: "Uploaded files"
-    value: ${{ steps.upload-file.outputs.uploaded }}
+    value: ${{ steps.legacy.outputs.uploaded }}
 
 runs:
   using: "composite"
   steps:
-    - id: "cdn"
-      shell: bash
-      run: |
-        if [ -z "${{ inputs.team }}" ]; then
-          echo "::error ::team not set. Please provide as input."
-          exit 1
-        fi
-
-        function slug_hash_prefix_truncate() {
-          # synopsis:
-          #
-          # slug_hash_prefix_truncate kimfoo nais-cdn 30
-          #   or
-          # slug_hash_prefix_truncate nav-kimfoo cdn 30
-          #
-          # when editing this code, make sure its output corresponds with
-          # SlugHashPrefixTruncate from the api-reconcilers project.
-
-          tenantTeam="$1"
-          prefix="$2"
-          maxLength="$3"
-
-          # hash is the first 4 characters of the sha256sum of the part that gets truncated.
-          hash=$(echo -n "${tenantTeam}" | sha256sum | cut -d ' ' -f 1 | cut -b 1-4)
-
-          # truncate the middle part (not tenant nor prefix)
-          # for a total output string length of $maxLength.
-          prefixLength=${#prefix}
-          maxLength=$((maxLength - prefixLength - hashLength - 2))
-          truncatedTenantTeam=$(echo -n "${tenantTeam:0:$maxLength}")
-
-          echo "$prefix-$truncatedTenantTeam-$hash"
-        }
-
-        principal=$(slug_hash_prefix_truncate ${{ inputs.team }} "cdn" 30)
-        bucket_name=$(slug_hash_prefix_truncate "${{ inputs.tenant }}-${{ inputs.team }}" "nais-cdn" 63)
-
-        echo "SA_EMAIL=${principal}@${{ inputs.project_id }}.iam.gserviceaccount.com" >> $GITHUB_ENV
-        echo "BUCKET_NAME=${bucket_name}" >> $GITHUB_ENV
-
-    # Authenticate with Google Cloud using Workload Identity Federation
-    - id: "auth"
-      name: "Authenticate to Google Cloud"
-      uses: "google-github-actions/auth@v2.1.0"
+    - id: legacy
+      uses: "navikt/frontend/actions/cdn-upload/v1@main"
       with:
-        workload_identity_provider: ${{ inputs.identity_provider }}
-        service_account: ${{ env.SA_EMAIL }}
-        token_format: "access_token"
-
-    - name: "Handle authentication failure"
-      if: ${{ failure() && steps.auth.outcome == 'failure' }}
-      shell: bash
-      run: |
-        cat <<EOF
-        ::error ::Failed to authenticate to Google Cloud.
-        EOF
-
-        echo "Ensure that your team has write access to the GitHub repository." >> $GITHUB_STEP_SUMMARY
-        echo "Ensure that you grant the following permissions in your workflow:" >> $GITHUB_STEP_SUMMARY
-        echo '```yaml' >> $GITHUB_STEP_SUMMARY
-        echo "permissions:" >> $GITHUB_STEP_SUMMARY
-        echo "   contents: read" >> $GITHUB_STEP_SUMMARY
-        echo "   id-token: write" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-
-    # Upload files to Google Cloud Storage Bucket connected to CDN
-    - id: "upload-file"
-      uses: "google-github-actions/upload-cloud-storage@v2"
-      with:
-        path: "${{ inputs.source }}"
-        parent: '${{ inputs.source_keep_parent_name }}'
-        destination: "${{ env.BUCKET_NAME }}/${{ inputs.team }}/${{ inputs.destination }}"
-
-    # Invalidate cache if cache_invalidation is set to true
-    - name: "Set up Cloud SDK"
-      if: ${{ inputs.cache_invalidation == 'true' || inputs.no_cache_paths != '' }}
-      uses: "google-github-actions/setup-gcloud@v1"
-    - name: "Invalidating cache"
-      if: ${{ inputs.cache_invalidation == 'true' }}
-      shell: bash
-      run: |
-        path="/${{ inputs.team }}/${{ inputs.destination }}"
-        path="${path%/}/*"
-
-        gcloud compute url-maps invalidate-cdn-cache nais-cdn --global --async --path $path
-    - name: Set no-cache metadata
-      if: ${{ inputs.no_cache_paths != '' }}
-      shell: bash
-      run: |
-        paths=(${{ inputs.no_cache_paths }})
-        IFS=','
-
-        for path in $paths; do
-          gsutil setmeta -h "Cache-Control:no-store" "gs://${BUCKET_NAME}/${{ inputs.team }}/$path"
-        done
+        cdn-team-name: ${{ inputs.team }}
+        source: ${{ inputs.source }}
+        destination: ${{ inputs.destination }}
+        source-keep-parent-name: ${{ inputs.source_keep_parent_name }}
+        cache-invalidation: ${{ inputs.cache_invalidation }}
+        no-cache-paths: ${{ inputs.no_cache_paths }}
