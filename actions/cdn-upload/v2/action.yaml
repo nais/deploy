@@ -65,6 +65,7 @@ runs:
 
           # hash is the first 4 characters of the sha256sum of the part that gets truncated.
           hash=$(echo -n "${tenantTeam}" | sha256sum | cut -d ' ' -f 1 | cut -b 1-4)
+          hashLength=${#hash}
 
           # truncate the middle part (not tenant nor prefix)
           # for a total output string length of $maxLength.
