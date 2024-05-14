@@ -157,7 +157,7 @@ var tests = []testSpec{
 		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
 			State:   pb.DeploymentState_failure,
-			Message: "nais.io/v1alpha1, Kind=Application, Namespace=aura, Name=myapplication-unknown-fields: creating resource: strict decoding error:\n| ⚠️ unknown field \"spec.nestedField\"\n| ⚠️ unknown field \"spec.unknownField\"\n| The fields might be misspelled, incorrectly indented, or unsupported. Fields are case sensitive.\n| Please verify your resource against the reference documentation at https://doc.nais.io/reference/application-spec/ (total of 1 errors)",
+			Message: "nais.io/v1alpha1, Kind=Application, Namespace=aura, Name=myapplication-unknown-fields: creating resource: strict decoding error:\n| ⚠️ unknown field \"spec.nestedField\"\n| ⚠️ unknown field \"spec.unknownField\"\n| The fields might be misspelled, incorrectly indented, or unsupported. Fields are case sensitive.\n| Please verify your resource against the reference documentation at https://doc.nais.io/workloads/application/reference/application-spec/ (total of 1 errors)",
 		},
 		deployedResources: nil,
 	},
@@ -168,7 +168,7 @@ var tests = []testSpec{
 		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
 			State:   pb.DeploymentState_failure,
-			Message: "nais.io/v1alpha1, Kind=Application, Namespace=aura, Name=myapplication: updating resource: strict decoding error:\n| ⚠️ unknown field \"spec.nestedField\"\n| ⚠️ unknown field \"spec.unknownField\"\n| The fields might be misspelled, incorrectly indented, or unsupported. Fields are case sensitive.\n| Please verify your resource against the reference documentation at https://doc.nais.io/reference/application-spec/ (total of 1 errors)",
+			Message: "nais.io/v1alpha1, Kind=Application, Namespace=aura, Name=myapplication: updating resource: strict decoding error:\n| ⚠️ unknown field \"spec.nestedField\"\n| ⚠️ unknown field \"spec.unknownField\"\n| The fields might be misspelled, incorrectly indented, or unsupported. Fields are case sensitive.\n| Please verify your resource against the reference documentation at https://doc.nais.io/workloads/application/reference/application-spec/ (total of 1 errors)",
 		},
 		deployedResources: nil,
 	},
