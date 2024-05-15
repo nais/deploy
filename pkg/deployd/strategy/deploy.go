@@ -69,15 +69,14 @@ func transformStrictDecodingError(resource unstructured.Unstructured, err error)
 	}
 
 	docs := map[string]string{
-		"aiven.io/v1alpha1, Kind=OpenSearch":            "https://doc.nais.io/how-to-guides/persistence/opensearch/create/",
-		"aiven.io/v1alpha1, Kind=Redis":                 "https://doc.nais.io/how-to-guides/persistence/redis/",
-		"aiven.io/v1alpha1, Kind=ServiceIntegration":    "https://doc.nais.io/how-to-guides/persistence/opensearch/create/#serviceintegration",
-		"kafka.nais.io/v1, Kind=Topic":                  "https://doc.nais.io/how-to-guides/persistence/kafka/create/",
-		"krakend.nais.io/v1, Kind=ApiEndpoints":         "https://doc.nais.io/explanation/auth/apigateway/",
-		"monitoring.coreos.com/v1, Kind=PrometheusRule": "https://doc.nais.io/how-to-guides/observability/alerts/prometheus-basic/",
-		"nais.io/v1alpha1, Kind=Application":            "https://doc.nais.io/reference/application-spec/",
-		"nais.io/v1, Kind=Naisjob":                      "https://doc.nais.io/reference/naisjob-spec/",
-		"unleash.nais.io/v1, Kind=ApiToken":             "https://doc.nais.io/explanation/feature-toggling/?h=#creating-a-new-api-token",
+		"aiven.io/v1alpha1, Kind=OpenSearch":            "https://doc.nais.io/persistence/opensearch/how-to/create/",
+		"aiven.io/v1alpha1, Kind=Redis":                 "https://doc.nais.io/persistence/redis/",
+		"aiven.io/v1alpha1, Kind=ServiceIntegration":    "https://doc.nais.io/persistence/opensearch/how-to/create/#serviceintegration",
+		"kafka.nais.io/v1, Kind=Topic":                  "https://doc.nais.io/persistence/kafka/how-to/create/",
+		"monitoring.coreos.com/v1, Kind=PrometheusRule": "https://doc.nais.io/observability/alerting/reference/prometheusrule/",
+		"nais.io/v1alpha1, Kind=Application":            "https://doc.nais.io/workloads/application/reference/application-spec/",
+		"nais.io/v1, Kind=Naisjob":                      "https://doc.nais.io/workloads/job/reference/naisjob-spec/",
+		"unleash.nais.io/v1, Kind=ApiToken":             "https://doc.nais.io/services/feature-toggling/?h=#creating-a-new-api-token",
 	}
 
 	s := &strings.Builder{}

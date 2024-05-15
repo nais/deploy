@@ -12,14 +12,14 @@ The final step in the build pipeline sends an API request to NAIS deploy to depl
 ## How it works
 1. The teams pipeline use `deploy` to send a deployment request to `hookd`.
 1. `hookd` receives the deployment request, verifies its integrity and authenticity, and passes the message on to `deployd` via gRPC.
-1. `deployd` receives the message from `hookd`, assumes the identity of the deploying team, and applies your _Kubernetes resources_ into the specified [cluster](https://doc.nais.io/clusters).
+1. `deployd` receives the message from `hookd`, assumes the identity of the deploying team, and applies your _Kubernetes resources_ into the specified [cluster](https://doc.nais.io/workloads/reference/environments).
 1. If the Kubernetes resources contained any _Application_ or _Deployment_ resources, `deployd` will wait until these are rolled out successfully, or a timeout occurs.
 
 Any fatal error will short-circuit the process with a `error` or `failure` status posted back to Github. A successful deployment will result in a `success` status.
 Intermediary statuses will be posted, indicating the current state of the deployment.
 
 ## Usage
-The usage documentation has been moved to [NAIS platform documentation](https://doc.nais.io/deployment).
+The usage documentation has been moved to [NAIS platform documentation](https://doc.nais.io/build).
 
 ### Deploy API
 _We strongly recommend that teams use the `deploy` cli to deploy, rather than posting directly to `hookd`._
@@ -50,16 +50,16 @@ to track the status of your deployment.
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| resources | list[object] | Array of Kubernetes resources |
-| team | string | Team tag |
-| cluster | string | Kubernetes cluster, see [NAIS clusters](https://doc.nais.io/clusters) |
-| environment | string | GitHub environment |
-| owner | string | GitHub repository owner |
-| repository | string | GitHub repository name |
-| ref | string | GitHub commit hash or tag |
-| timestamp | int64 | Current Unix timestamp |
+| Field | Type | Description                                                                                   |
+|-------|------|-----------------------------------------------------------------------------------------------|
+| resources | list[object] | Array of Kubernetes resources                                                                 |
+| team | string | Team tag                                                                                      |
+| cluster | string | Kubernetes cluster, see [NAIS clusters](https://doc.nais.io/workloads/reference/environments) |
+| environment | string | GitHub environment                                                                            |
+| owner | string | GitHub repository owner                                                                       |
+| repository | string | GitHub repository name                                                                        |
+| ref | string | GitHub commit hash or tag                                                                     |
+| timestamp | int64 | Current Unix timestamp                                                                        |
 
 Additionally, the header `X-NAIS-Signature` must contain a keyed-hash message authentication code (HMAC).
 The code can be derived by hashing the request body using the SHA256 algorithm together with your team's NAIS Deploy API key.
