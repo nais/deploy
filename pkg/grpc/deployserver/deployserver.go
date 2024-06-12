@@ -53,10 +53,11 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 
 	cluster := request.GetCluster()
 	deployment := database.Deployment{
-		ID:      request.GetID(),
-		Team:    request.GetTeam(),
-		Cluster: &cluster,
-		Created: pb.TimestampAsTime(request.GetTime()),
+		ID:               request.GetID(),
+		Team:             request.GetTeam(),
+		Cluster:          &cluster,
+		Created:          pb.TimestampAsTime(request.GetTime()),
+		GitHubRepository: request.GetRepository().FullNamePtr(),
 	}
 
 	// Write deployment request to database
