@@ -6,7 +6,7 @@ K8S_VERSION := 1.27.1
 LAST_COMMIT = $(shell git rev-parse --short HEAD)
 VERSION ?= $(DATE)-$(LAST_COMMIT)
 LDFLAGS := -X github.com/nais/deploy/pkg/version.Revision=$(LAST_COMMIT) -X github.com/nais/deploy/pkg/version.Date=$(DATE) -X github.com/nais/deploy/pkg/version.BuildUnixTime=$(BUILDTIME)
-NAIS_API_COMMIT_SHA := 0f2590f0befcdc5473474007174bb4a5d0b1f97e
+NAIS_API_COMMIT_SHA := e1c532d516dfdd586dc98e6f7e5275d91c53dcf5
 NAIS_API_TARGET_DIR=pkg/naisapi/protoapi
 arch := $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
 os := $(shell uname -s | tr '[:upper:]' '[:lower:]')
