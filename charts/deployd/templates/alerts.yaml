@@ -29,6 +29,27 @@ spec:
 
               Documentation: https://github.com/nais/deploy
               Logs: https://logs.adeo.no/goto/cb6b89c655dcb051fa633ce35070d385
-              Instrumentation: https://grafana.nais.io/d/Ehcyf6UZk/canary?orgId=1
+              Instrumentation: https://monitoring.nais.io/d/9Wb381o4k/deploy-canary
               2nd line: @nais-features
+        - alert: NAIS deploy canary metric missing
+          expr: |
+            absent(nais_testapp_time_since_deploy{app="nais-deploy-canary",namespace="nais-verification"})
+          for: 5m
+          labels:
+            namespace: nais-system
+            severity: danger
+          annotations:
+            summary: |
+              The metric used to determine if the canary application is deployed is missing.
+
+              Canary application should produce metrics in order for other alerts to work.
+            consequence: NAIS deploy might be available, but we can't know.
+            action: |
+              * `kubectl --context management -n nais-system describe job -l app=canary-deployer`
+              * `kubectl --context management -n nais-system describe deploy hookd`
+              * Ensure deployd is running in cluster that alerts
+
+              Documentation: https://github.com/nais/deploy
+              Logs: https://logs.adeo.no/goto/cb6b89c655dcb051fa633ce35070d385
+              Instrumentation: https://monitoring.nais.io/d/9Wb381o4k/deploy-canary
 {{- end }}
