@@ -36,7 +36,7 @@ type TokenValidator interface {
 }
 
 type TeamsClient interface {
-	IsAuthorized(ctx context.Context, repo, team string) bool
+	IsAuthorized(ctx context.Context, repo, team string) (bool, error)
 }
 
 type authData struct {
@@ -87,7 +87,12 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 			return nil, status.Errorf(codes.InvalidArgument, "missing team in metadata")
 		}
 
-		if !s.TeamsClient.IsAuthorized(ctx, repo, team) {
+		authorized, err := s.TeamsClient.IsAuthorized(ctx, repo, team)
+		if err != nil {
+			metrics.InterceptorRequest(requestTypeJWT, "teams_service_error")
+			return nil, status.Errorf(codes.Unavailable, "something wrong happened when communicating with the teams service")
+		}
+		if !authorized {
 			metrics.InterceptorRequest(requestTypeJWT, "repo_not_authorized")
 			return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
 		}
@@ -180,7 +185,11 @@ func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 			return status.Errorf(codes.InvalidArgument, "missing team in metadata")
 		}
 
-		if !s.TeamsClient.IsAuthorized(ss.Context(), repo, team) {
+		authorized, err := s.TeamsClient.IsAuthorized(ss.Context(), repo, team)
+		if err != nil {
+			return status.Errorf(codes.Unavailable, "something wrong happened when communicating with the teams service")
+		}
+		if !authorized {
 			return status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
 		}
 	} else {
