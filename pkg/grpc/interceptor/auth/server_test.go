@@ -180,8 +180,8 @@ type mockTeamsClient struct {
 	authorized map[string]string
 }
 
-func (m *mockTeamsClient) IsAuthorized(ctx context.Context, repo, team string) bool {
-	return m.authorized[repo] == team
+func (m *mockTeamsClient) IsAuthorized(ctx context.Context, repo, team string) (bool, error) {
+	return m.authorized[repo] == team, nil
 }
 
 func handler(ctx context.Context, req any) (any, error) {

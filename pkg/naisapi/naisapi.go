@@ -30,15 +30,15 @@ func NewClient(target string, insecureConnection bool) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) IsAuthorized(ctx context.Context, repo, team string) bool {
+func (c *Client) IsAuthorized(ctx context.Context, repo, team string) (bool, error) {
 	resp, err := c.client.IsRepositoryAuthorized(ctx, &protoapi.IsRepositoryAuthorizedRequest{
 		TeamSlug:   team,
 		Repository: repo,
 	})
 	if err != nil {
 		log.WithError(err).Error("checking repo authorization in teams")
-		return false
+		return false, err
 	}
 
-	return resp.IsAuthorized
+	return resp.IsAuthorized, nil
 }
