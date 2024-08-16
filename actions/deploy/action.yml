@@ -1,6 +1,6 @@
 name: 'NAIS deploy'
 description: 'Deploy to a NAIS cluster'
-author: '@pig_deployment'
+author: '@nais'
 color: purple
 icon: zap
 runs:
