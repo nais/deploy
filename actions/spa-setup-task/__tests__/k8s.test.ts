@@ -15,13 +15,24 @@ test('ingressAnnotations()', () => {
 
   const annotations = k8s.ingressAnnotations(bucketPath, bucketVhost) || {}
 
-  expect(Object.keys(annotations || {}).length).toBe(6)
+  expect(Object.keys(annotations || {}).length).toBe(5)
   expect(annotations['nginx.ingress.kubernetes.io/upstream-vhost']).toBe(
     bucketVhost
   )
   expect(annotations['nginx.ingress.kubernetes.io/backend-protocol']).toBe(
     'https'
   )
+  expect(annotations['nginx.ingress.kubernetes.io/configuration-snippet']).toBe(
+    `more_set_headers "Cache-Control: public,max-age=0";
+rewrite ^(.*)/$ ${bucketPath}/index.html break;
+rewrite ^/(.*)$ ${bucketPath}/$1 break;
+proxy_intercept_errors on;
+error_page 404 = /index.html;`
+  )
+  expect(annotations['nginx.ingress.kubernetes.io/from-to-www-redirect']).toBe(
+    'true'
+  )
+  expect(annotations['nginx.ingress.kubernetes.io/use-regex']).toBe('true')
   Object.keys(annotations || {}).forEach(key => {
     expect(key.startsWith('nginx.ingress.kubernetes.io')).toBe(true)
   })
