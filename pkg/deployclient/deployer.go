@@ -12,6 +12,7 @@ import (
 
 	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 )
 
 type TemplateVariables map[string]interface{}
@@ -141,7 +142,9 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 
 	deadline, _ := ctx.Deadline()
 
-	return MakeDeploymentRequest(*cfg, deadline, kube), nil
+	traceParent := telemetry.TraceParentHeader(ctx)
+
+	return MakeDeploymentRequest(*cfg, traceParent, deadline, kube), nil
 }
 
 func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.DeploymentRequest) error {

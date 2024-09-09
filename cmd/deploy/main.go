@@ -9,6 +9,7 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/deploy/pkg/version"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	log "github.com/sirupsen/logrus"
@@ -69,6 +70,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	rootSpan.SetAttributes(attribute.KeyValue{
+		Key:   "correlation-id",
+		Value: attribute.StringValue(request.ID),
+	})
 
 	// Set up asynchronous gRPC connection
 	grpcConnection, err := deployclient.NewGrpcConnection(*cfg)

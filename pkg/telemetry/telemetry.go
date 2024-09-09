@@ -63,6 +63,19 @@ func Tracer() otrace.Tracer {
 	return tracer.Tracer("")
 }
 
+// TraceParentHeader extract the trace parent header value from the context
+//
+// Example of a trace parent:
+//
+// Version - Trace ID - Span ID - Inc:
+// `00-3b03c24a4efad25e514890c874dc9e33-59c10f1945da62ca-01`
+func TraceParentHeader(ctx context.Context) string {
+	traceCarrier := propagation.MapCarrier{}
+	traceCtx := propagation.TraceContext{}
+	traceCtx.Inject(ctx, traceCarrier)
+	return traceCarrier.Get("traceparent")
+}
+
 func newPropagator() propagation.TextMapPropagator {
 	return propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
@@ -72,7 +85,7 @@ func newPropagator() propagation.TextMapPropagator {
 
 func newTraceProvider(ctx context.Context, res *resource.Resource, endpointURL string) (*trace.TracerProvider, error) {
 	// When debugging, you can replace the existing exporter with this one to get JSON on stdout.
-	//traceExporter, err := stdouttrace.New()
+	// traceExporter, err := stdouttrace.New()
 
 	traceExporter, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(endpointURL))
 	if err != nil {

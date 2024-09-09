@@ -16,7 +16,7 @@ import (
 func makeMockDeployRequest(cfg deployclient.Config) *pb.DeploymentRequest {
 	tm := time.Now()
 	deadline := time.Now().Add(1 * time.Minute)
-	request := deployclient.MakeDeploymentRequest(cfg, deadline, &pb.Kubernetes{})
+	request := deployclient.MakeDeploymentRequest(cfg, "", deadline, &pb.Kubernetes{})
 	request.Time = pb.TimeAsTimestamp(tm)
 	return request
 }

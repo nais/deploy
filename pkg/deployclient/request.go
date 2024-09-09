@@ -6,7 +6,7 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 )
 
-func MakeDeploymentRequest(cfg Config, deadline time.Time, kubernetes *pb.Kubernetes) *pb.DeploymentRequest {
+func MakeDeploymentRequest(cfg Config, traceParent string, deadline time.Time, kubernetes *pb.Kubernetes) *pb.DeploymentRequest {
 	return &pb.DeploymentRequest{
 		Cluster:           cfg.Cluster,
 		Deadline:          pb.TimeAsTimestamp(deadline),
@@ -17,7 +17,8 @@ func MakeDeploymentRequest(cfg Config, deadline time.Time, kubernetes *pb.Kubern
 			Owner: cfg.Owner,
 			Name:  cfg.Repository,
 		},
-		Team: cfg.Team,
-		Time: pb.TimeAsTimestamp(time.Now()),
+		Team:        cfg.Team,
+		Time:        pb.TimeAsTimestamp(time.Now()),
+		TraceParent: traceParent,
 	}
 }
