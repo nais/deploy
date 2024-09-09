@@ -17,10 +17,11 @@ import (
 type TemplateVariables map[string]interface{}
 
 const (
-	DefaultRef           = "master"
-	DefaultOwner         = "navikt"
-	DefaultDeployServer  = "deploy.nav.cloud.nais.io:443"
-	DefaultDeployTimeout = time.Minute * 10
+	DefaultRef                   = "master"
+	DefaultOwner                 = "navikt"
+	DefaultDeployServer          = "deploy.nav.cloud.nais.io:443"
+	DefaultOtelCollectorEndpoint = "https://collector-internet.nav.cloud.nais.io"
+	DefaultDeployTimeout         = time.Minute * 10
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
 	AuthRequiredMsg     = "Github token or API key required"

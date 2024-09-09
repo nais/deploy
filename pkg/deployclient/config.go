@@ -12,30 +12,31 @@ import (
 )
 
 type Config struct {
-	APIKey             string
-	Actions            bool
-	Cluster            string
-	DeployServerURL    string
-	DryRun             bool
-	Environment        string
-	GithubToken        string
-	GrpcAuthentication bool
-	GrpcUseTLS         bool
-	Owner              string
-	PollInterval       time.Duration
-	PrintPayload       bool
-	Quiet              bool
-	Ref                string
-	Repository         string
-	Resource           []string
-	Retry              bool
-	RetryInterval      time.Duration
-	Team               string
-	Timeout            time.Duration
-	TraceParent        string
-	Variables          []string
-	VariablesFile      string
-	Wait               bool
+	APIKey                    string
+	Actions                   bool
+	Cluster                   string
+	DeployServerURL           string
+	DryRun                    bool
+	Environment               string
+	GithubToken               string
+	GrpcAuthentication        bool
+	GrpcUseTLS                bool
+	Owner                     string
+	PollInterval              time.Duration
+	PrintPayload              bool
+	Quiet                     bool
+	Ref                       string
+	Repository                string
+	Resource                  []string
+	Retry                     bool
+	RetryInterval             time.Duration
+	Team                      string
+	Timeout                   time.Duration
+	OpenTelemetryTraceParent  string
+	OpenTelemetryCollectorURL string
+	Variables                 []string
+	VariablesFile             string
+	Wait                      bool
 }
 
 func InitConfig(cfg *Config) {
@@ -56,8 +57,9 @@ func InitConfig(cfg *Config) {
 	flag.StringSliceVar(&cfg.Resource, "resource", getEnvStringSlice("RESOURCE"), "File with Kubernetes resource. Can be specified multiple times. (env RESOURCE)")
 	flag.BoolVar(&cfg.Retry, "retry", getEnvBool("RETRY", true), "Retry deploy when encountering transient errors. (env RETRY)")
 	flag.StringVar(&cfg.Team, "team", os.Getenv("TEAM"), "Team making the deployment. Auto-detected from nais.yaml if possible. (env TEAM)")
+	flag.StringVar(&cfg.OpenTelemetryTraceParent, "otel-trace-parent", os.Getenv("TRACEPARENT"), "OpenTelemetry Traceparent HTTP header. (env TRACEPARENT)")
+	flag.StringVar(&cfg.OpenTelemetryCollectorURL, "otel-collector-endpoint", getEnv("OTEL_COLLECTOR_ENDPOINT", DefaultOtelCollectorEndpoint), "OpenTelemetry collector endpoint. (env OTEL_COLLECTOR_ENDPOINT)")
 	flag.DurationVar(&cfg.Timeout, "timeout", getEnvDuration("TIMEOUT", DefaultDeployTimeout), "Time to wait for successful deployment. (env TIMEOUT)")
-	flag.StringVar(&cfg.TraceParent, "trace-parent", os.Getenv("TRACE_PARENT"), "OpenTelemetry Traceparent HTTP header (env TRACE_PARENT)")
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT", false), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
