@@ -1,0 +1,47 @@
+
+Which metrics can we collect from the pipeline?
+
+
+@startuml component
+
+actor developer as "Developer"
+participant ci
+participant build
+participant sign
+participant release
+participant hookd
+collections deployd
+participant naiserator
+
+developer -> ci
+note right: Developer pushes code
+ci -> build
+note right: time to commit\n\
+time to start workflow
+build --> ci
+note right: time to build
+
+ci -> sign
+sign --> ci
+note right: time to sign
+
+ci -> release
+release --> ci
+note right: time to release
+
+ci -> hookd
+hookd -> deployd
+deployd -> naiserator
+
+naiserator --> deployd
+deployd --> hookd
+note right: time to start deploy
+
+naiserator --> deployd
+deployd --> hookd
+note right: time to complete deploy
+
+hookd --> ci
+ci --> developer
+
+@enduml
