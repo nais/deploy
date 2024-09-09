@@ -7,6 +7,7 @@ import (
 
 	"github.com/nais/deploy/pkg/deployclient"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/deploy/pkg/version"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -31,11 +32,30 @@ func run() error {
 	// Configuration and context
 	cfg := deployclient.NewConfig()
 	deployclient.InitConfig(cfg)
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	programContext, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
 	// Logging
 	deployclient.SetupLogging(*cfg)
+
+	// OpenTelemetry
+	tracerProvider, err := telemetry.New(programContext, "deploy", cfg.OpenTelemetryCollectorURL)
+	if err != nil {
+		return fmt.Errorf("Setup OpenTelemetry: %w", err)
+	}
+
+	// Clean shutdown for OT
+	defer func() {
+		err := tracerProvider.Shutdown(programContext)
+		if err != nil {
+			log.Errorf("Shutdown OpenTelemetry: %s", err)
+		}
+	}()
+
+	// Root span for tracing.
+	// All sub-spans must be created from this context.
+	ctx, rootSpan := telemetry.Tracer().Start(programContext, "Run deployment process")
+	defer rootSpan.End()
 
 	// Welcome
 	log.Infof("NAIS deploy %s", version.Version())

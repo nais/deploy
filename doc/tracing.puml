@@ -36,8 +36,12 @@ deployd -> naiserator
 naiserator --> deployd
 deployd --> hookd
 note right: time to start deploy
+hookd --> ci
 
-naiserator --> deployd
+deployd --> hookd
+note right: time to persist resources
+hookd --> ci
+
 deployd --> hookd
 note right: time to complete deploy
 
