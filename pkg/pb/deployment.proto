@@ -39,6 +39,7 @@ message DeploymentRequest {
     Kubernetes kubernetes = 7;
     GithubRepository repository = 8;
     string GithubEnvironment = 9;
+    string traceParent = 10;
 }
 
 message DeploymentStatus {
