@@ -32,6 +32,7 @@ type Config struct {
 	RetryInterval      time.Duration
 	Team               string
 	Timeout            time.Duration
+	TraceParent        string
 	Variables          []string
 	VariablesFile      string
 	Wait               bool
@@ -56,6 +57,7 @@ func InitConfig(cfg *Config) {
 	flag.BoolVar(&cfg.Retry, "retry", getEnvBool("RETRY", true), "Retry deploy when encountering transient errors. (env RETRY)")
 	flag.StringVar(&cfg.Team, "team", os.Getenv("TEAM"), "Team making the deployment. Auto-detected from nais.yaml if possible. (env TEAM)")
 	flag.DurationVar(&cfg.Timeout, "timeout", getEnvDuration("TIMEOUT", DefaultDeployTimeout), "Time to wait for successful deployment. (env TIMEOUT)")
+	flag.StringVar(&cfg.TraceParent, "trace-parent", os.Getenv("TRACE_PARENT"), "OpenTelemetry Traceparent HTTP header (env TRACE_PARENT)")
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT", false), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
