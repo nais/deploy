@@ -32,7 +32,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 	op.Logger.Infof("Starting deployment")
 
 	ctx := telemetry.WithTraceParent(op.Context, op.Request.TraceParent)
-	ctx, span := telemetry.Tracer().Start(ctx, "Deploy to Kubernetes")
+	ctx, rootSpan := telemetry.Tracer().Start(ctx, "Deploy to Kubernetes")
 
 	failure := func(err error) {
 		op.Cancel()
@@ -42,14 +42,14 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 	err := ctx.Err()
 	if err != nil {
 		failure(err)
-		span.End()
+		rootSpan.End()
 		return
 	}
 
 	resources, err := op.ExtractResources()
 	if err != nil {
 		failure(err)
-		span.End()
+		rootSpan.End()
 		return
 	}
 
@@ -84,6 +84,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		wait.Add(1)
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
+			_, resourceSpan := telemetry.Tracer().Start(ctx, fmt.Sprintf("%s/%s", identifier.Kind, identifier.Name))
 			deadline, _ := ctx.Deadline()
 			op.Logger.Debugf("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
 			strat := strategy.NewWatchStrategy(identifier.GroupVersionKind, client)
@@ -101,6 +102,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 
 			op.Logger.Debugf("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
 			wait.Done()
+			resourceSpan.End()
 		}(logger, resource)
 	}
 
@@ -121,6 +123,6 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			op.StatusChan <- pb.NewSuccessStatus(op.Request)
 		}
 
-		span.End()
+		rootSpan.End()
 	}()
 }
