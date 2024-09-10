@@ -10,6 +10,7 @@ import (
 	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
 	"github.com/nais/deploy/pkg/hookd/metrics"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,9 +24,17 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 		return status.Errorf(codes.Unavailable, "cluster '%s' is offline", request.Cluster)
 	}
 
+	ctx = telemetry.WithTraceParent(ctx, request.TraceParent)
+	s.traceSpansLock.Lock()
+	defer s.traceSpansLock.Unlock()
+	ctx, span := telemetry.Tracer().Start(ctx, "dispatching deployment request")
+	s.traceSpans[request.ID] = span
+
 	wait := make(chan error, 1)
 	c <- &requestWithWait{request: request, wait: wait}
 	if err := <-wait; err != nil {
+		span.End()
+		delete(s.traceSpans, request.ID)
 		return fmt.Errorf("send deployment request: %w", err)
 	}
 
@@ -56,6 +65,13 @@ func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.Depl
 	logger.Debugf("Saved deployment status in database")
 
 	if st.GetState().Finished() {
+		deployID := st.GetRequest().GetID()
+		s.traceSpansLock.Lock()
+		if span, ok := s.traceSpans[deployID]; ok {
+			span.End()
+			delete(s.traceSpans, deployID)
+		}
+		s.traceSpansLock.Unlock()
 		logger.Infof("Deployment finished")
 	}
 

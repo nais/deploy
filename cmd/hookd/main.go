@@ -101,7 +101,7 @@ func run() error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.DatabaseConnectTimeout)
+	ctx, cancel := context.WithTimeout(programContext, cfg.DatabaseConnectTimeout)
 	for {
 		log.Infof("Connecting to database...")
 		db, err = database.New(ctx, cfg.DatabaseURL, dbEncryptionKey)
@@ -120,7 +120,9 @@ func run() error {
 		return fmt.Errorf("setup postgres connection: %s", err)
 	}
 
-	err = db.Migrate(context.Background())
+	ctx, cancel = context.WithTimeout(programContext, cfg.DatabaseConnectTimeout)
+	err = db.Migrate(ctx)
+	cancel()
 	if err != nil {
 		return fmt.Errorf("migrating database: %s", err)
 	}

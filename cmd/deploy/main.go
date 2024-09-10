@@ -9,7 +9,6 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/deploy/pkg/version"
-	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	log "github.com/sirupsen/logrus"
@@ -53,11 +52,6 @@ func run() error {
 		}
 	}()
 
-	// Root span for tracing.
-	// All sub-spans must be created from this context.
-	ctx, rootSpan := telemetry.Tracer().Start(programContext, "Run deployment process")
-	defer rootSpan.End()
-
 	// Welcome
 	log.Infof("NAIS deploy %s", version.Version())
 	ts, err := version.BuildTime()
@@ -66,15 +60,10 @@ func run() error {
 	}
 
 	// Prepare request
-	request, err := deployclient.Prepare(ctx, cfg)
+	request, err := deployclient.Prepare(programContext, cfg)
 	if err != nil {
 		return err
 	}
-
-	rootSpan.SetAttributes(attribute.KeyValue{
-		Key:   "correlation-id",
-		Value: attribute.StringValue(request.ID),
-	})
 
 	// Set up asynchronous gRPC connection
 	grpcConnection, err := deployclient.NewGrpcConnection(*cfg)
@@ -100,5 +89,5 @@ func run() error {
 		return nil
 	}
 
-	return d.Deploy(ctx, cfg, request)
+	return d.Deploy(programContext, cfg, request)
 }

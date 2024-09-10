@@ -8,6 +8,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
 
 	"github.com/nais/deploy/pkg/hookd/logproxy"
@@ -142,16 +143,21 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 
 	deadline, _ := ctx.Deadline()
 
-	traceParent := telemetry.TraceParentHeader(ctx)
-
-	return MakeDeploymentRequest(*cfg, traceParent, deadline, kube), nil
+	return MakeDeploymentRequest(*cfg, deadline, kube), nil
 }
 
 func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.DeploymentRequest) error {
 	var deployStatus *pb.DeploymentStatus
 	var err error
 
+	// Root span for tracing.
+	// All sub-spans must be created from this context.
+	ctx, rootSpan := telemetry.Tracer().Start(ctx, "Run deployment process")
+	defer rootSpan.End()
+	deployRequest.TraceParent = telemetry.TraceParentHeader(ctx)
+
 	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
+	log.Infof("Trace parent for this request: %s", deployRequest.TraceParent)
 
 	sendDeploymentRequest := func() error {
 		err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {
@@ -176,6 +182,10 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		log.Infof("Deployment request accepted by NAIS deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
 
 		deployRequest.ID = deployStatus.GetRequest().GetID()
+		rootSpan.SetAttributes(attribute.KeyValue{
+			Key:   "correlation-id",
+			Value: attribute.StringValue(deployRequest.ID),
+		})
 
 		urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
 		log.Infof("Deployment information:")

@@ -20,6 +20,9 @@ import (
 // How long between each time OT sends something to the collector.
 const batchTimeout = 5 * time.Second
 
+// Key for traceparent header in OT libraries.
+const traceParentKey = "traceparent"
+
 // Singleton instance of the default tracer.
 // Access it with `Tracer()`.
 var tracer *trace.TracerProvider
@@ -63,6 +66,15 @@ func Tracer() otrace.Tracer {
 	return tracer.Tracer("")
 }
 
+// Given a context and a trace parent header value, returns a new context
+// that can be used to set up nested tracing.
+func WithTraceParent(ctx context.Context, traceParent string) context.Context {
+	traceCarrier := propagation.MapCarrier{}
+	traceCarrier.Set(traceParentKey, traceParent)
+	traceCtx := propagation.TraceContext{}
+	return traceCtx.Extract(ctx, traceCarrier)
+}
+
 // TraceParentHeader extract the trace parent header value from the context
 //
 // Example of a trace parent:
@@ -73,7 +85,7 @@ func TraceParentHeader(ctx context.Context) string {
 	traceCarrier := propagation.MapCarrier{}
 	traceCtx := propagation.TraceContext{}
 	traceCtx.Inject(ctx, traceCarrier)
-	return traceCarrier.Get("traceparent")
+	return traceCarrier.Get(traceParentKey)
 }
 
 func newPropagator() propagation.TextMapPropagator {
