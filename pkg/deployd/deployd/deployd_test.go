@@ -29,6 +29,7 @@ import (
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 )
 
 type processCallback func(ctx context.Context, rig *testRig, test testSpec) error
@@ -424,6 +425,8 @@ func waitForResources(ctx context.Context, rig *testRig, test testSpec) error {
 func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 	ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
 	defer cancel()
+
+	_, _ = telemetry.New(ctx, "test", "")
 
 	kubes, err := resources(test.fixture)
 	if err != nil {
