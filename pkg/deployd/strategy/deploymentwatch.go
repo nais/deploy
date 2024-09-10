@@ -10,6 +10,7 @@ import (
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +21,7 @@ type deployment struct {
 	client kubeclient.Interface
 }
 
-func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
+func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus {
 	var cur *apps.Deployment
 	var nova *apps.Deployment
 	var err error

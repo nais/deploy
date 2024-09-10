@@ -362,6 +362,8 @@ func TestDeployRun(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	_, _ = telemetry.New(ctx, "test", "")
+
 	team := "aura"
 
 	t.Logf("Creating namespace")
@@ -426,8 +428,6 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 	ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
 	defer cancel()
 
-	_, _ = telemetry.New(ctx, "test", "")
-
 	kubes, err := resources(test.fixture)
 	if err != nil {
 		panic(fmt.Sprintf("test data fixture error in '%s': %s", test.fixture, err))
@@ -435,6 +435,8 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 
 	opctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	opctx, span := telemetry.Tracer().Start(opctx, "foo")
 
 	op := &operation.Operation{
 		Context: opctx,
@@ -445,6 +447,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 			Team:       team,
 			Kubernetes: kubes,
 		},
+		Trace:      span,
 		StatusChan: rig.statusChan,
 	}
 

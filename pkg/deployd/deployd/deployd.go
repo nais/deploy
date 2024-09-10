@@ -70,7 +70,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 
 		resourceInterface, err := client.ResourceInterface(&resource)
 		if err == nil {
-			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource)
+			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource, span)
 		}
 
 		if err != nil {
@@ -82,6 +82,8 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			break
 		}
 
+		span.AddEvent("Resource saved to Kubernetes")
+
 		metrics.KubernetesResources.Inc()
 
 		op.StatusChan <- pb.NewInProgressStatus(op.Request, "Successfully applied %s", identifier.String())
@@ -91,8 +93,9 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			deadline, _ := op.Context.Deadline()
 			op.Logger.Debugf("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
 			strat := strategy.NewWatchStrategy(identifier.GroupVersionKind, client)
-			status := strat.Watch(op, resource)
+			status := strat.Watch(op, resource, span)
 			if status != nil {
+				span.AddEvent(status.Message)
 				if status.GetState().IsError() {
 					span.SetStatus(codes.Error, status.Message)
 					errors <- fmt.Errorf(status.Message)

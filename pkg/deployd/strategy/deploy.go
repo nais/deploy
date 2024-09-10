@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -16,14 +17,14 @@ func NewDeployStrategy(namespacedResource dynamic.ResourceInterface) DeployStrat
 }
 
 type DeployStrategy interface {
-	Deploy(ctx context.Context, resource unstructured.Unstructured) (*unstructured.Unstructured, error)
+	Deploy(ctx context.Context, resource unstructured.Unstructured, trace trace.Span) (*unstructured.Unstructured, error)
 }
 
 type createOrUpdateStrategy struct {
 	client dynamic.ResourceInterface
 }
 
-func (c createOrUpdateStrategy) Deploy(ctx context.Context, resource unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func (c createOrUpdateStrategy) Deploy(ctx context.Context, resource unstructured.Unstructured, trace trace.Span) (*unstructured.Unstructured, error) {
 	existing, err := c.client.Get(ctx, resource.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		deployed, err := c.client.Create(ctx, &resource, metav1.CreateOptions{

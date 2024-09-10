@@ -8,6 +8,7 @@ import (
 
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"github.com/nais/liberator/pkg/events"
+	"go.opentelemetry.io/otel/trace"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +23,7 @@ type naisResource struct {
 	client kubeclient.Interface
 }
 
-func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
+func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus {
 	var err error
 
 	eventsClient := a.client.Kubernetes().CoreV1().Events(resource.GetNamespace())
@@ -81,7 +82,7 @@ func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstr
 				return status
 			}
 
-			op.Trace.AddEvent(status.Message)
+			trace.AddEvent(status.Message)
 			op.StatusChan <- status
 
 		case <-op.Context.Done():
