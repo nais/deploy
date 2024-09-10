@@ -15,6 +15,7 @@ import (
 	"github.com/nais/deploy/pkg/deployd/strategy"
 	"github.com/nais/deploy/pkg/k8sutils"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 )
 
 // Annotate a resource with the deployment correlation ID.
@@ -30,20 +31,25 @@ func addCorrelationID(resource *unstructured.Unstructured, correlationID string)
 func Run(op *operation.Operation, client kubeclient.Interface) {
 	op.Logger.Infof("Starting deployment")
 
+	ctx := telemetry.WithTraceParent(op.Context, op.Request.TraceParent)
+	ctx, span := telemetry.Tracer().Start(ctx, "Deploy to Kubernetes")
+
 	failure := func(err error) {
 		op.Cancel()
 		op.StatusChan <- pb.NewFailureStatus(op.Request, err)
 	}
 
-	err := op.Context.Err()
+	err := ctx.Err()
 	if err != nil {
 		failure(err)
+		span.End()
 		return
 	}
 
 	resources, err := op.ExtractResources()
 	if err != nil {
 		failure(err)
+		span.End()
 		return
 	}
 
@@ -62,7 +68,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 
 		resourceInterface, err := client.ResourceInterface(&resource)
 		if err == nil {
-			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource)
+			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(ctx, resource)
 		}
 
 		if err != nil {
@@ -78,7 +84,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		wait.Add(1)
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
-			deadline, _ := op.Context.Deadline()
+			deadline, _ := ctx.Deadline()
 			op.Logger.Debugf("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
 			strat := strategy.NewWatchStrategy(identifier.GroupVersionKind, client)
 			status := strat.Watch(op, resource)
@@ -114,5 +120,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		} else {
 			op.StatusChan <- pb.NewSuccessStatus(op.Request)
 		}
+
+		span.End()
 	}()
 }

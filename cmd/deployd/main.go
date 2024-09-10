@@ -27,6 +27,7 @@ import (
 	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/deploy/pkg/version"
 )
 
@@ -56,6 +57,23 @@ func run() error {
 	if err == nil {
 		log.Infof("This version was built %s", ts.Local())
 	}
+
+	programContext, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// OpenTelemetry
+	tracerProvider, err := telemetry.New(programContext, "deployd", cfg.OpenTelemetryCollectorURL)
+	if err != nil {
+		return fmt.Errorf("Setup OpenTelemetry: %w", err)
+	}
+
+	// Clean shutdown for OT
+	defer func() {
+		err := tracerProvider.Shutdown(programContext)
+		if err != nil {
+			log.Errorf("Shutdown OpenTelemetry: %s", err)
+		}
+	}()
 
 	for _, line := range conftools.Format(maskedConfig) {
 		log.Info(line)
@@ -120,7 +138,7 @@ func run() error {
 		for {
 			time.Sleep(requestBackoff)
 
-			deploymentStream, err := grpcClient.Deployments(context.Background(), &pb.GetDeploymentOpts{
+			deploymentStream, err := grpcClient.Deployments(programContext, &pb.GetDeploymentOpts{
 				Cluster:     cfg.Cluster,
 				StartupTime: pb.TimeAsTimestamp(startupTime),
 			})
@@ -184,7 +202,7 @@ func run() error {
 			logger.Infof(st.GetMessage())
 		}
 
-		_, err = grpcClient.ReportStatus(context.Background(), st)
+		_, err = grpcClient.ReportStatus(programContext, st)
 
 		return err
 	}

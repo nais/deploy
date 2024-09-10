@@ -26,15 +26,18 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 
 	ctx = telemetry.WithTraceParent(ctx, request.TraceParent)
 	s.traceSpansLock.Lock()
-	defer s.traceSpansLock.Unlock()
-	ctx, span := telemetry.Tracer().Start(ctx, "dispatching deployment request")
+	ctx, span := telemetry.Tracer().Start(ctx, "Send to deploy server")
 	s.traceSpans[request.ID] = span
+	request.TraceParent = telemetry.TraceParentHeader(ctx)
+	s.traceSpansLock.Unlock()
 
 	wait := make(chan error, 1)
 	c <- &requestWithWait{request: request, wait: wait}
 	if err := <-wait; err != nil {
 		span.End()
+		s.traceSpansLock.Lock()
 		delete(s.traceSpans, request.ID)
+		s.traceSpansLock.Unlock()
 		return fmt.Errorf("send deployment request: %w", err)
 	}
 

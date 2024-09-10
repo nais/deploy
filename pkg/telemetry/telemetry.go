@@ -79,7 +79,7 @@ func WithTraceParent(ctx context.Context, traceParent string) context.Context {
 //
 // Example of a trace parent:
 //
-// Version - Trace ID - Span ID - Inc:
+// Version - Trace ID - Span ID - Flags:
 // `00-3b03c24a4efad25e514890c874dc9e33-59c10f1945da62ca-01`
 func TraceParentHeader(ctx context.Context) string {
 	traceCarrier := propagation.MapCarrier{}
