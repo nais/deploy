@@ -12,6 +12,7 @@ import (
 
 	"github.com/nais/liberator/pkg/conftools"
 	log "github.com/sirupsen/logrus"
+	ocodes "go.opentelemetry.io/otel/codes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -164,9 +165,13 @@ func run() error {
 
 	deploy := func(req *pb.DeploymentRequest) {
 		ctx, cancel := req.Context()
+		ctx = telemetry.WithTraceParent(ctx, req.TraceParent)
+		ctx, span := telemetry.Tracer().Start(ctx, "Deploy to Kubernetes")
 
 		client, err := kube.Impersonate(req.GetTeam())
 		if err != nil {
+			span.SetStatus(ocodes.Error, err.Error())
+			span.End()
 			cancel()
 			statusChan <- pb.NewErrorStatus(req, err)
 			return
@@ -179,6 +184,7 @@ func run() error {
 			Cancel:     cancel,
 			Logger:     logger,
 			Request:    req,
+			Trace:      span,
 			StatusChan: statusChan,
 		}
 

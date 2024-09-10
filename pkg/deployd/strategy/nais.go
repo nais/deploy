@@ -81,6 +81,7 @@ func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstr
 				return status
 			}
 
+			op.Trace.AddEvent(status.Message)
 			op.StatusChan <- status
 
 		case <-op.Context.Done():

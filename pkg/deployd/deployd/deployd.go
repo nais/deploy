@@ -32,27 +32,24 @@ func addCorrelationID(resource *unstructured.Unstructured, correlationID string)
 func Run(op *operation.Operation, client kubeclient.Interface) {
 	op.Logger.Infof("Starting deployment")
 
-	ctx := telemetry.WithTraceParent(op.Context, op.Request.TraceParent)
-	ctx, rootSpan := telemetry.Tracer().Start(ctx, "Deploy to Kubernetes")
-
 	failure := func(err error) {
 		op.Cancel()
 		op.StatusChan <- pb.NewFailureStatus(op.Request, err)
 	}
 
-	err := ctx.Err()
+	err := op.Context.Err()
 	if err != nil {
 		failure(err)
-		rootSpan.SetStatus(codes.Error, err.Error())
-		rootSpan.End()
+		op.Trace.SetStatus(codes.Error, err.Error())
+		op.Trace.End()
 		return
 	}
 
 	resources, err := op.ExtractResources()
 	if err != nil {
 		failure(err)
-		rootSpan.SetStatus(codes.Error, err.Error())
-		rootSpan.End()
+		op.Trace.SetStatus(codes.Error, err.Error())
+		op.Trace.End()
 		return
 	}
 
@@ -69,11 +66,11 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			"gvk":       identifier.GroupVersionKind,
 		})
 
-		_, span := telemetry.Tracer().Start(ctx, fmt.Sprintf("%s/%s", identifier.Kind, identifier.Name))
+		_, span := telemetry.Tracer().Start(op.Context, fmt.Sprintf("%s/%s", identifier.Kind, identifier.Name))
 
 		resourceInterface, err := client.ResourceInterface(&resource)
 		if err == nil {
-			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(ctx, resource)
+			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource)
 		}
 
 		if err != nil {
@@ -91,7 +88,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		wait.Add(1)
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
-			deadline, _ := ctx.Deadline()
+			deadline, _ := op.Context.Deadline()
 			op.Logger.Debugf("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
 			strat := strategy.NewWatchStrategy(identifier.GroupVersionKind, client)
 			status := strat.Watch(op, resource)
@@ -130,12 +127,12 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			close(errors)
 			aggregateError := fmt.Errorf("%s (total of %d errors)", err, errCount)
 			op.StatusChan <- pb.NewFailureStatus(op.Request, aggregateError)
-			rootSpan.SetStatus(codes.Error, aggregateError.Error())
+			op.Trace.SetStatus(codes.Error, aggregateError.Error())
 		} else {
 			op.StatusChan <- pb.NewSuccessStatus(op.Request)
-			rootSpan.SetStatus(codes.Ok, "All resources rolled out successfully")
+			op.Trace.SetStatus(codes.Ok, "All resources rolled out successfully")
 		}
 
-		rootSpan.End()
+		op.Trace.End()
 	}()
 }
