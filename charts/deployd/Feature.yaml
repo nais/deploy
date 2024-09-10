@@ -65,3 +65,6 @@ values:
     config:
       type: string
       secret: true
+  otelExporterOtlpEndpoint:
+    config:
+      type: string

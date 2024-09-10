@@ -60,3 +60,5 @@ deploymentEventRelays:
     topic: "aura.dev-rapid"
 
 canaryAlert: true
+
+otelExporterOtlpEndpoint: # mapped by fasit
