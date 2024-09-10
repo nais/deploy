@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
+	"go.opentelemetry.io/otel/codes"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,6 +43,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 	err := ctx.Err()
 	if err != nil {
 		failure(err)
+		rootSpan.SetStatus(codes.Error, err.Error())
 		rootSpan.End()
 		return
 	}
@@ -49,6 +51,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 	resources, err := op.ExtractResources()
 	if err != nil {
 		failure(err)
+		rootSpan.SetStatus(codes.Error, err.Error())
 		rootSpan.End()
 		return
 	}
@@ -66,6 +69,8 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			"gvk":       identifier.GroupVersionKind,
 		})
 
+		_, span := telemetry.Tracer().Start(ctx, fmt.Sprintf("%s/%s", identifier.Kind, identifier.Name))
+
 		resourceInterface, err := client.ResourceInterface(&resource)
 		if err == nil {
 			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(ctx, resource)
@@ -73,6 +78,8 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 
 		if err != nil {
 			err = fmt.Errorf("%s: %s", identifier.String(), err)
+			span.SetStatus(codes.Error, err.Error())
+			span.End()
 			logger.Error(err)
 			errors <- err
 			break
@@ -84,25 +91,28 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		wait.Add(1)
 
 		go func(logger *log.Entry, resource unstructured.Unstructured) {
-			_, resourceSpan := telemetry.Tracer().Start(ctx, fmt.Sprintf("%s/%s", identifier.Kind, identifier.Name))
 			deadline, _ := ctx.Deadline()
 			op.Logger.Debugf("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
 			strat := strategy.NewWatchStrategy(identifier.GroupVersionKind, client)
 			status := strat.Watch(op, resource)
 			if status != nil {
 				if status.GetState().IsError() {
+					span.SetStatus(codes.Error, status.Message)
 					errors <- fmt.Errorf(status.Message)
 					op.Logger.Error(status.Message)
 				} else {
+					span.SetStatus(codes.Ok, status.Message)
 					op.Logger.Infof(status.Message)
 				}
 				status.State = pb.DeploymentState_in_progress
 				op.StatusChan <- status
+			} else {
+				span.SetStatus(codes.Ok, "Resource saved to Kubernetes")
 			}
 
 			op.Logger.Debugf("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
 			wait.Done()
-			resourceSpan.End()
+			span.End()
 		}(logger, resource)
 	}
 
@@ -118,9 +128,12 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		if errCount > 0 {
 			err := <-errors
 			close(errors)
-			op.StatusChan <- pb.NewFailureStatus(op.Request, fmt.Errorf("%s (total of %d errors)", err, errCount))
+			aggregateError := fmt.Errorf("%s (total of %d errors)", err, errCount)
+			op.StatusChan <- pb.NewFailureStatus(op.Request, aggregateError)
+			rootSpan.SetStatus(codes.Error, aggregateError.Error())
 		} else {
 			op.StatusChan <- pb.NewSuccessStatus(op.Request)
+			rootSpan.SetStatus(codes.Ok, "All resources rolled out successfully")
 		}
 
 		rootSpan.End()
