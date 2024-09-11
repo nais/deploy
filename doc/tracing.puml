@@ -2,6 +2,12 @@
 Which metrics can we collect from the pipeline?
 
 
+- hvor lang tid tar det fra utvikleren skriver kode til den er i produksjon
+- hvor lenge ligger en commit i en PR eller branch før den blir merget til main?
+
+gitt en deploy:
+- HVILKEN commit var den første i diffen mellom denne deployen og den forrige?
+
 @startuml component
 
 actor developer as "Developer"
@@ -16,8 +22,9 @@ participant naiserator
 developer -> ci
 note right: Developer pushes code
 ci -> build
-note right: time to commit\n\
-time to start workflow
+note right: time from commit to push\n\
+time to start workflow\n\
+IS IT POSSIBLE?
 build --> ci
 note right: time to build
 
