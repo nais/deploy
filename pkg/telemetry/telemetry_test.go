@@ -12,10 +12,10 @@ func TestParsePipelineTelemetry(t *testing.T) {
 	t.Run("default case with four timings in correct order", func(t *testing.T) {
 		input := "pipeline_start=1726050395,pipeline_end=1726050512,build_start=1726050400,attest_start=1726050492"
 		expected := &telemetry.PipelineTimings{
-			Start:       time.Date(2024, time.September, 11, 12, 26, 35, 0, time.Local),
-			BuildStart:  time.Date(2024, time.September, 11, 12, 26, 40, 0, time.Local),
-			AttestStart: time.Date(2024, time.September, 11, 12, 28, 12, 0, time.Local),
-			End:         time.Date(2024, time.September, 11, 12, 28, 32, 0, time.Local),
+			Start:       time.Date(2024, time.September, 11, 10, 26, 35, 0, time.UTC),
+			BuildStart:  time.Date(2024, time.September, 11, 10, 26, 40, 0, time.UTC),
+			AttestStart: time.Date(2024, time.September, 11, 10, 28, 12, 0, time.UTC),
+			End:         time.Date(2024, time.September, 11, 10, 28, 32, 0, time.UTC),
 		}
 		output, err := telemetry.ParsePipelineTelemetry(input)
 		assert.NoError(t, err)

@@ -116,7 +116,7 @@ func (pt *PipelineTimings) StartTracing(ctx context.Context, name string) (conte
 
 	rootCtx, rootSpan := Tracer().Start(ctx, name, otrace.WithTimestamp(pt.Start))
 	{
-		ciCtx, ciSpan := Tracer().Start(rootCtx, "Github Action: docker-build-push", otrace.WithTimestamp(pt.Start))
+		ciCtx, ciSpan := Tracer().Start(rootCtx, "Github Action: docker-build-push", otrace.WithTimestamp(pt.Start), otrace.WithAttributes())
 		{
 			_, buildSpan := Tracer().Start(ciCtx, "Docker: Build and push", otrace.WithTimestamp(pt.BuildStart))
 			buildSpan.End(otrace.WithTimestamp(pt.AttestStart))
@@ -152,11 +152,15 @@ func ParsePipelineTelemetry(s string) (*PipelineTimings, error) {
 		if !found {
 			return nil, fmt.Errorf("expected 'key=value', found '%s'", keyValue)
 		}
+
 		epoch, err := strconv.Atoi(value)
 		if err != nil {
 			return nil, fmt.Errorf("expected UNIX epoch, found '%s'", value)
 		}
+
 		ts := time.Unix(int64(epoch), 0)
+		ts = ts.UTC()
+
 		switch key {
 		case "pipeline_start":
 			timings.Start = ts
