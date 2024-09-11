@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nais/deploy/pkg/telemetry"
 	flag "github.com/spf13/pflag"
 )
 
@@ -31,9 +32,9 @@ type Config struct {
 	Retry                     bool
 	RetryInterval             time.Duration
 	Team                      string
-	Telemetry                 string
+	TelemetryInput            string
+	Telemetry                 *telemetry.PipelineTimings
 	Timeout                   time.Duration
-	OpenTelemetryTraceParent  string
 	OpenTelemetryCollectorURL string
 	Variables                 []string
 	VariablesFile             string
@@ -58,9 +59,8 @@ func InitConfig(cfg *Config) {
 	flag.StringSliceVar(&cfg.Resource, "resource", getEnvStringSlice("RESOURCE"), "File with Kubernetes resource. Can be specified multiple times. (env RESOURCE)")
 	flag.BoolVar(&cfg.Retry, "retry", getEnvBool("RETRY", true), "Retry deploy when encountering transient errors. (env RETRY)")
 	flag.StringVar(&cfg.Team, "team", os.Getenv("TEAM"), "Team making the deployment. Auto-detected from nais.yaml if possible. (env TEAM)")
-	flag.StringVar(&cfg.OpenTelemetryTraceParent, "otel-trace-parent", os.Getenv("TRACEPARENT"), "OpenTelemetry Traceparent HTTP header. (env TRACEPARENT)")
 	flag.StringVar(&cfg.OpenTelemetryCollectorURL, "otel-collector-endpoint", getEnv("OTEL_COLLECTOR_ENDPOINT", DefaultOtelCollectorEndpoint), "OpenTelemetry collector endpoint. (env OTEL_COLLECTOR_ENDPOINT)")
-	flag.StringVar(&cfg.Telemetry, "telemetry", os.Getenv("TELEMETRY"), "Telemetry data from CI pipeline. (env TELEMETRY)")
+	flag.StringVar(&cfg.TelemetryInput, "telemetry", os.Getenv("TELEMETRY"), "Telemetry data from CI pipeline. (env TELEMETRY)")
 	flag.DurationVar(&cfg.Timeout, "timeout", getEnvDuration("TIMEOUT", DefaultDeployTimeout), "Time to wait for successful deployment. (env TIMEOUT)")
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
@@ -134,6 +134,11 @@ func (cfg *Config) Validate() error {
 	_, err := hex.DecodeString(cfg.APIKey)
 	if err != nil {
 		return fmt.Errorf(MalformedAPIKeyMsg)
+	}
+
+	cfg.Telemetry, err = telemetry.ParsePipelineTelemetry(cfg.TelemetryInput)
+	if err != nil {
+		return err
 	}
 
 	return nil

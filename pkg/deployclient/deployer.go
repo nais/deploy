@@ -152,7 +152,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 	// Root span for tracing.
 	// All sub-spans must be created from this context.
-	ctx, rootSpan := telemetry.Tracer().Start(ctx, "Run deployment process")
+	ctx, rootSpan := cfg.Telemetry.StartTracing(ctx, "Continuous integration pipeline")
 	defer rootSpan.End()
 	deployRequest.TraceParent = telemetry.TraceParentHeader(ctx)
 

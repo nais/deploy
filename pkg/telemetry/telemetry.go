@@ -109,6 +109,28 @@ func (pt *PipelineTimings) Validate() error {
 	return nil
 }
 
+func (pt *PipelineTimings) StartTracing(ctx context.Context, name string) (context.Context, otrace.Span) {
+	if pt == nil {
+		return Tracer().Start(ctx, name)
+	}
+
+	rootCtx, rootSpan := Tracer().Start(ctx, name, otrace.WithTimestamp(pt.Start))
+	{
+		ciCtx, ciSpan := Tracer().Start(rootCtx, "Github Action: docker-build-push", otrace.WithTimestamp(pt.Start))
+		{
+			_, buildSpan := Tracer().Start(ciCtx, "Docker: Build and push", otrace.WithTimestamp(pt.BuildStart))
+			buildSpan.End(otrace.WithTimestamp(pt.AttestStart))
+		}
+		{
+			_, attestSpan := Tracer().Start(ciCtx, "SLSA: SBOM sign and attest", otrace.WithTimestamp(pt.AttestStart))
+			attestSpan.End(otrace.WithTimestamp(pt.End))
+		}
+		ciSpan.End(otrace.WithTimestamp(pt.End))
+	}
+
+	return rootCtx, rootSpan
+}
+
 // Parse pipeline build timings.
 //
 // Uses the following input format:
