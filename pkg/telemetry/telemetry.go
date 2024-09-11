@@ -4,7 +4,10 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nais/deploy/pkg/version"
@@ -75,17 +78,81 @@ func WithTraceParent(ctx context.Context, traceParent string) context.Context {
 	return traceCtx.Extract(ctx, traceCarrier)
 }
 
-// TraceParentHeader extract the trace parent header value from the context
+// TraceParentHeader extract the trace parent header value from the context.
 //
-// Example of a trace parent:
+// A trace parent header contains the following data:
 //
-// Version - Trace ID - Span ID - Flags:
-// `00-3b03c24a4efad25e514890c874dc9e33-59c10f1945da62ca-01`
+// Version - Trace ID - Span ID - Flags
+//
+//	00-3b03c24a4efad25e514890c874dc9e33-59c10f1945da62ca-01
 func TraceParentHeader(ctx context.Context) string {
 	traceCarrier := propagation.MapCarrier{}
 	traceCtx := propagation.TraceContext{}
 	traceCtx.Inject(ctx, traceCarrier)
 	return traceCarrier.Get(traceParentKey)
+}
+
+// Holds timestamps from pipeline indicating when certain steps were started or finished.
+// If `Validate()` returns nil, this object is safe to use and contains chronologically ordered timestamps
+// for every field.
+type PipelineTimings struct {
+	Start       time.Time
+	BuildStart  time.Time
+	AttestStart time.Time
+	End         time.Time
+}
+
+func (pt *PipelineTimings) Validate() error {
+	if pt.Start.After(pt.BuildStart) || pt.BuildStart.After(pt.AttestStart) || pt.AttestStart.After(pt.End) {
+		return fmt.Errorf("pipeline timings are not in expected chronological order, ensure that: pipeline_start < build_start < attest_start < pipeline_end")
+	}
+	return nil
+}
+
+// Parse pipeline build timings.
+//
+// Uses the following input format:
+//
+//	pipeline_start=1726050395,pipeline_end=1726050512,build_start=1726050400,attest_start=1726050492
+//
+// This output usually comes from `docker-build-push.steps.output.telemetry`.
+//
+// If there is no timing data, both return values will be nil.
+// If all timing data is valid, returns a timings object and nil error.
+func ParsePipelineTelemetry(s string) (*PipelineTimings, error) {
+	if len(s) == 0 {
+		return nil, nil
+	}
+	timings := &PipelineTimings{}
+	fragments := strings.Split(s, ",")
+	for _, keyValue := range fragments {
+		key, value, found := strings.Cut(keyValue, "=")
+		if !found {
+			return nil, fmt.Errorf("expected 'key=value', found '%s'", keyValue)
+		}
+		epoch, err := strconv.Atoi(value)
+		if err != nil {
+			return nil, fmt.Errorf("expected UNIX epoch, found '%s'", value)
+		}
+		ts := time.Unix(int64(epoch), 0)
+		switch key {
+		case "pipeline_start":
+			timings.Start = ts
+		case "pipeline_end":
+			timings.End = ts
+		case "build_start":
+			timings.BuildStart = ts
+		case "attest_start":
+			timings.AttestStart = ts
+		default:
+			return nil, fmt.Errorf("expected key to be one of 'pipeline_start', 'pipeline_end', 'build_start', 'attest_start'; found '%s'", key)
+		}
+	}
+	err := timings.Validate()
+	if err != nil {
+		return nil, err
+	}
+	return timings, nil
 }
 
 func newPropagator() propagation.TextMapPropagator {
