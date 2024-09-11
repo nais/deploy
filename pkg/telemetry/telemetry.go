@@ -142,6 +142,11 @@ func (pt *PipelineTimings) StartTracing(ctx context.Context, name string) (conte
 // If there is no timing data, both return values will be nil.
 // If all timing data is valid, returns a timings object and nil error.
 func ParsePipelineTelemetry(s string) (*PipelineTimings, error) {
+
+	// Github makes it very difficult to have multiple equal signs in a single "echo ... > $GITHUB_OUTPUT" line.
+	// We must quote it, but the quotes follow into the nais deploy client, and must be stripped here.
+	s = strings.Trim(s, `"`)
+
 	if len(s) == 0 {
 		return nil, nil
 	}
