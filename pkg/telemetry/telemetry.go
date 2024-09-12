@@ -112,7 +112,7 @@ func AddDeploymentRequestSpanAttributes(span otrace.Span, request *pb.Deployment
 			Value: attribute.StringValue(request.GetGitRefSha()),
 		}, attribute.KeyValue{
 			Key:   "deploy.repository",
-			Value: attribute.StringValue(request.GetRepository().String()),
+			Value: attribute.StringValue(request.GetRepository().FullName()),
 		},
 	)
 }

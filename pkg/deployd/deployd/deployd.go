@@ -78,6 +78,14 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 				Key:   "k8s.name",
 				Value: attribute.StringValue(identifier.Name),
 			},
+			attribute.KeyValue{
+				Key:   "k8s.namespace",
+				Value: attribute.StringValue(identifier.Namespace),
+			},
+			attribute.KeyValue{
+				Key:   "k8s.apiVersion",
+				Value: attribute.StringValue(identifier.GroupVersion().String()),
+			},
 		)
 
 		resourceInterface, err := client.ResourceInterface(&resource)
