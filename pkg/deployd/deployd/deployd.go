@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 
 	log "github.com/sirupsen/logrus"
@@ -67,6 +68,17 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		})
 
 		_, span := telemetry.Tracer().Start(op.Context, fmt.Sprintf("%s/%s", identifier.Kind, identifier.Name))
+		telemetry.AddDeploymentRequestSpanAttributes(span, op.Request)
+		span.SetAttributes(
+			attribute.KeyValue{
+				Key:   "k8s.kind",
+				Value: attribute.StringValue(identifier.Kind),
+			},
+			attribute.KeyValue{
+				Key:   "k8s.name",
+				Value: attribute.StringValue(identifier.Name),
+			},
+		)
 
 		resourceInterface, err := client.ResourceInterface(&resource)
 		if err == nil {

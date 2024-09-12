@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/version"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -92,6 +94,29 @@ func TraceParentHeader(ctx context.Context) string {
 	return traceCarrier.Get(traceParentKey)
 }
 
+// Copies interesting values from the deployment request
+// onto the span, so it can be filtered in Grafana.
+func AddDeploymentRequestSpanAttributes(span otrace.Span, request *pb.DeploymentRequest) {
+	span.SetAttributes(
+		attribute.KeyValue{
+			Key:   "deploy.id",
+			Value: attribute.StringValue(request.GetID()),
+		}, attribute.KeyValue{
+			Key:   "deploy.cluster",
+			Value: attribute.StringValue(request.GetCluster()),
+		}, attribute.KeyValue{
+			Key:   "deploy.team",
+			Value: attribute.StringValue(request.GetTeam()),
+		}, attribute.KeyValue{
+			Key:   "deploy.git-ref-sha",
+			Value: attribute.StringValue(request.GetGitRefSha()),
+		}, attribute.KeyValue{
+			Key:   "deploy.repository",
+			Value: attribute.StringValue(request.GetRepository().String()),
+		},
+	)
+}
+
 // Holds timestamps from pipeline indicating when certain steps were started or finished.
 // If `Validate()` returns nil, this object is safe to use and contains chronologically ordered timestamps
 // for every field.
@@ -143,7 +168,7 @@ func (pt *PipelineTimings) StartTracing(ctx context.Context, name string) (conte
 // If all timing data is valid, returns a timings object and nil error.
 func ParsePipelineTelemetry(s string) (*PipelineTimings, error) {
 
-	// Github makes it very difficult to have multiple equal signs in a single "echo ... > $GITHUB_OUTPUT" line.
+	// GitHub makes it very difficult to have multiple equal signs in a single "echo ... > $GITHUB_OUTPUT" line.
 	// We must quote it, but the quotes follow into the nais deploy client, and must be stripped here.
 	s = strings.Trim(s, `"`)
 

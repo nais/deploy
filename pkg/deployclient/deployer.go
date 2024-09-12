@@ -8,7 +8,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
 
 	"github.com/nais/deploy/pkg/hookd/logproxy"
@@ -182,10 +181,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		log.Infof("Deployment request accepted by NAIS deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
 
 		deployRequest.ID = deployStatus.GetRequest().GetID()
-		rootSpan.SetAttributes(attribute.KeyValue{
-			Key:   "correlation-id",
-			Value: attribute.StringValue(deployRequest.ID),
-		})
+		telemetry.AddDeploymentRequestSpanAttributes(rootSpan, deployStatus.GetRequest())
 
 		urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
 		log.Infof("Deployment information:")
