@@ -64,6 +64,10 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 		return nil, status.Errorf(codes.InvalidArgument, "invalid metadata in request")
 	}
 
+	if ctx.Err() != nil {
+		return nil, status.Errorf(codes.DeadlineExceeded, "deployment request timed out while you were waiting")
+	}
+
 	jwtToken := get("jwt", md)
 
 	if jwtToken != "" {
@@ -164,6 +168,10 @@ func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 	md, ok := metadata.FromIncomingContext(ss.Context())
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "invalid metadata in request")
+	}
+
+	if ss.Context().Err() != nil {
+		return status.Errorf(codes.DeadlineExceeded, "deployment request timed out while you were waiting")
 	}
 
 	jwtToken := get("jwt", md)
