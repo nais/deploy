@@ -21,7 +21,7 @@ const (
 	DefaultRef                   = "master"
 	DefaultOwner                 = "navikt"
 	DefaultDeployServer          = "deploy.nav.cloud.nais.io:443"
-	DefaultOtelCollectorEndpoint = "https://collector-internet.prod-gcp.nav.cloud.nais.io"
+	DefaultOtelCollectorEndpoint = "https://collector-internet.external.prod-gcp.nav.cloud.nais.io"
 	DefaultTracingDashboardURL   = "https://grafana.nav.cloud.nais.io/d/cdxgyzr3rikn4a/deploy-tracing-drilldown?var-trace_id="
 	DefaultDeployTimeout         = time.Minute * 10
 
