@@ -22,6 +22,7 @@ const (
 	DefaultOwner                 = "navikt"
 	DefaultDeployServer          = "deploy.nav.cloud.nais.io:443"
 	DefaultOtelCollectorEndpoint = "https://collector-internet.prod-gcp.nav.cloud.nais.io"
+	DefaultTracingDashboardURL   = "https://grafana.nav.cloud.nais.io/d/cdxgyzr3rikn4a/deploy-tracing-drilldown?var-trace_id="
 	DefaultDeployTimeout         = time.Minute * 10
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
@@ -182,11 +183,15 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 		deployRequest.ID = deployStatus.GetRequest().GetID()
 		telemetry.AddDeploymentRequestSpanAttributes(rootSpan, deployStatus.GetRequest())
+		traceID := telemetry.TraceID(ctx)
 
 		urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
 		log.Infof("Deployment information:")
 		log.Infof("---")
 		log.Infof("id...........: %s", deployRequest.GetID())
+		if len(traceID) > 0 {
+			log.Infof("tracing......: %s", cfg.TracingDashboardURL+traceID)
+		}
 		log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime(), deployRequest.Cluster))
 		log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
 		log.Infof("---")

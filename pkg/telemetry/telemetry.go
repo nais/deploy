@@ -80,7 +80,7 @@ func WithTraceParent(ctx context.Context, traceParent string) context.Context {
 	return traceCtx.Extract(ctx, traceCarrier)
 }
 
-// TraceParentHeader extract the trace parent header value from the context.
+// TraceParentHeader extracts the trace parent header value from the context.
 //
 // A trace parent header contains the following data:
 //
@@ -92,6 +92,17 @@ func TraceParentHeader(ctx context.Context) string {
 	traceCtx := propagation.TraceContext{}
 	traceCtx.Inject(ctx, traceCarrier)
 	return traceCarrier.Get(traceParentKey)
+}
+
+// TraceID extracts the trace ID from the context.
+// If the context does not embed a trace, an empty string is returned.
+func TraceID(ctx context.Context) string {
+	traceParentHeader := TraceParentHeader(ctx)
+	parts := strings.Split(traceParentHeader, "-")
+	if len(parts) != 4 {
+		return ""
+	}
+	return parts[1]
 }
 
 // Copies interesting values from the deployment request
