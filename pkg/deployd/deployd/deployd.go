@@ -104,7 +104,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 
 		span.AddEvent("Resource saved to Kubernetes")
 
-		metrics.KubernetesResources.Inc()
+		metrics.KubernetesResources(op.Request.GetTeam(), identifier.Kind, identifier.Name).Inc()
 
 		op.StatusChan <- pb.NewInProgressStatus(op.Request, "Successfully applied %s", identifier.String())
 		wait.Add(1)
