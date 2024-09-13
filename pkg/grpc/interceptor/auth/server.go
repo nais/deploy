@@ -64,14 +64,14 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 		return nil, status.Errorf(codes.InvalidArgument, "invalid metadata in request")
 	}
 
-	jwt := get("jwt", md)
+	jwtToken := get("jwt", md)
 
-	if jwt != "" {
-		t, err := s.TokenValidator.Validate(ctx, jwt)
+	if jwtToken != "" {
+		t, err := s.TokenValidator.Validate(ctx, jwtToken)
 		if err != nil {
 			log.WithError(err).Infof("validating token")
 			metrics.InterceptorRequest(requestTypeJWT, "invalid_jwt")
-			return nil, status.Errorf(codes.Unauthenticated, "invalid JWT token")
+			return nil, status.Errorf(codes.Unauthenticated, err.Error())
 		}
 
 		r, ok := t.Get("repository")
@@ -166,12 +166,12 @@ func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 		return status.Errorf(codes.InvalidArgument, "invalid metadata in request")
 	}
 
-	jwt := get("jwt", md)
+	jwtToken := get("jwt", md)
 
-	if jwt != "" {
-		t, err := s.TokenValidator.Validate(ss.Context(), jwt)
+	if jwtToken != "" {
+		t, err := s.TokenValidator.Validate(ss.Context(), jwtToken)
 		if err != nil {
-			return status.Errorf(codes.Unauthenticated, "invalid JWT token")
+			return status.Errorf(codes.Unauthenticated, err.Error())
 		}
 
 		r, ok := t.Get("repository")

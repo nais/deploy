@@ -37,7 +37,7 @@ func (g *GithubValidator) Validate(ctx context.Context, token string) (jwt.Token
 	otherParseOpts := g.jwtOptions()
 	t, err := jwt.Parse([]byte(token), append(otherParseOpts, keySetOpts)...)
 	if err != nil {
-		return nil, fmt.Errorf("parse token: %w", err)
+		return nil, fmt.Errorf("invalid JWT token: %w", err)
 	}
 
 	return t, nil
