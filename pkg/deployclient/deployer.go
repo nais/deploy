@@ -21,7 +21,7 @@ const (
 	DefaultRef                   = "master"
 	DefaultOwner                 = "navikt"
 	DefaultDeployServer          = "deploy.nav.cloud.nais.io:443"
-	DefaultOtelCollectorEndpoint = "https://collector-internet.nav.cloud.nais.io"
+	DefaultOtelCollectorEndpoint = "https://collector-internet.prod-gcp.nav.cloud.nais.io"
 	DefaultDeployTimeout         = time.Minute * 10
 
 	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
