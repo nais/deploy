@@ -44,9 +44,6 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 	var err error
 	templateVariables := make(TemplateVariables)
 
-	ctx, span := telemetry.Tracer().Start(ctx, "Templating and validation")
-	defer span.End()
-
 	err = cfg.Validate()
 	if err != nil {
 		if !errors.Is(err, ErrInvalidTelemetryFormat) {
@@ -164,12 +161,11 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 	// Root span for tracing.
 	// All sub-spans must be created from this context.
-	ctx, rootSpan := cfg.Telemetry.StartTracing(ctx, "Continuous integration pipeline")
+	ctx, rootSpan := cfg.Telemetry.StartTracing(ctx)
 	defer rootSpan.End()
 	deployRequest.TraceParent = telemetry.TraceParentHeader(ctx)
 
 	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
-	log.Infof("Trace parent for this request: %s", deployRequest.TraceParent)
 
 	sendDeploymentRequest := func() error {
 		ctx, span := telemetry.Tracer().Start(ctx, "Send to deploy server")

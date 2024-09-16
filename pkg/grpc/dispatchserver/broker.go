@@ -27,7 +27,7 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 
 	ctx = telemetry.WithTraceParent(ctx, request.TraceParent)
 	s.traceSpansLock.Lock()
-	ctx, span := telemetry.Tracer().Start(ctx, "Dispatch to cluster", otrace.WithSpanKind(otrace.SpanKindServer))
+	ctx, span := telemetry.Tracer().Start(ctx, "Deploy", otrace.WithSpanKind(otrace.SpanKindServer))
 	s.traceSpans[request.ID] = span
 	request.TraceParent = telemetry.TraceParentHeader(ctx)
 	s.traceSpansLock.Unlock()
