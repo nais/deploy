@@ -4,13 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
-
-	log "github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/metrics"
 	"github.com/nais/deploy/pkg/deployd/operation"
@@ -18,6 +11,12 @@ import (
 	"github.com/nais/deploy/pkg/k8sutils"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/telemetry"
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
+	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	otrace "go.opentelemetry.io/otel/trace"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Annotate a resource with the deployment correlation ID.
@@ -67,7 +66,8 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			"gvk":       identifier.GroupVersionKind,
 		})
 
-		_, span := telemetry.Tracer().Start(op.Context, fmt.Sprintf("%s/%s", identifier.Kind, identifier.Name))
+		spanName := fmt.Sprintf("%s/%s", identifier.Kind, identifier.Name)
+		_, span := telemetry.Tracer().Start(op.Context, spanName, otrace.WithSpanKind(otrace.SpanKindClient))
 		telemetry.AddDeploymentRequestSpanAttributes(span, op.Request)
 		span.SetAttributes(
 			attribute.KeyValue{

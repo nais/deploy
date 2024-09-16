@@ -12,6 +12,7 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/telemetry"
 	log "github.com/sirupsen/logrus"
+	otrace "go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,7 +27,7 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 
 	ctx = telemetry.WithTraceParent(ctx, request.TraceParent)
 	s.traceSpansLock.Lock()
-	ctx, span := telemetry.Tracer().Start(ctx, "Send to deploy server")
+	ctx, span := telemetry.Tracer().Start(ctx, "Send to deploy server", otrace.WithSpanKind(otrace.SpanKindServer))
 	s.traceSpans[request.ID] = span
 	request.TraceParent = telemetry.TraceParentHeader(ctx)
 	s.traceSpansLock.Unlock()

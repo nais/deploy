@@ -30,6 +30,7 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/deploy/pkg/version"
+	otrace "go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -166,7 +167,7 @@ func run() error {
 	deploy := func(req *pb.DeploymentRequest) {
 		ctx, cancel := req.Context()
 		ctx = telemetry.WithTraceParent(ctx, req.TraceParent)
-		ctx, span := telemetry.Tracer().Start(ctx, "Deploy to Kubernetes")
+		ctx, span := telemetry.Tracer().Start(ctx, "Deploy to Kubernetes", otrace.WithSpanKind(otrace.SpanKindServer))
 
 		client, err := kube.Impersonate(req.GetTeam())
 		if err != nil {

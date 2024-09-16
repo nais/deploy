@@ -148,10 +148,10 @@ func (pt *PipelineTimings) Validate() error {
 
 func (pt *PipelineTimings) StartTracing(ctx context.Context, name string) (context.Context, otrace.Span) {
 	if pt == nil {
-		return Tracer().Start(ctx, name)
+		return Tracer().Start(ctx, name, otrace.WithSpanKind(otrace.SpanKindServer))
 	}
 
-	rootCtx, rootSpan := Tracer().Start(ctx, name, otrace.WithTimestamp(pt.Start))
+	rootCtx, rootSpan := Tracer().Start(ctx, name, otrace.WithTimestamp(pt.Start), otrace.WithSpanKind(otrace.SpanKindServer))
 	{
 		ciCtx, ciSpan := Tracer().Start(rootCtx, "Github Action: docker-build-push", otrace.WithTimestamp(pt.Start), otrace.WithAttributes())
 		{
