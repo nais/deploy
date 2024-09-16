@@ -132,15 +132,16 @@ func AddDeploymentRequestSpanAttributes(span otrace.Span, request *pb.Deployment
 // If `Validate()` returns nil, this object is safe to use and contains chronologically ordered timestamps
 // for every field.
 type PipelineTimings struct {
-	Start       time.Time
-	BuildStart  time.Time
-	AttestStart time.Time
-	End         time.Time
+	LatestCommit time.Time
+	Start        time.Time
+	BuildStart   time.Time
+	AttestStart  time.Time
+	End          time.Time
 }
 
 func (pt *PipelineTimings) Validate() error {
-	if pt.Start.After(pt.BuildStart) || pt.BuildStart.After(pt.AttestStart) || pt.AttestStart.After(pt.End) {
-		return fmt.Errorf("pipeline timings are not in expected chronological order, ensure that: pipeline_start < build_start < attest_start < pipeline_end")
+	if pt.LatestCommit.After(pt.BuildStart) || pt.Start.After(pt.BuildStart) || pt.BuildStart.After(pt.AttestStart) || pt.AttestStart.After(pt.End) {
+		return fmt.Errorf("pipeline timings are not in expected chronological order, ensure that: latest_commit < pipeline_start < build_start < attest_start < pipeline_end")
 	}
 	return nil
 }
@@ -171,7 +172,7 @@ func (pt *PipelineTimings) StartTracing(ctx context.Context, name string) (conte
 //
 // Uses the following input format:
 //
-//	pipeline_start=1726050395,pipeline_end=1726050512,build_start=1726050400,attest_start=1726050492
+//	latest_commit=1726040395,pipeline_start=1726050395,pipeline_end=1726050512,build_start=1726050400,attest_start=1726050492
 //
 // This output usually comes from `docker-build-push.steps.output.telemetry`.
 //
@@ -199,6 +200,8 @@ func ParsePipelineTelemetry(s string) (*PipelineTimings, error) {
 		ts = ts.UTC()
 
 		switch key {
+		case "latest_commit":
+			timings.LatestCommit = ts
 		case "pipeline_start":
 			timings.Start = ts
 		case "pipeline_end":
@@ -208,7 +211,7 @@ func ParsePipelineTelemetry(s string) (*PipelineTimings, error) {
 		case "attest_start":
 			timings.AttestStart = ts
 		default:
-			return nil, fmt.Errorf("expected key to be one of 'pipeline_start', 'pipeline_end', 'build_start', 'attest_start'; found '%s'", key)
+			return nil, fmt.Errorf("expected key to be one of 'latest_commit', 'pipeline_start', 'pipeline_end', 'build_start', 'attest_start'; found '%s'", key)
 		}
 	}
 	err := timings.Validate()
