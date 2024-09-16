@@ -295,10 +295,10 @@ func TestValidationFailures(t *testing.T) {
 		errorMsg  string
 		transform func(cfg deployclient.Config) deployclient.Config
 	}{
-		{deployclient.ClusterRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.Cluster = ""; return cfg }},
-		{deployclient.AuthRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = ""; return cfg }},
-		{deployclient.ResourceRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.Resource = nil; return cfg }},
-		{deployclient.MalformedAPIKeyMsg, func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = "malformed"; return cfg }},
+		{deployclient.ErrClusterRequired.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.Cluster = ""; return cfg }},
+		{deployclient.ErrAuthRequired.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = ""; return cfg }},
+		{deployclient.ErrResourceRequired.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.Resource = nil; return cfg }},
+		{deployclient.ErrMalformedAPIKey.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = "malformed"; return cfg }},
 	} {
 		cfg := testCase.transform(*valid)
 		request, err := deployclient.Prepare(context.Background(), &cfg)

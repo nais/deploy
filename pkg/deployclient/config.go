@@ -122,25 +122,25 @@ func getEnvBool(key string, def bool) bool {
 
 func (cfg *Config) Validate() error {
 	if len(cfg.Resource) == 0 {
-		return fmt.Errorf(ResourceRequiredMsg)
+		return ErrResourceRequired
 	}
 
 	if len(cfg.Cluster) == 0 {
-		return fmt.Errorf(ClusterRequiredMsg)
+		return ErrClusterRequired
 	}
 
 	if len(cfg.APIKey) == 0 && len(cfg.GithubToken) == 0 {
-		return fmt.Errorf(AuthRequiredMsg)
+		return ErrAuthRequired
 	}
 
 	_, err := hex.DecodeString(cfg.APIKey)
 	if err != nil {
-		return fmt.Errorf(MalformedAPIKeyMsg)
+		return ErrMalformedAPIKey
 	}
 
 	cfg.Telemetry, err = telemetry.ParsePipelineTelemetry(cfg.TelemetryInput)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrInvalidTelemetryFormat, err)
 	}
 
 	return nil

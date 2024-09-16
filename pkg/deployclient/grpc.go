@@ -32,7 +32,7 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 		} else {
 			decoded, err := hex.DecodeString(cfg.APIKey)
 			if err != nil {
-				return nil, Errorf(ExitInvocationFailure, "%s: %s", MalformedAPIKeyMsg, err)
+				return nil, Errorf(ExitInvocationFailure, "%s: %s", ErrMalformedAPIKey, err)
 			}
 			interceptor = &auth_interceptor.APIKeyInterceptor{
 				APIKey:     decoded,

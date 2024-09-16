@@ -3,6 +3,7 @@ package deployclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -24,11 +25,14 @@ const (
 	DefaultOtelCollectorEndpoint = "https://collector-internet.external.prod-gcp.nav.cloud.nais.io"
 	DefaultTracingDashboardURL   = "https://grafana.nav.cloud.nais.io/d/cdxgyzr3rikn4a/deploy-tracing-drilldown?var-trace_id="
 	DefaultDeployTimeout         = time.Minute * 10
+)
 
-	ResourceRequiredMsg = "at least one Kubernetes resource is required to make sense of the deployment"
-	AuthRequiredMsg     = "Github token or API key required"
-	ClusterRequiredMsg  = "cluster required; see reference section in the documentation for available environments"
-	MalformedAPIKeyMsg  = "API key must be a hex encoded string"
+var (
+	ErrResourceRequired       = errors.New("at least one Kubernetes resource is required to make sense of the deployment")
+	ErrAuthRequired           = errors.New("Github token or API key required")
+	ErrClusterRequired        = errors.New("cluster required; see reference section in the documentation for available environments")
+	ErrMalformedAPIKey        = errors.New("API key must be a hex encoded string")
+	ErrInvalidTelemetryFormat = errors.New("telemetry input format malformed")
 )
 
 type Deployer struct {
@@ -41,11 +45,15 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 
 	err = cfg.Validate()
 	if err != nil {
-		if !cfg.DryRun {
-			return nil, ErrorWrap(ExitInvocationFailure, err)
-		}
+		if !errors.Is(err, ErrInvalidTelemetryFormat) {
+			if !cfg.DryRun {
+				return nil, ErrorWrap(ExitInvocationFailure, err)
+			}
 
-		log.Warnf("Config did not pass validation: %s", err)
+			log.Warnf("Config did not pass validation: %s", err)
+		} else {
+			log.Error(err)
+		}
 	}
 
 	if len(cfg.VariablesFile) > 0 {
