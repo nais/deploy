@@ -148,13 +148,13 @@ func (pt *PipelineTimings) Validate() error {
 
 func (pt *PipelineTimings) StartTracing(ctx context.Context) (context.Context, otrace.Span) {
 	if pt == nil {
-		return Tracer().Start(ctx, "Continuous integration pipeline", otrace.WithSpanKind(otrace.SpanKindServer))
+		return Tracer().Start(ctx, "Continuous integration pipeline", otrace.WithSpanKind(otrace.SpanKindClient))
 	}
 
-	rootCtx, rootSpan := Tracer().Start(ctx, "Continuous integration pipeline", otrace.WithTimestamp(pt.LatestCommit), otrace.WithSpanKind(otrace.SpanKindServer))
+	rootCtx, rootSpan := Tracer().Start(ctx, "Continuous integration pipeline", otrace.WithTimestamp(pt.LatestCommit), otrace.WithSpanKind(otrace.SpanKindClient))
 	rootSpan.AddEvent("Latest commit to repository", otrace.WithTimestamp(pt.LatestCommit))
 	{
-		ciCtx, ciSpan := Tracer().Start(rootCtx, "Github Action: docker-build-push", otrace.WithTimestamp(pt.Start), otrace.WithAttributes())
+		ciCtx, ciSpan := Tracer().Start(rootCtx, "Github Action: docker-build-push", otrace.WithTimestamp(pt.Start), otrace.WithSpanKind(otrace.SpanKindClient))
 		{
 			_, buildSpan := Tracer().Start(ciCtx, "Docker: Build and push", otrace.WithTimestamp(pt.BuildStart))
 			buildSpan.End(otrace.WithTimestamp(pt.AttestStart))
