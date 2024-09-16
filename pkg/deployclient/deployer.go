@@ -9,6 +9,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	ocodes "go.opentelemetry.io/otel/codes"
 	"google.golang.org/grpc/codes"
 
 	"github.com/nais/deploy/pkg/hookd/logproxy"
@@ -42,6 +43,9 @@ type Deployer struct {
 func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 	var err error
 	templateVariables := make(TemplateVariables)
+
+	ctx, span := telemetry.Tracer().Start(ctx, "Templating and validation")
+	defer span.End()
 
 	err = cfg.Validate()
 	if err != nil {
@@ -168,6 +172,9 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	log.Infof("Trace parent for this request: %s", deployRequest.TraceParent)
 
 	sendDeploymentRequest := func() error {
+		ctx, span := telemetry.Tracer().Start(ctx, "Send to deploy server")
+		defer span.End()
+
 		err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {
 			deployStatus, err = d.Client.Deploy(ctx, deployRequest)
 			return err
@@ -177,13 +184,15 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 			code := grpcErrorCode(err)
 			err = fmt.Errorf(formatGrpcError(err))
 			if ctx.Err() != nil {
-				return Errorf(ExitTimeout, "deployment timed out: %w", ctx.Err())
+				span.SetStatus(ocodes.Error, ctx.Err().Error())
+				return Errorf(ExitTimeout, "deployment timed out: %s", ctx.Err())
 			}
 			if code == codes.Unauthenticated {
 				if !strings.HasSuffix(cfg.Environment, ":"+cfg.Team) {
 					log.Warnf("hint: team %q does not match namespace in %q", cfg.Team, cfg.Environment)
 				}
 			}
+			span.SetStatus(ocodes.Error, err.Error())
 			return ErrorWrap(ExitNoDeployment, err)
 		}
 
@@ -191,6 +200,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 		deployRequest.ID = deployStatus.GetRequest().GetID()
 		telemetry.AddDeploymentRequestSpanAttributes(rootSpan, deployStatus.GetRequest())
+		telemetry.AddDeploymentRequestSpanAttributes(span, deployStatus.GetRequest())
 		traceID := telemetry.TraceID(ctx)
 
 		urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
