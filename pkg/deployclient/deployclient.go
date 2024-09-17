@@ -100,7 +100,14 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 		for i, path := range cfg.Resource {
 			team := detectTeam(resources[i])
 			if len(team) > 0 {
-				log.Infof("Detected team '%s' in path %s", team, path)
+				log.Infof("Detected team %q in %q", team, path)
+				cfg.Team = team
+				break
+			}
+
+			team = detectNamespace(resources[i])
+			if len(team) > 0 {
+				log.Infof("Detected team %q from namespace in %q", team, path)
 				cfg.Team = team
 				break
 			}
