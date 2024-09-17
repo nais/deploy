@@ -124,6 +124,9 @@ func AddDeploymentRequestSpanAttributes(span otrace.Span, request *pb.Deployment
 		}, attribute.KeyValue{
 			Key:   "deploy.repository",
 			Value: attribute.StringValue(request.GetRepository().FullName()),
+		}, attribute.KeyValue{
+			Key:   "deploy.deadline",
+			Value: attribute.StringValue(request.GetDeadline().AsTime().Local().Format(time.RFC3339)),
 		},
 	)
 }

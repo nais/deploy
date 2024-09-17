@@ -32,6 +32,7 @@ type Config struct {
 	Retry                     bool
 	RetryInterval             time.Duration
 	Team                      string
+	Traceparent               string
 	TelemetryInput            string
 	Telemetry                 *telemetry.PipelineTimings
 	Timeout                   time.Duration
@@ -61,6 +62,7 @@ func InitConfig(cfg *Config) {
 	flag.BoolVar(&cfg.Retry, "retry", getEnvBool("RETRY", true), "Retry deploy when encountering transient errors. (env RETRY)")
 	flag.StringVar(&cfg.Team, "team", os.Getenv("TEAM"), "Team making the deployment. Auto-detected from nais.yaml if possible. (env TEAM)")
 	flag.StringVar(&cfg.OpenTelemetryCollectorURL, "otel-collector-endpoint", getEnv("OTEL_COLLECTOR_ENDPOINT", DefaultOtelCollectorEndpoint), "OpenTelemetry collector endpoint. (env OTEL_COLLECTOR_ENDPOINT)")
+	flag.StringVar(&cfg.Traceparent, "traceparent", os.Getenv("TRACEPARENT"), "The W3C Trace Context traceparent value for the workflow run. (env TRACEPARENT)")
 	flag.StringVar(&cfg.TelemetryInput, "telemetry", os.Getenv("TELEMETRY"), "Telemetry data from CI pipeline. (env TELEMETRY)")
 	flag.DurationVar(&cfg.Timeout, "timeout", getEnvDuration("TIMEOUT", DefaultDeployTimeout), "Time to wait for successful deployment. (env TIMEOUT)")
 	flag.StringVar(&cfg.TracingDashboardURL, "tracing-dashboard-url", getEnv("TRACING_DASHBOARD_URL", DefaultTracingDashboardURL), "Base URL to Grafana tracing dashboard onto which the trace ID can be appended (env TRACING_DASHBOARD_URL)")
