@@ -161,43 +161,43 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 	// Root span for tracing.
 	// All sub-spans must be created from this context.
-	ctx, rootSpan := cfg.Telemetry.StartTracing(ctx)
-	defer rootSpan.End()
+	ctx, span := telemetry.Tracer().Start(ctx, "Send deploy request and wait for completion")
+	defer span.End()
 	deployRequest.TraceParent = telemetry.TraceParentHeader(ctx)
 
 	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
 
 	sendDeploymentRequest := func() error {
-		ctx, span := telemetry.Tracer().Start(ctx, "Send to deploy server")
-		defer span.End()
+		requestContext, requestSpan := telemetry.Tracer().Start(ctx, "Send to deploy server")
+		defer requestSpan.End()
 
 		err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {
-			deployStatus, err = d.Client.Deploy(ctx, deployRequest)
+			deployStatus, err = d.Client.Deploy(requestContext, deployRequest)
 			return err
 		})
 
 		if err != nil {
 			code := grpcErrorCode(err)
 			err = fmt.Errorf(formatGrpcError(err))
-			if ctx.Err() != nil {
-				span.SetStatus(ocodes.Error, ctx.Err().Error())
-				return Errorf(ExitTimeout, "deployment timed out: %s", ctx.Err())
+			if requestContext.Err() != nil {
+				requestSpan.SetStatus(ocodes.Error, requestContext.Err().Error())
+				return Errorf(ExitTimeout, "deployment timed out: %s", requestContext.Err())
 			}
 			if code == codes.Unauthenticated {
 				if !strings.HasSuffix(cfg.Environment, ":"+cfg.Team) {
 					log.Warnf("hint: team %q does not match namespace in %q", cfg.Team, cfg.Environment)
 				}
 			}
-			span.SetStatus(ocodes.Error, err.Error())
+			requestSpan.SetStatus(ocodes.Error, err.Error())
 			return ErrorWrap(ExitNoDeployment, err)
 		}
 
 		log.Infof("Deployment request accepted by NAIS deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
 
 		deployRequest.ID = deployStatus.GetRequest().GetID()
-		telemetry.AddDeploymentRequestSpanAttributes(rootSpan, deployStatus.GetRequest())
 		telemetry.AddDeploymentRequestSpanAttributes(span, deployStatus.GetRequest())
-		traceID := telemetry.TraceID(ctx)
+		telemetry.AddDeploymentRequestSpanAttributes(requestSpan, deployStatus.GetRequest())
+		traceID := telemetry.TraceID(requestContext)
 
 		urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
 		log.Infof("Deployment information:")
@@ -214,7 +214,12 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	}
 
 	err = sendDeploymentRequest()
+
+	// First handle errors that might have occurred with the request itself.
+	// Errors from underlying systems are handled later.
 	if err != nil {
+		span.SetStatus(ocodes.Error, err.Error())
+		span.RecordError(err)
 		return err
 	}
 

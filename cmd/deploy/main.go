@@ -9,6 +9,8 @@ import (
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/deploy/pkg/version"
+	"go.opentelemetry.io/otel/attribute"
+	otrace "go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	log "github.com/sirupsen/logrus"
@@ -52,15 +54,29 @@ func run() error {
 		}
 	}()
 
+	// Inherit traceparent from pipeline, if any
+	ctx := telemetry.WithTraceParent(programContext, cfg.Traceparent)
+	ctx, span := telemetry.Tracer().Start(ctx, "NAIS deploy", otrace.WithSpanKind(otrace.SpanKindClient))
+	defer span.End()
+
+	span.SetAttributes(attribute.KeyValue{
+		Key:   "deploy.client.version",
+		Value: attribute.StringValue(version.Version()),
+	})
+
 	// Welcome
 	log.Infof("NAIS deploy %s", version.Version())
 	ts, err := version.BuildTime()
 	if err == nil {
+		span.SetAttributes(attribute.KeyValue{
+			Key:   "deploy.client.build-time",
+			Value: attribute.StringValue(ts.Local().String()),
+		})
 		log.Infof("This version was built %s", ts.Local())
 	}
 
 	// Prepare request
-	request, err := deployclient.Prepare(programContext, cfg)
+	request, err := deployclient.Prepare(ctx, cfg)
 	if err != nil {
 		return err
 	}
@@ -89,5 +105,5 @@ func run() error {
 		return nil
 	}
 
-	return d.Deploy(programContext, cfg, request)
+	return d.Deploy(ctx, cfg, request)
 }
