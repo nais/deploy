@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -191,18 +192,6 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		deployRequest.ID = deployStatus.GetRequest().GetID()
 		telemetry.AddDeploymentRequestSpanAttributes(span, deployStatus.GetRequest())
 		telemetry.AddDeploymentRequestSpanAttributes(requestSpan, deployStatus.GetRequest())
-		traceID := telemetry.TraceID(requestContext)
-
-		urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
-		log.Infof("Deployment information:")
-		log.Infof("---")
-		log.Infof("id...........: %s", deployRequest.GetID())
-		if len(traceID) > 0 {
-			log.Infof("tracing......: %s", cfg.TracingDashboardURL+traceID)
-		}
-		log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime(), deployRequest.Cluster))
-		log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
-		log.Infof("---")
 
 		return nil
 	}
@@ -217,12 +206,48 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		return err
 	}
 
+	traceID := telemetry.TraceID(ctx)
+
+	// Print information to standard output
+	urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
+	log.Infof("Deployment information:")
+	log.Infof("---")
+	log.Infof("id...........: %s", deployRequest.GetID())
+	log.Infof("tracing......: %s", cfg.TracingDashboardURL+traceID)
+	log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime(), deployRequest.Cluster))
+	log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
+	log.Infof("---")
+
+	// If running in GitHub actions, print a markdown summary
+	summaryFile, err := os.OpenFile(os.Getenv("GITHUB_STEP_SUMMARY"), os.O_APPEND|os.O_WRONLY, 0644)
+	summary := func(format string, a ...any) {
+		if summaryFile == nil {
+			return
+		}
+		_, _ = fmt.Fprintf(summaryFile, format+"\n", a...)
+	}
+	finalStatus := func(st *pb.DeploymentStatus) {
+		summary("* Finished at: %s", st.Timestamp())
+		summary("%c Final status: *%s* / %s", deployStatus.GetState().StatusEmoji(), deployStatus.GetState(), deployStatus.GetMessage())
+	}
+	if err == nil {
+		defer summaryFile.Close()
+	}
+
+	summary("# 🚀 NAIS deploy")
+	summary("* Detailed trace: [%s](%s)", traceID, cfg.TracingDashboardURL+traceID)
+	summary("* Request ID: %s", deployRequest.GetID())
+	summary("* Started at: %s", time.Now().Local())
+	summary("* Deadline: %s", deployRequest.GetDeadline().AsTime().Local())
+
 	if deployStatus.GetState().Finished() {
+		finalStatus(deployStatus)
 		logDeployStatus(deployStatus)
 		return ErrorStatus(deployStatus)
 	}
 
 	if !cfg.Wait {
+		finalStatus(deployStatus)
 		logDeployStatus(deployStatus)
 		return nil
 	}
@@ -243,6 +268,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 			return err
 		})
 		if err != nil {
+			summary("❌ lost connection to NAIS deploy", deployStatus.GetState(), deployStatus.GetMessage())
 			return ErrorWrap(ExitUnavailable, err)
 		}
 
@@ -254,6 +280,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 					log.Warnf(formatGrpcError(err))
 					break
 				} else {
+					summary("❌ lost connection to NAIS deploy", deployStatus.GetState(), deployStatus.GetMessage())
 					return Errorf(ExitUnavailable, formatGrpcError(err))
 				}
 			}
@@ -262,14 +289,17 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 				log.Warnf("NAIS deploy has been restarted. Re-sending deployment request...")
 				err = sendDeploymentRequest()
 				if err != nil {
+					summary("❌ lost connection to NAIS deploy", deployStatus.GetState(), deployStatus.GetMessage())
 					return err
 				}
 			} else if deployStatus.GetState().Finished() {
+				finalStatus(deployStatus)
 				return ErrorStatus(deployStatus)
 			}
 		}
 	}
 
+	summary("❌ timeout", deployStatus.GetState(), deployStatus.GetMessage())
 	return Errorf(ExitTimeout, "deployment timed out: %w", ctx.Err())
 }
 
