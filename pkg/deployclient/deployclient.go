@@ -235,7 +235,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		defer summaryFile.Close()
 	}
 
-	summary("# 🚀 NAIS deploy")
+	summary("## 🚀 NAIS deploy")
 	summary("")
 	summary("* Detailed trace: [%s](%s)", traceID, cfg.TracingDashboardURL+traceID)
 	summary("* Request ID: %s", deployRequest.GetID())
