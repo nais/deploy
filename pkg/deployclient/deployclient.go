@@ -227,7 +227,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		_, _ = fmt.Fprintf(summaryFile, format+"\n", a...)
 	}
 	finalStatus := func(st *pb.DeploymentStatus) {
-		summary("* Finished at: %s", st.Timestamp())
+		summary("* Finished at: %s", st.Timestamp().Truncate(time.Second))
 		summary("")
 		summary("%c Final status: *%s* / %s", deployStatus.GetState().StatusEmoji(), deployStatus.GetState(), deployStatus.GetMessage())
 	}
@@ -236,10 +236,11 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	}
 
 	summary("# 🚀 NAIS deploy")
+	summary("")
 	summary("* Detailed trace: [%s](%s)", traceID, cfg.TracingDashboardURL+traceID)
 	summary("* Request ID: %s", deployRequest.GetID())
-	summary("* Started at: %s", time.Now().Local())
-	summary("* Deadline: %s", deployRequest.GetDeadline().AsTime().Local())
+	summary("* Started at: %s", time.Now().Local().Truncate(time.Second))
+	summary("* Deadline: %s", deployRequest.GetDeadline().AsTime().Local().Truncate(time.Second))
 
 	if deployStatus.GetState().Finished() {
 		finalStatus(deployStatus)
