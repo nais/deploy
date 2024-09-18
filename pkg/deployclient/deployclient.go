@@ -228,6 +228,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	}
 	finalStatus := func(st *pb.DeploymentStatus) {
 		summary("* Finished at: %s", st.Timestamp())
+		summary("")
 		summary("%c Final status: *%s* / %s", deployStatus.GetState().StatusEmoji(), deployStatus.GetState(), deployStatus.GetMessage())
 	}
 	if err == nil {
