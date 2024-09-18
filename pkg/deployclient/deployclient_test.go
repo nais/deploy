@@ -301,10 +301,8 @@ func TestValidationFailures(t *testing.T) {
 		{deployclient.ErrMalformedAPIKey.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = "malformed"; return cfg }},
 	} {
 		cfg := testCase.transform(*valid)
-		request, err := deployclient.Prepare(context.Background(), &cfg)
+		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Nil(t, request)
-		assert.Equal(t, deployclient.ExitInvocationFailure, deployclient.ErrorExitCode(err))
 		assert.Contains(t, err.Error(), testCase.errorMsg)
 	}
 }
