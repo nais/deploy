@@ -44,19 +44,6 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 	var err error
 	templateVariables := make(TemplateVariables)
 
-	err = cfg.Validate()
-	if err != nil {
-		if !errors.Is(err, ErrInvalidTelemetryFormat) {
-			if !cfg.DryRun {
-				return nil, ErrorWrap(ExitInvocationFailure, err)
-			}
-
-			log.Warnf("Config did not pass validation: %s", err)
-		} else {
-			log.Error(err)
-		}
-	}
-
 	if len(cfg.VariablesFile) > 0 {
 		templateVariables, err = templateVariablesFromFile(cfg.VariablesFile)
 		if err != nil {
