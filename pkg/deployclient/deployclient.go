@@ -175,7 +175,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
 
 	sendDeploymentRequest := func() error {
-		requestContext, requestSpan := telemetry.Tracer().Start(ctx, "Send to deploy server")
+		requestContext, requestSpan := telemetry.Tracer().Start(ctx, "Waiting for deploy server")
 		defer requestSpan.End()
 
 		err = retryUnavailable(cfg.RetryInterval, cfg.Retry, func() error {

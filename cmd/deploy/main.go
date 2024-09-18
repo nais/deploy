@@ -34,29 +34,39 @@ func run() error {
 	// Configuration and context
 	cfg := deployclient.NewConfig()
 	deployclient.InitConfig(cfg)
-	programContext, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
 	// Logging
 	deployclient.SetupLogging(*cfg)
 
 	// OpenTelemetry
-	tracerProvider, err := telemetry.New(programContext, "deploy", cfg.OpenTelemetryCollectorURL)
+	tracerProvider, err := telemetry.New(ctx, "deploy", cfg.OpenTelemetryCollectorURL)
 	if err != nil {
 		return fmt.Errorf("Setup OpenTelemetry: %w", err)
 	}
 
 	// Clean shutdown for OT
 	defer func() {
-		err := tracerProvider.Shutdown(programContext)
+		err := tracerProvider.Shutdown(ctx)
 		if err != nil {
 			log.Errorf("Shutdown OpenTelemetry: %s", err)
 		}
 	}()
 
-	// Inherit traceparent from pipeline, if any
-	ctx := telemetry.WithTraceParent(programContext, cfg.Traceparent)
-	ctx, span := telemetry.Tracer().Start(ctx, "NAIS deploy", otrace.WithSpanKind(otrace.SpanKindClient))
+	// Inherit traceparent from pipeline, if any.
+	// If TRACEPARENT is set, ignore the TELEMETRY value.
+	// If not, start a new top-level trace using the TELEMETRY variable.
+	var span otrace.Span
+	if cfg.Telemetry != nil {
+		ctx, span = cfg.Telemetry.StartTracing(ctx)
+		defer span.End()
+	} else if len(cfg.Traceparent) > 0 {
+		ctx = telemetry.WithTraceParent(ctx, cfg.Traceparent)
+	}
+
+	// Start the deploy client's top level trace.
+	ctx, span = telemetry.Tracer().Start(ctx, "NAIS deploy", otrace.WithSpanKind(otrace.SpanKindClient))
 	defer span.End()
 
 	span.SetAttributes(attribute.KeyValue{
