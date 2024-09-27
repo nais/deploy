@@ -3,6 +3,7 @@ package auth_interceptor
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -75,6 +76,10 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 		if err != nil {
 			log.WithError(err).Infof("validating token")
 			metrics.InterceptorRequest(requestTypeJWT, "invalid_jwt")
+
+			if errors.Is(err, jwt.ErrTokenExpired()) {
+				return nil, status.Errorf(codes.Unauthenticated, "authentication token has expired")
+			}
 			return nil, status.Errorf(codes.Unauthenticated, err.Error())
 		}
 
@@ -179,6 +184,9 @@ func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 	if jwtToken != "" {
 		t, err := s.TokenValidator.Validate(ss.Context(), jwtToken)
 		if err != nil {
+			if errors.Is(err, jwt.ErrTokenExpired()) {
+				return status.Errorf(codes.Unauthenticated, "authentication token has expired")
+			}
 			return status.Errorf(codes.Unauthenticated, err.Error())
 		}
 
