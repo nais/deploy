@@ -117,6 +117,7 @@ runs:
         path: "${{ inputs.source }}"
         parent: '${{ inputs.source_keep_parent_name }}'
         destination: "${{ env.BUCKET_NAME }}/${{ inputs.team }}/${{ inputs.destination }}"
+        process_gcloudignore: false
         headers: "${{ inputs.headers }}"
 
     # Invalidate cache if cache_invalidation is set to true
