@@ -18,6 +18,9 @@ inputs:
     description: "Keep parent directory name when uploading"
     required: false
     default: "true"
+  headers:
+    description: "Set headers on the uploaded files"
+    required: false
   cache_invalidation:
     description: "Cache invalidation"
     required: false
@@ -115,6 +118,7 @@ runs:
         parent: '${{ inputs.source_keep_parent_name }}'
         destination: "${{ env.BUCKET_NAME }}/${{ inputs.team }}/${{ inputs.destination }}"
         process_gcloudignore: false
+        headers: "${{ inputs.headers }}"
 
     # Invalidate cache if cache_invalidation is set to true
     - name: "Set up Cloud SDK"

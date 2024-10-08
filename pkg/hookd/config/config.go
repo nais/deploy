@@ -31,6 +31,7 @@ type Config struct {
 	LogLevel                  string        `json:"log-level"`
 	LogLinkFormatter          string        `json:"log-link-formatter"`
 	MetricsPath               string        `json:"metrics-path"`
+	OpenTelemetryCollectorURL string        `json:"otel-exporter-otlp-endpoint"`
 	ProvisionKey              string        `json:"provision-key"`
 	NaisAPIAddress            string        `json:"nais-api-address"`
 	NaisAPIInsecureConnection bool          `json:"nais-api-insecure-connection"`
@@ -55,6 +56,7 @@ const (
 	LogLevel                  = "log-level"
 	LogLinkFormatter          = "log-link-formatter"
 	MetricsPath               = "metrics-path"
+	OtelExporterOtlpEndpoint  = "otel-exporter-otlp-endpoint"
 	ProvisionKey              = "provision-key"
 	NaisAPIAddress            = "nais-api-address"
 	NaisAPIInsecureConnection = "nais-api-insecure-connection"
@@ -63,6 +65,7 @@ const (
 // Bind environment variables provided by the NAIS platform
 func bindNAIS() {
 	viper.BindEnv(DatabaseUrl, "DATABASE_URL")
+	viper.BindEnv(OtelExporterOtlpEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT")
 
 	viper.BindEnv(DeploydKeys, "DEPLOYD_KEYS")
 	viper.BindEnv(FrontendKeys, "FRONTEND_KEYS")
@@ -82,6 +85,7 @@ func Initialize() *Config {
 	flag.String(LogLinkFormatter, "GCP", "Which format to generate deploy log links. Valid values are GCP or KIBANA")
 	flag.String(ProvisionKey, "", "Pre-shared key for /api/v1/provision endpoint.")
 	flag.String(MetricsPath, "/metrics", "HTTP endpoint for exposed metrics.")
+	flag.String(OtelExporterOtlpEndpoint, "", "OpenTelemetry collector endpoint URL.")
 
 	flag.String(GrpcAddress, "127.0.0.1:9090", "Listen address of gRPC server.")
 	flag.Bool(GrpcDeploydAuthentication, false, "Validate tokens on gRPC connections from deployd.")

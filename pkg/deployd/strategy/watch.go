@@ -7,6 +7,7 @@ import (
 	"github.com/nais/deploy/pkg/deployd/kubeclient"
 	"github.com/nais/deploy/pkg/deployd/operation"
 	"github.com/nais/deploy/pkg/pb"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -17,12 +18,12 @@ var (
 )
 
 type WatchStrategy interface {
-	Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus
+	Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus
 }
 
 type NoOp struct{}
 
-func (c NoOp) Watch(op *operation.Operation, resource unstructured.Unstructured) *pb.DeploymentStatus {
+func (c NoOp) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus {
 	op.Logger.Debugf("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
 	return nil
 }

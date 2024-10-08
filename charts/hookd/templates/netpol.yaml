@@ -6,6 +6,9 @@ metadata:
     {{- include "hookd.labels" . | nindent 4 }}
 spec:
   egress:
+  # All 34.88.0.0/16 IP addresses in this list
+  # point to Postgres databases in management projects.
+  # FIXME: provision elsewhere?
   - to:
     - ipBlock:
         cidr: 34.88.176.78/32

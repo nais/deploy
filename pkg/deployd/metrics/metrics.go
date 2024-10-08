@@ -25,14 +25,27 @@ var (
 	DeploySuccessful    = counter("deploy_successful", "number of successful deployments")
 	DeployFailed        = counter("deploy_failed", "number of failed deployments")
 	DeployIgnored       = counter("deploy_ignored", "number of ignored/discarded deployments")
-	KubernetesResources = counter("kubernetes_resources", "number of Kubernetes resources successfully committed to cluster")
+	kubernetesResources = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:      "kubernetes_resources",
+		Help:      "number of Kubernetes resources successfully committed to cluster",
+		Namespace: namespace,
+		Subsystem: subsystem,
+	}, []string{
+		"team",
+		"kind",
+		"name",
+	})
 )
+
+func KubernetesResources(team, kind, name string) prometheus.Counter {
+	return kubernetesResources.WithLabelValues(team, kind, name)
+}
 
 func init() {
 	prometheus.MustRegister(DeploySuccessful)
 	prometheus.MustRegister(DeployFailed)
 	prometheus.MustRegister(DeployIgnored)
-	prometheus.MustRegister(KubernetesResources)
+	prometheus.MustRegister(kubernetesResources)
 }
 
 func Handler() http.Handler {

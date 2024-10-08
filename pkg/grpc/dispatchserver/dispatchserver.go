@@ -8,6 +8,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -31,6 +32,8 @@ type dispatchServer struct {
 	onlineClustersMap  map[string]chan<- *requestWithWait
 	statusStreamsLock  sync.RWMutex
 	statusStreams      map[context.Context]chan<- *pb.DeploymentStatus
+	traceSpans         map[string]trace.Span
+	traceSpansLock     sync.RWMutex
 	db                 database.DeploymentStore
 }
 
@@ -45,6 +48,7 @@ func New(db database.DeploymentStore) DispatchServer {
 	server := &dispatchServer{
 		onlineClustersMap: make(map[string]chan<- *requestWithWait),
 		statusStreams:     make(map[context.Context]chan<- *pb.DeploymentStatus),
+		traceSpans:        make(map[string]trace.Span),
 		db:                db,
 	}
 

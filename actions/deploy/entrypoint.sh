@@ -58,4 +58,7 @@ fi
 
 export ACTIONS="true"
 
+# All of our users live in Norway, so why not. GitHub defaults to UTC.
+export TZ="Europe/Oslo"
+
 /app/deploy

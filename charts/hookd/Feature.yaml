@@ -42,6 +42,9 @@ values:
   logLinkFormatter:
     config:
       type: string
+  otelExporterOtlpEndpoint:
+    config:
+      type: string
   provisionKey:
     computed:
       template: '"{{.Management.hookd_provision_key}}"'

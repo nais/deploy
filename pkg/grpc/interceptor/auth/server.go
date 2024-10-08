@@ -3,6 +3,7 @@ package auth_interceptor
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -64,14 +65,22 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 		return nil, status.Errorf(codes.InvalidArgument, "invalid metadata in request")
 	}
 
-	jwt := get("jwt", md)
+	if ctx.Err() != nil {
+		return nil, status.Errorf(codes.DeadlineExceeded, "deployment request timed out while you were waiting")
+	}
 
-	if jwt != "" {
-		t, err := s.TokenValidator.Validate(ctx, jwt)
+	jwtToken := get("jwt", md)
+
+	if jwtToken != "" {
+		t, err := s.TokenValidator.Validate(ctx, jwtToken)
 		if err != nil {
 			log.WithError(err).Infof("validating token")
 			metrics.InterceptorRequest(requestTypeJWT, "invalid_jwt")
-			return nil, status.Errorf(codes.Unauthenticated, "invalid JWT token")
+
+			if errors.Is(err, jwt.ErrTokenExpired()) {
+				return nil, status.Errorf(codes.Unauthenticated, "authentication token has expired")
+			}
+			return nil, status.Errorf(codes.Unauthenticated, err.Error())
 		}
 
 		r, ok := t.Get("repository")
@@ -166,12 +175,19 @@ func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 		return status.Errorf(codes.InvalidArgument, "invalid metadata in request")
 	}
 
-	jwt := get("jwt", md)
+	if ss.Context().Err() != nil {
+		return status.Errorf(codes.DeadlineExceeded, "deployment request timed out while you were waiting")
+	}
 
-	if jwt != "" {
-		t, err := s.TokenValidator.Validate(ss.Context(), jwt)
+	jwtToken := get("jwt", md)
+
+	if jwtToken != "" {
+		t, err := s.TokenValidator.Validate(ss.Context(), jwtToken)
 		if err != nil {
-			return status.Errorf(codes.Unauthenticated, "invalid JWT token")
+			if errors.Is(err, jwt.ErrTokenExpired()) {
+				return status.Errorf(codes.Unauthenticated, "authentication token has expired")
+			}
+			return status.Errorf(codes.Unauthenticated, err.Error())
 		}
 
 		r, ok := t.Get("repository")

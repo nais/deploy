@@ -12,6 +12,7 @@ import (
 
 	"github.com/nais/liberator/pkg/conftools"
 	log "github.com/sirupsen/logrus"
+	ocodes "go.opentelemetry.io/otel/codes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -27,7 +28,9 @@ import (
 	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	"github.com/nais/deploy/pkg/logging"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/deploy/pkg/version"
+	otrace "go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -56,6 +59,23 @@ func run() error {
 	if err == nil {
 		log.Infof("This version was built %s", ts.Local())
 	}
+
+	programContext, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// OpenTelemetry
+	tracerProvider, err := telemetry.New(programContext, "deployd", cfg.OpenTelemetryCollectorURL)
+	if err != nil {
+		return fmt.Errorf("Setup OpenTelemetry: %w", err)
+	}
+
+	// Clean shutdown for OT
+	defer func() {
+		err := tracerProvider.Shutdown(programContext)
+		if err != nil {
+			log.Errorf("Shutdown OpenTelemetry: %s", err)
+		}
+	}()
 
 	for _, line := range conftools.Format(maskedConfig) {
 		log.Info(line)
@@ -120,7 +140,7 @@ func run() error {
 		for {
 			time.Sleep(requestBackoff)
 
-			deploymentStream, err := grpcClient.Deployments(context.Background(), &pb.GetDeploymentOpts{
+			deploymentStream, err := grpcClient.Deployments(programContext, &pb.GetDeploymentOpts{
 				Cluster:     cfg.Cluster,
 				StartupTime: pb.TimeAsTimestamp(startupTime),
 			})
@@ -146,9 +166,13 @@ func run() error {
 
 	deploy := func(req *pb.DeploymentRequest) {
 		ctx, cancel := req.Context()
+		ctx = telemetry.WithTraceParent(ctx, req.TraceParent)
+		ctx, span := telemetry.Tracer().Start(ctx, "Deploy to Kubernetes", otrace.WithSpanKind(otrace.SpanKindServer))
 
 		client, err := kube.Impersonate(req.GetTeam())
 		if err != nil {
+			span.SetStatus(ocodes.Error, err.Error())
+			span.End()
 			cancel()
 			statusChan <- pb.NewErrorStatus(req, err)
 			return
@@ -161,6 +185,7 @@ func run() error {
 			Cancel:     cancel,
 			Logger:     logger,
 			Request:    req,
+			Trace:      span,
 			StatusChan: statusChan,
 		}
 
@@ -184,7 +209,7 @@ func run() error {
 			logger.Infof(st.GetMessage())
 		}
 
-		_, err = grpcClient.ReportStatus(context.Background(), st)
+		_, err = grpcClient.ReportStatus(programContext, st)
 
 		return err
 	}

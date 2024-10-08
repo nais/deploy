@@ -8,33 +8,39 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nais/deploy/pkg/telemetry"
 	flag "github.com/spf13/pflag"
 )
 
 type Config struct {
-	APIKey             string
-	Actions            bool
-	Cluster            string
-	DeployServerURL    string
-	DryRun             bool
-	Environment        string
-	GithubToken        string
-	GrpcAuthentication bool
-	GrpcUseTLS         bool
-	Owner              string
-	PollInterval       time.Duration
-	PrintPayload       bool
-	Quiet              bool
-	Ref                string
-	Repository         string
-	Resource           []string
-	Retry              bool
-	RetryInterval      time.Duration
-	Team               string
-	Timeout            time.Duration
-	Variables          []string
-	VariablesFile      string
-	Wait               bool
+	APIKey                    string
+	Actions                   bool
+	Cluster                   string
+	DeployServerURL           string
+	DryRun                    bool
+	Environment               string
+	GithubToken               string
+	GrpcAuthentication        bool
+	GrpcUseTLS                bool
+	Owner                     string
+	PollInterval              time.Duration
+	PrintPayload              bool
+	Quiet                     bool
+	Ref                       string
+	Repository                string
+	Resource                  []string
+	Retry                     bool
+	RetryInterval             time.Duration
+	Team                      string
+	Traceparent               string
+	TelemetryInput            string
+	Telemetry                 *telemetry.PipelineTimings
+	Timeout                   time.Duration
+	TracingDashboardURL       string
+	OpenTelemetryCollectorURL string
+	Variables                 []string
+	VariablesFile             string
+	Wait                      bool
 }
 
 func InitConfig(cfg *Config) {
@@ -55,7 +61,11 @@ func InitConfig(cfg *Config) {
 	flag.StringSliceVar(&cfg.Resource, "resource", getEnvStringSlice("RESOURCE"), "File with Kubernetes resource. Can be specified multiple times. (env RESOURCE)")
 	flag.BoolVar(&cfg.Retry, "retry", getEnvBool("RETRY", true), "Retry deploy when encountering transient errors. (env RETRY)")
 	flag.StringVar(&cfg.Team, "team", os.Getenv("TEAM"), "Team making the deployment. Auto-detected from nais.yaml if possible. (env TEAM)")
+	flag.StringVar(&cfg.OpenTelemetryCollectorURL, "otel-collector-endpoint", getEnv("OTEL_COLLECTOR_ENDPOINT", DefaultOtelCollectorEndpoint), "OpenTelemetry collector endpoint. (env OTEL_COLLECTOR_ENDPOINT)")
+	flag.StringVar(&cfg.Traceparent, "traceparent", os.Getenv("TRACEPARENT"), "The W3C Trace Context traceparent value for the workflow run. (env TRACEPARENT)")
+	flag.StringVar(&cfg.TelemetryInput, "telemetry", os.Getenv("TELEMETRY"), "Telemetry data from CI pipeline. (env TELEMETRY)")
 	flag.DurationVar(&cfg.Timeout, "timeout", getEnvDuration("TIMEOUT", DefaultDeployTimeout), "Time to wait for successful deployment. (env TIMEOUT)")
+	flag.StringVar(&cfg.TracingDashboardURL, "tracing-dashboard-url", getEnv("TRACING_DASHBOARD_URL", DefaultTracingDashboardURL), "Base URL to Grafana tracing dashboard onto which the trace ID can be appended (env TRACING_DASHBOARD_URL)")
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT", false), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
@@ -114,20 +124,25 @@ func getEnvBool(key string, def bool) bool {
 
 func (cfg *Config) Validate() error {
 	if len(cfg.Resource) == 0 {
-		return fmt.Errorf(ResourceRequiredMsg)
+		return ErrResourceRequired
 	}
 
 	if len(cfg.Cluster) == 0 {
-		return fmt.Errorf(ClusterRequiredMsg)
+		return ErrClusterRequired
 	}
 
 	if len(cfg.APIKey) == 0 && len(cfg.GithubToken) == 0 {
-		return fmt.Errorf(AuthRequiredMsg)
+		return ErrAuthRequired
 	}
 
 	_, err := hex.DecodeString(cfg.APIKey)
 	if err != nil {
-		return fmt.Errorf(MalformedAPIKeyMsg)
+		return ErrMalformedAPIKey
+	}
+
+	cfg.Telemetry, err = telemetry.ParsePipelineTelemetry(cfg.TelemetryInput)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidTelemetryFormat, err)
 	}
 
 	return nil

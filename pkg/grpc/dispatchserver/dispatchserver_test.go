@@ -10,6 +10,7 @@ import (
 	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -31,6 +32,7 @@ const (
 
 func TestInterceptors(t *testing.T) {
 	ctx := context.Background()
+	_, _ = telemetry.New(ctx, "test", "")
 
 	deploymentStore := database.MockDeploymentStore{}
 

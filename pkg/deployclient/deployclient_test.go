@@ -8,7 +8,9 @@ import (
 
 	"github.com/nais/deploy/pkg/deployclient"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,9 +27,10 @@ func TestSimpleSuccessfulDeploy(t *testing.T) {
 	cfg := validConfig()
 	request := makeMockDeployRequest(*cfg)
 	ctx := context.Background()
+	_, _ = telemetry.New(ctx, "test", "")
 
 	client := &pb.MockDeployClient{}
-	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+	client.On("Deploy", mock.Anything, request).Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
 		State:   pb.DeploymentState_success,
@@ -47,9 +50,10 @@ func TestSuccessfulDeploy(t *testing.T) {
 	request := makeMockDeployRequest(*cfg)
 	request.ID = "1"
 	ctx := context.Background()
+	_, _ = telemetry.New(ctx, "test", "")
 
 	client := &pb.MockDeployClient{}
-	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+	client.On("Deploy", mock.Anything, request).Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
 		State:   pb.DeploymentState_queued,
@@ -63,7 +67,7 @@ func TestSuccessfulDeploy(t *testing.T) {
 		Message: "happy",
 	}, nil).Once()
 
-	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+	client.On("Status", mock.Anything, request).Return(statusClient, nil).Once()
 
 	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
@@ -78,9 +82,10 @@ func TestDeployError(t *testing.T) {
 	request := makeMockDeployRequest(*cfg)
 	request.ID = "1"
 	ctx := context.Background()
+	_, _ = telemetry.New(ctx, "test", "")
 
 	client := &pb.MockDeployClient{}
-	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+	client.On("Deploy", mock.Anything, request).Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
 		State:   pb.DeploymentState_queued,
@@ -95,7 +100,7 @@ func TestDeployError(t *testing.T) {
 		Message: "oops, we errored out",
 	}, nil).Once()
 
-	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+	client.On("Status", mock.Anything, request).Return(statusClient, nil).Once()
 
 	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
@@ -110,9 +115,10 @@ func TestDeployPolling(t *testing.T) {
 	request := makeMockDeployRequest(*cfg)
 	request.ID = "1"
 	ctx := context.Background()
+	_, _ = telemetry.New(ctx, "test", "")
 
 	client := &pb.MockDeployClient{}
-	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+	client.On("Deploy", mock.Anything, request).Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
 		State:   pb.DeploymentState_queued,
@@ -133,7 +139,7 @@ func TestDeployPolling(t *testing.T) {
 		Message: "finally over",
 	}, nil).Once()
 
-	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+	client.On("Status", mock.Anything, request).Return(statusClient, nil).Once()
 
 	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
@@ -150,11 +156,12 @@ func TestDeployWithStatusRetry(t *testing.T) {
 	request := makeMockDeployRequest(*cfg)
 	request.ID = "1"
 	ctx := context.Background()
+	_, _ = telemetry.New(ctx, "test", "")
 
 	client := &pb.MockDeployClient{}
 
-	client.On("Deploy", ctx, request).Return(nil, status.Errorf(codes.Unavailable, "we are suffering from instability")).Times(3)
-	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+	client.On("Deploy", mock.Anything, request).Return(nil, status.Errorf(codes.Unavailable, "we are suffering from instability")).Times(3)
+	client.On("Deploy", mock.Anything, request).Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
 		State:   pb.DeploymentState_queued,
@@ -164,8 +171,8 @@ func TestDeployWithStatusRetry(t *testing.T) {
 	statusClient := &pb.MockDeploy_StatusClient{}
 
 	// set up status stream
-	client.On("Status", ctx, request).Return(nil, status.Errorf(codes.Unavailable, "oops, more errors")).Times(2)
-	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+	client.On("Status", mock.Anything, request).Return(nil, status.Errorf(codes.Unavailable, "oops, more errors")).Times(2)
+	client.On("Status", mock.Anything, request).Return(statusClient, nil).Once()
 
 	// poll a few times
 	statusClient.On("Recv").Return(&pb.DeploymentStatus{
@@ -179,15 +186,15 @@ func TestDeployWithStatusRetry(t *testing.T) {
 	statusClient.On("Recv").Return(nil, status.Errorf(codes.Unavailable, "not so fast, young man")).Once()
 
 	// re-establish status stream
-	client.On("Status", ctx, request).Return(nil, status.Errorf(codes.Unavailable, "still down")).Times(3)
-	client.On("Status", ctx, request).Return(nil, status.Errorf(codes.Internal, "still down, internal error")).Times(3)
-	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+	client.On("Status", mock.Anything, request).Return(nil, status.Errorf(codes.Unavailable, "still down")).Times(3)
+	client.On("Status", mock.Anything, request).Return(nil, status.Errorf(codes.Internal, "still down, internal error")).Times(3)
+	client.On("Status", mock.Anything, request).Return(statusClient, nil).Once()
 
 	// more internal errors in stream
 	statusClient.On("Recv").Return(nil, status.Errorf(codes.Internal, "internal error again")).Once()
 
 	// re-establish status stream
-	client.On("Status", ctx, request).Return(statusClient, nil).Once()
+	client.On("Status", mock.Anything, request).Return(statusClient, nil).Once()
 
 	// come back to discover deployment is gone
 	statusClient.On("Recv").Return(&pb.DeploymentStatus{
@@ -198,7 +205,7 @@ func TestDeployWithStatusRetry(t *testing.T) {
 	}, nil).Once()
 
 	// re-send deployment request
-	client.On("Deploy", ctx, request).Return(&pb.DeploymentStatus{
+	client.On("Deploy", mock.Anything, request).Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
 		State:   pb.DeploymentState_queued,
@@ -228,11 +235,12 @@ func TestImmediateTimeout(t *testing.T) {
 
 	// time out the request
 	ctx, cancel := context.WithCancel(context.Background())
+	_, _ = telemetry.New(ctx, "test", "")
 	cancel()
 
 	client := &pb.MockDeployClient{}
 
-	client.On("Deploy", ctx, request).Return(nil, status.Errorf(codes.DeadlineExceeded, "too slow, mofo")).Once()
+	client.On("Deploy", mock.Anything, request).Return(nil, status.Errorf(codes.DeadlineExceeded, "too slow, mofo")).Once()
 
 	d := deployclient.Deployer{Client: client}
 	err := d.Deploy(ctx, cfg, request)
@@ -287,16 +295,14 @@ func TestValidationFailures(t *testing.T) {
 		errorMsg  string
 		transform func(cfg deployclient.Config) deployclient.Config
 	}{
-		{deployclient.ClusterRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.Cluster = ""; return cfg }},
-		{deployclient.AuthRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = ""; return cfg }},
-		{deployclient.ResourceRequiredMsg, func(cfg deployclient.Config) deployclient.Config { cfg.Resource = nil; return cfg }},
-		{deployclient.MalformedAPIKeyMsg, func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = "malformed"; return cfg }},
+		{deployclient.ErrClusterRequired.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.Cluster = ""; return cfg }},
+		{deployclient.ErrAuthRequired.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = ""; return cfg }},
+		{deployclient.ErrResourceRequired.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.Resource = nil; return cfg }},
+		{deployclient.ErrMalformedAPIKey.Error(), func(cfg deployclient.Config) deployclient.Config { cfg.APIKey = "malformed"; return cfg }},
 	} {
 		cfg := testCase.transform(*valid)
-		request, err := deployclient.Prepare(context.Background(), &cfg)
+		err := cfg.Validate()
 		assert.Error(t, err)
-		assert.Nil(t, request)
-		assert.Equal(t, deployclient.ExitInvocationFailure, deployclient.ErrorExitCode(err))
 		assert.Contains(t, err.Error(), testCase.errorMsg)
 	}
 }

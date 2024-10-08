@@ -14,9 +14,9 @@ developer -> github: git push
 github -> ci: Start build
 ci -> registry: Push image
 
-==/api/v1/deploy==
+==Prepare deploy==
 ci -> hookd: Start deployment
-note right: Authenticate with team API key
+note right: Authenticate with team API key or Github token
 hookd -> db: Create deployment
 hookd -> github: Create deployment
 note right: if enabled

@@ -12,6 +12,7 @@ googleClient:
   secret: # mapped by fasit
 
 logLinkFormatter: "GCP"
+otelExporterOtlpEndpoint: # mapped by fasit
 googleServiceAccountName: # mapped by fasit
 googleClusterProjects: # mapped by fasit
 provisionKey: # mapped by fasit

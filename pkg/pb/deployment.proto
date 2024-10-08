@@ -39,6 +39,7 @@ message DeploymentRequest {
     Kubernetes kubernetes = 7;
     GithubRepository repository = 8;
     string GithubEnvironment = 9;
+    string traceParent = 10;
 }
 
 message DeploymentStatus {
@@ -56,13 +57,18 @@ message GetDeploymentOpts {
 message ReportStatusOpts {
 }
 
+// This service is used by deployd.
 service Dispatch {
+    // Continuous streaming of deployments that should be processed by deployd.
     rpc Deployments (GetDeploymentOpts) returns (stream DeploymentRequest) {
     }
+
+    // Deployd returns back statuses for deploys using this API.
     rpc ReportStatus (DeploymentStatus) returns (ReportStatusOpts) {
     }
 }
 
+// This service is used by end-users in their CI pipelines.
 service Deploy {
     rpc Deploy (DeploymentRequest) returns (DeploymentStatus) {
     }

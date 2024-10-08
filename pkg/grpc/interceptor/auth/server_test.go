@@ -113,9 +113,9 @@ func TestServerInterceptorJWT(t *testing.T) {
 
 		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{}, nil, handler)
 
-		want := "invalid JWT token"
+		want := "invalid token"
 		if !strings.HasSuffix(err.Error(), want) {
-			t.Fatalf("got %s, want suffix %s ", err.Error(), want)
+			t.Fatalf("got '%s', want suffix '%s'", err.Error(), want)
 		}
 	})
 

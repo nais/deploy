@@ -13,6 +13,7 @@ import (
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
+	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/liberator/pkg/conftools"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -68,6 +69,24 @@ func run() error {
 		log.Infof("This version was built %s", ts.Local())
 	}
 
+	// Main program context
+	programContext, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// OpenTelemetry
+	tracerProvider, err := telemetry.New(programContext, "hookd", cfg.OpenTelemetryCollectorURL)
+	if err != nil {
+		return fmt.Errorf("Setup OpenTelemetry: %w", err)
+	}
+
+	// Clean shutdown for OT
+	defer func() {
+		err := tracerProvider.Shutdown(programContext)
+		if err != nil {
+			log.Errorf("Shutdown OpenTelemetry: %s", err)
+		}
+	}()
+
 	for _, line := range conftools.Format(maskedConfig) {
 		log.Info(line)
 	}
@@ -82,7 +101,7 @@ func run() error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.DatabaseConnectTimeout)
+	ctx, cancel := context.WithTimeout(programContext, cfg.DatabaseConnectTimeout)
 	for {
 		log.Infof("Connecting to database...")
 		db, err = database.New(ctx, cfg.DatabaseURL, dbEncryptionKey)
@@ -101,7 +120,9 @@ func run() error {
 		return fmt.Errorf("setup postgres connection: %s", err)
 	}
 
-	err = db.Migrate(context.Background())
+	ctx, cancel = context.WithTimeout(programContext, cfg.DatabaseConnectTimeout)
+	err = db.Migrate(ctx)
+	cancel()
 	if err != nil {
 		return fmt.Errorf("migrating database: %s", err)
 	}

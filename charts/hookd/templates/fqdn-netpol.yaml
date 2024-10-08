@@ -21,6 +21,7 @@ spec:
       - token.actions.githubusercontent.com
       - accounts.google.com
       - private.googleapis.com
+      - collector-internet.external.prod-gcp.nav.cloud.nais.io
   podSelector:
     matchLabels:
       {{- include "hookd.selectorLabels" . | nindent 6 }}

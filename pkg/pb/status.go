@@ -28,6 +28,16 @@ func (x DeploymentState) IsError() bool {
 	return true
 }
 
+func (x DeploymentState) StatusEmoji() rune {
+	if x.IsError() {
+		return '❌'
+	}
+	if x.Finished() {
+		return '✅'
+	}
+	return '❓'
+}
+
 func NewErrorStatus(req *DeploymentRequest, err error) *DeploymentStatus {
 	return &DeploymentStatus{
 		Request: req,

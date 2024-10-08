@@ -7,6 +7,7 @@ import (
 	"github.com/nais/deploy/pkg/k8sutils"
 	"github.com/nais/deploy/pkg/pb"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -15,6 +16,7 @@ type Operation struct {
 	Cancel     context.CancelFunc
 	Logger     *log.Entry
 	Request    *pb.DeploymentRequest
+	Trace      trace.Span
 	StatusChan chan<- *pb.DeploymentStatus
 }
 
