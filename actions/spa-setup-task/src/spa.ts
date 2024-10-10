@@ -32,6 +32,10 @@ const hostMap: Clusters = {
     naisCluster: 'prod-gcp',
     ingressClass: 'nais-ingress-fa'
   },
+  'leesah.io': {
+    naisCluster: 'prod-gcp',
+    ingressClass: 'nais-ingress'
+  },
   'dev.nav.no': {
     naisCluster: 'dev-gcp',
     ingressClass: 'nais-ingress-external'
