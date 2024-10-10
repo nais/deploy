@@ -33,7 +33,7 @@ runs:
   steps:
     - id: setup
       name: Setup for SPA deploy
-      uses: navikt/frontend/actions/spa-setup-task@main
+      uses: nais/deploy/actions/spa-setup-task@master
       with:
         team-name: ${{ inputs.team }}
         app-name: ${{ inputs.app }}
