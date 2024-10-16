@@ -39,7 +39,7 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run build
-      - uses: navikt/frontend/actions/spa-deploy/v2@main
+      - uses: nais/deploy/actions/spa-deploy/v2@master
         with:
           app: min-frontend
           team: mitt-team
@@ -52,15 +52,15 @@ jobs:
 
 ## Input parametere
 
-| Navn | Beskrivelse | Påkrevd | Default |
-| ---- | ----------- | -------- | ------- |
-| `app` | Applikasjonsnavn | Ja | |
-| `team` | Teamnavn | Ja | |
-| `source` | Mappe med kompilert kildekode | Ja | |
-| `environment` | Miljø (kan være hvilken som helst streng) | Ja | |
-| `ingress` | Adresse applikasjonen skal være tilgjenglig på | Ja | |
-| `project_id` | Må settes til `${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}` | Ja | |
-| `identity_provider` | Må settes til `${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}` | Ja | |
+| Navn                | Beskrivelse                                                    | Påkrevd | Default |
+|---------------------|----------------------------------------------------------------|---------|---------|
+| `app`               | Applikasjonsnavn                                               | Ja      |         |
+| `team`              | Teamnavn                                                       | Ja      |         |
+| `source`            | Mappe med kompilert kildekode                                  | Ja      |         |
+| `environment`       | Miljø (kan være hvilken som helst streng)                      | Ja      |         |
+| `ingress`           | Adresse applikasjonen skal være tilgjenglig på                 | Ja      |         |
+| `project_id`        | Må settes til `${{ vars.NAIS_MANAGEMENT_PROJECT_ID }}`         | Ja      |         |
+| `identity_provider` | Må settes til `${{ secrets.NAIS_WORKLOAD_IDENTITY_PROVIDER }}` | Ja      |         |
 
 Statiske filer vil bli lastet opp til følgende adresse i NAV CDN:
 
@@ -73,7 +73,7 @@ https://cdn.nav.no/<team>/<app>/<env>/
 For å få applikasjonen tilgjengelig over flere ingresser kan du sette `ingress` til en kommaseparert liste av ingresser:
 
 ```yaml
-      - uses: navikt/frontend/actions/spa-deploy/v2@main
+      - uses: nais/deploy/actions/spa-deploy/v2@master
         with:
           ...
           ingress: https://team.nav.no/min-frontend,https://team.nav.no/andre-ingress
@@ -98,7 +98,7 @@ PUBLIC_URL=https://cdn.nav.no/<team>/<app>/<env>/
       - run: npm run build
         env:
           PUBLIC_URL: https://cdn.nav.no/<team>/<app>/<env>
-      - uses: navikt/frontend/actions/spa-deploy/v2@main
+      - uses: nais/deploy/actions/spa-deploy/v2@master
         with:
           app: <app>
           team: <team>
