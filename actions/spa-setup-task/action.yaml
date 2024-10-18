@@ -10,6 +10,14 @@ inputs:
   ingress:
     description: 'Application ingress URL'
     required: true
+  ingressClass:
+    description: 'Ingress class'
+    required: false
+    default: ''
+  cluster:
+    description: 'NAIS cluster name'
+    required: false
+    default: ''
   environment:
     description: 'Environment name'
     required: false
