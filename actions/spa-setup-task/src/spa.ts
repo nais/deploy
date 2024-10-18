@@ -141,24 +141,24 @@ export function validateInputs(
 ): Error | null {
   if (!isValidAppName(team)) {
     return Error(
-      `Invalid team name: ${team}. Team name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+      `SPADEPLOY-001: Invalid team name: ${team}. Team name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
     )
   }
 
   if (!isValidAppName(app)) {
     return Error(
-      `Invalid app name: ${app}. App name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+      `SPADEPLOY-002: Invalid app name: ${app}. App name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
     )
   }
 
   if (!isValidAppName(environment)) {
     return Error(
-      `Invalid environment name: ${environment}. Environment name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+      `SPADEPLOY-003: Invalid environment name: ${environment}. Environment name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
     )
   }
 
   if (ingress.length === 0) {
-    return Error('No ingress specified')
+    return Error('SPADEPLOY-004: No ingress specified')
   }
 
   if (hasCustomIngressClass(ingressClass)) {
@@ -209,7 +209,7 @@ export function spaSetupTask(
 
       if (naisClusterFinal !== naisCluster) {
         throw Error(
-          `Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`
+          `SPADEPLOY-005: ngresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`
         )
       }
     }
