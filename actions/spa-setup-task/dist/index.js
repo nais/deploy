@@ -3006,7 +3006,7 @@ function validateInputs(team, app, ingress, ingressClass, environment) {
         return null;
     }
     if (!isValidIngress(ingress)) {
-        return Error(`Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`);
+        return Error(`SPADEPLOY-006: Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`);
     }
     return null;
 }
@@ -3030,7 +3030,7 @@ function spaSetupTask(team, app, urls, customIngressClass, customNaisCluster, en
             ingresses.push({ ingressHost, ingressPath, ingressClass });
             naisClusterFinal = naisClusterFinal || naisCluster;
             if (naisClusterFinal !== naisCluster) {
-                throw Error(`SPADEPLOY-005: ngresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`);
+                throw Error(`SPADEPLOY-005: Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`);
             }
         }
     }
