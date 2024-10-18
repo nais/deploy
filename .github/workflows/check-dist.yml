@@ -29,7 +29,6 @@ jobs:
         with:
           node-version: '20'
       - run: yarn install
-      - run: yarn build
       - run: yarn package
 
       - name: Compare the expected and actual dist/ directories
