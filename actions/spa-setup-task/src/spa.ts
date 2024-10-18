@@ -167,7 +167,7 @@ export function validateInputs(
 
   if (!isValidIngress(ingress)) {
     return Error(
-      `Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`
+    `SPADEPLOY-006: Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`
     )
   }
 
@@ -209,7 +209,7 @@ export function spaSetupTask(
 
       if (naisClusterFinal !== naisCluster) {
         throw Error(
-          `SPADEPLOY-005: ngresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`
+          `SPADEPLOY-005: Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`
         )
       }
     }
