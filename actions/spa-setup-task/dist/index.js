@@ -2863,6 +2863,7 @@ const spa_1 = __nccwpck_require__(4589);
 function run() {
     const teamName = core.getInput('team-name');
     const appName = core.getInput('app-name');
+    // const source: string = core.getInput('source')
     const ingresses = core.getInput('ingress').split(',');
     const ingressClass = core.getInput('ingressClass');
     const cluster = core.getInput('naisCluster');
@@ -2876,6 +2877,7 @@ function run() {
     core.setOutput('cdn-destination', cdnDest);
     core.setOutput('nais-cluster', naisCluster);
     core.setOutput('nais-resource', naisResources);
+    core.setOutput('nais-vars', '');
 }
 run();
 
