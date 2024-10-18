@@ -196,6 +196,7 @@ export function spaSetupTask(
   if (hasCustomIngressClass(customIngressClass)) {
     const {hostname: ingressHost, pathname: ingressPath} = new URL(urls[0])
     ingresses.push({ingressHost, ingressPath, ingressClass: customIngressClass})
+    naisClusterFinal = env
   } else {
     for (const ingress of urls) {
       const {hostname: ingressHost, pathname: ingressPath} = new URL(ingress)
