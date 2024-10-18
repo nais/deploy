@@ -46,7 +46,6 @@ runs:
         team-name: ${{ inputs.team }}
         app-name: ${{ inputs.app }}
         ingress: ${{ inputs.ingress }}
-        source: ${{ inputs.source }}
         ingressClass: ${{ inputs.ingressClass }}
         cluster: ${{ inputs.cluster }}
         environment: ${{ inputs.environment }}
