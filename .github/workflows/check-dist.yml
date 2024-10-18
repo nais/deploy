@@ -19,23 +19,16 @@ on:
 jobs:
   check-dist:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        action:
-          - spa-setup-task
-
     defaults:
       run:
-        working-directory: actions/${{ matrix.action }}
+        working-directory: actions/spa-setup-task
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '20'
       - run: yarn install
-      - run: yarn build
       - run: yarn package
 
       - name: Compare the expected and actual dist/ directories
@@ -48,8 +41,8 @@ jobs:
         id: diff
 
       # If index.js was different than expected, upload the expected version as an artifact
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         if: ${{ failure() && steps.diff.conclusion == 'failure' }}
         with:
           name: dist
-          path: actions/${{ matrix.action }}/dist/
+          path: actions/spa-setup-task/dist/

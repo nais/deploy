@@ -16,6 +16,14 @@ inputs:
   ingress:
     description: 'Application ingress URL'
     required: true
+  ingressClass:
+    description: 'Ingress class'
+    required: false
+    default: ''
+  cluster:
+    description: 'NAIS cluster name'
+    required: false
+    default: ''
   project_id:
     description: "Google Cloud project ID where buckets are hosted"
     required: true
@@ -39,6 +47,8 @@ runs:
         app-name: ${{ inputs.app }}
         ingress: ${{ inputs.ingress }}
         source: ${{ inputs.source }}
+        ingressClass: ${{ inputs.ingressClass }}
+        cluster: ${{ inputs.cluster }}
         environment: ${{ inputs.environment }}
 
     - id: cdn-upload

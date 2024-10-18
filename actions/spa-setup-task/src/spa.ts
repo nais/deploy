@@ -136,43 +136,54 @@ export function validateInputs(
   team: string,
   app: string,
   ingress: string[],
+  ingressClass: string,
   environment: string
 ): Error | null {
   if (!isValidAppName(team)) {
     return Error(
-      `Invalid team name: ${team}. Team name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+      `SPADEPLOY-001: Invalid team name: ${team}. Team name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
     )
   }
 
   if (!isValidAppName(app)) {
     return Error(
-      `Invalid app name: ${app}. App name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+      `SPADEPLOY-002: Invalid app name: ${app}. App name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
     )
   }
 
   if (!isValidAppName(environment)) {
     return Error(
-      `Invalid environment name: ${environment}. Environment name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+      `SPADEPLOY-003: Invalid environment name: ${environment}. Environment name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
     )
   }
 
   if (ingress.length === 0) {
-    return Error('No ingress specified')
+    return Error('SPADEPLOY-004: No ingress specified')
+  }
+
+  if (hasCustomIngressClass(ingressClass)) {
+    return null
   }
 
   if (!isValidIngress(ingress)) {
     return Error(
-      `Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`
+    `SPADEPLOY-006: Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`
     )
   }
 
   return null
 }
 
+export function hasCustomIngressClass(ingressClass: string): boolean {
+  return ingressClass !== ''
+}
+
 export function spaSetupTask(
   team: string,
   app: string,
   urls: string[],
+  customIngressClass: string,
+  customNaisCluster: string,
   env = ''
 ): {
   cdnDest: string
@@ -183,18 +194,24 @@ export function spaSetupTask(
 
   const ingresses: Ingress[] = []
 
-  for (const ingress of urls) {
-    const {hostname: ingressHost, pathname: ingressPath} = new URL(ingress)
-    const {naisCluster, ingressClass} = parseIngress(ingressHost)
+  if (hasCustomIngressClass(customIngressClass)) {
+    const {hostname: ingressHost, pathname: ingressPath} = new URL(urls[0])
+    ingresses.push({ingressHost, ingressPath, ingressClass: customIngressClass})
+    naisClusterFinal = customNaisCluster
+  } else {
+    for (const ingress of urls) {
+      const {hostname: ingressHost, pathname: ingressPath} = new URL(ingress)
+      const {naisCluster, ingressClass} = parseIngress(ingressHost)
 
-    ingresses.push({ingressHost, ingressPath, ingressClass})
+      ingresses.push({ingressHost, ingressPath, ingressClass})
 
-    naisClusterFinal = naisClusterFinal || naisCluster
+      naisClusterFinal = naisClusterFinal || naisCluster
 
-    if (naisClusterFinal !== naisCluster) {
-      throw Error(
-        `Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`
-      )
+      if (naisClusterFinal !== naisCluster) {
+        throw Error(
+          `SPADEPLOY-005: Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`
+        )
+      }
     }
   }
 
