@@ -2863,21 +2863,18 @@ const spa_1 = __nccwpck_require__(4589);
 function run() {
     const teamName = core.getInput('team-name');
     const appName = core.getInput('app-name');
-    // const source: string = core.getInput('source')
     const ingresses = core.getInput('ingress').split(',');
     const ingressClass = core.getInput('ingressClass');
-    const cluster = core.getInput('naisCluster');
     const environment = core.getInput('environment');
     const err = (0, spa_1.validateInputs)(teamName, appName, ingresses, ingressClass, environment);
     if (err) {
         core.setFailed(err.message);
         return;
     }
-    const { cdnDest, naisCluster, naisResources } = (0, spa_1.spaSetupTask)(teamName, appName, ingresses, ingressClass, cluster, environment);
+    const { cdnDest, naisCluster, naisResources } = (0, spa_1.spaSetupTask)(teamName, appName, ingresses, ingressClass, environment);
     core.setOutput('cdn-destination', cdnDest);
     core.setOutput('nais-cluster', naisCluster);
     core.setOutput('nais-resource', naisResources);
-    core.setOutput('nais-vars', '');
 }
 run();
 
@@ -3017,13 +3014,12 @@ function hasCustomIngressClass(ingressClass) {
     return ingressClass !== '';
 }
 exports.hasCustomIngressClass = hasCustomIngressClass;
-function spaSetupTask(team, app, urls, customIngressClass, customNaisCluster, env = '') {
+function spaSetupTask(team, app, urls, customIngressClass, env = '') {
     let naisClusterFinal = '';
     const ingresses = [];
     if (hasCustomIngressClass(customIngressClass)) {
         const { hostname: ingressHost, pathname: ingressPath } = new URL(urls[0]);
         ingresses.push({ ingressHost, ingressPath, ingressClass: customIngressClass });
-        naisClusterFinal = customNaisCluster;
     }
     else {
         for (const ingress of urls) {
