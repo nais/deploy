@@ -3020,6 +3020,7 @@ function spaSetupTask(team, app, urls, customIngressClass, env = '') {
     if (hasCustomIngressClass(customIngressClass)) {
         const { hostname: ingressHost, pathname: ingressPath } = new URL(urls[0]);
         ingresses.push({ ingressHost, ingressPath, ingressClass: customIngressClass });
+        naisClusterFinal = env;
     }
     else {
         for (const ingress of urls) {
