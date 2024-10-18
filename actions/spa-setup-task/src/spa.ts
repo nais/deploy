@@ -136,6 +136,7 @@ export function validateInputs(
   team: string,
   app: string,
   ingress: string[],
+  ingressClass: string,
   environment: string
 ): Error | null {
   if (!isValidAppName(team)) {
@@ -160,6 +161,10 @@ export function validateInputs(
     return Error('No ingress specified')
   }
 
+  if (hasCustomIngressClass(ingressClass)) {
+    return null
+  }
+
   if (!isValidIngress(ingress)) {
     return Error(
       `Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`
@@ -169,10 +174,16 @@ export function validateInputs(
   return null
 }
 
+export function hasCustomIngressClass(ingressClass: string): boolean {
+  return ingressClass !== ''
+}
+
 export function spaSetupTask(
   team: string,
   app: string,
   urls: string[],
+  ingressClass: string,
+  naisCluster: string,
   env = ''
 ): {
   cdnDest: string
@@ -183,18 +194,24 @@ export function spaSetupTask(
 
   const ingresses: Ingress[] = []
 
-  for (const ingress of urls) {
-    const {hostname: ingressHost, pathname: ingressPath} = new URL(ingress)
-    const {naisCluster, ingressClass} = parseIngress(ingressHost)
-
+  if (hasCustomIngressClass(ingressClass)) {
+    const {hostname: ingressHost, pathname: ingressPath} = new URL(urls[0])
     ingresses.push({ingressHost, ingressPath, ingressClass})
+    naisClusterFinal = naisCluster
+  } else {
+    for (const ingress of urls) {
+      const {hostname: ingressHost, pathname: ingressPath} = new URL(ingress)
+      const {naisCluster, ingressClass} = parseIngress(ingressHost)
 
-    naisClusterFinal = naisClusterFinal || naisCluster
+      ingresses.push({ingressHost, ingressPath, ingressClass})
 
-    if (naisClusterFinal !== naisCluster) {
-      throw Error(
-        `Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`
-      )
+      naisClusterFinal = naisClusterFinal || naisCluster
+
+      if (naisClusterFinal !== naisCluster) {
+        throw Error(
+          `Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`
+        )
+      }
     }
   }
 
