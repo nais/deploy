@@ -68,5 +68,4 @@ runs:
       env:
         CLUSTER: ${{ steps.setup.outputs.nais-cluster }}
         RESOURCE: ${{ steps.setup.outputs.nais-resource }}
-        VAR: ${{ steps.setup.outputs.nais-var }}
         TEAM: ${{ inputs.team }}

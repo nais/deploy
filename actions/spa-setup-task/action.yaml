@@ -7,9 +7,6 @@ inputs:
   app-name:
     description: 'Application name'
     required: true
-  source:
-    description: 'Application source directory'
-    required: true
   ingress:
     description: 'Application ingress URL'
     required: true
@@ -23,8 +20,6 @@ outputs:
     description: 'NAIS cluster name'
   nais-resource:
     description: 'NAIS resource files'
-  nais-vars:
-    description: 'NAIS variables'
   cdn-destination:
     description: 'CDN destination'
 

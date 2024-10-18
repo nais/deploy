@@ -4,7 +4,6 @@ import {spaSetupTask, validateInputs} from './spa'
 function run(): void {
   const teamName: string = core.getInput('team-name')
   const appName: string = core.getInput('app-name')
-  // const source: string = core.getInput('source')
   const ingresses: string[] = core.getInput('ingress').split(',')
   const ingressClass: string = core.getInput('ingressClass')
   const cluster: string = core.getInput('naisCluster')
@@ -34,7 +33,6 @@ function run(): void {
   core.setOutput('cdn-destination', cdnDest)
   core.setOutput('nais-cluster', naisCluster)
   core.setOutput('nais-resource', naisResources)
-  core.setOutput('nais-vars', '')
 }
 
 run()
