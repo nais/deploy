@@ -2863,19 +2863,19 @@ const spa_1 = __nccwpck_require__(4589);
 function run() {
     const teamName = core.getInput('team-name');
     const appName = core.getInput('app-name');
-    // const source: string = core.getInput('source')
     const ingresses = core.getInput('ingress').split(',');
+    const ingressClass = core.getInput('ingressClass');
+    const cluster = core.getInput('naisCluster');
     const environment = core.getInput('environment');
-    const err = (0, spa_1.validateInputs)(teamName, appName, ingresses, environment);
+    const err = (0, spa_1.validateInputs)(teamName, appName, ingresses, ingressClass, environment);
     if (err) {
         core.setFailed(err.message);
         return;
     }
-    const { cdnDest, naisCluster, naisResources } = (0, spa_1.spaSetupTask)(teamName, appName, ingresses, environment);
+    const { cdnDest, naisCluster, naisResources } = (0, spa_1.spaSetupTask)(teamName, appName, ingresses, ingressClass, cluster, environment);
     core.setOutput('cdn-destination', cdnDest);
     core.setOutput('nais-cluster', naisCluster);
     core.setOutput('nais-resource', naisResources);
-    core.setOutput('nais-vars', '');
 }
 run();
 
@@ -2891,7 +2891,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.spaSetupTask = exports.validateInputs = exports.naisResourcesForApp = exports.cdnDestForApp = exports.cdnPathForApp = exports.parseIngress = exports.isValidAppName = exports.isValidIngress = exports.domainForHost = exports.splitFirst = void 0;
+exports.spaSetupTask = exports.hasCustomIngressClass = exports.validateInputs = exports.naisResourcesForApp = exports.cdnDestForApp = exports.cdnPathForApp = exports.parseIngress = exports.isValidAppName = exports.isValidIngress = exports.domainForHost = exports.splitFirst = void 0;
 const yaml_1 = __importDefault(__nccwpck_require__(4083));
 const fs_1 = __nccwpck_require__(7147);
 const k8s_1 = __nccwpck_require__(130);
@@ -2989,7 +2989,7 @@ function naisResourcesForApp(team, app, env, ingresses, bucketPath, bucketVhost,
     return filePaths.join(',');
 }
 exports.naisResourcesForApp = naisResourcesForApp;
-function validateInputs(team, app, ingress, environment) {
+function validateInputs(team, app, ingress, ingressClass, environment) {
     if (!isValidAppName(team)) {
         return Error(`Invalid team name: ${team}. Team name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`);
     }
@@ -3002,22 +3002,36 @@ function validateInputs(team, app, ingress, environment) {
     if (ingress.length === 0) {
         return Error('No ingress specified');
     }
+    if (hasCustomIngressClass(ingressClass)) {
+        return null;
+    }
     if (!isValidIngress(ingress)) {
         return Error(`Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`);
     }
     return null;
 }
 exports.validateInputs = validateInputs;
-function spaSetupTask(team, app, urls, env = '') {
+function hasCustomIngressClass(ingressClass) {
+    return ingressClass !== '';
+}
+exports.hasCustomIngressClass = hasCustomIngressClass;
+function spaSetupTask(team, app, urls, customIngressClass, customNaisCluster, env = '') {
     let naisClusterFinal = '';
     const ingresses = [];
-    for (const ingress of urls) {
-        const { hostname: ingressHost, pathname: ingressPath } = new URL(ingress);
-        const { naisCluster, ingressClass } = parseIngress(ingressHost);
-        ingresses.push({ ingressHost, ingressPath, ingressClass });
-        naisClusterFinal = naisClusterFinal || naisCluster;
-        if (naisClusterFinal !== naisCluster) {
-            throw Error(`Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`);
+    if (hasCustomIngressClass(customIngressClass)) {
+        const { hostname: ingressHost, pathname: ingressPath } = new URL(urls[0]);
+        ingresses.push({ ingressHost, ingressPath, ingressClass: customIngressClass });
+        naisClusterFinal = customNaisCluster;
+    }
+    else {
+        for (const ingress of urls) {
+            const { hostname: ingressHost, pathname: ingressPath } = new URL(ingress);
+            const { naisCluster, ingressClass } = parseIngress(ingressHost);
+            ingresses.push({ ingressHost, ingressPath, ingressClass });
+            naisClusterFinal = naisClusterFinal || naisCluster;
+            if (naisClusterFinal !== naisCluster) {
+                throw Error(`Ingresses must be on same cluster. Found ${naisClusterFinal} and ${naisCluster}`);
+            }
         }
     }
     env = env || naisClusterFinal;
@@ -5630,7 +5644,7 @@ const prettifyError = (src, lc) => (error) => {
         let count = 1;
         const end = error.linePos[1];
         if (end && end.line === line && end.col > col) {
-            count = Math.min(end.col - col, 80 - ci);
+            count = Math.max(1, Math.min(end.col - col, 80 - ci));
         }
         const pointer = ' '.repeat(ci) + '^'.repeat(count);
         error.message += `:\n\n${lineStr}\n${pointer}\n`;
@@ -10539,7 +10553,7 @@ function stringifyFlowCollection({ comment, items }, ctx, { flowChars, itemInden
         }
     }
     if (comment) {
-        str += stringifyComment.lineComment(str, commentString(comment), indent);
+        str += stringifyComment.lineComment(str, indent, commentString(comment));
         if (onComment)
             onComment();
     }
@@ -10889,8 +10903,8 @@ exports.stringifyPair = stringifyPair;
 var Scalar = __nccwpck_require__(9338);
 var foldFlowLines = __nccwpck_require__(2889);
 
-const getFoldOptions = (ctx) => ({
-    indentAtStart: ctx.indentAtStart,
+const getFoldOptions = (ctx, isBlock) => ({
+    indentAtStart: isBlock ? ctx.indent.length : ctx.indentAtStart,
     lineWidth: ctx.options.lineWidth,
     minContentWidth: ctx.options.minContentWidth
 });
@@ -11003,7 +11017,7 @@ function doubleQuotedString(value, ctx) {
     str = start ? str + json.slice(start) : json;
     return implicitKey
         ? str
-        : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx));
+        : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_QUOTED, getFoldOptions(ctx, false));
 }
 function singleQuotedString(value, ctx) {
     if (ctx.options.singleQuote === false ||
@@ -11015,7 +11029,7 @@ function singleQuotedString(value, ctx) {
     const res = "'" + value.replace(/'/g, "''").replace(/\n+/g, `$&\n${indent}`) + "'";
     return ctx.implicitKey
         ? res
-        : foldFlowLines.foldFlowLines(res, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx));
+        : foldFlowLines.foldFlowLines(res, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
 }
 function quotedString(value, ctx) {
     const { singleQuote } = ctx.options;
@@ -11113,7 +11127,7 @@ function blockString({ comment, type, value }, ctx, onComment, onChompKeep) {
         .replace(/(?:^|\n)([\t ].*)(?:([\n\t ]*)\n(?![\n\t ]))?/g, '$1$2') // more-indented lines aren't folded
         //                ^ more-ind. ^ empty     ^ capture next empty lines only at end of indent
         .replace(/\n+/g, `$&${indent}`);
-    const body = foldFlowLines.foldFlowLines(`${start}${value}${end}`, indent, foldFlowLines.FOLD_BLOCK, getFoldOptions(ctx));
+    const body = foldFlowLines.foldFlowLines(`${start}${value}${end}`, indent, foldFlowLines.FOLD_BLOCK, getFoldOptions(ctx, true));
     return `${header}\n${indent}${body}`;
 }
 function plainString(item, ctx, onComment, onChompKeep) {
@@ -11163,7 +11177,7 @@ function plainString(item, ctx, onComment, onChompKeep) {
     }
     return implicitKey
         ? str
-        : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx));
+        : foldFlowLines.foldFlowLines(str, indent, foldFlowLines.FOLD_FLOW, getFoldOptions(ctx, false));
 }
 function stringifyString(item, ctx, onComment, onChompKeep) {
     const { implicitKey, inFlow } = ctx;
