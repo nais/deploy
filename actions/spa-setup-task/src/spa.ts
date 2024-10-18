@@ -73,7 +73,7 @@ export function isValidIngress(ingresses: string[]): boolean {
       if (parseIngress(url.host) === undefined) {
         return false
       }
-    } catch (e) {
+    } catch {
       return false
     }
   }
@@ -167,7 +167,7 @@ export function validateInputs(
 
   if (!isValidIngress(ingress)) {
     return Error(
-    `SPADEPLOY-006: Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`
+      `SPADEPLOY-006: Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`
     )
   }
 
