@@ -10,7 +10,13 @@ function run(): void {
   const cluster: string = core.getInput('naisCluster')
   const environment: string = core.getInput('environment')
 
-  const err = validateInputs(teamName, appName, ingresses, ingressClass, environment)
+  const err = validateInputs(
+    teamName,
+    appName,
+    ingresses,
+    ingressClass,
+    environment
+  )
   if (err) {
     core.setFailed(err.message)
     return

@@ -182,8 +182,8 @@ export function spaSetupTask(
   team: string,
   app: string,
   urls: string[],
-  ingressClass: string,
-  naisCluster: string,
+  customIngressClass: string,
+  customNaisCluster: string,
   env = ''
 ): {
   cdnDest: string
@@ -194,10 +194,10 @@ export function spaSetupTask(
 
   const ingresses: Ingress[] = []
 
-  if (hasCustomIngressClass(ingressClass)) {
+  if (hasCustomIngressClass(customIngressClass)) {
     const {hostname: ingressHost, pathname: ingressPath} = new URL(urls[0])
-    ingresses.push({ingressHost, ingressPath, ingressClass})
-    naisClusterFinal = naisCluster
+    ingresses.push({ingressHost, ingressPath, ingressClass: customIngressClass})
+    naisClusterFinal = customNaisCluster
   } else {
     for (const ingress of urls) {
       const {hostname: ingressHost, pathname: ingressPath} = new URL(ingress)
