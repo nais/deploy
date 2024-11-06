@@ -9,6 +9,7 @@ spec:
   # All 34.88.0.0/16 IP addresses in this list
   # point to Postgres databases in management projects.
   # FIXME: provision elsewhere?
+  # FIXME: Fasit integration?
   - to:
     - ipBlock:
         cidr: 34.88.176.78/32
@@ -22,6 +23,8 @@ spec:
         cidr: 34.88.111.83/32
     - ipBlock:
         cidr: 34.88.6.186/32
+    - ipBlock:
+        cidr: 35.228.159.4/32
   - to:
     - namespaceSelector:
         matchLabels:
