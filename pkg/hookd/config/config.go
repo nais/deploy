@@ -24,7 +24,6 @@ type Config struct {
 	FrontendKeys              []string      `json:"frontend-keys"`
 	GRPC                      GRPC          `json:"grpc"`
 	GoogleAllowedDomains      []string      `json:"google-allowed-domains"`
-	GoogleClientId            string        `json:"google-client-id"`
 	GoogleClusterProjects     []string      `json:"google-cluster-projects"`
 	ListenAddress             string        `json:"listen-address"`
 	LogFormat                 string        `json:"log-format"`
@@ -45,7 +44,6 @@ const (
 	DeploydKeys               = "deployd-keys"
 	FrontendKeys              = "frontend-keys"
 	GoogleAllowedDomains      = "google-allowed-domains"
-	GoogleClientId            = "google-client-id"
 	GoogleClusterProjects     = "google-cluster-projects"
 	GrpcAddress               = "grpc.address"
 	GrpcCliAuthentication     = "grpc.cli-authentication"
@@ -69,8 +67,6 @@ func bindNAIS() {
 
 	viper.BindEnv(DeploydKeys, "DEPLOYD_KEYS")
 	viper.BindEnv(FrontendKeys, "FRONTEND_KEYS")
-
-	viper.BindEnv(GoogleClientId, "GOOGLE_CLIENT_ID")
 }
 
 func Initialize() *Config {
@@ -99,7 +95,6 @@ func Initialize() *Config {
 	flag.StringSlice(DeploydKeys, nil, "Pre-shared deployd keys, comma separated")
 	flag.StringSlice(FrontendKeys, nil, "Pre-shared frontend keys, comma separated")
 
-	flag.String(GoogleClientId, "", "Google ClientId.")
 	flag.StringSlice(GoogleAllowedDomains, []string{}, "Allowed Google Domains")
 	flag.StringSlice(GoogleClusterProjects, []string{}, "Mapping cluster to google project: cluster1=project1,cluster2=project2")
 

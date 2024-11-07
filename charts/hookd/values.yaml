@@ -7,9 +7,6 @@ ingress:
   className: "nais-ingress-external"
 
 deploydPreSharedKeys: # mapped by fasit
-googleClient:
-  id: # mapped by fasit
-  secret: # mapped by fasit
 
 logLinkFormatter: "GCP"
 otelExporterOtlpEndpoint: # mapped by fasit

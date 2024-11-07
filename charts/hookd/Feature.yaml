@@ -51,15 +51,6 @@ values:
   deploydPreSharedKeys:
     computed:
       template: '"{{ eachOf .Envs "deployd_pre_shared_key" | join "," }}"'
-  googleClient.id:
-    description: Google OAuth 2.0 Client ID, see https://handbook.nais.io/technical/tenant-setup/#set-up-oauth-client
-    config:
-      type: string
-  googleClient.secret:
-    description: Google OAuth 2.0 Client Secret, see https://handbook.nais.io/technical/tenant-setup/#set-up-oauth-client
-    config:
-      type: string
-      secret: true
   ingress.host:
     displayName: Ingress URL
     computed:
