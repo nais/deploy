@@ -25819,7 +25819,7 @@ function run() {
         return;
     }
     const { cdnDest, naisCluster, naisResources } = (0, spa_1.spaSetupTask)(teamName, appName, ingresses, ingressClass, environment, tenant);
-    const naisDeployServer = `https://deploy.${tenant}.cloud.nais.io:443`;
+    const naisDeployServer = `deploy.${tenant}.cloud.nais.io:443`;
     core.setOutput('cdn-destination', cdnDest);
     core.setOutput('nais-cluster', naisCluster);
     core.setOutput('nais-resource', naisResources);
