@@ -12,46 +12,92 @@ export type Ingress = {
   ingressClass: string
 }
 
-const defaultBucketVhost = 'cdn.nav.cloud.nais.io'
+const tenants = ['nav', 'ssb', 'test-nais']
+
+const hostMap: {[index: string]: Clusters} = {
+  nav: {
+    'nav.no': {
+      naisCluster: 'prod-gcp',
+      ingressClass: 'nais-ingress-external'
+    },
+    'intern.nav.no': {
+      naisCluster: 'prod-gcp',
+      ingressClass: 'nais-ingress'
+    },
+    'ansatt.nav.no': {
+      naisCluster: 'prod-gcp',
+      ingressClass: 'nais-ingress-fa'
+    },
+    'dev.nav.no': {
+      naisCluster: 'dev-gcp',
+      ingressClass: 'nais-ingress-external'
+    },
+    'dev.intern.nav.no': {
+      naisCluster: 'dev-gcp',
+      ingressClass: 'nais-ingress'
+    },
+    'intern.dev.nav.no': {
+      naisCluster: 'dev-gcp',
+      ingressClass: 'nais-ingress'
+    },
+    'ansatt.dev.nav.no': {
+      naisCluster: 'dev-gcp',
+      ingressClass: 'nais-ingress-fa'
+    },
+    'ekstern.dev.nav.no': {
+      naisCluster: 'dev-gcp',
+      ingressClass: 'nais-ingress-external'
+    }
+  },
+  ssb: {
+    'test.ssb.cloud.nais.io': {
+      naisCluster: 'test',
+      ingressClass: 'nais-ingress'
+    },
+    'external.test.ssb.cloud.nais.io': {
+      naisCluster: 'test',
+      ingressClass: 'nais-ingress-external'
+    },
+    'intern.test.ssb.no': {
+      naisCluster: 'test',
+      ingressClass: 'nais-ingress'
+    },
+    'test.ssb.no': {
+      naisCluster: 'test',
+      ingressClass: 'nais-ingress-external'
+    },
+    'prod.ssb.cloud.nais.io': {
+      naisCluster: 'prod',
+      ingressClass: 'nais-ingress'
+    },
+    'external.prod.ssb.cloud.nais.io': {
+      naisCluster: 'prod',
+      ingressClass: 'nais-ingress-external'
+    },
+    'ssb.no': {
+      naisCluster: 'prod',
+      ingressClass: 'nais-ingress'
+    },
+    'intern.ssb.no': {
+      naisCluster: 'prod',
+      ingressClass: 'nais-ingress'
+    }
+  },
+  'test-nais': {
+    'sandbox.test-nais.cloud.nais.io': {
+      naisCluster: 'sandbox',
+      ingressClass: 'nais-ingress'
+    },
+    'external.sandbox.test-nais.cloud.nais.io': {
+      naisCluster: 'sandbox',
+      ingressClass: 'nais-ingress-external'
+    }
+  }
+}
 
 type NaisCluster = {
   naisCluster: string
   ingressClass: string
-}
-
-const hostMap: Clusters = {
-  'nav.no': {
-    naisCluster: 'prod-gcp',
-    ingressClass: 'nais-ingress-external'
-  },
-  'intern.nav.no': {
-    naisCluster: 'prod-gcp',
-    ingressClass: 'nais-ingress'
-  },
-  'ansatt.nav.no': {
-    naisCluster: 'prod-gcp',
-    ingressClass: 'nais-ingress-fa'
-  },
-  'dev.nav.no': {
-    naisCluster: 'dev-gcp',
-    ingressClass: 'nais-ingress-external'
-  },
-  'dev.intern.nav.no': {
-    naisCluster: 'dev-gcp',
-    ingressClass: 'nais-ingress'
-  },
-  'intern.dev.nav.no': {
-    naisCluster: 'dev-gcp',
-    ingressClass: 'nais-ingress'
-  },
-  'ansatt.dev.nav.no': {
-    naisCluster: 'dev-gcp',
-    ingressClass: 'nais-ingress-fa'
-  },
-  'ekstern.dev.nav.no': {
-    naisCluster: 'dev-gcp',
-    ingressClass: 'nais-ingress-external'
-  }
 }
 
 export function splitFirst(s: string, sep: string): [string, string] {
@@ -66,11 +112,11 @@ export function domainForHost(host: string): string {
   return domain
 }
 
-export function isValidIngress(ingresses: string[]): boolean {
+export function isValidIngress(tenant: string, ingresses: string[]): boolean {
   for (const ingress of ingresses) {
     try {
       const url = new URL(ingress)
-      if (parseIngress(url.host) === undefined) {
+      if (parseIngress(tenant, url.host) === undefined) {
         return false
       }
     } catch {
@@ -86,12 +132,16 @@ export function isValidAppName(app: string): boolean {
   return /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(app)
 }
 
-export function parseIngress(ingressHost: string): NaisCluster {
-  return hostMap[domainForHost(ingressHost)]
+export function parseIngress(tenant: string, ingressHost: string): NaisCluster {
+  return hostMap[tenant][domainForHost(ingressHost)]
 }
 
 export function cdnPathForApp(team: string, app: string, env: string): string {
   return `/${team}/${cdnDestForApp(app, env)}`
+}
+
+export function cdnBucketVhost(tenant: string): string {
+  return `cdn.${tenant}.cloud.nais.io`
 }
 
 export function cdnDestForApp(app: string, env: string): string {
@@ -137,7 +187,8 @@ export function validateInputs(
   app: string,
   ingress: string[],
   ingressClass: string,
-  environment: string
+  environment: string,
+  tenant: string
 ): Error | null {
   if (!isValidAppName(team)) {
     return Error(
@@ -165,7 +216,13 @@ export function validateInputs(
     return null
   }
 
-  if (!isValidIngress(ingress)) {
+  if (!tenants.includes(tenant)) {
+    return Error(
+      `SPADEPLOY-007: Invalid tenant name: ${tenant}. Tenant name must be added to the list of valid tenants`
+    )
+  }
+
+  if (!isValidIngress(tenant, ingress)) {
     return Error(
       `SPADEPLOY-006: Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`
     )
@@ -183,7 +240,8 @@ export function spaSetupTask(
   app: string,
   urls: string[],
   customIngressClass: string,
-  env = ''
+  env = '',
+  tenant: string
 ): {
   cdnDest: string
   naisCluster: string
@@ -200,7 +258,7 @@ export function spaSetupTask(
   } else {
     for (const ingress of urls) {
       const {hostname: ingressHost, pathname: ingressPath} = new URL(ingress)
-      const {naisCluster, ingressClass} = parseIngress(ingressHost)
+      const {naisCluster, ingressClass} = parseIngress(tenant, ingressHost)
 
       ingresses.push({ingressHost, ingressPath, ingressClass})
 
@@ -216,6 +274,7 @@ export function spaSetupTask(
 
   env = env || naisClusterFinal
   const bucketPath = cdnPathForApp(team, app, env)
+  const bucketVhost = cdnBucketVhost(tenant)
   const cdnDest = cdnDestForApp(app, env)
   const naisResources = naisResourcesForApp(
     team,
@@ -223,7 +282,7 @@ export function spaSetupTask(
     env,
     ingresses,
     bucketPath,
-    defaultBucketVhost
+    bucketVhost
   )
 
   return {

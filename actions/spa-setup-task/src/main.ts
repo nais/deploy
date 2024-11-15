@@ -7,13 +7,15 @@ function run(): void {
   const ingresses: string[] = core.getInput('ingress').split(',')
   const ingressClass: string = core.getInput('ingressClass')
   const environment: string = core.getInput('environment')
+  const tenant: string = core.getInput('tenant')
 
   const err = validateInputs(
     teamName,
     appName,
     ingresses,
     ingressClass,
-    environment
+    environment,
+    tenant
   )
   if (err) {
     core.setFailed(err.message)
@@ -25,7 +27,8 @@ function run(): void {
     appName,
     ingresses,
     ingressClass,
-    environment
+    environment,
+    tenant
   )
 
   core.setOutput('cdn-destination', cdnDest)

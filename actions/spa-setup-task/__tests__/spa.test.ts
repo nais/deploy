@@ -16,6 +16,7 @@ test('domainForHost()', () => {
 })
 
 test('isValidIngress()', () => {
+  const tenant = 'nav'
   const valids = [
     'https://www.nav.no/',
     'https://www.nav.no/foobar',
@@ -25,16 +26,16 @@ test('isValidIngress()', () => {
 
   for (const valid of valids) {
     for (const invalid of invalids) {
-      expect(spa.isValidIngress([invalid])).toBe(false)
-      expect(spa.isValidIngress([valid, invalid])).toBe(false)
-      expect(spa.isValidIngress([invalid, valid])).toBe(false)
+      expect(spa.isValidIngress(tenant, [invalid])).toBe(false)
+      expect(spa.isValidIngress(tenant, [valid, invalid])).toBe(false)
+      expect(spa.isValidIngress(tenant, [invalid, valid])).toBe(false)
     }
 
     for (const valid2 of valids) {
       if (valid !== valid2) {
-        expect(spa.isValidIngress([valid])).toBe(true)
-        expect(spa.isValidIngress([valid, valid2])).toBe(true)
-        expect(spa.isValidIngress([valid2, valid])).toBe(true)
+        expect(spa.isValidIngress(tenant, [valid])).toBe(true)
+        expect(spa.isValidIngress(tenant, [valid, valid2])).toBe(true)
+        expect(spa.isValidIngress(tenant, [valid2, valid])).toBe(true)
       }
     }
   }
@@ -54,9 +55,12 @@ test('isValidAppName()', () => {
 })
 
 test('parseIngress()', () => {
-  expect(spa.parseIngress('foo.nav.no').naisCluster).toEqual('prod-gcp')
-  expect(spa.parseIngress('foo.dev.nav.no').naisCluster).toEqual('dev-gcp')
-  expect(spa.parseIngress('example.com')).toBeUndefined()
+  const tenant = 'nav'
+  expect(spa.parseIngress(tenant, 'foo.nav.no').naisCluster).toEqual('prod-gcp')
+  expect(spa.parseIngress(tenant, 'foo.dev.nav.no').naisCluster).toEqual(
+    'dev-gcp'
+  )
+  expect(spa.parseIngress(tenant, 'example.com')).toBeUndefined()
 })
 
 test('cdnPathForApp()', () => {
