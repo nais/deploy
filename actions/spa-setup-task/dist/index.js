@@ -25812,12 +25812,13 @@ function run() {
     const ingresses = core.getInput('ingress').split(',');
     const ingressClass = core.getInput('ingressClass');
     const environment = core.getInput('environment');
-    const err = (0, spa_1.validateInputs)(teamName, appName, ingresses, ingressClass, environment);
+    const tenant = core.getInput('tenant');
+    const err = (0, spa_1.validateInputs)(teamName, appName, ingresses, ingressClass, environment, tenant);
     if (err) {
         core.setFailed(err.message);
         return;
     }
-    const { cdnDest, naisCluster, naisResources } = (0, spa_1.spaSetupTask)(teamName, appName, ingresses, ingressClass, environment);
+    const { cdnDest, naisCluster, naisResources } = (0, spa_1.spaSetupTask)(teamName, appName, ingresses, ingressClass, environment, tenant);
     core.setOutput('cdn-destination', cdnDest);
     core.setOutput('nais-cluster', naisCluster);
     core.setOutput('nais-resource', naisResources);
@@ -25842,6 +25843,7 @@ exports.isValidIngress = isValidIngress;
 exports.isValidAppName = isValidAppName;
 exports.parseIngress = parseIngress;
 exports.cdnPathForApp = cdnPathForApp;
+exports.cdnBucketVhost = cdnBucketVhost;
 exports.cdnDestForApp = cdnDestForApp;
 exports.naisResourcesForApp = naisResourcesForApp;
 exports.validateInputs = validateInputs;
@@ -25850,39 +25852,85 @@ exports.spaSetupTask = spaSetupTask;
 const yaml_1 = __importDefault(__nccwpck_require__(8815));
 const fs_1 = __nccwpck_require__(9896);
 const k8s_1 = __nccwpck_require__(3655);
-const defaultBucketVhost = 'cdn.nav.cloud.nais.io';
+const tenants = ['nav', 'ssb', 'test-nais'];
 const hostMap = {
-    'nav.no': {
-        naisCluster: 'prod-gcp',
-        ingressClass: 'nais-ingress-external'
+    nav: {
+        'nav.no': {
+            naisCluster: 'prod-gcp',
+            ingressClass: 'nais-ingress-external'
+        },
+        'intern.nav.no': {
+            naisCluster: 'prod-gcp',
+            ingressClass: 'nais-ingress'
+        },
+        'ansatt.nav.no': {
+            naisCluster: 'prod-gcp',
+            ingressClass: 'nais-ingress-fa'
+        },
+        'dev.nav.no': {
+            naisCluster: 'dev-gcp',
+            ingressClass: 'nais-ingress-external'
+        },
+        'dev.intern.nav.no': {
+            naisCluster: 'dev-gcp',
+            ingressClass: 'nais-ingress'
+        },
+        'intern.dev.nav.no': {
+            naisCluster: 'dev-gcp',
+            ingressClass: 'nais-ingress'
+        },
+        'ansatt.dev.nav.no': {
+            naisCluster: 'dev-gcp',
+            ingressClass: 'nais-ingress-fa'
+        },
+        'ekstern.dev.nav.no': {
+            naisCluster: 'dev-gcp',
+            ingressClass: 'nais-ingress-external'
+        }
     },
-    'intern.nav.no': {
-        naisCluster: 'prod-gcp',
-        ingressClass: 'nais-ingress'
+    ssb: {
+        'test.ssb.cloud.nais.io': {
+            naisCluster: 'test',
+            ingressClass: 'nais-ingress'
+        },
+        '.external.test.ssb.cloud.nais.io': {
+            naisCluster: 'test',
+            ingressClass: 'nais-ingress-external'
+        },
+        'intern.test.ssb.no': {
+            naisCluster: 'test',
+            ingressClass: 'nais-ingress'
+        },
+        'test.ssb.no': {
+            naisCluster: 'test',
+            ingressClass: 'nais-ingress-external'
+        },
+        'prod.ssb.cloud.nais.io': {
+            naisCluster: 'prod',
+            ingressClass: 'nais-ingress'
+        },
+        '.external.prod.ssb.cloud.nais.io': {
+            naisCluster: 'prod',
+            ingressClass: 'nais-ingress-external'
+        },
+        'ssb.no': {
+            naisCluster: 'prod',
+            ingressClass: 'nais-ingress'
+        },
+        'intern.ssb.no': {
+            naisCluster: 'prod',
+            ingressClass: 'nais-ingress'
+        }
     },
-    'ansatt.nav.no': {
-        naisCluster: 'prod-gcp',
-        ingressClass: 'nais-ingress-fa'
-    },
-    'dev.nav.no': {
-        naisCluster: 'dev-gcp',
-        ingressClass: 'nais-ingress-external'
-    },
-    'dev.intern.nav.no': {
-        naisCluster: 'dev-gcp',
-        ingressClass: 'nais-ingress'
-    },
-    'intern.dev.nav.no': {
-        naisCluster: 'dev-gcp',
-        ingressClass: 'nais-ingress'
-    },
-    'ansatt.dev.nav.no': {
-        naisCluster: 'dev-gcp',
-        ingressClass: 'nais-ingress-fa'
-    },
-    'ekstern.dev.nav.no': {
-        naisCluster: 'dev-gcp',
-        ingressClass: 'nais-ingress-external'
+    'test-nais': {
+        'sandbox.test-nais.cloud.nais.io': {
+            naisCluster: 'sandbox',
+            ingressClass: 'nais-ingress'
+        },
+        '.external.sandbox.test-nais.cloud.nais.io': {
+            naisCluster: 'sandbox',
+            ingressClass: 'nais-ingress-external'
+        }
     }
 };
 function splitFirst(s, sep) {
@@ -25894,11 +25942,11 @@ function domainForHost(host) {
     const [_, domain] = splitFirst(host, '.');
     return domain;
 }
-function isValidIngress(ingresses) {
+function isValidIngress(tenant, ingresses) {
     for (const ingress of ingresses) {
         try {
             const url = new URL(ingress);
-            if (parseIngress(url.host) === undefined) {
+            if (parseIngress(tenant, url.host) === undefined) {
                 return false;
             }
         }
@@ -25912,11 +25960,14 @@ function isValidAppName(app) {
     // RFC 1123 https://tools.ietf.org/html/rfc1123#section-2
     return /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/.test(app);
 }
-function parseIngress(ingressHost) {
-    return hostMap[domainForHost(ingressHost)];
+function parseIngress(tenant, ingressHost) {
+    return hostMap[tenant][domainForHost(ingressHost)];
 }
 function cdnPathForApp(team, app, env) {
     return `/${team}/${cdnDestForApp(app, env)}`;
+}
+function cdnBucketVhost(tenant) {
+    return `cdn.${tenant}.cloud.nais.io`;
 }
 function cdnDestForApp(app, env) {
     return `${app}/${env}`;
@@ -25936,7 +25987,7 @@ function naisResourcesForApp(team, app, env, ingresses, bucketPath, bucketVhost,
     }
     return filePaths.join(',');
 }
-function validateInputs(team, app, ingress, ingressClass, environment) {
+function validateInputs(team, app, ingress, ingressClass, environment, tenant) {
     if (!isValidAppName(team)) {
         return Error(`SPADEPLOY-001: Invalid team name: ${team}. Team name must match regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`);
     }
@@ -25952,7 +26003,10 @@ function validateInputs(team, app, ingress, ingressClass, environment) {
     if (hasCustomIngressClass(ingressClass)) {
         return null;
     }
-    if (!isValidIngress(ingress)) {
+    if (!tenants.includes(tenant)) {
+        return Error(`SPADEPLOY-007: Invalid tenant name: ${tenant}. Tenant name must be added to the list of valid tenants`);
+    }
+    if (!isValidIngress(tenant, ingress)) {
         return Error(`SPADEPLOY-006: Invalid ingress: ${ingress}. Ingress must be a valid URL with a known domain on format https://<host>/<path>`);
     }
     return null;
@@ -25960,7 +26014,7 @@ function validateInputs(team, app, ingress, ingressClass, environment) {
 function hasCustomIngressClass(ingressClass) {
     return ingressClass !== '';
 }
-function spaSetupTask(team, app, urls, customIngressClass, env = '') {
+function spaSetupTask(team, app, urls, customIngressClass, env = '', tenant) {
     let naisClusterFinal = '';
     const ingresses = [];
     if (hasCustomIngressClass(customIngressClass)) {
@@ -25971,7 +26025,7 @@ function spaSetupTask(team, app, urls, customIngressClass, env = '') {
     else {
         for (const ingress of urls) {
             const { hostname: ingressHost, pathname: ingressPath } = new URL(ingress);
-            const { naisCluster, ingressClass } = parseIngress(ingressHost);
+            const { naisCluster, ingressClass } = parseIngress(tenant, ingressHost);
             ingresses.push({ ingressHost, ingressPath, ingressClass });
             naisClusterFinal = naisClusterFinal || naisCluster;
             if (naisClusterFinal !== naisCluster) {
@@ -25981,8 +26035,9 @@ function spaSetupTask(team, app, urls, customIngressClass, env = '') {
     }
     env = env || naisClusterFinal;
     const bucketPath = cdnPathForApp(team, app, env);
+    const bucketVhost = cdnBucketVhost(tenant);
     const cdnDest = cdnDestForApp(app, env);
-    const naisResources = naisResourcesForApp(team, app, env, ingresses, bucketPath, defaultBucketVhost);
+    const naisResources = naisResourcesForApp(team, app, env, ingresses, bucketPath, bucketVhost);
     return {
         cdnDest,
         naisCluster: naisClusterFinal,

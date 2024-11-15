@@ -13,6 +13,10 @@ inputs:
   environment:
     description: 'Environment name'
     required: true
+  tenant:
+    description: 'Tenant slug'
+    default: "nav"
+    required: true
   ingress:
     description: 'Application ingress URL'
     required: true
@@ -39,6 +43,7 @@ runs:
       name: Setup for SPA deploy
       uses: nais/deploy/actions/spa-setup-task@master
       with:
+        tenant: ${{ inputs.tenant }}
         team-name: ${{ inputs.team }}
         app-name: ${{ inputs.app }}
         ingress: ${{ inputs.ingress }}
@@ -50,6 +55,7 @@ runs:
       uses: nais/deploy/actions/cdn-upload/v2@master
       with:
         team: ${{ inputs.team }}
+        tenant: ${{ inputs.tenant }}
         source: ${{ inputs.source }}
         source_keep_parent_name: false
         destination: ${{ steps.setup.outputs.cdn-destination }}

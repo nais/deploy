@@ -18,6 +18,10 @@ inputs:
     description: 'Environment name'
     required: false
     default: ''
+  tenant:
+    description: 'Tenant slug'
+    required: true
+    default: 'nav'
 
 outputs:
   nais-cluster:
