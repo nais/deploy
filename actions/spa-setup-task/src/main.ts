@@ -31,9 +31,12 @@ function run(): void {
     tenant
   )
 
+  const naisDeployServer = `https://deploy.${tenant}.cloud.nais.io:443`
+
   core.setOutput('cdn-destination', cdnDest)
   core.setOutput('nais-cluster', naisCluster)
   core.setOutput('nais-resource', naisResources)
+  core.setOutput('nais-deploy-server', naisDeployServer)
 }
 
 run()

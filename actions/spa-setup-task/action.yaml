@@ -30,6 +30,8 @@ outputs:
     description: 'NAIS resource files'
   cdn-destination:
     description: 'CDN destination'
+  nais-deploy-server:
+    description: 'Deploy server for each tenant'
 
 runs:
   using: 'node20'

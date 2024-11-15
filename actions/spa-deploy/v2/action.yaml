@@ -69,3 +69,4 @@ runs:
         CLUSTER: ${{ steps.setup.outputs.nais-cluster }}
         RESOURCE: ${{ steps.setup.outputs.nais-resource }}
         TEAM: ${{ inputs.team }}
+        DEPLOY_SERVER: ${{ steps.setup.outputs.nais-deploy-server }}
