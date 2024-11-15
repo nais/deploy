@@ -54,7 +54,7 @@ const hostMap: {[index: string]: Clusters} = {
       naisCluster: 'test',
       ingressClass: 'nais-ingress'
     },
-    '.external.test.ssb.cloud.nais.io': {
+    'external.test.ssb.cloud.nais.io': {
       naisCluster: 'test',
       ingressClass: 'nais-ingress-external'
     },
@@ -70,7 +70,7 @@ const hostMap: {[index: string]: Clusters} = {
       naisCluster: 'prod',
       ingressClass: 'nais-ingress'
     },
-    '.external.prod.ssb.cloud.nais.io': {
+    'external.prod.ssb.cloud.nais.io': {
       naisCluster: 'prod',
       ingressClass: 'nais-ingress-external'
     },
@@ -88,7 +88,7 @@ const hostMap: {[index: string]: Clusters} = {
       naisCluster: 'sandbox',
       ingressClass: 'nais-ingress'
     },
-    '.external.sandbox.test-nais.cloud.nais.io': {
+    'external.sandbox.test-nais.cloud.nais.io': {
       naisCluster: 'sandbox',
       ingressClass: 'nais-ingress-external'
     }
