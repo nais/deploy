@@ -34,6 +34,7 @@ type Config struct {
 	ProvisionKey              string        `json:"provision-key"`
 	NaisAPIAddress            string        `json:"nais-api-address"`
 	NaisAPIInsecureConnection bool          `json:"nais-api-insecure-connection"`
+	ClusterMigrationRedirect  []string      `json:"cluster-migration-redirect"`
 }
 
 const (
@@ -58,6 +59,7 @@ const (
 	ProvisionKey              = "provision-key"
 	NaisAPIAddress            = "nais-api-address"
 	NaisAPIInsecureConnection = "nais-api-insecure-connection"
+	ClusterMigrationRedirect  = "cluster-migration-redirect"
 )
 
 // Bind environment variables provided by the NAIS platform
@@ -100,6 +102,7 @@ func Initialize() *Config {
 
 	flag.Bool(NaisAPIInsecureConnection, false, "Insecure connection to API server")
 	flag.String(NaisAPIAddress, "localhost:3001", "NAIS API target")
+	flag.StringSlice(ClusterMigrationRedirect, []string{}, "Mapping cluster to redirect: cluster=targetCluster")
 
 	return &Config{}
 }

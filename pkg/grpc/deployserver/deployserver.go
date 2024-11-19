@@ -20,12 +20,14 @@ type deployServer struct {
 	pb.UnimplementedDeployServer
 	dispatchServer  dispatchserver.DispatchServer
 	deploymentStore database.DeploymentStore
+	redirect        map[string]string
 }
 
-func New(dispatchServer dispatchserver.DispatchServer, deploymentStore database.DeploymentStore) pb.DeployServer {
+func New(dispatchServer dispatchserver.DispatchServer, deploymentStore database.DeploymentStore, redirect map[string]string) pb.DeployServer {
 	return &deployServer{
 		deploymentStore: deploymentStore,
 		dispatchServer:  dispatchServer,
+		redirect:        redirect,
 	}
 }
 
@@ -104,6 +106,14 @@ func (ds *deployServer) Deploy(ctx context.Context, request *pb.DeploymentReques
 
 	logger := log.WithFields(request.LogFields())
 	logger.Infof("Received deployment request")
+
+	for requestCluster, targetCluster := range ds.redirect {
+		if request.GetCluster() == requestCluster {
+			request.Cluster = targetCluster
+			logger.Infof("Redirecting deployment from %s to %s", requestCluster, targetCluster)
+			break
+		}
+	}
 
 	logger.Debugf("Writing deployment to database")
 	err = ds.addToDatabase(ctx, request)

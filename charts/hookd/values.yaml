@@ -45,3 +45,5 @@ imagePullSecrets: []
 naisAPI:
   address: "nais-api:3001"
   insecureConnection: "false"
+
+clusterMigrationRedirect:

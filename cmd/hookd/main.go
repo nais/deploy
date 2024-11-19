@@ -172,8 +172,12 @@ func run() error {
 }
 
 func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore) (*grpc.Server, dispatchserver.DispatchServer, error) {
+	clusterRedirects, err := parseKeyVal(cfg.ClusterMigrationRedirect)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to parse cluster migration redirects: %v", err)
+	}
 	dispatchServer := dispatchserver.New(db)
-	deployServer := deployserver.New(dispatchServer, db)
+	deployServer := deployserver.New(dispatchServer, db, clusterRedirects)
 	unaryInterceptors := make([]grpc.UnaryServerInterceptor, 0)
 	streamInterceptors := make([]grpc.StreamServerInterceptor, 0)
 

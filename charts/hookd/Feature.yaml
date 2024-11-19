@@ -30,6 +30,11 @@ values:
     displayName: Google service account
     computed:
       template: '"{{.Management.hookd_google_service_account_email}}"'
+  clusterMigrationRedirect:
+    description: Cluster reference for migration purposes (comma separated key=val)
+    displayName: Cluster migration redirect
+    config:
+      type: string
   image.imagePullPolicy:
     config:
       type: string
