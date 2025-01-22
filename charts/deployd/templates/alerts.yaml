@@ -13,7 +13,7 @@ spec:
           for: 5m
           labels:
             namespace: nais-system
-            severity: danger
+            severity: critical
           annotations:
             summary: |
               Problem with NAIS deploy
@@ -37,7 +37,7 @@ spec:
           for: 5m
           labels:
             namespace: nais-system
-            severity: danger
+            severity: critical
           annotations:
             summary: |
               The metric used to determine if the canary application is deployed is missing.
