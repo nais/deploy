@@ -25,6 +25,8 @@ spec:
         cidr: 34.88.6.186/32
     - ipBlock:
         cidr: 35.228.159.4/32
+    - ipBlock:
+        cidr: 34.88.238.207/32
   - to:
     - namespaceSelector:
         matchLabels:
