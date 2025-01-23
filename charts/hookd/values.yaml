@@ -18,6 +18,7 @@ database:
   user: # mapped by fasit
   instance: # mapped by fasit
   encryptionKey: # mapped by fasit
+  ip: # mapped by fasit
 securityContext:
   capabilities:
     drop:

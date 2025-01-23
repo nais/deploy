@@ -12,6 +12,10 @@ values:
     displayName: Database instance
     computed:
       template: '"{{.Management.hookd_database_instance}}"'
+  database.ip:
+    displayName: Database IP
+    computed:
+      template: '"{{.Management.hookd_database_ip}}"'
   database.name:
     displayName: Database name
     computed:
