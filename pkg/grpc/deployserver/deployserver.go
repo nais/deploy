@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/nais/api/pkg/apiclient/protoapi"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 	"github.com/nais/deploy/pkg/hookd/database"
 	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
@@ -21,20 +22,22 @@ type deployServer struct {
 	dispatchServer  dispatchserver.DispatchServer
 	deploymentStore database.DeploymentStore
 	redirect        map[string]string
+	apiClient       protoapi.DeploymentsClient
 }
 
-func New(dispatchServer dispatchserver.DispatchServer, deploymentStore database.DeploymentStore, redirect map[string]string) pb.DeployServer {
+func New(dispatchServer dispatchserver.DispatchServer, deploymentStore database.DeploymentStore, redirect map[string]string, apiClient protoapi.DeploymentsClient) pb.DeployServer {
 	return &deployServer{
 		deploymentStore: deploymentStore,
 		dispatchServer:  dispatchServer,
 		redirect:        redirect,
+		apiClient:       apiClient,
 	}
 }
 
 func (ds *deployServer) uuidgen() (string, error) {
 	uuidstr, err := uuid.NewRandom()
 	if err != nil {
-		return "", status.Errorf(codes.Unavailable, err.Error())
+		return "", status.Error(codes.Unavailable, err.Error())
 	}
 	return uuidstr.String(), nil
 }
@@ -66,6 +69,11 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 	err = ds.deploymentStore.WriteDeployment(ctx, deployment)
 
 	if err == nil {
+		naisApiDeploymentID, err := ds.writeDeploymentToNaisApi(ctx, request, cluster)
+		if err != nil {
+			logger.WithError(err).Error("Write deployment to Nais API")
+		}
+
 		// Write metadata of Kubernetes resources to database
 		for i, id := range identifiers {
 			uuidstr, err := ds.uuidgen()
@@ -88,6 +96,13 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 				logger.Error(err)
 				return ErrDatabaseUnavailable
 			}
+
+			if naisApiDeploymentID != nil {
+				err := ds.writeDeploymentResourceToNaisApi(ctx, naisApiDeploymentID, id)
+				if err != nil {
+					logger.WithError(err).Error("Write deployment resources to Nais API")
+				}
+			}
 		}
 	} else {
 		logger.Error(err)
@@ -95,6 +110,53 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 	}
 
 	return nil
+}
+
+func (ds *deployServer) writeDeploymentResourceToNaisApi(ctx context.Context, naisApiDeploymentID *string, meta k8sutils.Identifier) error {
+	_, err := ds.apiClient.CreateDeploymentK8SResource(ctx, protoapi.CreateDeploymentK8SResourceRequest_builder{
+		DeploymentId: naisApiDeploymentID,
+		Group:        &meta.Group,
+		Version:      &meta.Version,
+		Kind:         &meta.Kind,
+		Name:         &meta.Name,
+		Namespace:    &meta.Namespace,
+	}.Build())
+	return err
+}
+
+func (ds *deployServer) writeDeploymentToNaisApi(ctx context.Context, request *pb.DeploymentRequest, cluster string) (*string, error) {
+	reqID := request.GetID()
+	reqTeam := request.GetTeam()
+	req := protoapi.CreateDeploymentRequest_builder{
+		ExternalId:      &reqID,
+		CreatedAt:       request.GetTime(),
+		TeamSlug:        &reqTeam,
+		Repository:      request.GetRepository().FullNamePtr(),
+		EnvironmentName: &cluster,
+	}.Build()
+
+	ref := request.GetGitRefSha()
+	if ref != "" {
+		req.SetCommitSha(ref)
+	}
+
+	username := request.GetDeployerUsername()
+	if username != "" {
+		req.SetDeployerUsername(username)
+	}
+
+	triggerUrl := request.GetTriggerUrl()
+	if triggerUrl != "" {
+		req.SetTriggerUrl(triggerUrl)
+	}
+
+	resp, err := ds.apiClient.CreateDeployment(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	respID := resp.GetId()
+	return &respID, nil
 }
 
 func (ds *deployServer) Deploy(ctx context.Context, request *pb.DeploymentRequest) (*pb.DeploymentStatus, error) {

@@ -40,6 +40,8 @@ message DeploymentRequest {
     GithubRepository repository = 8;
     string GithubEnvironment = 9;
     string traceParent = 10;
+    string deployerUsername = 11;
+    string triggerUrl = 12;
 }
 
 message DeploymentStatus {

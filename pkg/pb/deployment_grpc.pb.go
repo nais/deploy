@@ -26,8 +26,12 @@ const (
 // DispatchClient is the client API for Dispatch service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// This service is used by deployd.
 type DispatchClient interface {
+	// Continuous streaming of deployments that should be processed by deployd.
 	Deployments(ctx context.Context, in *GetDeploymentOpts, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DeploymentRequest], error)
+	// Deployd returns back statuses for deploys using this API.
 	ReportStatus(ctx context.Context, in *DeploymentStatus, opts ...grpc.CallOption) (*ReportStatusOpts, error)
 }
 
@@ -71,8 +75,12 @@ func (c *dispatchClient) ReportStatus(ctx context.Context, in *DeploymentStatus,
 // DispatchServer is the server API for Dispatch service.
 // All implementations must embed UnimplementedDispatchServer
 // for forward compatibility.
+//
+// This service is used by deployd.
 type DispatchServer interface {
+	// Continuous streaming of deployments that should be processed by deployd.
 	Deployments(*GetDeploymentOpts, grpc.ServerStreamingServer[DeploymentRequest]) error
+	// Deployd returns back statuses for deploys using this API.
 	ReportStatus(context.Context, *DeploymentStatus) (*ReportStatusOpts, error)
 	mustEmbedUnimplementedDispatchServer()
 }
@@ -170,6 +178,8 @@ const (
 // DeployClient is the client API for Deploy service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// This service is used by end-users in their CI pipelines.
 type DeployClient interface {
 	Deploy(ctx context.Context, in *DeploymentRequest, opts ...grpc.CallOption) (*DeploymentStatus, error)
 	Status(ctx context.Context, in *DeploymentRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DeploymentStatus], error)
@@ -215,6 +225,8 @@ type Deploy_StatusClient = grpc.ServerStreamingClient[DeploymentStatus]
 // DeployServer is the server API for Deploy service.
 // All implementations must embed UnimplementedDeployServer
 // for forward compatibility.
+//
+// This service is used by end-users in their CI pipelines.
 type DeployServer interface {
 	Deploy(context.Context, *DeploymentRequest) (*DeploymentStatus, error)
 	Status(*DeploymentRequest, grpc.ServerStreamingServer[DeploymentStatus]) error

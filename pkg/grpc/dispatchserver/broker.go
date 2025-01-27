@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nais/api/pkg/apiclient/protoapi"
 	"github.com/nais/deploy/pkg/hookd/database"
 	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
 	"github.com/nais/deploy/pkg/hookd/metrics"
@@ -58,15 +59,19 @@ func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.Depl
 	err := s.db.WriteDeploymentStatus(ctx, dbStatus)
 	if err != nil {
 		if database.IsErrForeignKeyViolation(err) {
-			return status.Errorf(codes.FailedPrecondition, err.Error())
+			return status.Error(codes.FailedPrecondition, err.Error())
 		}
 		return status.Errorf(codes.Unavailable, "write deployment status to database: %s", err)
 	}
 
 	metrics.UpdateQueue(st)
-
 	logger := log.WithFields(st.LogFields())
 	logger.Debugf("Saved deployment status in database")
+
+	err = s.writeDeploymentStatusToNaisApi(ctx, st)
+	if err != nil {
+		logger.WithError(err).Errorf("Write deployment status to Nais API")
+	}
 
 	if st.GetState().Finished() {
 		deployID := st.GetRequest().GetID()
@@ -80,4 +85,35 @@ func (s *dispatchServer) HandleDeploymentStatus(ctx context.Context, st *pb.Depl
 	}
 
 	return nil
+}
+
+func (s *dispatchServer) writeDeploymentStatusToNaisApi(ctx context.Context, status *pb.DeploymentStatus) error {
+	reqID := status.GetRequest().GetID()
+	msg := status.GetMessage()
+	_, err := s.apiClient.CreateDeploymentStatus(ctx, protoapi.CreateDeploymentStatusRequest_builder{
+		ExternalDeploymentId: &reqID,
+		CreatedAt:            status.GetTime(),
+		State:                convertDeploymentState(status.GetState()),
+		Message:              &msg,
+	}.Build())
+	return err
+}
+
+func convertDeploymentState(deploymentState pb.DeploymentState) *protoapi.DeploymentState {
+	ret := protoapi.DeploymentState_pending
+	switch deploymentState {
+	case pb.DeploymentState_success:
+		ret = protoapi.DeploymentState_success
+	case pb.DeploymentState_error:
+		ret = protoapi.DeploymentState_error
+	case pb.DeploymentState_failure:
+		ret = protoapi.DeploymentState_failure
+	case pb.DeploymentState_inactive:
+		ret = protoapi.DeploymentState_inactive
+	case pb.DeploymentState_in_progress:
+		ret = protoapi.DeploymentState_in_progress
+	case pb.DeploymentState_queued:
+		ret = protoapi.DeploymentState_queued
+	}
+	return &ret
 }
