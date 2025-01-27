@@ -40,6 +40,16 @@ if [ -n "$IMAGE" ]; then
     yq w --inplace "$VARS" image "$IMAGE"
 fi
 
+if [ -n "$DEPLOY_SERVER" ]; then
+  echo "::notice ::DEPLOY_SERVER is deprecated and should not be set, please remove from your workflow"
+fi
+
+echo ::group::wget
+wget https://storage.googleapis.com/github-deploy-data/$GITHUB_REPOSITORY_OWNER.json --output-document deploy.json
+cat deploy.json
+echo ::endgroup::
+
+export DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < deploy.json)
 
 # if no apikey is set, use use the id-token to get a jwt token for the deploy CLI
 if [ -z "$APIKEY" ]; then
