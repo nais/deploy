@@ -1,6 +1,6 @@
 FROM golang:1.22-alpine as builder
 
-RUN apk add --no-cache git make curl wget
+RUN apk add --no-cache git make curl
 ENV GOOS=linux
 ENV CGO_ENABLED=0
 
@@ -19,6 +19,6 @@ RUN make deploy-alpine
 FROM alpine:3
 
 WORKDIR /app
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates wget
 COPY --from=builder /src/bin/deploy .
 CMD ["/app/deploy"]
