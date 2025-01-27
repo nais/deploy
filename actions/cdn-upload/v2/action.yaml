@@ -31,10 +31,10 @@ inputs:
     default: ""
   project_id:
     description: "Google Cloud project ID where buckets are hosted"
-    required: true
+    required: false
   identity_provider:
     description: "Google Workload Identity Provider"
-    required: true
+    required: false
 
 outputs:
   uploaded:
@@ -79,36 +79,14 @@ runs:
           echo "$prefix-$truncatedTenantTeam-$hash"
         }
 
-        principal=$(slug_hash_prefix_truncate ${{ inputs.team }} "cdn" 30)
         bucket_name=$(slug_hash_prefix_truncate "${{ inputs.tenant }}-${{ inputs.team }}" "nais-cdn" 63)
-
-        echo "SA_EMAIL=${principal}@${{ inputs.project_id }}.iam.gserviceaccount.com" >> $GITHUB_ENV
         echo "BUCKET_NAME=${bucket_name}" >> $GITHUB_ENV
 
-    # Authenticate with Google Cloud using Workload Identity Federation
-    - id: "auth"
-      name: "Authenticate to Google Cloud"
-      uses: "google-github-actions/auth@v2"
+    - uses: nais/login@v0
       with:
-        workload_identity_provider: ${{ inputs.identity_provider }}
-        service_account: ${{ env.SA_EMAIL }}
-        token_format: "access_token"
-
-    - name: "Handle authentication failure"
-      if: ${{ failure() && steps.auth.outcome == 'failure' }}
-      shell: bash
-      run: |
-        cat <<EOF
-        ::error ::Failed to authenticate to Google Cloud.
-        EOF
-
-        echo "Ensure that your team has write access to the GitHub repository." >> $GITHUB_STEP_SUMMARY
-        echo "Ensure that you grant the following permissions in your workflow:" >> $GITHUB_STEP_SUMMARY
-        echo '```yaml' >> $GITHUB_STEP_SUMMARY
-        echo "permissions:" >> $GITHUB_STEP_SUMMARY
-        echo "   contents: read" >> $GITHUB_STEP_SUMMARY
-        echo "   id-token: write" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
+        team: "${{ inputs.team }}"
+        project_id: ${{ inputs.project_id }}
+        identity_provider: ${{ inputs.identity_provider }}
 
     # Upload files to Google Cloud Storage Bucket connected to CDN
     - id: "upload-file"

@@ -26,10 +26,10 @@ inputs:
     default: ''
   project_id:
     description: "Google Cloud project ID where buckets are hosted"
-    required: true
+    required: false
   identity_provider:
     description: "Google Workload Identity Provider"
-    required: true
+    required: false
 
 outputs:
   url:
