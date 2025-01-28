@@ -87,6 +87,7 @@ runs:
         team: "${{ inputs.team }}"
         project_id: ${{ inputs.project_id }}
         identity_provider: ${{ inputs.identity_provider }}
+        prefix: "cdn"
 
     # Upload files to Google Cloud Storage Bucket connected to CDN
     - id: "upload-file"
