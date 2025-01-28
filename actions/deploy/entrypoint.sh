@@ -51,8 +51,8 @@ WGET_EXIT_CODE=$?
 # If wget fails, then we fallthrough and assume that we are test-nais (all ohter GITHUB_REPOSITYR_OWNERS have a 1-1 with a var.tenant_name in terraform)
 # This is because test-nais uses some other github_repository_owner (per org that is testing!) that we don't know about
 if [ $WGET_EXIT_CODE -ne 0 ]; then
-    echo "failed using wget "
-    WGET_OUTPUT='{"DEPLOY_SERVER":"deploy.test-nais.cloud.nais.io:443","NAIS_MANAGEMENT_PROJECT_ID":"nais-management-ddba","NAIS_WORKLOAD_IDENTITY_PROVIDER":"projects/636929582051/locations/global/workloadIdentityPools/test-nais-identity-pool/providers/github-oidc-provider"}'
+    echo "failed getting deploy_data, using fallback (you are now in test-nais!)"
+    WGET_OUTPUT=$(wget -q -O - https://storage.googleapis.com/github-deploy-data/test-nais.json 2>/dev/null)
 fi
 
 echo "$WGET_OUTPUT" > deploy.json
