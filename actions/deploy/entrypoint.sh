@@ -40,21 +40,20 @@ if [ -n "$IMAGE" ]; then
     yq w --inplace "$VARS" image "$IMAGE"
 fi
 
-if [ -n "$DEPLOY_SERVER" ]; then
-  echo "::notice ::DEPLOY_SERVER is deprecated and should not be set, please remove from your workflow"
+if [ -z "$DEPLOY_SERVER" ]; then
+    echo ::group::wget
+    wget https://storage.googleapis.com/github-deploy-data/$GITHUB_REPOSITORY_OWNER.json --output-document deploy.json
+    cat deploy.json
+
+    #this is a newline!
+    echo
+    echo ::endgroup::
+    export DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < deploy.json)
 fi
 
-echo ::group::wget
-wget https://storage.googleapis.com/github-deploy-data/$GITHUB_REPOSITORY_OWNER.json --output-document deploy.json
-cat deploy.json
-
-#this is a newline!
-echo
-echo ::endgroup::
-
-export DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < deploy.json)
-
 # if no apikey is set, use use the id-token to get a jwt token for the deploy CLI
+# This is a bug, the security level of our ci stuff is at the same level as an apikey here since we offer that
+# in addition to federated workload identity
 if [ -z "$APIKEY" ]; then
     if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
         echo "Missing id-token permissions. This must be set either globally in the workflow, or for the specific job performing the deploy."
