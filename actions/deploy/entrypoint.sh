@@ -54,6 +54,7 @@ fi
 # if no apikey is set, use use the id-token to get a jwt token for the deploy CLI
 # This is a bug, the security level of our ci stuff is at the same level as an apikey here since we offer that
 # in addition to federated workload identity
+
 if [ -z "$APIKEY" ]; then
     if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
         echo "Missing id-token permissions. This must be set either globally in the workflow, or for the specific job performing the deploy."
@@ -66,6 +67,8 @@ if [ -z "$APIKEY" ]; then
     jwt=$(echo "$payload" | jq -r '.value')
 
     export GITHUB_TOKEN="$jwt"
+else
+    echo "::notice ::APIKEY IS DEPRECATED, PLEASE USE WORKLOAD IDENTITY, For more info see https://doc.nais.io/build/how-to/build-and-deploy and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
 fi
 
 export ACTIONS="true"
