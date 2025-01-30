@@ -43,12 +43,15 @@ fi
 if [ -z "$DEPLOY_SERVER" ]; then
     echo ::group::wget
     wget https://storage.googleapis.com/github-deploy-data/$GITHUB_REPOSITORY_OWNER.json --output-document deploy.json
+    WGET_EXIT_CODE=$?
     cat deploy.json
 
-    #this is a newline!
     echo
     echo ::endgroup::
-    export DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < deploy.json)
+    if [ $WGET_EXIT_CODE -eq 0 ]; then
+	DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < deploy.json)
+    fi
+
 fi
 
 # if no apikey is set, use use the id-token to get a jwt token for the deploy CLI
