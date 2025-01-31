@@ -14,7 +14,7 @@ require (
 	github.com/jackc/pgx/v4 v4.18.2
 	github.com/lestrrat-go/jwx/v2 v2.0.21
 	github.com/lib/pq v1.10.9
-	github.com/nais/api/pkg/apiclient v0.0.0-20250128091125-da8997435cd0
+	github.com/nais/api/pkg/apiclient v0.0.0-20250131144942-6e5893ff46b1
 	github.com/nais/liberator v0.0.0-20240304153811-0ce820054e73
 	github.com/prometheus/client_golang v1.16.0
 	github.com/sirupsen/logrus v1.9.3

@@ -349,6 +349,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/nais/api/pkg/apiclient v0.0.0-20250128091125-da8997435cd0 h1:x7OCiGd4izlRe6vV4bVna/pJKoZSRLI+TWPC+bR3LyQ=
 github.com/nais/api/pkg/apiclient v0.0.0-20250128091125-da8997435cd0/go.mod h1:B4YXj9CpfjDwrFrgp/y4bbkmkzhdGxmUZPdzx7XnkrU=
+github.com/nais/api/pkg/apiclient v0.0.0-20250131144942-6e5893ff46b1 h1:HCDOKGSydFpoF+sOP48qZoNURXo5KIHVRBQKBLCqpAU=
+github.com/nais/api/pkg/apiclient v0.0.0-20250131144942-6e5893ff46b1/go.mod h1:B4YXj9CpfjDwrFrgp/y4bbkmkzhdGxmUZPdzx7XnkrU=
 github.com/nais/liberator v0.0.0-20240304153811-0ce820054e73 h1:BgKMybHE+cfRy86/Yh7A9CjxyjA9+kXyWHT861RGXl0=
 github.com/nais/liberator v0.0.0-20240304153811-0ce820054e73/go.mod h1:cWThp1WBBbkRFhMI2DQMvBTTEN+6GPzmmh+Xjv8vffE=
 github.com/onsi/ginkgo/v2 v2.11.0 h1:WgqUCUt/lT6yXoQ8Wef0fsNn5cAuMK7+KT9UFRz2tcU=
