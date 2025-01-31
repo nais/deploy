@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nais/api/pkg/apiclient"
 	presharedkey_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/presharedkey"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/pb"
@@ -43,7 +44,11 @@ func TestInterceptors(t *testing.T) {
 	deploymentStore.On("WriteDeploymentStatus", mock.Anything, mock.Anything).Return(nil)
 	deploymentStore.On("Deployment", mock.Anything, mock.Anything).Return(mockDeployment, nil)
 
-	ds := New(&deploymentStore)
+	mockApiClients, mockApiServer := apiclient.NewMockClient(t)
+
+	mockApiServer.Deployments.EXPECT().CreateDeploymentStatus(mock.Anything, mock.Anything).Return(nil, nil)
+
+	ds := New(&deploymentStore, mockApiClients.Deployments())
 
 	presharedkeyInterceptor := &presharedkey_interceptor.ServerInterceptor{
 		Keys: []string{CorrectPassword},

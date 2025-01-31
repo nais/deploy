@@ -13,13 +13,7 @@ import (
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
-	"github.com/nais/deploy/pkg/telemetry"
-	"github.com/nais/liberator/pkg/conftools"
-	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
-
+	"github.com/nais/api/pkg/apiclient"
 	"github.com/nais/deploy/pkg/grpc/deployserver"
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 	auth_interceptor "github.com/nais/deploy/pkg/grpc/interceptor/auth"
@@ -32,9 +26,15 @@ import (
 	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/deploy/pkg/hookd/middleware"
 	"github.com/nais/deploy/pkg/logging"
-	"github.com/nais/deploy/pkg/naisapi"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/nais/deploy/pkg/telemetry"
 	"github.com/nais/deploy/pkg/version"
+	"github.com/nais/liberator/pkg/conftools"
+	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 )
 
 var maskedConfig = []string{
@@ -171,13 +171,28 @@ func run() error {
 	return nil
 }
 
+func newApiClient(target string, insecureConnection bool) (*apiclient.APIClient, error) {
+	opts := []grpc.DialOption{}
+	if insecureConnection {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	return apiclient.New(target, opts...)
+}
+
 func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys database.ApiKeyStore) (*grpc.Server, dispatchserver.DispatchServer, error) {
 	clusterRedirects, err := parseKeyVal(cfg.ClusterMigrationRedirect)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to parse cluster migration redirects: %v", err)
 	}
-	dispatchServer := dispatchserver.New(db)
-	deployServer := deployserver.New(dispatchServer, db, clusterRedirects)
+
+	apiClient, err := newApiClient(cfg.NaisAPIAddress, cfg.NaisAPIInsecureConnection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to set up nais-api client: %w", err)
+	}
+
+	dispatchServer := dispatchserver.New(db, apiClient.Deployments())
+	deployServer := deployserver.New(dispatchServer, db, clusterRedirects, apiClient.Deployments())
 	unaryInterceptors := make([]grpc.UnaryServerInterceptor, 0)
 	streamInterceptors := make([]grpc.StreamServerInterceptor, 0)
 
@@ -204,11 +219,7 @@ func startGrpcServer(cfg config.Config, db database.DeploymentStore, apikeys dat
 				return nil, nil, fmt.Errorf("unable to set up github validator: %w", err)
 			}
 
-			apiClient, err := naisapi.NewClient(cfg.NaisAPIAddress, cfg.NaisAPIInsecureConnection)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unable to set up nais-api client: %w", err)
-			}
-			authInterceptor := auth_interceptor.NewServerInterceptor(apikeys, ghValidator, apiClient)
+			authInterceptor := auth_interceptor.NewServerInterceptor(apikeys, ghValidator, apiClient.Teams())
 
 			interceptor.Add(pb.Deploy_ServiceDesc.ServiceName, authInterceptor)
 			log.Infof("Authentication enabled for deployment requests")

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/nais/api/pkg/apiclient/protoapi"
 	"github.com/nais/deploy/pkg/hookd/database"
 	database_mapper "github.com/nais/deploy/pkg/hookd/database/mapper"
 	"github.com/nais/deploy/pkg/hookd/metrics"
@@ -35,6 +36,7 @@ type dispatchServer struct {
 	traceSpans         map[string]trace.Span
 	traceSpansLock     sync.RWMutex
 	db                 database.DeploymentStore
+	apiClient          protoapi.DeploymentsClient
 }
 
 var _ DispatchServer = &dispatchServer{}
@@ -44,12 +46,13 @@ type requestWithWait struct {
 	wait    chan error
 }
 
-func New(db database.DeploymentStore) DispatchServer {
+func New(db database.DeploymentStore, apiClient protoapi.DeploymentsClient) DispatchServer {
 	server := &dispatchServer{
 		onlineClustersMap: make(map[string]chan<- *requestWithWait),
 		statusStreams:     make(map[context.Context]chan<- *pb.DeploymentStatus),
 		traceSpans:        make(map[string]trace.Span),
 		db:                db,
+		apiClient:         apiClient,
 	}
 
 	return server
@@ -115,7 +118,7 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 	// invalidate older deployments
 	err := s.invalidateHistoric(stream.Context(), opts.GetCluster(), opts.GetStartupTime().AsTime())
 	if err != nil {
-		return status.Errorf(codes.Unavailable, err.Error())
+		return status.Error(codes.Unavailable, err.Error())
 	}
 
 	for {

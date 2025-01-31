@@ -8,9 +8,12 @@ import (
 	"time"
 
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/nais/api/pkg/apiclient"
+	"github.com/nais/api/pkg/apiclient/protoapi"
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/pb"
+	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -82,15 +85,24 @@ func TestServerInterceptorApiKey(t *testing.T) {
 }
 
 func TestServerInterceptorJWT(t *testing.T) {
+	apiClients, apiMocks := apiclient.NewMockClient(t)
+	apiMocks.Teams.EXPECT().
+		IsRepositoryAuthorized(mock.Anything, mock.Anything).
+		RunAndReturn(func(ctx context.Context, irar *protoapi.IsRepositoryAuthorizedRequest) (*protoapi.IsRepositoryAuthorizedResponse, error) {
+			if irar.GetTeamSlug() == "team" && irar.GetRepository() == "repo" {
+				return protoapi.IsRepositoryAuthorizedResponse_builder{IsAuthorized: true}.Build(), nil
+			}
+
+			return protoapi.IsRepositoryAuthorizedResponse_builder{IsAuthorized: false}.Build(), nil
+		})
+
 	i := &ServerInterceptor{
 		APIKeyStore: &mockAPIKeyStore{},
 		TokenValidator: &mockTokenValidator{
 			repo:  "repo",
 			valid: "valid",
 		},
-		TeamsClient: &mockTeamsClient{
-			authorized: map[string]string{"repo": "team"},
-		},
+		TeamsClient: apiClients.Teams(),
 	}
 
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
@@ -174,14 +186,6 @@ func (m *mockTokenValidator) Validate(ctx context.Context, token string) (jwt.To
 	}
 
 	return jwt.NewBuilder().Claim("repository", m.repo).Build()
-}
-
-type mockTeamsClient struct {
-	authorized map[string]string
-}
-
-func (m *mockTeamsClient) IsAuthorized(ctx context.Context, repo, team string) (bool, error) {
-	return m.authorized[repo] == team, nil
 }
 
 func handler(ctx context.Context, req any) (any, error) {
