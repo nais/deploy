@@ -17,7 +17,7 @@ require (
 	github.com/nais/liberator v0.0.0-20240304153811-0ce820054e73
 	github.com/prometheus/client_golang v1.16.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.10.0
 	github.com/vektra/mockery/v2 v2.38.0
