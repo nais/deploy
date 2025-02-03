@@ -10,7 +10,6 @@ import (
 	chi_middleware "github.com/go-chi/chi/middleware"
 	gh "github.com/google/go-github/v41/github"
 	api_v1_apikey "github.com/nais/deploy/pkg/hookd/api/v1/apikey"
-	api_v1_deployment "github.com/nais/deploy/pkg/hookd/api/v1/deployment"
 	api_v1_provision "github.com/nais/deploy/pkg/hookd/api/v1/provision"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/hookd/logproxy"
@@ -27,7 +26,6 @@ type Config struct {
 	ApiKeyStore           database.ApiKeyStore
 	BaseURL               string
 	DispatchServer        dispatchserver.DispatchServer
-	DeploymentStore       database.DeploymentStore
 	InstallationClient    *gh.Client
 	MetricsPath           string
 	PSKValidator          func(http.Handler) http.Handler
@@ -47,10 +45,6 @@ func New(cfg Config) chi.Router {
 	provisionHandler := &api_v1_provision.Handler{
 		APIKeyStorage: cfg.ApiKeyStore,
 		SecretKey:     cfg.ProvisionKey,
-	}
-
-	deploymentHandler := &api_v1_deployment.Handler{
-		DeploymentStore: cfg.DeploymentStore,
 	}
 
 	goneHandler := func(w http.ResponseWriter, _ *http.Request) {
@@ -105,7 +99,6 @@ func New(cfg Config) chi.Router {
 				r.Use(cfg.PSKValidator)
 				r.Get("/apikey/{team}", apiKeyHandler.GetTeamApiKey)
 				r.Post("/apikey/{team}", apiKeyHandler.RotateTeamApiKey)
-				r.Get("/deployments", deploymentHandler.Deployments)
 			})
 		}
 	})

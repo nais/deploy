@@ -143,7 +143,6 @@ func run() error {
 	router := api.New(api.Config{
 		ApiKeyStore:           db,
 		BaseURL:               cfg.BaseURL,
-		DeploymentStore:       db,
 		DispatchServer:        dispatchServer,
 		MetricsPath:           cfg.MetricsPath,
 		PSKValidator:          middleware.PskValidatorMiddleware(cfg.FrontendKeys),
