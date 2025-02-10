@@ -13,6 +13,7 @@ import (
 const (
 	DeployClientVersion  = "deploy.nais.io/client-version"
 	GithubWorkflowRunURL = "deploy.nais.io/github-workflow-run-url"
+	CommitRef            = "deploy.nais.io/github-sha"
 )
 
 func InjectAnnotations(resource json.RawMessage, annotations map[string]string) (json.RawMessage, error) {

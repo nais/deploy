@@ -12,7 +12,7 @@ func MakeDeploymentRequest(cfg Config, deadline time.Time, kubernetes *pb.Kubern
 	return &pb.DeploymentRequest{
 		Cluster:           cfg.Cluster,
 		Deadline:          pb.TimeAsTimestamp(deadline),
-		GitRefSha:         cfg.Ref,
+		GitRefSha:         annotations[CommitRef],
 		GithubEnvironment: cfg.Environment,
 		Kubernetes:        kubernetes,
 		Repository: &pb.GithubRepository{
