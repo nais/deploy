@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"math"
 	"time"
 
@@ -77,7 +76,7 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 			if errors.Is(err, jwt.ErrTokenExpired()) {
 				return nil, status.Errorf(codes.Unauthenticated, "authentication token has expired")
 			}
-			return nil, status.Errorf(codes.Unauthenticated, err.Error())
+			return nil, status.Errorf(codes.Unauthenticated, "%s", err.Error())
 		}
 
 		r, ok := t.Get("repository")
@@ -104,7 +103,7 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req inte
 		}
 		if !authorized.GetIsAuthorized() {
 			metrics.InterceptorRequest(requestTypeJWT, "repo_not_authorized")
-			return nil, status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
+			return nil, status.Errorf(codes.PermissionDenied, "repo %q not authorized by team %q", repo, team)
 		}
 
 		metrics.InterceptorRequest(requestTypeJWT, "")
@@ -188,7 +187,7 @@ func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 			if errors.Is(err, jwt.ErrTokenExpired()) {
 				return status.Errorf(codes.Unauthenticated, "authentication token has expired")
 			}
-			return status.Errorf(codes.Unauthenticated, err.Error())
+			return status.Errorf(codes.Unauthenticated, "%s", err.Error())
 		}
 
 		r, ok := t.Get("repository")
@@ -211,7 +210,7 @@ func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.Ser
 			return status.Errorf(codes.Unavailable, "something wrong happened when communicating with the teams service")
 		}
 		if !authorized.GetIsAuthorized() {
-			return status.Errorf(codes.PermissionDenied, fmt.Sprintf("repo %q not authorized by team %q", repo, team))
+			return status.Errorf(codes.PermissionDenied, "repo %q not authorized by team %q", repo, team)
 		}
 	} else {
 		auth, err := extractAuthFromContext(ss.Context())

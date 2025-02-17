@@ -203,10 +203,10 @@ func run() error {
 			fallthrough
 		case st.GetState() == pb.DeploymentState_failure:
 			metrics.DeployFailed.Inc()
-			logger.Errorf(st.GetMessage())
+			logger.Error(st.GetMessage())
 		default:
 			metrics.DeploySuccessful.Inc()
-			logger.Infof(st.GetMessage())
+			logger.Info(st.GetMessage())
 		}
 
 		_, err = grpcClient.ReportStatus(programContext, st)

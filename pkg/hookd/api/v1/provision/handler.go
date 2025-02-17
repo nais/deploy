@@ -178,7 +178,7 @@ func (h *Handler) Provision(w http.ResponseWriter, r *http.Request) {
 	response.Message = "API key provisioned successfully"
 	response.ApiKeys = []api_v1.Key{key}
 	response.render(w)
-	logger.Infof(response.Message)
+	logger.Info(response.Message)
 }
 
 func (h *Handler) validateRequest(w http.ResponseWriter, r *http.Request, logger *log.Entry, data []byte) *Request {

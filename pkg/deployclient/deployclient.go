@@ -173,7 +173,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 		if err != nil {
 			code := grpcErrorCode(err)
-			err = fmt.Errorf(formatGrpcError(err))
+			err = fmt.Errorf("%s", formatGrpcError(err))
 			if requestContext.Err() != nil {
 				requestSpan.SetStatus(ocodes.Error, requestContext.Err().Error())
 				return Errorf(ExitTimeout, "deployment timed out: %s", requestContext.Err())
@@ -210,13 +210,13 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 	// Print information to standard output
 	urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
-	log.Infof("Deployment information:")
-	log.Infof("---")
+	log.Info("Deployment information:")
+	log.Info("---")
 	log.Infof("id...........: %s", deployRequest.GetID())
 	log.Infof("tracing......: %s", cfg.TracingDashboardURL+traceID)
 	log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime(), deployRequest.Cluster))
 	log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
-	log.Infof("---")
+	log.Info("---")
 
 	// If running in GitHub actions, print a markdown summary
 	summaryFile, err := os.OpenFile(os.Getenv("GITHUB_STEP_SUMMARY"), os.O_APPEND|os.O_WRONLY, 0644)
@@ -279,16 +279,16 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 			if err != nil {
 				connectionLost = true
 				if cfg.Retry && grpcErrorRetriable(err) {
-					log.Warnf(formatGrpcError(err))
+					log.Warn(formatGrpcError(err))
 					break
 				} else {
 					summary("❌ lost connection to NAIS deploy", deployStatus.GetState(), deployStatus.GetMessage())
-					return Errorf(ExitUnavailable, formatGrpcError(err))
+					return Errorf(ExitUnavailable, "%s", formatGrpcError(err))
 				}
 			}
 			logDeployStatus(deployStatus)
 			if deployStatus.GetState() == pb.DeploymentState_inactive {
-				log.Warnf("NAIS deploy has been restarted. Re-sending deployment request...")
+				log.Warn("NAIS deploy has been restarted. Re-sending deployment request...")
 				err = sendDeploymentRequest()
 				if err != nil {
 					summary("❌ lost connection to NAIS deploy", deployStatus.GetState(), deployStatus.GetMessage())

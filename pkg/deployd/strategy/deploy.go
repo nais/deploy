@@ -101,5 +101,5 @@ func transformStrictDecodingError(resource unstructured.Unstructured, err error)
 		s.WriteString(" at " + u)
 	}
 
-	return fmt.Errorf(s.String())
+	return fmt.Errorf("%s", s.String())
 }

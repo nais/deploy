@@ -118,11 +118,11 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 				span.AddEvent(status.Message)
 				if status.GetState().IsError() {
 					span.SetStatus(codes.Error, status.Message)
-					errors <- fmt.Errorf(status.Message)
+					errors <- fmt.Errorf("%s", status.Message)
 					op.Logger.Error(status.Message)
 				} else {
 					span.SetStatus(codes.Ok, status.Message)
-					op.Logger.Infof(status.Message)
+					op.Logger.Info(status.Message)
 				}
 				status.State = pb.DeploymentState_in_progress
 				op.StatusChan <- status
