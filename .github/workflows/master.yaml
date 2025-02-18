@@ -100,6 +100,8 @@ jobs:
       hookd_chart_version: ${{ steps.package_chart.outputs.hookd_version }}
       deployd_chart_name: ${{ steps.package_chart.outputs.deployd_name }}
       deployd_chart_version: ${{ steps.package_chart.outputs.deployd_version }}
+      canary_deployer_chart_name: ${{ steps.package_chart.outputs.canary-deployer_name }}
+      canary_deployer_chart_version: ${{ steps.package_chart.outputs.canary-deployer_version }}
 
   rollout:
     runs-on: fasit-deploy
@@ -120,6 +122,12 @@ jobs:
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.deployd_chart_name }}
           version: ${{ needs.build_and_push.outputs.deployd_chart_version }}
+
+      - name: "Rollout canary-deployer"
+        uses: nais/fasit-deploy@v2 # ratchet:exclude
+        with:
+          chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.canary_deployer_chart_name }}
+          version: ${{ needs.build_and_push.outputs.canary_deployer_chart_version }}
 
   release:
     name: Release GitHub Action / binaries
