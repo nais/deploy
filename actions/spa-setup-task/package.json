@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
-    "@kubernetes/client-node": "^0.22.3",
+    "@kubernetes/client-node": "^1.0.0",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
     "yaml": "^2.6.0"
   },
