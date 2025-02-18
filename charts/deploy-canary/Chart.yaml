@@ -1,0 +1,7 @@
+apiVersion: v2
+name: deploy-canary
+sources:
+  - https://github.com/nais/helm-charts/tree/main/features/deploy-canary
+description: Canary component of the nais deploy system
+type: application
+version: 0.1.2

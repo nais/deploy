@@ -1,0 +1,69 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "deploycanary.name" . }}
+  labels:
+    {{- include "deploycanary.labels" . | nindent 4 }}
+spec:
+  schedule: "*/5 * * * *"
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  suspend: false
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            linkerd.io/inject: disabled
+          labels:
+            app: canary-deployer
+        spec:
+          volumes:
+            - name: tmp
+              emptyDir:
+                medium: Memory
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+            runAsUser: 65534
+            runAsNonRoot: true
+            runAsGroup: 65534
+            fsGroup: 65534
+          containers:
+          - image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            name: canary-deployer
+            securityContext:
+              capabilities:
+                drop:
+                  - ALL
+              seccompProfile:
+                type: RuntimeDefault
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+            env:
+              - name: DEPLOY_SERVER
+                value: {{ .Values.deploy_server }}
+              - name: CLUSTERS
+                value: {{ join " " .Values.clusters }}
+              - name: NAMESPACE
+                value: {{ .Values.namespace }}
+              - name: TIMEOUT
+                value: {{ .Values.timeout }}
+              - name: APIKEY
+                valueFrom:
+                  secretKeyRef:
+                    name: nais-verification-deploy-key
+                    key: DEPLOY_API_KEY
+            volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+              readOnly: false

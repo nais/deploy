@@ -1,0 +1,38 @@
+dependencies:
+  - allOf:
+      - hookd
+      - nais-verification
+environmentKinds:
+  - management
+values:
+  ignoredClusters:
+    config:
+      type: string_array
+  clusters:
+    description: List of clusters to deploy the canary image into
+    computed:
+      template: |
+        {{- $ignored := .Configs.ignoredClusters}}
+        {{- range eachOf .Envs "name" }}
+          {{- if not (has . $ignored) }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+  deploy_server:
+    description: Deploy server host:port pair
+    displayName: Deploy server
+    computed:
+      template: '"{{ subdomain . "deploy" }}:443"'
+  image.imagePullPolicy:
+    config:
+      type: string
+  image.repository:
+    config:
+      type: string
+  image.tag:
+    config:
+      type: string
+  timeout:
+    description: How much time the deploy system is allowed to use per deploy
+    config:
+      type: string

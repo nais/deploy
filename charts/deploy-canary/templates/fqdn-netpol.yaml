@@ -1,0 +1,21 @@
+{{- if .Capabilities.APIVersions.Has "networking.gke.io/v1alpha3" }}
+apiVersion: networking.gke.io/v1alpha3
+kind: FQDNNetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-fqdn
+  annotations:
+    fqdnnetworkpolicies.networking.gke.io/aaaa-lookups: "skip"
+spec:
+  egress:
+    - to:
+      - fqdns:
+        - {{ (split ":" .Values.deploy_server)._0 }}
+      ports:
+      - port: {{ (split ":" .Values.deploy_server)._1 }}
+        protocol: TCP
+  podSelector:
+    matchLabels:
+      app: canary-deployer
+  policyTypes:
+  - Egress
+{{- end }}

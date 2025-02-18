@@ -1,0 +1,23 @@
+# Default values for deploy-canary.
+
+imagePullSecrets: []
+
+# ignored clusters, used by fasit template
+ignoredClusters: []
+
+# list of cluster ids that canary should deploy to.
+clusters:
+  - foo
+  - bar
+
+image:
+  repository: "europe-north1-docker.pkg.dev/nais-io/nais/images/canary-deployer"
+  tag: "2024-06-17-122647-049ad8a"
+  pullPolicy: IfNotPresent
+
+deploy_server: deploy.dev-nais.cloud.nais.io:443
+
+namespace: nais-verification
+
+# How much time is the deploy system allowed to use for deploying?
+timeout: 15s
