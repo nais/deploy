@@ -26,14 +26,14 @@ jobs:
           - hookd
           - deploy
           - deployd
-          - deploy-canary
+          - canary-deployer
           - deploy-action
         include:
           - component: hookd
             chart: true
           - component: deployd
             chart: true
-          - component: deploy-canary
+          - component: canary-deployer
             chart: true
     steps:
       - uses: actions/checkout@v4 # ratchet:exclude
