@@ -16,7 +16,7 @@ spec:
   env:
     - name: DEPLOY_START
       value: "{{ now }}"
-  image: europe-north1-docker.pkg.dev/nais-io/nais/images/testapp:2025.1.9-7517fd9
+  image: europe-north1-docker.pkg.dev/nais-io/nais/images/testapp:2025.2.17-00ac06e
   liveness:
     path: /ping
   port: 8080
