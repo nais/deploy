@@ -35,7 +35,7 @@ require (
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.2
 	k8s.io/client-go v0.32.2
-	mvdan.cc/gofumpt v0.5.0
+	mvdan.cc/gofumpt v0.7.0
 	sigs.k8s.io/controller-runtime v0.20.2
 )
 
