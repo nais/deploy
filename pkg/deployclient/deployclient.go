@@ -31,6 +31,7 @@ const (
 
 var (
 	ErrResourceRequired       = errors.New("at least one Kubernetes resource is required to make sense of the deployment")
+	ErrImageRequired          = errors.New("workload-image is required when using workload-name")
 	ErrAuthRequired           = errors.New("Github token or API key required")
 	ErrClusterRequired        = errors.New("cluster required; see reference section in the documentation for available environments")
 	ErrMalformedAPIKey        = errors.New("API key must be a hex encoded string")
@@ -126,6 +127,26 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 		}
 
 		log.Infof("Detected environment '%s'", cfg.Environment)
+	}
+
+	if len(cfg.WorkloadImage) > 0 {
+		if len(cfg.WorkloadName) == 0 {
+			workloadNames := make([]string, len(resources))
+			for i := range resources {
+				workloadNames = append(workloadNames, detectWorkloadName(resources[i]))
+			}
+			if len(workloadNames) == 1 {
+				cfg.WorkloadName = workloadNames[0]
+			}
+		}
+
+		if len(cfg.WorkloadName) > 0 {
+			resource, err := buildImageResource(cfg.WorkloadName, cfg.WorkloadImage, cfg.Team)
+			if err != nil {
+				return nil, ErrorWrap(ExitInternalError, fmt.Errorf("build image resource: %w", err))
+			}
+			resources = append(resources, resource)
+		}
 	}
 
 	for i := range resources {
