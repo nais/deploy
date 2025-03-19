@@ -49,7 +49,7 @@ if [ -z "$DEPLOY_SERVER" ]; then
     echo
     echo ::endgroup::
     if [ $WGET_EXIT_CODE -eq 0 ]; then
-	export DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < deploy.json)
+	    export DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < deploy.json)
     fi
 fi
 

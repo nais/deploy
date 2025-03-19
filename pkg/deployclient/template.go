@@ -87,6 +87,28 @@ func detectNamespace(resource json.RawMessage) string {
 	return buf.Metadata.Namespace
 }
 
+func detectWorkloadName(message json.RawMessage) string {
+	type resource struct {
+		ApiVersion string `json:"apiVersion"`
+		Kind       string `json:"kind"`
+		Metadata   struct {
+			Name string `json:"name"`
+		}
+	}
+	buf := &resource{}
+	err := json.Unmarshal(message, buf)
+	if err != nil {
+		return ""
+	}
+
+	if strings.HasPrefix(buf.ApiVersion, "nais.io") {
+		if buf.Kind == "Application" || buf.Kind == "Naisjob" {
+			return buf.Metadata.Name
+		}
+	}
+	return ""
+}
+
 // Wrap JSON resources in a JSON array.
 func wrapResources(resources []json.RawMessage) (json.RawMessage, error) {
 	return json.Marshal(resources)

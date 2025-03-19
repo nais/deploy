@@ -3,6 +3,7 @@ package deployclient
 import (
 	"encoding/json"
 	"fmt"
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 	"os"
 	"strings"
 
@@ -82,6 +83,29 @@ func BuildEnvironmentAnnotations() map[string]string {
 	}
 
 	return a
+}
+
+func buildImageResource(workloadName, workloadImage, namespace string) (json.RawMessage, error) {
+	image := nais_io_v1.Image{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "Image",
+			APIVersion: "nais.io/v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      workloadName,
+			Namespace: namespace,
+		},
+		Spec: nais_io_v1.ImageSpec{
+			Image: workloadImage,
+		},
+	}
+
+	encoded, err := json.Marshal(image)
+	if err != nil {
+		return nil, err
+	}
+
+	return encoded, nil
 }
 
 func changeCause(annotations map[string]string) string {
