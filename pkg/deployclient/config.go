@@ -71,7 +71,7 @@ func InitConfig(cfg *Config) {
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
 	flag.StringVar(&cfg.VariablesFile, "vars", os.Getenv("VARS"), "File containing template variables. (env VARS)")
 	flag.BoolVar(&cfg.Wait, "wait", getEnvBool("WAIT", false), "Block until deployment reaches final state (success, failure, error). (env WAIT)")
-	flag.StringVar(&cfg.WorkloadImage, "workload-image", getEnv("WORKLOAD_IMAGE", ""), "Use this image in a companion Image resource. (env IMAGE)")
+	flag.StringVar(&cfg.WorkloadImage, "workload-image", getEnv("WORKLOAD_IMAGE", ""), "Use this image in a companion Image resource. (env WORKLOAD_IMAGE)")
 	flag.StringVar(&cfg.WorkloadName, "workload-name", os.Getenv("WORKLOAD_NAME"), "Name of workload if no resource specified. (env WORKLOAD_NAME)")
 
 	flag.Parse()
