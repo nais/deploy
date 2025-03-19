@@ -131,16 +131,25 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 
 	if len(cfg.WorkloadImage) > 0 {
 		if len(cfg.WorkloadName) == 0 {
+			log.Infof("Workload image specified, but not workload name; attempting auto-detection...")
+
 			workloadNames := make([]string, 0, len(resources))
 			for i := range resources {
 				workloadNames = append(workloadNames, detectWorkloadName(resources[i]))
 			}
+
 			if len(workloadNames) == 1 {
 				cfg.WorkloadName = workloadNames[0]
+				log.Infof("Detected workload name '%s'", cfg.WorkloadName)
+			} else if len(workloadNames) > 1 {
+				log.Warnf("Multiple workload names detected, skipping image resource generation: %v", workloadNames)
+			} else {
+				log.Warn("No workload name detected, skipping image resource generation")
 			}
 		}
 
 		if len(cfg.WorkloadName) > 0 {
+			log.Infof("Building image resource for workload %q with image %q", cfg.WorkloadName, cfg.WorkloadImage)
 			resource, err := buildImageResource(cfg.WorkloadName, cfg.WorkloadImage, cfg.Team)
 			if err != nil {
 				return nil, ErrorWrap(ExitInternalError, fmt.Errorf("build image resource: %w", err))
