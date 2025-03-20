@@ -23,9 +23,16 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 
 	if cfg.GrpcAuthentication {
 		var interceptor auth_interceptor.ClientInterceptor
-		if cfg.GithubToken != "" {
+		if cfg.GitHubBearerToken != "" && cfg.GitHubTokenURL != "" {
+			interceptor = &auth_interceptor.GitHubTokenInterceptor{
+				BearerToken: cfg.GitHubBearerToken,
+				RequireTLS:  cfg.GrpcUseTLS,
+				TokenURL:    cfg.GitHubTokenURL,
+				Team:        cfg.Team,
+			}
+		} else if cfg.GitHubToken != "" {
 			interceptor = &auth_interceptor.JWTInterceptor{
-				JWT:        cfg.GithubToken,
+				JWT:        cfg.GitHubToken,
 				RequireTLS: cfg.GrpcUseTLS,
 				Team:       cfg.Team,
 			}

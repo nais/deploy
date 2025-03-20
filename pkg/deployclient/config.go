@@ -19,7 +19,9 @@ type Config struct {
 	DeployServerURL           string
 	DryRun                    bool
 	Environment               string
-	GithubToken               string
+	GitHubToken               string
+	GitHubTokenURL            string
+	GitHubBearerToken         string
 	GrpcAuthentication        bool
 	GrpcUseTLS                bool
 	OpenTelemetryCollectorURL string
@@ -52,7 +54,9 @@ func InitConfig(cfg *Config) {
 	flag.StringVar(&cfg.DeployServerURL, "deploy-server", getEnv("DEPLOY_SERVER", DefaultDeployServer), "URL to API server. (env DEPLOY_SERVER)")
 	flag.BoolVar(&cfg.DryRun, "dry-run", getEnvBool("DRY_RUN", false), "Run templating, but don't actually make any requests. (env DRY_RUN)")
 	flag.StringVar(&cfg.Environment, "environment", os.Getenv("ENVIRONMENT"), "Environment for GitHub deployment. Autodetected from nais.yaml if not specified. (env ENVIRONMENT)")
-	flag.StringVar(&cfg.GithubToken, "github-token", os.Getenv("GITHUB_TOKEN"), "Github JWT. (env GITHUB_TOKEN)")
+	flag.StringVar(&cfg.GitHubToken, "github-token", os.Getenv("GITHUB_TOKEN"), "Deprecated. Use 'github-token-url' and 'github-bearer-token' instead. Github JWT. (env GITHUB_TOKEN)")
+	flag.StringVar(&cfg.GitHubTokenURL, "github-token-url", os.Getenv("GITHUB_TOKEN_URL"), "URL for requesting GitHub id_token. (env GITHUB_TOKEN_URL)")
+	flag.StringVar(&cfg.GitHubBearerToken, "github-bearer-token", os.Getenv("GITHUB_BEARER_TOKEN"), "Bearer token for use when requesting GitHub id_token. (env GITHUB_BEARER_TOKEN)")
 	flag.BoolVar(&cfg.GrpcAuthentication, "grpc-authentication", getEnvBool("GRPC_AUTHENTICATION", true), "Use team API key to authenticate requests. (env GRPC_AUTHENTICATION)")
 	flag.BoolVar(&cfg.GrpcUseTLS, "grpc-use-tls", getEnvBool("GRPC_USE_TLS", true), "Use encrypted connection for gRPC calls. (env GRPC_USE_TLS)")
 	flag.StringVar(&cfg.OpenTelemetryCollectorURL, "otel-collector-endpoint", getEnv("OTEL_COLLECTOR_ENDPOINT", DefaultOtelCollectorEndpoint), "OpenTelemetry collector endpoint. (env OTEL_COLLECTOR_ENDPOINT)")
@@ -139,7 +143,8 @@ func (cfg *Config) Validate() error {
 		return ErrClusterRequired
 	}
 
-	if len(cfg.APIKey) == 0 && len(cfg.GithubToken) == 0 {
+	githubAuth := len(cfg.GitHubToken) > 0 || (len(cfg.GitHubTokenURL) > 0 && len(cfg.GitHubBearerToken) > 0)
+	if len(cfg.APIKey) == 0 && !githubAuth {
 		return ErrAuthRequired
 	}
 
