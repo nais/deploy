@@ -157,7 +157,7 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 			if err != nil {
 				return nil, ErrorWrap(ExitInternalError, fmt.Errorf("build image resource: %w", err))
 			}
-			resources = append(resources, resource)
+			resources = append([]json.RawMessage{resource}, resources...)
 		}
 	}
 
