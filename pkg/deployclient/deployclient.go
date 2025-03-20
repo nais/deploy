@@ -135,7 +135,10 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 
 			workloadNames := make([]string, 0, len(resources))
 			for i := range resources {
-				workloadNames = append(workloadNames, detectWorkloadName(resources[i]))
+				workloadName := detectWorkloadName(resources[i])
+				if len(workloadName) > 0 {
+					workloadNames = append(workloadNames, workloadName)
+				}
 			}
 
 			if len(workloadNames) == 1 {
