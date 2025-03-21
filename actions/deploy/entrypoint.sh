@@ -7,6 +7,9 @@ fi
 if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
     echo "::add-mask::$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
 fi
+if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+    echo "::add-mask::$ACTIONS_ID_TOKEN_REQUEST_URL"
+fi
 
 if [ -z "$OWNER" ]; then
     OWNER=$(echo "$GITHUB_REPOSITORY" | cut -f1 -d/)
@@ -65,12 +68,8 @@ if [ -z "$APIKEY" ]; then
         exit 1
     fi
 
-    payload=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=hookd")
-    jwt=$(echo "$payload" | jq -r '.value')
-    export GITHUB_TOKEN="$jwt"
-
-    #export GITHUB_TOKEN_REQUEST_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-    #export GITHUB_TOKEN_REQUEST_URL="$ACTIONS_ID_TOKEN_REQUEST_URL"
+    export GITHUB_TOKEN_URL="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+    export GITHUB_BEARER_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_URL"
 else
     echo "::notice ::APIKEY IS DEPRECATED, PLEASE USE WORKLOAD IDENTITY, For more info see https://doc.nais.io/build/how-to/build-and-deploy and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
 fi
