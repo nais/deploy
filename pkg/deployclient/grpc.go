@@ -30,6 +30,12 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 				TokenURL:    cfg.GitHubTokenURL,
 				Team:        cfg.Team,
 			}
+		} else if cfg.GitHubToken != "" {
+			interceptor = &auth_interceptor.JWTInterceptor{
+				JWT:        cfg.GitHubToken,
+				RequireTLS: cfg.GrpcUseTLS,
+				Team:       cfg.Team,
+			}
 		} else {
 			decoded, err := hex.DecodeString(cfg.APIKey)
 			if err != nil {
