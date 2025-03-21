@@ -133,6 +133,7 @@ func (g *GitHubTokenInterceptor) Token(ctx context.Context) (string, error) {
 	// The receiving party (i.e., server) must verify the token anyway.
 	j, err := jwt.ParseString(tokenResponse.Token,
 		jwt.WithVerify(false),
+		jwt.WithAcceptableSkew(10*time.Second),
 	)
 	if err != nil {
 		return "", fmt.Errorf("parsing JWT: %w", err)
