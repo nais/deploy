@@ -48,14 +48,15 @@ fi
 if [ -z "$DEPLOY_SERVER" ]; then
     echo ::group::wget
     DEPLOY_JSON=$(mktemp)
-    wget https://storage.googleapis.com/github-deploy-data/$GITHUB_REPOSITORY_OWNER.json --output-document "$DEPLOY_JSON"
+    wget https://storage.googleapis.com/github-deploy-data/"$GITHUB_REPOSITORY_OWNER.json" --output-document "$DEPLOY_JSON"
     WGET_EXIT_CODE=$?
     cat "$DEPLOY_JSON"
 
     echo
     echo ::endgroup::
     if [ $WGET_EXIT_CODE -eq 0 ]; then
-	    export DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < "$DEPLOY_JSON")
+	    DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < "$DEPLOY_JSON")
+	    export DEPLOY_SERVER
     fi
 fi
 
