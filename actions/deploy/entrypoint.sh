@@ -77,7 +77,7 @@ if [ -z "$APIKEY" ]; then
     export GITHUB_BEARER_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
     echo "::add-mask::$GITHUB_BEARER_TOKEN"
 else
-    echo "::notice ::APIKEY IS DEPRECATED, PLEASE USE WORKLOAD IDENTITY, For more info see https://doc.nais.io/build/how-to/build-and-deploy and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
+    echo "::warning APIKEY is deprecated. Update your workflow as per https://doc.nais.io/build/how-to/build-and-deploy"
 fi
 
 export ACTIONS="true"
