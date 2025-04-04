@@ -66,8 +66,14 @@ fi
 
 if [ -z "$APIKEY" ]; then
     if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
-        echo "Missing id-token permissions. This must be set either globally in the workflow, or for the specific job performing the deploy."
-        echo "For more info see https://doc.nais.io/build/how-to/build-and-deploy and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
+        echo "::error ::Missing id-token permissions. This must be set either globally in the workflow, or for the specific job performing the deploy."
+        echo "::error ::For more info see https://doc.nais.io/build/how-to/build-and-deploy and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
+
+        echo "Ensure that you grant the following permissions in your workflow:" >> $GITHUB_STEP_SUMMARY
+        echo '```yaml' >> $GITHUB_STEP_SUMMARY
+        echo "permissions:" >> $GITHUB_STEP_SUMMARY
+        echo "   id-token: write" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
 
         exit 1
     fi
@@ -77,7 +83,7 @@ if [ -z "$APIKEY" ]; then
     export GITHUB_BEARER_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
     echo "::add-mask::$GITHUB_BEARER_TOKEN"
 else
-    echo "::warning APIKEY is deprecated. Update your workflow as per https://doc.nais.io/build/how-to/build-and-deploy"
+    echo "::warning ::APIKEY is deprecated. Update your workflow as per https://doc.nais.io/build/how-to/build-and-deploy"
 fi
 
 export ACTIONS="true"
