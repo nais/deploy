@@ -2,6 +2,7 @@
 # vi: se et:
 
 echo "::add-mask::$APIKEY"
+echo "::warning ::nais/deploy/actions/deploy@v1 is deprecated and will stop working in the future. Update your workflow as per https://doc.nais.io/build/how-to/build-and-deploy"
 
 if [ -z "$OWNER" ]; then
     export OWNER=`echo $GITHUB_REPOSITORY | cut -f1 -d/`
