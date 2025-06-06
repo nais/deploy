@@ -9,6 +9,7 @@ ingress:
 deploydPreSharedKeys: # mapped by fasit
 
 postgres:
+  active: false
   enabled: false
 
 logLinkFormatter: "GCP"

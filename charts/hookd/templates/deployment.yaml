@@ -31,7 +31,7 @@ spec:
       serviceAccountName: {{ include "hookd.name" . }}
       terminationGracePeriodSeconds: 30
       containers:
-{{- if not .Values.postgres.enabled }}
+{{- if not .Values.postgres.active }}
         - name: cloud-sql-proxy
           image: gcr.io/cloudsql-docker/gce-proxy:1.28.0 # make sure the use the latest version
           command:
@@ -81,7 +81,7 @@ spec:
           envFrom:
           - secretRef:
               name: {{ include "hookd.name" . }}
-{{- if .Values.postgres.enabled }}
+{{- if .Values.postgres.active }}
           env:
             - name: PGHOST
               value: {{ include "hookd.name" . }}-pooler.pg-{{ .Release.Namespace }}

@@ -4,8 +4,12 @@ dependencies:
 environmentKinds:
   - management
 values:
-  postgres.enabled:
+  postgres.active:
     description: Use Postgres provisioned by postgres-operator instead of CloudSQL SQLInstance
+    config:
+      type: bool
+  postgres.enabled:
+    description: Create Postgres provisioned by postgres-operator
     config:
       type: bool
   database.encryptionKey:
