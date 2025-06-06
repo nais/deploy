@@ -31,6 +31,7 @@ spec:
       serviceAccountName: {{ include "hookd.name" . }}
       terminationGracePeriodSeconds: 30
       containers:
+{{- if not .Values.postgres.enabled }}
         - name: cloud-sql-proxy
           image: gcr.io/cloudsql-docker/gce-proxy:1.28.0 # make sure the use the latest version
           command:
@@ -52,6 +53,7 @@ spec:
             requests:
               memory: "256Mi"
               cpu: "0.22"
+{{- end }}
         - name: {{ include "hookd.name" . }}
           securityContext:
             runAsNonRoot: true
@@ -79,5 +81,26 @@ spec:
           envFrom:
           - secretRef:
               name: {{ include "hookd.name" . }}
+{{- if .Values.postgres.enabled }}
+          env:
+            - name: PGHOST
+              value: {{ include "hookd.name" . }}-pooler.pg-{{ .Release.Namespace }}
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: app
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: app-owner-user.{{ include "hookd.name" . }}.credentials.postgresql.acid.zalan.do
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: app-owner-user.{{ include "hookd.name" . }}.credentials.postgresql.acid.zalan.do
+            - name: HOOKD_DATABASE_URL
+              value: postgresql://$(PGUSER):$(PGPASSWORD)@$(PGHOST):$(PGPORT)/$(PGDATABASE)
+{{- end}}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

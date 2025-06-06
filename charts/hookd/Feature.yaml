@@ -4,6 +4,10 @@ dependencies:
 environmentKinds:
   - management
 values:
+  postgres.enabled:
+    description: Use Postgres provisioned by postgres-operator instead of CloudSQL SQLInstance
+    config:
+      type: bool
   database.encryptionKey:
     description: Database encryption key used to encrypt deploy api keys
     computed:

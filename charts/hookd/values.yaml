@@ -8,6 +8,9 @@ ingress:
 
 deploydPreSharedKeys: # mapped by fasit
 
+postgres:
+  enabled: false
+
 logLinkFormatter: "GCP"
 otelExporterOtlpEndpoint: # mapped by fasit
 googleServiceAccountName: # mapped by fasit

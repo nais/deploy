@@ -1,0 +1,32 @@
+{{ if .Values.postgres.enabled }}
+---
+apiVersion: "acid.zalan.do/v1"
+kind: postgresql
+metadata:
+  name: {{ include "hookd.name" . }}
+  namespace: pg-{{ .Release.Namespace }}
+  labels:
+      {{- include "hookd.labels" . | nindent 4 }}
+    apiserver-access: enabled
+spec:
+  teamId: {{ .Release.Namespace }}
+  volume:
+    size: "5Gi"
+    storageClass: "premium-rwo"
+  numberOfInstances: 3
+  patroni:
+    synchronous_mode: true
+    synchronous_mode_strict: true
+  preparedDatabases:
+    app:
+      defaultUsers: true
+      secretNamespace: {{ .Release.Namespace }}
+  resources:
+    limits:
+      memory: "2Gi"
+    requests:
+      cpu: "300m"
+      memory: "2Gi"
+  postgresql:
+    version: "17"
+{{ end }}
