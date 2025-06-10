@@ -84,7 +84,7 @@ spec:
 {{- if .Values.postgres.active }}
           env:
             - name: PGHOST
-              value: {{ include "hookd.name" . }}-pooler.pg-{{ .Release.Namespace }}
+              value: {{ include "hookd.name" . }}.pg-{{ .Release.Namespace }}
             - name: PGPORT
               value: "5432"
             - name: PGDATABASE
