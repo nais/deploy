@@ -21,6 +21,8 @@ spec:
     app:
       defaultUsers: true
       secretNamespace: {{ .Release.Namespace }}
+      schemas:
+        public: {}
   resources:
     limits:
       memory: "2Gi"
