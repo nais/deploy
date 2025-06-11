@@ -9,6 +9,14 @@ metadata:
       {{- include "hookd.labels" . | nindent 4 }}
     apiserver-access: enabled
 spec:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: nais.io/type
+              operator: In
+              values:
+                - postgres
   teamId: {{ .Release.Namespace }}
   volume:
     size: "5Gi"
