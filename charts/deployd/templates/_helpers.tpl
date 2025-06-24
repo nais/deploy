@@ -34,7 +34,6 @@ Common labels
 helm.sh/chart: {{ include "deployd.chart" . }}
 {{ include "deployd.selectorLabels" . }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-logs.nais.io/flow-loki: "true"
 {{- end }}
 
 {{/*
@@ -43,6 +42,7 @@ Selector labels
 {{- define "deployd.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "deployd.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+logs.nais.io/flow-loki: "true"
 {{- end }}
 
 {{/*
