@@ -13,7 +13,6 @@ import (
 	ocodes "go.opentelemetry.io/otel/codes"
 	"google.golang.org/grpc/codes"
 
-	"github.com/nais/deploy/pkg/hookd/logproxy"
 	"github.com/nais/deploy/pkg/pb"
 	"github.com/nais/deploy/pkg/telemetry"
 )
@@ -242,12 +241,10 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	traceID := telemetry.TraceID(ctx)
 
 	// Print information to standard output
-	urlPrefix := "https://" + strings.Split(cfg.DeployServerURL, ":")[0]
-	log.Info("Deployment information:")
-	log.Info("---")
+	log.Infof("Deployment information:")
+	log.Infof("---")
 	log.Infof("id...........: %s", deployRequest.GetID())
-	log.Infof("tracing......: %s", cfg.TracingDashboardURL+traceID)
-	log.Infof("debug logs...: %s", logproxy.MakeURL(urlPrefix, deployRequest.GetID(), deployRequest.GetTime().AsTime(), deployRequest.Cluster))
+	log.Infof("traces......: %s", cfg.TracingDashboardURL+traceID)
 	log.Infof("deadline.....: %s", deployRequest.GetDeadline().AsTime().Local())
 	log.Info("---")
 

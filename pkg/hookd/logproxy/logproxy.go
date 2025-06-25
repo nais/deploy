@@ -35,10 +35,6 @@ type Config struct {
 
 var uuidRegex = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$")
 
-func MakeURL(baseURL, deliveryID string, timestamp time.Time, cluster string) string {
-	return fmt.Sprintf("%s/logs?delivery_id=%s&ts=%d&v=1&cluster=%s", baseURL, deliveryID, timestamp.Unix(), cluster)
-}
-
 func MakeHandler(cfg Config) http.HandlerFunc {
 	var formatterFunc func(deliveryID string, ts time.Time, version int, cluster string) (string, error)
 	if cfg.LogLinkFormatter == LogLinkFormatterGCP {
