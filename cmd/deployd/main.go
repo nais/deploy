@@ -178,7 +178,7 @@ func run() error {
 			return
 		}
 
-		logger := log.WithFields(req.LogFields())
+		logger := log.WithFields(req.LogFields()).WithField("span_id", span.SpanContext().SpanID().String()).WithField("trace_id", span.SpanContext().TraceID().String())
 
 		op := &operation.Operation{
 			Context:    ctx,
