@@ -42,7 +42,6 @@ Selector labels
 {{- define "deployd.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "deployd.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-logs.nais.io/flow-loki: "true"
 {{- end }}
 
 {{/*

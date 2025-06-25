@@ -14,6 +14,7 @@ spec:
       annotations:
         prometheus.io/path: "/metrics"
       labels:
+        logs.nais.io/flow-loki: "true"
         {{- include "deployd.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
