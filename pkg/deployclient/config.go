@@ -28,7 +28,6 @@ type Config struct {
 	PollInterval              time.Duration
 	PrintPayload              bool
 	Quiet                     bool
-	Ref                       string
 	Repository                string
 	Resource                  []string
 	Retry                     bool
@@ -61,7 +60,6 @@ func InitConfig(cfg *Config) {
 	flag.StringVar(&cfg.Owner, "owner", getEnv("OWNER", DefaultOwner), "Owner of GitHub repository. (env OWNER)")
 	flag.BoolVar(&cfg.PrintPayload, "print-payload", getEnvBool("PRINT_PAYLOAD", false), "Print templated resources to standard output. (env PRINT_PAYLOAD)")
 	flag.BoolVar(&cfg.Quiet, "quiet", getEnvBool("QUIET", false), "Suppress printing of informational messages except errors. (env QUIET)")
-	flag.StringVar(&cfg.Ref, "ref", getEnv("REF", DefaultRef), "Git commit hash, tag, or branch of the code being deployed. (env REF)")
 	flag.StringVar(&cfg.Repository, "repository", os.Getenv("REPOSITORY"), "Name of GitHub repository. (env REPOSITORY)")
 	flag.StringSliceVar(&cfg.Resource, "resource", getEnvStringSlice("RESOURCE"), "File with Kubernetes resource. Can be specified multiple times. (env RESOURCE)")
 	flag.BoolVar(&cfg.Retry, "retry", getEnvBool("RETRY", true), "Retry deploy when encountering transient errors. (env RETRY)")
