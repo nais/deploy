@@ -44,7 +44,7 @@ func NewGrpcConnection(cfg Config) (*grpc.ClientConn, error) {
 		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(interceptor))
 	}
 
-	grpcConnection, err := grpc.Dial(cfg.DeployServerURL, dialOptions...)
+	grpcConnection, err := grpc.NewClient(cfg.DeployServerURL, dialOptions...)
 	if err != nil {
 		return nil, Errorf(ExitInvocationFailure, "connect to NAIS deploy: %s", err)
 	}
