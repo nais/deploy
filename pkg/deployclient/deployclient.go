@@ -20,7 +20,6 @@ import (
 type TemplateVariables map[string]any
 
 const (
-	DefaultRef                   = "master"
 	DefaultOwner                 = "navikt"
 	DefaultDeployServer          = "deploy.nav.cloud.nais.io:443"
 	DefaultOtelCollectorEndpoint = "https://collector-internet.external.prod-gcp.nav.cloud.nais.io"
