@@ -17,7 +17,7 @@ import (
 	"github.com/nais/deploy/pkg/telemetry"
 )
 
-type TemplateVariables map[string]interface{}
+type TemplateVariables map[string]any
 
 const (
 	DefaultRef                   = "master"
@@ -109,12 +109,12 @@ func Prepare(ctx context.Context, cfg *Config) (*pb.DeploymentRequest, error) {
 	if len(cfg.Environment) == 0 {
 		log.Infof("Environment not explicitly specified; attempting auto-detection...")
 
-		namespaces := make(map[string]interface{})
+		namespaces := make(map[string]any)
 		cfg.Environment = cfg.Cluster
 
 		for i := range cfg.Resource {
 			namespace := detectNamespace(resources[i])
-			namespaces[namespace] = new(interface{})
+			namespaces[namespace] = new(any)
 		}
 
 		if len(namespaces) == 1 {

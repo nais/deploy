@@ -33,7 +33,7 @@ func (err *Error) Error() string {
 	return err.Err.Error()
 }
 
-func Errorf(exitCode ExitCode, format string, args ...interface{}) *Error {
+func Errorf(exitCode ExitCode, format string, args ...any) *Error {
 	return &Error{
 		Code: exitCode,
 		Err:  fmt.Errorf(format, args...),

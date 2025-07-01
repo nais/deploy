@@ -25,7 +25,7 @@ func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMess
 		return nil, fmt.Errorf("%s: %s", path, errMsg)
 	}
 
-	var content interface{}
+	var content any
 	messages := make([]json.RawMessage, 0)
 
 	decoder := yamlv2.NewDecoder(bytes.NewReader(templated))
