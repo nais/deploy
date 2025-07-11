@@ -249,8 +249,9 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 
 	// If running in GitHub actions, print a markdown summary
 	summaryFile, err := os.OpenFile(os.Getenv("GITHUB_STEP_SUMMARY"), os.O_APPEND|os.O_WRONLY, 0644)
+	summaryEnabled := strings.ToLower(os.Getenv("NAIS_DEPLOY_SUMMARY")) != "false"
 	summary := func(format string, a ...any) {
-		if summaryFile == nil {
+		if summaryFile == nil || !summaryEnabled {
 			return
 		}
 		_, _ = fmt.Fprintf(summaryFile, format+"\n", a...)
