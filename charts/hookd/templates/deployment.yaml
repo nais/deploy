@@ -36,7 +36,7 @@ spec:
       containers:
 {{- if not .Values.postgres.active }}
         - name: cloud-sql-proxy
-          image: gcr.io/cloudsql-docker/gce-proxy:1.28.0 # make sure the use the latest version
+          image: gcr.io/cloudsql-docker/gce-proxy:1.37.8 # make sure to use the latest version
           command:
             - "/cloud_sql_proxy"
             - "-log_debug_stdout"
