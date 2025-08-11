@@ -36,7 +36,7 @@ jobs:
           - component: canary-deployer
             chart: true
     steps:
-      - uses: actions/checkout@v4 # ratchet:exclude
+      - uses: actions/checkout@v5 # ratchet:exclude
       - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # ratchet:azure/setup-helm@v3
         if: matrix.chart
         with:
@@ -136,7 +136,7 @@ jobs:
       - build_and_push
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4 # ratchet:exclude
+      - uses: actions/checkout@v5 # ratchet:exclude
 
       - uses: actions/setup-go@v5
         with:
