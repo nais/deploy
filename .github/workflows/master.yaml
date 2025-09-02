@@ -36,8 +36,8 @@ jobs:
           - component: canary-deployer
             chart: true
     steps:
-      - uses: actions/checkout@v4 # ratchet:exclude
-      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # ratchet:azure/setup-helm@v3
+      - uses: actions/checkout@v5 # ratchet:exclude
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # ratchet:azure/setup-helm@v3
         if: matrix.chart
         with:
           version: "v3.11.1"
@@ -78,7 +78,7 @@ jobs:
       - name: "Authenticate to Google Cloud"
         if: matrix.chart && github.ref == 'refs/heads/master'
         id: "auth"
-        uses: "google-github-actions/auth@v2" # ratchet:exclude
+        uses: "google-github-actions/auth@v3" # ratchet:exclude
         with:
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: "gh-deploy@nais-io.iam.gserviceaccount.com"
@@ -136,7 +136,7 @@ jobs:
       - build_and_push
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4 # ratchet:exclude
+      - uses: actions/checkout@v5 # ratchet:exclude
 
       - uses: actions/setup-go@v5
         with:
