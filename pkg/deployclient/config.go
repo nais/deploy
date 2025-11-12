@@ -111,9 +111,12 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 
 func getEnvStringSlice(key string) []string {
 	if value, ok := os.LookupEnv(key); ok {
-		return strings.Split(value, ",")
+		parts := strings.Split(value, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		return parts
 	}
-
 	return []string{}
 }
 
