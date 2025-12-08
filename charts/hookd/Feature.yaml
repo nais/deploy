@@ -12,6 +12,10 @@ values:
     description: Create Postgres provisioned by postgres-operator
     config:
       type: bool
+  postgres.replicas:
+    description: Number of Postgres instances
+    config:
+      type: int
   database.encryptionKey:
     description: Database encryption key used to encrypt deploy api keys
     computed:

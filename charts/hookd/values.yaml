@@ -11,6 +11,7 @@ deploydPreSharedKeys: # mapped by fasit
 postgres:
   active: false
   enabled: false
+  replicas: 3
 
 logLinkFormatter: "GCP"
 otelExporterOtlpEndpoint: # mapped by fasit
