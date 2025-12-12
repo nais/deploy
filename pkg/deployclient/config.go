@@ -2,13 +2,11 @@ package deployclient
 
 import (
 	"encoding/hex"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/nais/deploy/pkg/telemetry"
 	flag "github.com/spf13/pflag"
 )
 
@@ -34,8 +32,6 @@ type Config struct {
 	RetryInterval             time.Duration
 	Team                      string
 	Traceparent               string
-	TelemetryInput            string
-	Telemetry                 *telemetry.PipelineTimings
 	Timeout                   time.Duration
 	TracingDashboardURL       string
 	Variables                 []string
@@ -65,7 +61,6 @@ func InitConfig(cfg *Config) {
 	flag.BoolVar(&cfg.Retry, "retry", getEnvBool("RETRY", true), "Retry deploy when encountering transient errors. (env RETRY)")
 	flag.StringVar(&cfg.Team, "team", os.Getenv("TEAM"), "Team making the deployment. Auto-detected from nais.yaml if possible. (env TEAM)")
 	flag.StringVar(&cfg.Traceparent, "traceparent", os.Getenv("TRACEPARENT"), "The W3C Trace Context traceparent value for the workflow run. (env TRACEPARENT)")
-	flag.StringVar(&cfg.TelemetryInput, "telemetry", os.Getenv("TELEMETRY"), "Telemetry data from CI pipeline. (env TELEMETRY)")
 	flag.DurationVar(&cfg.Timeout, "timeout", getEnvDuration("TIMEOUT", DefaultDeployTimeout), "Time to wait for successful deployment. (env TIMEOUT)")
 	flag.StringVar(&cfg.TracingDashboardURL, "tracing-dashboard-url", getEnv("TRACING_DASHBOARD_URL", DefaultTracingDashboardURL), "Base URL to Grafana tracing dashboard onto which the trace ID can be appended (env TRACING_DASHBOARD_URL)")
 	flag.StringSliceVar(&cfg.Variables, "var", getEnvStringSlice("VAR"), "Template variable in the form KEY=VALUE. Can be specified multiple times. (env VAR)")
@@ -150,11 +145,6 @@ func (cfg *Config) Validate() error {
 	_, err := hex.DecodeString(cfg.APIKey)
 	if err != nil {
 		return ErrMalformedAPIKey
-	}
-
-	cfg.Telemetry, err = telemetry.ParsePipelineTelemetry(cfg.TelemetryInput)
-	if err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidTelemetryFormat, err)
 	}
 
 	return nil

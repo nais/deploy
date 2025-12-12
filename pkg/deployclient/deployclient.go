@@ -33,7 +33,6 @@ var (
 	ErrAuthRequired           = errors.New("Github token or API key required")
 	ErrClusterRequired        = errors.New("cluster required; see reference section in the documentation for available environments")
 	ErrMalformedAPIKey        = errors.New("API key must be a hex encoded string")
-	ErrInvalidTelemetryFormat = errors.New("telemetry input format malformed")
 )
 
 type Deployer struct {
