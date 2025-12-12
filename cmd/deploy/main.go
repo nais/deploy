@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
@@ -46,14 +45,10 @@ func run() error {
 
 	err := cfg.Validate()
 	if err != nil {
-		if !errors.Is(err, deployclient.ErrInvalidTelemetryFormat) {
-			if !cfg.DryRun {
-				return deployclient.ErrorWrap(deployclient.ExitInvocationFailure, err)
-			}
-			log.Warnf("Configuration did not pass validation: %s", err)
-		} else {
-			log.Warnf("Telemetry configuration did not pass validation: %s", err)
+		if !cfg.DryRun {
+			return deployclient.ErrorWrap(deployclient.ExitInvocationFailure, err)
 		}
+		log.Warnf("Configuration did not pass validation: %s", err)
 	}
 
 	// OpenTelemetry
@@ -71,16 +66,10 @@ func run() error {
 	}()
 
 	// Inherit traceparent from pipeline, if any.
-	// If TRACEPARENT is set, ignore the TELEMETRY value.
-	// If not, start a new top-level trace using the TELEMETRY variable.
 	var span otrace.Span
 	if len(cfg.Traceparent) > 0 {
 		log.Infof("Using traceparent header %s", cfg.Traceparent)
 		ctx = telemetry.WithTraceParent(ctx, cfg.Traceparent)
-	} else if cfg.Telemetry != nil {
-		log.Infof("Importing pipeline telemetry data as this request's top-level trace")
-		ctx, span = cfg.Telemetry.StartTracing(ctx)
-		defer span.End()
 	} else {
 		log.Infof("No top-level trace detected, starting a new one.")
 	}
