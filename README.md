@@ -132,6 +132,13 @@ go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 source <(setup-envtest use -p env)
 ```
 
+Troubleshooting envtest assets:
+```
+make envtest-info
+```
+
+Docker image builds also run `make test`, which uses `setup-envtest` when available.
+
 ## Running locally
 
 For a combination of more tools running locally ([hookd](https://github.com/nais/deploy), [Console frontend](https://github.com/nais/console-frontend) and more), check out the [nais/features-dev](https://github.com/nais/features-dev) repo. 
@@ -189,7 +196,6 @@ Once the above components are running and configured, you can deploy using the f
     --wait \
 ;
 ```
-
 ```
 ./bin/deploy --resource res.yaml --cluster local --apikey 20cefcd6bd0e8b8860c4ea90e75d7123019ed7866c61bd09e23821948878a11d --deploy-server http://localhost:8080 --wait
 ```
