@@ -82,7 +82,7 @@ runs:
         bucket_name=$(slug_hash_prefix_truncate "${{ inputs.tenant }}-${{ inputs.team }}" "nais-cdn" 63)
         echo "BUCKET_NAME=${bucket_name}" >> $GITHUB_ENV
 
-    - uses: nais/login@v0
+    - uses: nais/login@v0 # ratchet:exclude
       with:
         team: "${{ inputs.team }}"
         project_id: ${{ inputs.project_id }}
@@ -91,10 +91,10 @@ runs:
 
     # Upload files to Google Cloud Storage Bucket connected to CDN
     - id: "upload-file"
-      uses: "google-github-actions/upload-cloud-storage@v2"
+      uses: "google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a" # ratchet:google-github-actions/upload-cloud-storage@v3
       with:
         path: "${{ inputs.source }}"
-        parent: '${{ inputs.source_keep_parent_name }}'
+        parent: "${{ inputs.source_keep_parent_name }}"
         destination: "${{ env.BUCKET_NAME }}/${{ inputs.team }}/${{ inputs.destination }}"
         process_gcloudignore: false
         headers: "${{ inputs.headers }}"
@@ -102,7 +102,7 @@ runs:
     # Invalidate cache if cache_invalidation is set to true
     - name: "Set up Cloud SDK"
       if: ${{ inputs.cache_invalidation == 'true' || inputs.no_cache_paths != '' }}
-      uses: "google-github-actions/setup-gcloud@v2"
+      uses: "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db" # ratchet:google-github-actions/setup-gcloud@v3
     - name: "Invalidating cache"
       if: ${{ inputs.cache_invalidation == 'true' }}
       shell: bash
