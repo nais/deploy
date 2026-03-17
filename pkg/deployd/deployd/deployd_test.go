@@ -193,9 +193,11 @@ func newTestRig() (*testRig, error) {
 
 	rig := &testRig{}
 
-	err = os.Setenv("KUBEBUILDER_ASSETS", testBinDirectory())
-	if err != nil {
-		return nil, fmt.Errorf("failed to set environment variable: %w", err)
+	if os.Getenv("KUBEBUILDER_ASSETS") == "" {
+		err = os.Setenv("KUBEBUILDER_ASSETS", testBinDirectory())
+		if err != nil {
+			return nil, fmt.Errorf("failed to set environment variable: %w", err)
+		}
 	}
 
 	rig.scheme, err = scheme.All()
