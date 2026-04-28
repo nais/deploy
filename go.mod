@@ -1,6 +1,6 @@
 module github.com/nais/deploy
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/aymerick/raymond v2.0.2+incompatible
