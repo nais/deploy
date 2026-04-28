@@ -6,10 +6,7 @@ K8S_VERSION := 1.27.1
 LAST_COMMIT = $(shell git rev-parse --short HEAD)
 VERSION ?= $(DATE)-$(LAST_COMMIT)
 LDFLAGS := -X github.com/nais/deploy/pkg/version.Revision=$(LAST_COMMIT) -X github.com/nais/deploy/pkg/version.Date=$(DATE) -X github.com/nais/deploy/pkg/version.BuildUnixTime=$(BUILDTIME)
-arch := $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
-os := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 testbin_dir := ./.testbin/
-tools_archive := kubebuilder-tools-${K8S_VERSION}-$(os)-$(arch).tar.gz
 
 .PHONY: all proto hookd deployd token-generator deploy alpine test docker upload deploy-alpine hookd-alpine deployd-alpine
 
@@ -69,13 +66,10 @@ test: kubebuilder
 migration:
 	go generate ./...
 
-kubebuilder: $(testbin_dir)/$(tools_archive)
-	tar -xzf $(testbin_dir)/$(tools_archive) --strip-components=2 -C $(testbin_dir)
-	chmod -R +x $(testbin_dir)
-
-$(testbin_dir)/$(tools_archive):
+kubebuilder:
 	mkdir -p $(testbin_dir)
-	curl -L -O --output-dir $(testbin_dir) "https://storage.googleapis.com/kubebuilder-tools/$(tools_archive)"
+	cp $$(GOFLAGS="" go run sigs.k8s.io/controller-runtime/tools/setup-envtest@latest use $(K8S_VERSION) --bin-dir $(testbin_dir) -p path)/* $(testbin_dir)/
+	chmod -R +x $(testbin_dir)
 
 check:
 	go run honnef.co/go/tools/cmd/staticcheck ./...
