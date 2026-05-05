@@ -34,21 +34,21 @@ spec:
       http:
         paths:
           - path: /api
-            pathType: PathPrefix
+            pathType: Prefix
             backend:
               service:
                 name: {{ include "hookd.name" . }}
                 port:
                   number: 80
           - path: /logs
-            pathType: PathPrefix
+            pathType: Prefix
             backend:
               service:
                 name: {{ include "hookd.name" . }}
                 port:
                   number: 80
           - path: /events
-            pathType: PathPrefix
+            pathType: Prefix
             backend:
               service:
                 name: {{ include "hookd.name" . }}
