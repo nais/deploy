@@ -5,7 +5,6 @@ dependencies:
 environmentKinds:
   - tenant
   - onprem
-  - legacy
 values:
   caBundle:
     description: Mounts NAV CA bundle
