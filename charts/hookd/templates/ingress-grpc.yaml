@@ -35,10 +35,9 @@ metadata:
   annotations:
     haproxy.org/backend-config-snippet: |
       retries 2
-      default-server proto h2
-    haproxy.org/timeout-client: "86400s"
+      default-server proto h2 inter 10s fastinter 5s downinter 15s
+      timeout tunnel 86400s
     haproxy.org/timeout-server: "86400s"
-    haproxy.org/timeout-tunnel: "86400s"
 spec:
   ingressClassName: external-haproxy
   rules:
