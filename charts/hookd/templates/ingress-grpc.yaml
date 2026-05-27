@@ -37,6 +37,7 @@ metadata:
       retries 2
       default-server proto h2 inter 10s fastinter 5s downinter 15s
       timeout tunnel 86400s
+      # Override default setting of aggressive for GRPC-connections
       http-reuse never
     haproxy.org/timeout-server: "86400s"
 spec:
