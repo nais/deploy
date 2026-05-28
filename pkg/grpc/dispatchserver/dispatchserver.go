@@ -129,6 +129,9 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 		case req := <-c:
 			err := stream.Send(req.request)
 			req.wait <- err
+			if err != nil {
+				return err
+			}
 		case <-time.After(30 * time.Minute):
 			log.Warnf("Connection from cluster '%s' timed out", opts.Cluster)
 			return fmt.Errorf("timeout")
