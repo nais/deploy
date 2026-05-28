@@ -16,9 +16,83 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+type erringDeploymentsStream struct {
+	ctx context.Context
+}
+
+func (s *erringDeploymentsStream) Send(*pb.DeploymentRequest) error {
+	return status.Error(codes.Internal, "stream terminated by RST_STREAM with error code: INTERNAL_ERROR")
+}
+
+func (s *erringDeploymentsStream) Context() context.Context { return s.ctx }
+
+func (s *erringDeploymentsStream) SetHeader(metadata.MD) error { return nil }
+
+func (s *erringDeploymentsStream) SendHeader(metadata.MD) error { return nil }
+
+func (s *erringDeploymentsStream) SetTrailer(metadata.MD) {}
+
+func (s *erringDeploymentsStream) SendMsg(any) error { return nil }
+
+func (s *erringDeploymentsStream) RecvMsg(any) error { return nil }
+
+func TestDeploymentsUnregistersClusterWhenSendFails(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, _ = telemetry.New(ctx, "test", "")
+
+	deploymentStore := database.MockDeploymentStore{}
+	deploymentStore.On("HistoricDeployments", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+
+	mockApiClients, _ := apiclient.NewMockClient(t)
+	ds := New(&deploymentStore, mockApiClients.Deployments()).(*dispatchServer)
+
+	stream := &erringDeploymentsStream{ctx: ctx}
+	done := make(chan error, 1)
+	go func() {
+		done <- ds.Deployments(&pb.GetDeploymentOpts{Cluster: "dev", StartupTime: pb.TimeAsTimestamp(time.Now())}, stream)
+	}()
+
+	requireEventually(t, time.Second, func() bool {
+		return len(ds.onlineClusters()) == 1
+	})
+
+	err := ds.SendDeploymentRequest(ctx, &pb.DeploymentRequest{Cluster: "dev"})
+	if status.Code(err) != codes.Internal {
+		t.Fatalf("expected send error to be propagated as Internal, got %v", err)
+	}
+
+	requireEventually(t, time.Second, func() bool {
+		return len(ds.onlineClusters()) == 0
+	})
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected Deployments to exit with send error")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Deployments did not exit after stream Send failed")
+	}
+}
+
+func requireEventually(t *testing.T, timeout time.Duration, condition func() bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("condition was not satisfied before timeout")
+}
 
 func bufDialer(b *bufconn.Listener) func(context.Context, string) (net.Conn, error) {
 	return func(context.Context, string) (net.Conn, error) {
