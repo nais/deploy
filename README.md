@@ -147,7 +147,7 @@ psql -U postgres -h localhost -p 5432 hookd <<< EOF
 insert into
     apikey (key, team, created, expires)
     values ('1608bf2caf81bb68d50bfb094a8e0d90de2b27260767a64a0103c6255077eb446f4fabcb7ae94514380b4fdc006bd50dfe2ea73f4b60c0c55891a60f',
-            'aura', now(),now()+interval '10 years');
+            'nais', now(),now()+interval '10 years');
 EOF
 ```
 
