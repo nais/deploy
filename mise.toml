@@ -1,5 +1,8 @@
 [tools]
 go = "1.26"
+protoc = "latest"
+protoc-gen-go = "1.36.11"
+protoc-gen-go-grpc = "latest"
 
 [tasks.build]
 description = "Build all binaries (hookd, deployd, deploy)"

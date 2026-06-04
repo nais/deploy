@@ -31,3 +31,99 @@ url = "https://dl.google.com/go/go1.26.4.darwin-amd64.tar.gz"
 [tools.go."platforms.windows-x64"]
 checksum = "sha256:3ca8fb4630b07c419cbdd51f754e31363cfcfb83b3a5354d9e895c90be2cc345"
 url = "https://dl.google.com/go/go1.26.4.windows-amd64.zip"
+
+[[tools.protoc]]
+version = "34.1"
+backend = "aqua:protocolbuffers/protobuf/protoc"
+
+[tools.protoc."platforms.linux-arm64"]
+checksum = "sha256:31c5e9e3c7bf013cf41fb97765ee255c140024a6b175b6cc9b64beddd7c23ba7"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-linux-aarch_64.zip"
+
+[tools.protoc."platforms.linux-arm64-musl"]
+checksum = "sha256:31c5e9e3c7bf013cf41fb97765ee255c140024a6b175b6cc9b64beddd7c23ba7"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-linux-aarch_64.zip"
+
+[tools.protoc."platforms.linux-x64"]
+checksum = "sha256:af27ea66cd26938fe48587804ca7d4817457a08350021a1c6e23a27ccc8c6904"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-linux-x86_64.zip"
+
+[tools.protoc."platforms.linux-x64-musl"]
+checksum = "sha256:af27ea66cd26938fe48587804ca7d4817457a08350021a1c6e23a27ccc8c6904"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-linux-x86_64.zip"
+
+[tools.protoc."platforms.macos-arm64"]
+checksum = "sha256:2c7e92b8b578916937df132b3032e2e8e6c170862ecf7a8333094a6f3d03650c"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-osx-aarch_64.zip"
+
+[tools.protoc."platforms.macos-x64"]
+checksum = "sha256:ab124429c1f49951f03b6c0c0e911fec04e2c7c20de5c935e0cde7353bbd016c"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-osx-x86_64.zip"
+
+[tools.protoc."platforms.windows-x64"]
+checksum = "sha256:6d7ebdc75e9c1f0026d4fb28f17ef1d0aae77d36744d83a9e052d79ba493724f"
+url = "https://github.com/protocolbuffers/protobuf/releases/download/v34.1/protoc-34.1-win64.zip"
+
+[[tools.protoc-gen-go]]
+version = "1.36.11"
+backend = "aqua:protocolbuffers/protobuf-go/protoc-gen-go"
+
+[tools.protoc-gen-go."platforms.linux-arm64"]
+checksum = "sha256:8760755b06cbfe6e64478bbe16b60e518d89d059ccaf667df05398d19636cbad"
+url = "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.36.11/protoc-gen-go.v1.36.11.linux.arm64.tar.gz"
+
+[tools.protoc-gen-go."platforms.linux-arm64-musl"]
+checksum = "sha256:8760755b06cbfe6e64478bbe16b60e518d89d059ccaf667df05398d19636cbad"
+url = "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.36.11/protoc-gen-go.v1.36.11.linux.arm64.tar.gz"
+
+[tools.protoc-gen-go."platforms.linux-x64"]
+checksum = "sha256:6ad8f8fc11b96dc4deb176f7ee84af40e15d32e4608594bcc3534b7824a3dc71"
+url = "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.36.11/protoc-gen-go.v1.36.11.linux.amd64.tar.gz"
+
+[tools.protoc-gen-go."platforms.linux-x64-musl"]
+checksum = "sha256:6ad8f8fc11b96dc4deb176f7ee84af40e15d32e4608594bcc3534b7824a3dc71"
+url = "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.36.11/protoc-gen-go.v1.36.11.linux.amd64.tar.gz"
+
+[tools.protoc-gen-go."platforms.macos-arm64"]
+checksum = "sha256:31a1c65833213a925f6771dd84b749ac5b3f4de30be3694d8ec19e23fc44acbf"
+url = "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.36.11/protoc-gen-go.v1.36.11.darwin.arm64.tar.gz"
+
+[tools.protoc-gen-go."platforms.macos-x64"]
+checksum = "sha256:e41b9fc3e6b80a943caee6736f8f764e1059fb6ff9ef4f423b62645a9abc8f9f"
+url = "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.36.11/protoc-gen-go.v1.36.11.darwin.amd64.tar.gz"
+
+[tools.protoc-gen-go."platforms.windows-x64"]
+checksum = "sha256:045cac56df5fae04912d39b1e9f8e568f8a1eaf0adc800a6e8bfbe97fd1bef9c"
+url = "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.36.11/protoc-gen-go.v1.36.11.windows.amd64.zip"
+
+[[tools.protoc-gen-go-grpc]]
+version = "1.6.1"
+backend = "aqua:grpc/grpc-go/protoc-gen-go-grpc"
+
+[tools.protoc-gen-go-grpc."platforms.linux-arm64"]
+checksum = "sha256:71f64c5448fe57425002e77a3b85a317dc1ffb276c094ca19f9be3cf3dba066d"
+url = "https://github.com/grpc/grpc-go/releases/download/cmd/protoc-gen-go-grpc/v1.6.1/protoc-gen-go-grpc.v1.6.1.linux.arm64.tar.gz"
+
+[tools.protoc-gen-go-grpc."platforms.linux-arm64-musl"]
+checksum = "sha256:71f64c5448fe57425002e77a3b85a317dc1ffb276c094ca19f9be3cf3dba066d"
+url = "https://github.com/grpc/grpc-go/releases/download/cmd/protoc-gen-go-grpc/v1.6.1/protoc-gen-go-grpc.v1.6.1.linux.arm64.tar.gz"
+
+[tools.protoc-gen-go-grpc."platforms.linux-x64"]
+checksum = "sha256:d422c203a0f4f050d647c58a11b8854535956b6c9aa655dd8a50b976a2b552f9"
+url = "https://github.com/grpc/grpc-go/releases/download/cmd/protoc-gen-go-grpc/v1.6.1/protoc-gen-go-grpc.v1.6.1.linux.amd64.tar.gz"
+
+[tools.protoc-gen-go-grpc."platforms.linux-x64-musl"]
+checksum = "sha256:d422c203a0f4f050d647c58a11b8854535956b6c9aa655dd8a50b976a2b552f9"
+url = "https://github.com/grpc/grpc-go/releases/download/cmd/protoc-gen-go-grpc/v1.6.1/protoc-gen-go-grpc.v1.6.1.linux.amd64.tar.gz"
+
+[tools.protoc-gen-go-grpc."platforms.macos-arm64"]
+checksum = "sha256:55d96d01811710865b0531de287d60699b89c54d81c6127f07bf492a3ad08809"
+url = "https://github.com/grpc/grpc-go/releases/download/cmd/protoc-gen-go-grpc/v1.6.1/protoc-gen-go-grpc.v1.6.1.darwin.arm64.tar.gz"
+
+[tools.protoc-gen-go-grpc."platforms.macos-x64"]
+checksum = "sha256:a3e45283e7cf0006078996bc870d0388cd22ac88b84811ea67ff8e793adf8b7c"
+url = "https://github.com/grpc/grpc-go/releases/download/cmd/protoc-gen-go-grpc/v1.6.1/protoc-gen-go-grpc.v1.6.1.darwin.amd64.tar.gz"
+
+[tools.protoc-gen-go-grpc."platforms.windows-x64"]
+checksum = "sha256:250bffb33af3a64cf628cda08b554e287067a0c776cd7b039865dcf8a598df32"
+url = "https://github.com/grpc/grpc-go/releases/download/cmd/protoc-gen-go-grpc/v1.6.1/protoc-gen-go-grpc.v1.6.1.windows.amd64.tar.gz"
