@@ -82,7 +82,7 @@ runs:
         bucket_name=$(slug_hash_prefix_truncate "${{ inputs.tenant }}-${{ inputs.team }}" "nais-cdn" 63)
         echo "BUCKET_NAME=${bucket_name}" >> $GITHUB_ENV
 
-    - uses: nais/login@v0 # ratchet:exclude
+    - uses: nais/login@v0 #
       with:
         team: "${{ inputs.team }}"
         project_id: ${{ inputs.project_id }}
