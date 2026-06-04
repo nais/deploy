@@ -50,7 +50,7 @@ func (db *Database) WriteRepositoryTeams(ctx context.Context, repository string,
 	query = `DELETE FROM team_repositories WHERE repository = $1;`
 	_, err = tx.Exec(ctx, query, repository)
 	if err != nil {
-		tx.Rollback(ctx)
+		tx.Rollback(ctx) // #nosec G104 -- rollback error is secondary to the original error being returned
 		return err
 	}
 
@@ -58,7 +58,7 @@ func (db *Database) WriteRepositoryTeams(ctx context.Context, repository string,
 		query = `INSERT INTO team_repositories (team, repository) VALUES ($1, $2);`
 		_, err = tx.Exec(ctx, query, team, repository)
 		if err != nil {
-			tx.Rollback(ctx)
+			tx.Rollback(ctx) // #nosec G104 -- rollback error is secondary to the original error being returned
 			return err
 		}
 	}

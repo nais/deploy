@@ -26,7 +26,7 @@ var footer = `
 `
 
 func textify(fn string, w io.Writer) error {
-	file, err := os.ReadFile(fn)
+	file, err := os.ReadFile(fn) // #nosec G304 -- fn comes from os.ReadDir, constrained to .sql files in this directory
 	if err != nil {
 		return err
 	}

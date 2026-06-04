@@ -14,7 +14,7 @@ import (
 )
 
 func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMessage, error) {
-	fileContents, err := os.ReadFile(path)
+	fileContents, err := os.ReadFile(path) // #nosec G304 -- user-supplied deployment resource path, intentional
 	if err != nil {
 		return nil, fmt.Errorf("%s: open file: %s", path, err)
 	}
@@ -132,7 +132,7 @@ func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
 }
 
 func templateVariablesFromFile(path string) (TemplateVariables, error) {
-	file, err := os.ReadFile(path)
+	file, err := os.ReadFile(path) // #nosec G304 -- user-supplied vars file path, intentional
 	if err != nil {
 		return nil, fmt.Errorf("%s: open file: %s", path, err)
 	}

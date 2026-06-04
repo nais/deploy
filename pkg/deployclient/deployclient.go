@@ -245,7 +245,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	log.Info("---")
 
 	// If running in GitHub actions, print a markdown summary
-	summaryFile, err := os.OpenFile(os.Getenv("GITHUB_STEP_SUMMARY"), os.O_APPEND|os.O_WRONLY, 0o644)
+	summaryFile, err := os.OpenFile(os.Getenv("GITHUB_STEP_SUMMARY"), os.O_APPEND|os.O_WRONLY, 0o644) // #nosec G703 G302 -- path from GitHub Actions environment; 0o644 appropriate for CI summary file
 	summaryEnabled := strings.ToLower(os.Getenv("NAIS_DEPLOY_SUMMARY")) != "false"
 	summary := func(format string, a ...any) {
 		if summaryFile == nil || !summaryEnabled {

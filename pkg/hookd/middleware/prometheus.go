@@ -52,8 +52,8 @@ func PrometheusMiddleware(name string, buckets ...float64) *Middleware {
 		[]string{"code", "method", "path"},
 	)
 
-	prometheus.Register(m.reqs)
-	prometheus.Register(m.latency)
+	prometheus.Register(m.reqs)    // #nosec G104 -- duplicate registration on restart is expected and harmless
+	prometheus.Register(m.latency) // #nosec G104
 
 	return &m
 }

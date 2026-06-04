@@ -54,7 +54,7 @@ func (d *DefaultApiKeyHandler) GetTeamApiKey(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write(ret)
+	w.Write(ret) // #nosec G104 -- network write error after headers sent; nothing actionable
 }
 
 // RotateTeamApiKey rotates the API key for a specific team

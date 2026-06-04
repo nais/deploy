@@ -50,7 +50,7 @@ func MakeHandler(cfg Config) http.HandlerFunc {
 		badrequest := func(err error) {
 			w.WriteHeader(http.StatusBadRequest)
 			log.Error(err)
-			_, err = w.Write([]byte(err.Error() + "\n"))
+			_, err = w.Write([]byte(err.Error() + "\n")) // #nosec G705 -- plain text error response after 400 status, no HTML context
 			if err != nil {
 				log.Errorf("unable to answer http request: %s", err)
 			}

@@ -64,11 +64,11 @@ const (
 
 // Bind environment variables provided by the NAIS platform
 func bindNAIS() {
-	viper.BindEnv(DatabaseUrl, "DATABASE_URL")
-	viper.BindEnv(OtelExporterOtlpEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT")
+	viper.BindEnv(DatabaseUrl, "DATABASE_URL")                             // #nosec G104 -- viper.BindEnv error is always nil for valid keys
+	viper.BindEnv(OtelExporterOtlpEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT") // #nosec G104
 
-	viper.BindEnv(DeploydKeys, "DEPLOYD_KEYS")
-	viper.BindEnv(FrontendKeys, "FRONTEND_KEYS")
+	viper.BindEnv(DeploydKeys, "DEPLOYD_KEYS")   // #nosec G104
+	viper.BindEnv(FrontendKeys, "FRONTEND_KEYS") // #nosec G104
 }
 
 func Initialize() *Config {
