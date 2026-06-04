@@ -6,8 +6,8 @@ import (
 
 	"github.com/nais/deploy/pkg/grpc/dispatchserver"
 
-	"github.com/go-chi/chi"
-	chi_middleware "github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	chi_middleware "github.com/go-chi/chi/v5/middleware"
 	gh "github.com/google/go-github/v41/github"
 	api_v1_apikey "github.com/nais/deploy/pkg/hookd/api/v1/apikey"
 	api_v1_provision "github.com/nais/deploy/pkg/hookd/api/v1/provision"

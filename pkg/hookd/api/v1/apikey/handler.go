@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 	"github.com/nais/deploy/pkg/hookd/database"
 	"github.com/nais/deploy/pkg/hookd/middleware"
