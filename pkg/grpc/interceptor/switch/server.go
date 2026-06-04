@@ -42,10 +42,6 @@ func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req any,
 	return nil, status.Errorf(codes.Unimplemented, "BUG: no interceptor added for service endpoint %s", info.FullMethod)
 }
 
-func (t *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
-	return t.UnaryServerInterceptor
-}
-
 func (t *ServerInterceptor) StreamServerInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	for prefix, interceptor := range t.urimap {
 		if isService(info.FullMethod, prefix) {
@@ -53,8 +49,4 @@ func (t *ServerInterceptor) StreamServerInterceptor(srv any, ss grpc.ServerStrea
 		}
 	}
 	return status.Errorf(codes.Unimplemented, "BUG: no interceptor added for service endpoint %s", info.FullMethod)
-}
-
-func (t *ServerInterceptor) Stream() grpc.StreamServerInterceptor {
-	return t.StreamServerInterceptor
 }

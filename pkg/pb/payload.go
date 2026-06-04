@@ -32,15 +32,6 @@ func KubernetesFromJSONResources(resources json.RawMessage) (*Kubernetes, error)
 	return kube, nil
 }
 
-func KubernetesFromJSON(data []byte) (*Kubernetes, error) {
-	k := &Kubernetes{}
-	err := protojson.Unmarshal(data, k)
-	if err != nil {
-		return nil, err
-	}
-	return k, nil
-}
-
 func (m *Kubernetes) JSONResources() ([]json.RawMessage, error) {
 	resources := m.GetResources()
 	msgs := make([]json.RawMessage, len(resources))
