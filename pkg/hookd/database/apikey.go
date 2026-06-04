@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"github.com/nais/deploy/pkg/crypto"
 	api_v1 "github.com/nais/deploy/pkg/hookd/api/v1"
 )

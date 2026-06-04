@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nais/deploy/pkg/hookd/metrics"
 	log "github.com/sirupsen/logrus"
 )
@@ -29,7 +29,7 @@ func IsErrForeignKeyViolation(err error) bool {
 }
 
 func New(ctx context.Context, dsn string, encryptionKey []byte) (*Database, error) {
-	conn, err := pgxpool.Connect(ctx, dsn)
+	conn, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
