@@ -30,7 +30,7 @@ const (
 var (
 	ErrResourceRequired = errors.New("at least one Kubernetes resource is required to make sense of the deployment")
 	ErrImageRequired    = errors.New("workload-image is required when using workload-name")
-	ErrAuthRequired     = errors.New("Github token or API key required")
+	ErrAuthRequired     = errors.New("github token or API key required")
 	ErrClusterRequired  = errors.New("cluster required; see reference section in the documentation for available environments")
 	ErrMalformedAPIKey  = errors.New("API key must be a hex encoded string")
 )
