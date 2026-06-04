@@ -14,9 +14,30 @@ env:
   GOOGLE_REGISTRY: "europe-north1-docker.pkg.dev"
 
 jobs:
+  check:
+    name: Static analysis
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+      - run: mise run check
+
+  test:
+    name: Tests
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+      - run: mise run test
+
   build_and_push:
     name: Build, push and sign images
     runs-on: ubuntu-22.04
+    needs: [check, test]
     permissions:
       contents: "read"
       id-token: "write"
@@ -35,8 +56,23 @@ jobs:
             chart: true
           - component: canary-deployer
             chart: true
+            dockerfile: Dockerfile.deploy
+            target: canary-deployer
+          - component: deploy-action
+            dockerfile: Dockerfile.deploy
+            target: deploy-action
+          - component: deploy
+            target: deploy
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set build metadata
+        id: meta
+        run: |
+          echo "last_commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "date=$(date '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+          echo "buildtime=$(date '+%s')" >> $GITHUB_OUTPUT
+
       - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # ratchet:azure/setup-helm@v3
         if: matrix.chart
         with:
@@ -45,11 +81,16 @@ jobs:
         uses: nais/platform-build-push-sign@main
         id: build_push_sign
         with:
-          dockerfile: Dockerfile.${{ matrix.component }}
+          dockerfile: ${{ matrix.dockerfile || format('Dockerfile.{0}', matrix.component) }}
+          target: ${{ matrix.target }}
           name: ${{ matrix.component }}
           google_service_account: gh-deploy
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
           push: ${{ github.actor != 'dependabot[bot]' && github.ref == 'refs/heads/master' }}
+          build_args: |
+            LAST_COMMIT=${{ steps.meta.outputs.last_commit }}
+            DATE=${{ steps.meta.outputs.date }}
+            BUILDTIME=${{ steps.meta.outputs.buildtime }}
 
       - name: "Package chart"
         if: matrix.chart
@@ -113,7 +154,7 @@ jobs:
       - build_and_push
     steps:
       - name: "Deploy hookd"
-        uses: nais/fasit-deploy@v4 #
+        uses: nais/fasit-deploy@v4
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.hookd_chart_name }}
           version: ${{ needs.build_and_push.outputs.hookd_chart_version }}
@@ -124,7 +165,7 @@ jobs:
             ]
 
       - name: "Deploy deployd"
-        uses: nais/fasit-deploy@v4 #
+        uses: nais/fasit-deploy@v4
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.deployd_chart_name }}
           version: ${{ needs.build_and_push.outputs.deployd_chart_version }}
@@ -137,7 +178,7 @@ jobs:
             ]
 
       - name: "Deploy canary-deployer"
-        uses: nais/fasit-deploy@v4 #
+        uses: nais/fasit-deploy@v4
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.canary_deployer_chart_name }}
           version: ${{ needs.build_and_push.outputs.canary_deployer_chart_version }}
@@ -154,7 +195,7 @@ jobs:
       - build_and_push
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4 #
+      - uses: actions/checkout@v4
 
       - uses: jdx/mise-action@v4
 
