@@ -209,7 +209,6 @@ func (h *Handler) validateRequest(w http.ResponseWriter, r *http.Request, logger
 	logger.Tracef("Request has valid JSON")
 
 	err = request.validate()
-
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		response.Message = fmt.Sprintf("invalid request: %s", err)

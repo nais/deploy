@@ -452,10 +452,8 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 	}
 
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := waitForResources(ctx, rig, test)
 		if err != nil {
 			t.Errorf("Wait for resources: %s", err)
@@ -468,7 +466,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 			assert.NoError(t, err)
 		}
 		log.Infof("Coroutine processing finished")
-	}()
+	})
 
 	// Start deployment
 	teamClient, err := rig.kubeclient.Impersonate(op.Request.GetTeam())

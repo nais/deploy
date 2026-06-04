@@ -31,7 +31,7 @@ func textify(fn string, w io.Writer) error {
 		return err
 	}
 
-	_, err = w.Write([]byte(fmt.Sprintf("%q", file)))
+	_, err = w.Write(fmt.Appendf(nil, "%q", file))
 	if err != nil {
 		return err
 	}

@@ -30,7 +30,6 @@ func (j job) Watch(op *operation.Operation, resource unstructured.Unstructured, 
 	// Wait until the new job object is present in the cluster.
 	for ctx.Err() == nil {
 		job, err = client.Get(op.Context, resource.GetName(), metav1.GetOptions{})
-
 		if err != nil {
 			time.Sleep(requestInterval)
 			continue

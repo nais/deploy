@@ -56,7 +56,7 @@ func NewFailureStatus(req *DeploymentRequest, err error) *DeploymentStatus {
 	}
 }
 
-func NewInProgressStatus(req *DeploymentRequest, format string, args ...interface{}) *DeploymentStatus {
+func NewInProgressStatus(req *DeploymentRequest, format string, args ...any) *DeploymentStatus {
 	return &DeploymentStatus{
 		Request: req,
 		Message: fmt.Sprintf(format, args...),

@@ -42,8 +42,7 @@ func (s *erringDeploymentsStream) SendMsg(any) error { return nil }
 func (s *erringDeploymentsStream) RecvMsg(any) error { return nil }
 
 func TestDeploymentsUnregistersClusterWhenSendFails(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	_, _ = telemetry.New(ctx, "test", "")
 
 	deploymentStore := database.MockDeploymentStore{}

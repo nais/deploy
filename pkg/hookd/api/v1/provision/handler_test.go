@@ -80,7 +80,7 @@ func testStatusResponse(t *testing.T, recorder *httptest.ResponseRecorder, respo
 
 // Inject timestamp in request payload
 func addTimestampToBody(in []byte, timeshift int64) []byte {
-	tmp := make(map[string]interface{})
+	tmp := make(map[string]any)
 	err := json.Unmarshal(in, &tmp)
 	if err != nil {
 		return in

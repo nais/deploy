@@ -3,9 +3,11 @@ package deployclient
 import (
 	"encoding/json"
 	"fmt"
-	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
+	"maps"
 	"os"
 	"strings"
+
+	nais_io_v1 "github.com/nais/liberator/pkg/apis/nais.io/v1"
 
 	"github.com/nais/deploy/pkg/version"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,9 +35,7 @@ func InjectAnnotations(resource json.RawMessage, annotations map[string]string) 
 	if meta.Annotations == nil {
 		meta.Annotations = make(map[string]string)
 	}
-	for k, v := range annotations {
-		meta.Annotations[k] = v
-	}
+	maps.Copy(meta.Annotations, annotations)
 	encoded, err := json.Marshal(meta)
 	if err != nil {
 		return nil, err

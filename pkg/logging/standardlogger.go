@@ -11,15 +11,15 @@ type standardLogger struct {
 	level  log.Level
 }
 
-func (d *standardLogger) Print(v ...interface{}) {
+func (d *standardLogger) Print(v ...any) {
 	d.logger.Log(d.level, v...)
 }
 
-func (d *standardLogger) Printf(format string, v ...interface{}) {
+func (d *standardLogger) Printf(format string, v ...any) {
 	d.logger.Logf(d.level, format, v...)
 }
 
-func (d *standardLogger) Println(v ...interface{}) {
+func (d *standardLogger) Println(v ...any) {
 	d.logger.Logln(d.level, v...)
 }
 

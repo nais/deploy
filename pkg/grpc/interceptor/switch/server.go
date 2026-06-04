@@ -33,7 +33,7 @@ func (t *ServerInterceptor) Add(prefix string, interceptor Interceptor) {
 	t.urimap[prefix] = interceptor
 }
 
-func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 	for prefix, interceptor := range t.urimap {
 		if isService(info.FullMethod, prefix) {
 			return interceptor.Unary()(ctx, req, info, handler)
@@ -46,7 +46,7 @@ func (t *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 	return t.UnaryServerInterceptor
 }
 
-func (t *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (t *ServerInterceptor) StreamServerInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	for prefix, interceptor := range t.urimap {
 		if isService(info.FullMethod, prefix) {
 			return interceptor.Stream()(srv, ss, info, handler)
