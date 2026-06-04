@@ -15,9 +15,9 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: deploy to ${{ github.event.inputs.cluster }}
-      uses: nais/deploy/actions/deploy@v2
-      env:
-        CLUSTER: ${{ github.event.inputs.cluster }}
-        RESOURCE: testdata/naisjob-without-schedule.yaml
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # ratchet:actions/checkout@v6
+      - name: deploy to ${{ github.event.inputs.cluster }}
+        uses: nais/deploy/actions/deploy@c55d6073d913975d2dada508bdfefc6427d39867 # ratchet:nais/deploy/actions/deploy@v2
+        env:
+          CLUSTER: ${{ github.event.inputs.cluster }}
+          RESOURCE: testdata/naisjob-without-schedule.yaml
