@@ -39,8 +39,8 @@ const (
 )
 
 func bindNAIS() {
-	viper.BindEnv(HookdKey, "HOOKD_KEY")
-	viper.BindEnv(OtelExporterOtlpEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT")
+	viper.BindEnv(HookdKey, "HOOKD_KEY")                                    // #nosec G104 -- viper.BindEnv error is always nil for valid keys
+	viper.BindEnv(OtelExporterOtlpEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT") // #nosec G104
 }
 
 func Initialize() *Config {

@@ -93,7 +93,18 @@ func run() error {
 	metricsServer := http.NewServeMux()
 	metricsServer.Handle(cfg.MetricsPath, metrics.Handler())
 	log.Infof("Serving metrics on %s endpoint %s", cfg.MetricsListenAddr, cfg.MetricsPath)
-	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
+	go func() {
+		srv := &http.Server{
+			Addr:         cfg.MetricsListenAddr,
+			Handler:      metricsServer,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		}
+		if err := srv.ListenAndServe(); err != nil {
+			log.Errorf("metrics server error: %s", err)
+		}
+	}()
 
 	dialOptions := make([]grpc.DialOption, 0)
 	if !cfg.GRPC.UseTLS {

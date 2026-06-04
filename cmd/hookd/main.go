@@ -153,7 +153,14 @@ func run() error {
 	})
 
 	go func() {
-		err := http.ListenAndServe(cfg.ListenAddress, router)
+		server := &http.Server{
+			Addr:         cfg.ListenAddress,
+			Handler:      router,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		}
+		err := server.ListenAndServe()
 		if err != nil {
 			log.Error(err)
 		}

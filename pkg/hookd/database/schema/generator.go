@@ -65,7 +65,7 @@ func main() {
 
 	sort.Strings(names)
 
-	out, err := os.OpenFile("../zz-migrations-generated.go", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o666)
+	out, err := os.OpenFile("../zz-migrations-generated.go", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
 	if err != nil {
 		log.Fatal(err)
 	}
