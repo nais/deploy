@@ -7,7 +7,7 @@ database registry as "Docker Hub"
 participant hookd
 database db as "Postgres"
 collections deployd
-participant kubernetes as "NAIS"
+participant kubernetes as "Nais"
 
 ==Build and release==
 developer -> github: git push
@@ -59,7 +59,7 @@ hookd -> db:  Append deployment status
 note left: Error in deployment request
 note right: error
 hookd -> db:  Append deployment status
-note left: Internal error in NAIS deploy
+note left: Internal error in Nais deploy
 note right: error
 
 @enduml

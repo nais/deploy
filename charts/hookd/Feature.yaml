@@ -82,6 +82,6 @@ values:
       template: "{{.Management.hookd_frontend_pre_shared_key | quote}}"
     description: "The pre-shared key used to authenticate the console-backend"
   naisAPI.insecureConnection:
-    displayName: Insecure connection to NAIS API
+    displayName: Insecure connection to Nais API
     config:
       type: bool

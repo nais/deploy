@@ -2,11 +2,11 @@
 
 ## Usage
 
-See the [NAIS documentation](https://doc.nais.io/build/how-to/build-and-deploy).
+See the [Nais documentation](https://doc.nais.io/build/how-to/build-and-deploy).
 
 ## Configuration options
 
-The available configuration options for the NAIS deploy GitHub action.
+The available configuration options for the Nais deploy GitHub action.
 
 | Environment variable | Default                  | Description                                                                                                                                                                                                                 |
 |:---------------------|:-------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

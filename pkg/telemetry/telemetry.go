@@ -1,4 +1,4 @@
-// Functions for working with OpenTelemetry across all NAIS deploy systems.
+// Functions for working with OpenTelemetry across all Nais deploy systems.
 
 package telemetry
 

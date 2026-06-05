@@ -1,5 +1,5 @@
-name: 'NAIS deploy'
-description: 'Deploy to a NAIS cluster'
+name: 'Nais deploy'
+description: 'Deploy to a Nais cluster'
 author: '@nais'
 color: purple
 icon: zap

@@ -1,11 +1,11 @@
-# NAIS deployment
+# Nais deployment
 
 ## Overview
-NAIS deploy facilitates application deployment into NAV's Kubernetes clusters.
+Nais deploy facilitates application deployment into NAV's Kubernetes clusters.
 
 Developers push or merge code into the master branch of a Git repository, triggering an automated build using (preferably) Github actions.
 A successful build produces a Docker image artifact, which is uploaded onto Github package registry.
-The final step in the build pipeline sends an API request to NAIS deploy to deploy the Docker image onto one of our Kubernetes clusters.
+The final step in the build pipeline sends an API request to Nais deploy to deploy the Docker image onto one of our Kubernetes clusters.
 
 ![Sequence diagram of deployment components](doc/sequence.png)
 
@@ -19,7 +19,7 @@ Any fatal error will short-circuit the process with a `error` or `failure` statu
 Intermediary statuses will be posted, indicating the current state of the deployment.
 
 ## Usage
-The usage documentation has been moved to [NAIS platform documentation](https://doc.nais.io/build).
+The usage documentation has been moved to [Nais platform documentation](https://doc.nais.io/build).
 
 ### Deploy API
 _We strongly recommend that teams use the `deploy` cli to deploy, rather than posting directly to `hookd`._
@@ -54,7 +54,7 @@ to track the status of your deployment.
 |-------|------|-----------------------------------------------------------------------------------------------|
 | resources | list[object] | Array of Kubernetes resources                                                                 |
 | team | string | Team tag                                                                                      |
-| cluster | string | Kubernetes cluster, see [NAIS clusters](https://doc.nais.io/workloads/reference/environments) |
+| cluster | string | Kubernetes cluster, see [Nais clusters](https://doc.nais.io/workloads/reference/environments) |
 | environment | string | GitHub environment                                                                            |
 | owner | string | GitHub repository owner                                                                       |
 | repository | string | GitHub repository name                                                                        |
@@ -62,7 +62,7 @@ to track the status of your deployment.
 | timestamp | int64 | Current Unix timestamp                                                                        |
 
 Additionally, the header `X-NAIS-Signature` must contain a keyed-hash message authentication code (HMAC).
-The code can be derived by hashing the request body using the SHA256 algorithm together with your team's NAIS Deploy API key.
+The code can be derived by hashing the request body using the SHA256 algorithm together with your team's Nais Deploy API key.
 
 #### Response specification
 
@@ -90,7 +90,7 @@ The code can be derived by hashing the request body using the SHA256 algorithm t
 | 400 | NO | The request contains errors and cannot be processed. Check the `message` field for details.
 | 403 | MAYBE | Authentication failed. Check that you're supplying the correct `team`; that the team is present on GitHub and has admin access to your repository; that you're using the correct API key; and properly HMAC signing the request. |
 | 404 | NO | Wrong URL. |
-| 5xx | YES | NAIS deploy is having problems and is currently being fixed. Retry later. |
+| 5xx | YES | Nais deploy is having problems and is currently being fixed. Retry later. |
 
 
 ## Application components

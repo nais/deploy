@@ -62,8 +62,8 @@ const (
 	ClusterMigrationRedirect  = "cluster-migration-redirect"
 )
 
-// Bind environment variables provided by the NAIS platform
-func bindNAIS() {
+// Bind environment variables provided by the Nais platform
+func bindNais() {
 	viper.BindEnv(DatabaseUrl, "DATABASE_URL")                             // #nosec G104 -- viper.BindEnv error is always nil for valid keys
 	viper.BindEnv(OtelExporterOtlpEndpoint, "OTEL_EXPORTER_OTLP_ENDPOINT") // #nosec G104
 
@@ -73,7 +73,7 @@ func bindNAIS() {
 
 func Initialize() *Config {
 	conftools.Initialize("hookd")
-	bindNAIS()
+	bindNais()
 
 	// Provide command-line flags
 	flag.String(BaseUrl, "http://localhost:8080", "Base URL where hookd can be reached.")
@@ -101,7 +101,7 @@ func Initialize() *Config {
 	flag.StringSlice(GoogleClusterProjects, []string{}, "Mapping cluster to google project: cluster1=project1,cluster2=project2")
 
 	flag.Bool(NaisAPIInsecureConnection, false, "Insecure connection to API server")
-	flag.String(NaisAPIAddress, "localhost:3001", "NAIS API target")
+	flag.String(NaisAPIAddress, "localhost:3001", "Nais API target")
 	flag.StringSlice(ClusterMigrationRedirect, []string{}, "Mapping cluster to redirect: cluster=targetCluster")
 
 	return &Config{}

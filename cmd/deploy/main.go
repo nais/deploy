@@ -41,7 +41,7 @@ func run() error {
 	deployclient.SetupLogging(*cfg)
 
 	// Welcome
-	log.Infof("NAIS deploy %s", version.Version())
+	log.Infof("Nais deploy %s", version.Version())
 
 	err := cfg.Validate()
 	if err != nil {
@@ -75,7 +75,7 @@ func run() error {
 	}
 
 	// Start the deploy client's top level trace.
-	ctx, span = telemetry.Tracer().Start(ctx, "NAIS deploy", otrace.WithSpanKind(otrace.SpanKindClient))
+	ctx, span = telemetry.Tracer().Start(ctx, "Nais deploy", otrace.WithSpanKind(otrace.SpanKindClient))
 	defer span.End()
 
 	// Print version

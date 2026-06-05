@@ -190,7 +190,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	defer span.End()
 	deployRequest.TraceParent = telemetry.TraceParentHeader(ctx)
 
-	log.Infof("Sending deployment request to NAIS deploy at %s...", cfg.DeployServerURL)
+	log.Infof("Sending deployment request to Nais deploy at %s...", cfg.DeployServerURL)
 
 	sendDeploymentRequest := func() error {
 		requestContext, requestSpan := telemetry.Tracer().Start(ctx, "Waiting for deploy server")
@@ -216,7 +216,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 			return ErrorWrap(ExitNoDeployment, err)
 		}
 
-		log.Infof("Deployment request accepted by NAIS deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
+		log.Infof("Deployment request accepted by Nais deploy and dispatched to cluster '%s'.", deployStatus.GetRequest().GetCluster())
 
 		deployRequest.ID = deployStatus.GetRequest().GetID()
 		telemetry.AddDeploymentRequestSpanAttributes(span, deployStatus.GetRequest())
@@ -262,7 +262,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 		defer summaryFile.Close()
 	}
 
-	summary("## 🚀 NAIS deploy")
+	summary("## 🚀 Nais deploy")
 	summary("")
 	summary("* Detailed trace: [%s](%s)", traceID, cfg.TracingDashboardURL+traceID)
 	summary("* Request ID: %s", deployRequest.GetID())
@@ -292,12 +292,12 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 			if err != nil {
 				connectionLost = true
 			} else if connectionLost {
-				log.Infof("Connection to NAIS deploy re-established.")
+				log.Infof("Connection to Nais deploy re-established.")
 			}
 			return err
 		})
 		if err != nil {
-			summary("❌ lost connection to NAIS deploy", deployStatus.GetState(), deployStatus.GetMessage())
+			summary("❌ lost connection to Nais deploy", deployStatus.GetState(), deployStatus.GetMessage())
 			return ErrorWrap(ExitUnavailable, err)
 		}
 
@@ -309,16 +309,16 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 					log.Warn(formatGrpcError(err))
 					break
 				} else {
-					summary("❌ lost connection to NAIS deploy", deployStatus.GetState(), deployStatus.GetMessage())
+					summary("❌ lost connection to Nais deploy", deployStatus.GetState(), deployStatus.GetMessage())
 					return Errorf(ExitUnavailable, "%s", formatGrpcError(err))
 				}
 			}
 			logDeployStatus(deployStatus)
 			if deployStatus.GetState() == pb.DeploymentState_inactive {
-				log.Warn("NAIS deploy has been restarted. Re-sending deployment request...")
+				log.Warn("Nais deploy has been restarted. Re-sending deployment request...")
 				err = sendDeploymentRequest()
 				if err != nil {
-					summary("❌ lost connection to NAIS deploy", deployStatus.GetState(), deployStatus.GetMessage())
+					summary("❌ lost connection to Nais deploy", deployStatus.GetState(), deployStatus.GetMessage())
 					return err
 				}
 			} else if deployStatus.GetState().Finished() {
