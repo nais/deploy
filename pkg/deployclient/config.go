@@ -2,6 +2,7 @@ package deployclient
 
 import (
 	"encoding/hex"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -127,6 +128,12 @@ func getEnvBool(key string, def bool) bool {
 func (cfg *Config) Validate() error {
 	if len(cfg.Resource) == 0 && len(cfg.WorkloadName) == 0 {
 		return ErrResourceRequired
+	}
+
+	for i, path := range cfg.Resource {
+		if len(path) == 0 {
+			return fmt.Errorf("resource at index %d is empty (check for stray commas in --resource)", i)
+		}
 	}
 
 	if len(cfg.WorkloadName) > 0 && len(cfg.WorkloadImage) == 0 {
