@@ -23,10 +23,6 @@ if [ -z "$REPOSITORY" ]; then
     export REPOSITORY
 fi
 
-if [ -z "$REF" ]; then
-    export REF="$GITHUB_REF"
-fi
-
 if [ -z "$WAIT" ]; then
     export WAIT="true"
 fi
