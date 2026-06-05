@@ -28,11 +28,11 @@ const (
 )
 
 var (
-	ErrResourceRequired       = errors.New("at least one Kubernetes resource is required to make sense of the deployment")
-	ErrImageRequired          = errors.New("workload-image is required when using workload-name")
-	ErrAuthRequired           = errors.New("Github token or API key required")
-	ErrClusterRequired        = errors.New("cluster required; see reference section in the documentation for available environments")
-	ErrMalformedAPIKey        = errors.New("API key must be a hex encoded string")
+	ErrResourceRequired = errors.New("at least one Kubernetes resource is required to make sense of the deployment")
+	ErrImageRequired    = errors.New("workload-image is required when using workload-name")
+	ErrAuthRequired     = errors.New("github token or API key required")
+	ErrClusterRequired  = errors.New("cluster required; see reference section in the documentation for available environments")
+	ErrMalformedAPIKey  = errors.New("API key must be a hex encoded string")
 )
 
 type Deployer struct {
@@ -200,7 +200,6 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 			deployStatus, err = d.Client.Deploy(requestContext, deployRequest)
 			return err
 		})
-
 		if err != nil {
 			code := grpcErrorCode(err)
 			err = fmt.Errorf("%s", formatGrpcError(err))
@@ -227,7 +226,6 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	}
 
 	err = sendDeploymentRequest()
-
 	// First handle errors that might have occurred with the request itself.
 	// Errors from underlying systems are handled later.
 	if err != nil {
@@ -247,7 +245,7 @@ func (d *Deployer) Deploy(ctx context.Context, cfg *Config, deployRequest *pb.De
 	log.Info("---")
 
 	// If running in GitHub actions, print a markdown summary
-	summaryFile, err := os.OpenFile(os.Getenv("GITHUB_STEP_SUMMARY"), os.O_APPEND|os.O_WRONLY, 0644)
+	summaryFile, err := os.OpenFile(os.Getenv("GITHUB_STEP_SUMMARY"), os.O_APPEND|os.O_WRONLY, 0o644) // #nosec G703 G302 -- path from GitHub Actions environment; 0o644 appropriate for CI summary file
 	summaryEnabled := strings.ToLower(os.Getenv("NAIS_DEPLOY_SUMMARY")) != "false"
 	summary := func(format string, a ...any) {
 		if summaryFile == nil || !summaryEnabled {

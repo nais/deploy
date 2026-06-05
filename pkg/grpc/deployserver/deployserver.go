@@ -91,7 +91,6 @@ func (ds *deployServer) addToDatabase(ctx context.Context, request *pb.Deploymen
 				Name:         id.Name,
 				Namespace:    id.Namespace,
 			})
-
 			if err != nil {
 				logger.Error(err)
 				return ErrDatabaseUnavailable

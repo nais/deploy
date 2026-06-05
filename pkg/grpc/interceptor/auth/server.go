@@ -50,7 +50,7 @@ func NewServerInterceptor(apiKeyStore database.ApiKeyStore, tokenValidator Token
 	}
 }
 
-func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 	_, ok := req.(*pb.DeploymentRequest)
 	if !ok {
 		return nil, status.Errorf(codes.InvalidArgument, "requests to this endpoint must be DeploymentRequest")
@@ -169,7 +169,7 @@ func (s *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 	return s.UnaryServerInterceptor
 }
 
-func (s *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (s *ServerInterceptor) StreamServerInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	md, ok := metadata.FromIncomingContext(ss.Context())
 	if !ok {
 		return status.Errorf(codes.InvalidArgument, "invalid metadata in request")

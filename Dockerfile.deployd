@@ -1,6 +1,9 @@
 FROM golang:1.26-alpine AS builder
 
-RUN apk add --no-cache git make curl
+ARG LAST_COMMIT=local
+ARG DATE=unknown
+ARG BUILDTIME=0
+
 ENV GOOS=linux
 ENV CGO_ENABLED=0
 
@@ -11,9 +14,9 @@ COPY go.sum .
 RUN go mod download
 COPY . .
 
-RUN make kubebuilder
-RUN make test
-RUN make deployd-alpine
+RUN go build -a -installsuffix cgo -o bin/deployd \
+    -ldflags "-s -X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}" \
+    ./cmd/deployd/
 
 
 FROM alpine:3

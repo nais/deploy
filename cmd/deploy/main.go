@@ -54,7 +54,7 @@ func run() error {
 	// OpenTelemetry
 	tracerProvider, err := telemetry.New(ctx, "deploy", cfg.OpenTelemetryCollectorURL)
 	if err != nil {
-		return fmt.Errorf("Setup OpenTelemetry: %w", err)
+		return fmt.Errorf("setup OpenTelemetry: %w", err)
 	}
 
 	// Clean shutdown for OT

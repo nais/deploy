@@ -1,0 +1,169 @@
+[tools]
+go = "1.26"
+protoc = "latest"
+protoc-gen-go = "1.36.11"
+protoc-gen-go-grpc = "latest"
+
+[tasks.build]
+description = "Build all binaries (hookd, deployd, deploy)"
+depends = ["build:hookd", "build:deployd", "build:deploy"]
+
+[tasks."build:hookd"]
+description = "Build hookd"
+run = """
+LAST_COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date "+%Y-%m-%d")
+BUILDTIME=$(date "+%s")
+LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}"
+go build -o bin/hookd -ldflags "-s ${LDFLAGS}" cmd/hookd/main.go
+"""
+
+[tasks."build:deployd"]
+description = "Build deployd"
+run = """
+LAST_COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date "+%Y-%m-%d")
+BUILDTIME=$(date "+%s")
+LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}"
+go build -o bin/deployd -ldflags "-s ${LDFLAGS}" cmd/deployd/main.go
+"""
+
+[tasks."build:deploy"]
+description = "Build deploy CLI"
+run = """
+LAST_COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date "+%Y-%m-%d")
+BUILDTIME=$(date "+%s")
+LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}"
+go build -o bin/deploy -ldflags "-s ${LDFLAGS}" cmd/deploy/main.go
+"""
+
+[tasks."build:crypt"]
+description = "Build crypt"
+run = """
+LAST_COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date "+%Y-%m-%d")
+BUILDTIME=$(date "+%s")
+LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}"
+go build -o bin/crypt -ldflags "-s ${LDFLAGS}" cmd/crypt/main.go
+"""
+
+[tasks."build:alpine"]
+description = "Build all binaries for Alpine (CGO disabled)"
+run = """
+LAST_COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date "+%Y-%m-%d")
+BUILDTIME=$(date "+%s")
+LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}"
+go build -a -installsuffix cgo -o bin/hookd  -ldflags "-s ${LDFLAGS}" ./cmd/hookd/
+go build -a -installsuffix cgo -o bin/deployd -ldflags "-s ${LDFLAGS}" ./cmd/deployd/
+go build -a -installsuffix cgo -o bin/deploy  -ldflags "-s ${LDFLAGS}" ./cmd/deploy/
+"""
+
+[tasks."release:linux"]
+description = "Build deploy CLI for Linux/amd64"
+run = """
+LAST_COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date "+%Y-%m-%d")
+BUILDTIME=$(date "+%s")
+LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}"
+GOOS=linux GOARCH=amd64 go build -o deploy-linux -ldflags="-s -w ${LDFLAGS}" cmd/deploy/main.go
+"""
+
+[tasks."release:darwin"]
+description = "Build deploy CLI for macOS/amd64"
+run = """
+LAST_COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date "+%Y-%m-%d")
+BUILDTIME=$(date "+%s")
+LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}"
+GOOS=darwin GOARCH=amd64 go build -o deploy-darwin -ldflags="-s -w ${LDFLAGS}" cmd/deploy/main.go
+"""
+
+[tasks."release:windows"]
+description = "Build deploy CLI for Windows/amd64"
+run = """
+LAST_COMMIT=$(git rev-parse --short HEAD)
+DATE=$(date "+%Y-%m-%d")
+BUILDTIME=$(date "+%s")
+LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github.com/nais/deploy/pkg/version.Date=${DATE} -X github.com/nais/deploy/pkg/version.BuildUnixTime=${BUILDTIME}"
+GOOS=windows GOARCH=amd64 go build -o deploy-windows -ldflags="-s -w ${LDFLAGS}" cmd/deploy/main.go
+"""
+
+[tasks.proto]
+description = "Generate protobuf code"
+run = "protoc --go-grpc_opt=paths=source_relative --go_opt=paths=source_relative --go_out=. --go-grpc_out=. pkg/pb/deployment.proto"
+
+[tasks.mocks]
+description = "Generate mocks"
+run = """
+go tool github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg ./pkg/hookd/database
+go tool github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg ./pkg/grpc/dispatchserver
+go tool github.com/vektra/mockery/v2 --inpackage --all --case snake --srcpkg ./pkg/pb
+"""
+
+[tasks.migration]
+description = "Run go generate"
+run = "go generate ./..."
+
+[tasks.fmt]
+description = "Format all code"
+depends = ["fmt:go", "fmt:gofix"]
+
+[tasks."fmt:go"]
+description = "Format Go code using gofumpt"
+run = "go tool mvdan.cc/gofumpt -w ./"
+
+[tasks."fmt:gofix"]
+description = "Run go fix on all packages"
+run = "go fix ./..."
+
+[tasks.check]
+description = "Run all static analysis tools"
+run = "unset MISE_TASK_OUTPUT && mise run check:staticcheck ::: check:vulncheck ::: check:deadcode ::: check:gosec"
+
+[tasks."check:staticcheck"]
+description = "Run staticcheck"
+run = "go tool honnef.co/go/tools/cmd/staticcheck ./..."
+
+[tasks."check:vulncheck"]
+description = "Run govulncheck"
+run = "go tool golang.org/x/vuln/cmd/govulncheck ./..."
+
+[tasks."check:deadcode"]
+description = "Run deadcode"
+run = "go tool golang.org/x/tools/cmd/deadcode -test ./..."
+
+[tasks."check:gosec"]
+description = "Run gosec"
+run = "go tool github.com/securego/gosec/v2/cmd/gosec --exclude-generated -terse ./..."
+
+[tasks.setup-envtest]
+description = "Download envtest binaries for tests"
+run = """
+LOCALBIN=$(pwd)/.testbin
+ENVTEST_VERSION=release-0.23
+ENVTEST_K8S_VERSION=1.33.0
+ENVTEST=${LOCALBIN}/setup-envtest
+
+mkdir -p "${LOCALBIN}"
+
+if [ ! -f "${ENVTEST}-${ENVTEST_VERSION}" ]; then
+  echo "Downloading sigs.k8s.io/controller-runtime/tools/setup-envtest@${ENVTEST_VERSION}"
+  rm -f "${ENVTEST}" || true
+  GOBIN="${LOCALBIN}" go install "sigs.k8s.io/controller-runtime/tools/setup-envtest@${ENVTEST_VERSION}"
+  mv "${ENVTEST}" "${ENVTEST}-${ENVTEST_VERSION}"
+fi
+ln -sf "${ENVTEST}-${ENVTEST_VERSION}" "${ENVTEST}"
+
+echo "Setting up envtest binaries for Kubernetes version ${ENVTEST_K8S_VERSION}..."
+${ENVTEST} use ${ENVTEST_K8S_VERSION} --bin-dir "${LOCALBIN}" || {
+  echo "Error: Failed to set up envtest binaries for version ${ENVTEST_K8S_VERSION}."
+  exit 1
+}
+"""
+
+[tasks.test]
+description = "Run all tests"
+depends = ["setup-envtest"]
+run = "go test ./... -count=1"

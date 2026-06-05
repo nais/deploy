@@ -66,7 +66,7 @@ func run() error {
 	// OpenTelemetry
 	tracerProvider, err := telemetry.New(programContext, "deployd", cfg.OpenTelemetryCollectorURL)
 	if err != nil {
-		return fmt.Errorf("Setup OpenTelemetry: %w", err)
+		return fmt.Errorf("setup OpenTelemetry: %w", err)
 	}
 
 	// Clean shutdown for OT
@@ -93,7 +93,18 @@ func run() error {
 	metricsServer := http.NewServeMux()
 	metricsServer.Handle(cfg.MetricsPath, metrics.Handler())
 	log.Infof("Serving metrics on %s endpoint %s", cfg.MetricsListenAddr, cfg.MetricsPath)
-	go http.ListenAndServe(cfg.MetricsListenAddr, metricsServer)
+	go func() {
+		srv := &http.Server{
+			Addr:         cfg.MetricsListenAddr,
+			Handler:      metricsServer,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		}
+		if err := srv.ListenAndServe(); err != nil {
+			log.Errorf("metrics server error: %s", err)
+		}
+	}()
 
 	dialOptions := make([]grpc.DialOption, 0)
 	if !cfg.GRPC.UseTLS {
@@ -118,7 +129,7 @@ func run() error {
 		}))
 	}
 
-	grpcConnection, err := grpc.Dial(cfg.GRPC.Server, dialOptions...)
+	grpcConnection, err := grpc.NewClient(cfg.GRPC.Server, dialOptions...)
 	if err != nil {
 		return fmt.Errorf("connecting to hookd gRPC server: %s", err)
 	}

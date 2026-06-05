@@ -14,9 +14,30 @@ env:
   GOOGLE_REGISTRY: "europe-north1-docker.pkg.dev"
 
 jobs:
+  check:
+    name: Static analysis
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # ratchet:actions/checkout@v6
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # ratchet:jdx/mise-action@v4
+      - run: mise run check
+
+  test:
+    name: Tests
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # ratchet:actions/checkout@v6
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # ratchet:jdx/mise-action@v4
+      - run: mise run test
+
   build_and_push:
     name: Build, push and sign images
     runs-on: ubuntu-22.04
+    needs: [check, test]
     permissions:
       contents: "read"
       id-token: "write"
@@ -35,21 +56,41 @@ jobs:
             chart: true
           - component: canary-deployer
             chart: true
+            dockerfile: Dockerfile.deploy
+            target: canary-deployer
+          - component: deploy-action
+            dockerfile: Dockerfile.deploy
+            target: deploy-action
+          - component: deploy
+            target: deploy
     steps:
-      - uses: actions/checkout@v4 # ratchet:exclude
-      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # ratchet:azure/setup-helm@v3
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # ratchet:actions/checkout@v6
+
+      - name: Set build metadata
+        id: meta
+        run: |
+          echo "last_commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "date=$(date '+%Y-%m-%d')" >> $GITHUB_OUTPUT
+          echo "buildtime=$(date '+%s')" >> $GITHUB_OUTPUT
+
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # ratchet:azure/setup-helm@v5
         if: matrix.chart
         with:
           version: "v3.11.1"
       - name: "Build and push image"
-        uses: nais/platform-build-push-sign@main # ratchet:exclude
+        uses: nais/platform-build-push-sign@31014e4bcac554cb52525fe2364244c5166b84d2 # ratchet:nais/platform-build-push-sign@main
         id: build_push_sign
         with:
-          dockerfile: Dockerfile.${{ matrix.component }}
+          dockerfile: ${{ matrix.dockerfile || format('Dockerfile.{0}', matrix.component) }}
+          target: ${{ matrix.target }}
           name: ${{ matrix.component }}
           google_service_account: gh-deploy
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
           push: ${{ github.actor != 'dependabot[bot]' && github.ref == 'refs/heads/master' }}
+          build_args: |
+            LAST_COMMIT=${{ steps.meta.outputs.last_commit }}
+            DATE=${{ steps.meta.outputs.date }}
+            BUILDTIME=${{ steps.meta.outputs.buildtime }}
 
       - name: "Package chart"
         if: matrix.chart
@@ -78,7 +119,7 @@ jobs:
       - name: "Authenticate to Google Cloud"
         if: matrix.chart && github.ref == 'refs/heads/master'
         id: "auth"
-        uses: "google-github-actions/auth@v2" # ratchet:exclude
+        uses: "google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093" # ratchet:google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: "gh-deploy@nais-io.iam.gserviceaccount.com"
@@ -113,7 +154,7 @@ jobs:
       - build_and_push
     steps:
       - name: "Deploy hookd"
-        uses: nais/fasit-deploy@v4 # ratchet:exclude
+        uses: nais/fasit-deploy@9f870e05e92cde6cfd827b13384ec09e80be65fd # ratchet:nais/fasit-deploy@v4
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.hookd_chart_name }}
           version: ${{ needs.build_and_push.outputs.hookd_chart_version }}
@@ -124,7 +165,7 @@ jobs:
             ]
 
       - name: "Deploy deployd"
-        uses: nais/fasit-deploy@v4 # ratchet:exclude
+        uses: nais/fasit-deploy@9f870e05e92cde6cfd827b13384ec09e80be65fd # ratchet:nais/fasit-deploy@v4
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.deployd_chart_name }}
           version: ${{ needs.build_and_push.outputs.deployd_chart_version }}
@@ -137,7 +178,7 @@ jobs:
             ]
 
       - name: "Deploy canary-deployer"
-        uses: nais/fasit-deploy@v4 # ratchet:exclude
+        uses: nais/fasit-deploy@9f870e05e92cde6cfd827b13384ec09e80be65fd # ratchet:nais/fasit-deploy@v4
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.canary_deployer_chart_name }}
           version: ${{ needs.build_and_push.outputs.canary_deployer_chart_version }}
@@ -154,11 +195,9 @@ jobs:
       - build_and_push
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4 # ratchet:exclude
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # ratchet:actions/checkout@v6
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # ratchet:jdx/mise-action@v4
 
       - name: Force create tag
         env:
@@ -170,9 +209,9 @@ jobs:
 
       - name: Create deploy binaries
         run: |
-          make deploy-release-linux
-          make deploy-release-darwin
-          make deploy-release-windows
+          mise run release:linux
+          mise run release:darwin
+          mise run release:windows
 
       - name: Delete release if exists
         env:

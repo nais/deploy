@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	chi_middleware "github.com/go-chi/chi/middleware"
+	chi_middleware "github.com/go-chi/chi/v5/middleware"
 	log "github.com/sirupsen/logrus"
 )
 

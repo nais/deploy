@@ -34,7 +34,7 @@ func main() {
 			continue
 		}
 
-		dest := make(map[string]interface{})
+		dest := make(map[string]any)
 		dec := json.NewDecoder(data.Body)
 		err = dec.Decode(&dest)
 		if err != nil {

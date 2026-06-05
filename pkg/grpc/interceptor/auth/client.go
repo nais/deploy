@@ -41,25 +41,6 @@ func (t *APIKeyInterceptor) RequireTransportSecurity() bool {
 	return t.RequireTLS
 }
 
-var _ ClientInterceptor = &JWTInterceptor{}
-
-type JWTInterceptor struct {
-	JWT        string
-	RequireTLS bool
-	Team       string
-}
-
-func (c *JWTInterceptor) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	return map[string]string{
-		"jwt":  c.JWT,
-		"team": c.Team,
-	}, nil
-}
-
-func (t *JWTInterceptor) RequireTransportSecurity() bool {
-	return t.RequireTLS
-}
-
 type GitHubTokenInterceptor struct {
 	BearerToken string
 	RequireTLS  bool

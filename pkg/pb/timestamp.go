@@ -13,7 +13,7 @@ func TimestampAsTime(timestamp *timestamp.Timestamp) time.Time {
 func TimeAsTimestamp(t time.Time) *timestamp.Timestamp {
 	return &timestamp.Timestamp{
 		Seconds: t.Unix(),
-		Nanos:   int32(t.Nanosecond()),
+		Nanos:   int32(t.Nanosecond()), // #nosec G115 -- t.Nanosecond() is always 0-999,999,999, fits safely in int32
 	}
 }
 

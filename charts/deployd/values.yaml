@@ -56,7 +56,7 @@ deploymentEventRelays:
   kafka:
     groupIdPrefix: "deployment-event-relays"
     pool: "nav-infrastructure"
-    topic: "aura.dev-rapid"
+    topic: "nais.dev-rapid"
 
 canaryAlert: true
 

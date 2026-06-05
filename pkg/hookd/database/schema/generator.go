@@ -26,12 +26,12 @@ var footer = `
 `
 
 func textify(fn string, w io.Writer) error {
-	file, err := os.ReadFile(fn)
+	file, err := os.ReadFile(fn) // #nosec G304 -- fn comes from os.ReadDir, constrained to .sql files in this directory
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Write([]byte(fmt.Sprintf("%q", file)))
+	_, err = w.Write(fmt.Appendf(nil, "%q", file))
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func main() {
 
 	sort.Strings(names)
 
-	out, err := os.OpenFile("../zz-migrations-generated.go", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o666)
+	out, err := os.OpenFile("../zz-migrations-generated.go", os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
 	if err != nil {
 		log.Fatal(err)
 	}

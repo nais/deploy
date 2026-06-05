@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	deployQueue        = make(map[string]interface{})
+	deployQueue        = make(map[string]any)
 	clusterConnections = make(map[string]bool)
 	qlock              = &sync.Mutex{}
 )
@@ -174,7 +174,7 @@ func UpdateQueue(status *pb.DeploymentStatus) {
 
 	// Other states mean the deployment is still being processed.
 	default:
-		deployQueue[status.GetRequest().GetID()] = new(interface{})
+		deployQueue[status.GetRequest().GetID()] = new(any)
 	}
 
 	queueSize.Set(float64(len(deployQueue)))

@@ -2,6 +2,7 @@ package presharedkey_interceptor
 
 import (
 	"context"
+	"slices"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -13,7 +14,7 @@ type ServerInterceptor struct {
 	Keys []string
 }
 
-func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+func (t *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 	err = t.authenticate(ctx)
 	if err != nil {
 		return nil, err
@@ -33,10 +34,8 @@ func (t *ServerInterceptor) authenticate(ctx context.Context) error {
 	}
 
 	accessKey := values[0]
-	for _, key := range t.Keys {
-		if key == accessKey {
-			return nil
-		}
+	if slices.Contains(t.Keys, accessKey) {
+		return nil
 	}
 
 	return status.Errorf(codes.PermissionDenied, "application is not authorized")
@@ -46,7 +45,7 @@ func (t *ServerInterceptor) Unary() grpc.UnaryServerInterceptor {
 	return t.UnaryServerInterceptor
 }
 
-func (t *ServerInterceptor) StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func (t *ServerInterceptor) StreamServerInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	err := t.authenticate(ss.Context())
 	if err != nil {
 		return err

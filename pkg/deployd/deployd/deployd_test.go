@@ -183,9 +183,19 @@ type testRig struct {
 	scheme     *runtime.Scheme
 }
 
-func testBinDirectory() string {
+func testBinDirectory() (string, error) {
 	_, filename, _, _ := go_runtime.Caller(0)
-	return filepath.Clean(filepath.Join(filepath.Dir(filename), "../../../.testbin/"))
+	basePath := filepath.Clean(filepath.Join(filepath.Dir(filename), "../../../.testbin/k8s"))
+	entries, err := os.ReadDir(basePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read envtest binary dir %s: %w", basePath, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			return filepath.Join(basePath, entry.Name()), nil
+		}
+	}
+	return "", fmt.Errorf("no envtest binaries found in %s; run 'mise run setup-envtest' first", basePath)
 }
 
 func newTestRig() (*testRig, error) {
@@ -193,7 +203,13 @@ func newTestRig() (*testRig, error) {
 
 	rig := &testRig{}
 
-	err = os.Setenv("KUBEBUILDER_ASSETS", testBinDirectory())
+	err = os.Setenv("KUBEBUILDER_ASSETS", func() string {
+		dir, err := testBinDirectory()
+		if err != nil {
+			panic(err)
+		}
+		return dir
+	}())
 	if err != nil {
 		return nil, fmt.Errorf("failed to set environment variable: %w", err)
 	}
@@ -452,10 +468,8 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 	}
 
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := waitForResources(ctx, rig, test)
 		if err != nil {
 			t.Errorf("Wait for resources: %s", err)
@@ -468,7 +482,7 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 			assert.NoError(t, err)
 		}
 		log.Infof("Coroutine processing finished")
-	}()
+	})
 
 	// Start deployment
 	teamClient, err := rig.kubeclient.Impersonate(op.Request.GetTeam())

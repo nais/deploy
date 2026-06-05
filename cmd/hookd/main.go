@@ -76,7 +76,7 @@ func run() error {
 	// OpenTelemetry
 	tracerProvider, err := telemetry.New(programContext, "hookd", cfg.OpenTelemetryCollectorURL)
 	if err != nil {
-		return fmt.Errorf("Setup OpenTelemetry: %w", err)
+		return fmt.Errorf("setup OpenTelemetry: %w", err)
 	}
 
 	// Clean shutdown for OT
@@ -153,7 +153,14 @@ func run() error {
 	})
 
 	go func() {
-		err := http.ListenAndServe(cfg.ListenAddress, router)
+		server := &http.Server{
+			Addr:         cfg.ListenAddress,
+			Handler:      router,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		}
+		err := server.ListenAndServe()
 		if err != nil {
 			log.Error(err)
 		}

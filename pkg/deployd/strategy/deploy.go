@@ -69,7 +69,7 @@ func transformStrictDecodingError(resource unstructured.Unstructured, err error)
 		}
 	}
 
-	docs := map[string]string{
+	docs := map[string]string{ // #nosec G101 -- documentation URLs, not credentials
 		"aiven.io/v1alpha1, Kind=OpenSearch":            "https://doc.nais.io/persistence/opensearch/how-to/create/",
 		"aiven.io/v1alpha1, Kind=Redis":                 "https://doc.nais.io/persistence/redis/",
 		"aiven.io/v1alpha1, Kind=ServiceIntegration":    "https://doc.nais.io/persistence/opensearch/how-to/create/#serviceintegration",
