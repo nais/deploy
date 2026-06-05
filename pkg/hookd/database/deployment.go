@@ -146,7 +146,8 @@ VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (id) DO UPDATE
 SET github_id = EXCLUDED.github_id, github_repository = EXCLUDED.github_repository;
 `
-	_, err := db.conn.Exec(ctx, query,
+	_, err := db.conn.Exec(
+		ctx, query,
 		deployment.ID,
 		deployment.Team,
 		deployment.Created,
@@ -200,7 +201,8 @@ func (db *Database) WriteDeploymentStatus(ctx context.Context, status Deployment
 INSERT INTO deployment_status (id, deployment_id, status, message, created)
 VALUES ($1, $2, $3, $4, $5);
 `
-	_, err := db.conn.Exec(ctx, query,
+	_, err := db.conn.Exec(
+		ctx, query,
 		status.ID,
 		status.DeploymentID,
 		status.Status,
@@ -212,7 +214,8 @@ VALUES ($1, $2, $3, $4, $5);
 	}
 
 	query = `UPDATE deployment SET state = $1 WHERE id = $2;`
-	_, err = db.conn.Exec(ctx, query,
+	_, err = db.conn.Exec(
+		ctx, query,
 		status.Status,
 		status.DeploymentID,
 	)
@@ -259,7 +262,8 @@ func (db *Database) WriteDeploymentResource(ctx context.Context, resource Deploy
 INSERT INTO deployment_resource (id, deployment_id, index, "group", version, kind, name, namespace)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 `
-	_, err := db.conn.Exec(ctx, query,
+	_, err := db.conn.Exec(
+		ctx, query,
 		resource.ID,
 		resource.DeploymentID,
 		resource.Index,

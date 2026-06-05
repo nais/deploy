@@ -112,7 +112,8 @@ func (g *GitHubTokenInterceptor) Token(ctx context.Context) (string, error) {
 
 	// Skip signature verification; we only care about the expiration time here.
 	// The receiving party (i.e., server) must verify the token anyway.
-	j, err := jwt.ParseString(tokenResponse.Token,
+	j, err := jwt.ParseString(
+		tokenResponse.Token,
 		jwt.WithVerify(false),
 		jwt.WithAcceptableSkew(10*time.Second),
 	)

@@ -33,24 +33,26 @@ var (
 )
 
 var (
-	databaseQueries = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:      "database_queries",
-		Help:      "time to execute database queries",
-		Namespace: namespace,
-		Subsystem: subsystem,
-		Buckets:   prometheus.LinearBuckets(0.005, 0.005, 20),
-	},
+	databaseQueries = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:      "database_queries",
+			Help:      "time to execute database queries",
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Buckets:   prometheus.LinearBuckets(0.005, 0.005, 20),
+		},
 		[]string{
 			LabelStatus,
 		},
 	)
 
-	stateTransitions = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:      "state_transition",
-		Help:      "deployment state transitions",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
+	stateTransitions = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "state_transition",
+			Help:      "deployment state transitions",
+			Namespace: namespace,
+			Subsystem: subsystem,
+		},
 		[]string{
 			LabelDeploymentState,
 			Repository,
@@ -66,23 +68,25 @@ var (
 		Subsystem: subsystem,
 	})
 
-	clusterStatus = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "cluster_status",
-		Help:      "0 if cluster is down, 1 if cluster is up",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
+	clusterStatus = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name:      "cluster_status",
+			Help:      "0 if cluster is down, 1 if cluster is up",
+			Namespace: namespace,
+			Subsystem: subsystem,
+		},
 		[]string{
 			Cluster,
 		},
 	)
 
-	leadTime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Name:      "lead_time_seconds",
-		Help:      "the time it takes from a deploy is made to it is running in the cluster",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
+	leadTime = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Name:      "lead_time_seconds",
+			Help:      "the time it takes from a deploy is made to it is running in the cluster",
+			Namespace: namespace,
+			Subsystem: subsystem,
+		},
 		[]string{
 			LabelDeploymentState,
 			Repository,
@@ -91,12 +95,13 @@ var (
 		},
 	)
 
-	interceptorRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:      "auth_interceptor_requests",
-		Help:      "Number of requests by type in auth interceptor",
-		Namespace: namespace,
-		Subsystem: subsystem,
-	},
+	interceptorRequests = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:      "auth_interceptor_requests",
+			Help:      "Number of requests by type in auth interceptor",
+			Namespace: namespace,
+			Subsystem: subsystem,
+		},
 		[]string{LabelType, LabelError},
 	)
 )

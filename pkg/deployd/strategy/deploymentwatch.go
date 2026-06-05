@@ -91,8 +91,8 @@ func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstruc
 // Copied verbatim from
 // https://github.com/kubernetes/kubernetes/blob/74bcefc8b2bf88a2f5816336999b524cc48cf6c0/pkg/controller/deployment/util/deployment_util.go#L745
 func deploymentComplete(deployment *apps.Deployment, newStatus *apps.DeploymentStatus) bool {
-	return newStatus.UpdatedReplicas == *(deployment.Spec.Replicas) &&
-		newStatus.Replicas == *(deployment.Spec.Replicas) &&
-		newStatus.AvailableReplicas == *(deployment.Spec.Replicas) &&
+	return newStatus.UpdatedReplicas == *deployment.Spec.Replicas &&
+		newStatus.Replicas == *deployment.Spec.Replicas &&
+		newStatus.AvailableReplicas == *deployment.Spec.Replicas &&
 		newStatus.ObservedGeneration >= deployment.Generation
 }
