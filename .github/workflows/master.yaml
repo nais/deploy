@@ -194,7 +194,7 @@ jobs:
     needs:
       - build_and_push
     permissions:
-      contents: read
+      contents: write
       packages: write
     runs-on: ubuntu-latest
     steps:
