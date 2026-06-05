@@ -16,6 +16,10 @@ on:
       - 'actions/spa-setup-task/**'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   check-dist:
     runs-on: ubuntu-latest
