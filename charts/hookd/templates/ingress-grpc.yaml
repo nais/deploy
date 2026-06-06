@@ -8,7 +8,7 @@ metadata:
     haproxy.org/backend-config-snippet: |
       retries 2
       default-server proto h2 no-check
-      timeout tunnel 86400s
+      timeout tunnel 30s
       # Override default setting of aggressive for GRPC-connections
       http-reuse never
     haproxy.org/timeout-server: "86400s"
