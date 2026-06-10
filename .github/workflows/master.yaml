@@ -154,7 +154,7 @@ jobs:
       - build_and_push
     steps:
       - name: "Deploy hookd"
-        uses: nais/fasit-deploy@9f870e05e92cde6cfd827b13384ec09e80be65fd # ratchet:nais/fasit-deploy@v4
+        uses: nais/fasit-deploy@53e433b1bdd08fc622e03a78584c0832c9083bd3 # ratchet:nais/fasit-deploy@v4.1.1
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.hookd_chart_name }}
           version: ${{ needs.build_and_push.outputs.hookd_chart_version }}
@@ -165,7 +165,7 @@ jobs:
             ]
 
       - name: "Deploy deployd"
-        uses: nais/fasit-deploy@9f870e05e92cde6cfd827b13384ec09e80be65fd # ratchet:nais/fasit-deploy@v4
+        uses: nais/fasit-deploy@53e433b1bdd08fc622e03a78584c0832c9083bd3 # ratchet:nais/fasit-deploy@v4.1.1
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.deployd_chart_name }}
           version: ${{ needs.build_and_push.outputs.deployd_chart_version }}
@@ -178,7 +178,7 @@ jobs:
             ]
 
       - name: "Deploy canary-deployer"
-        uses: nais/fasit-deploy@9f870e05e92cde6cfd827b13384ec09e80be65fd # ratchet:nais/fasit-deploy@v4
+        uses: nais/fasit-deploy@53e433b1bdd08fc622e03a78584c0832c9083bd3 # ratchet:nais/fasit-deploy@v4.1.1
         with:
           chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.canary_deployer_chart_name }}
           version: ${{ needs.build_and_push.outputs.canary_deployer_chart_version }}
