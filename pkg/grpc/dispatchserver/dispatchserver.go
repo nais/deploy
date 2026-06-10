@@ -30,7 +30,7 @@ type DispatchServer interface {
 type dispatchServer struct {
 	pb.UnimplementedDispatchServer
 	onlineClustersLock sync.RWMutex
-	onlineClustersMap  map[string]chan<- *requestWithWait
+	onlineClustersMap  map[string]*clusterConnection
 	statusStreamsLock  sync.RWMutex
 	statusStreams      map[context.Context]chan<- *pb.DeploymentStatus
 	traceSpans         map[string]trace.Span
@@ -46,9 +46,21 @@ type requestWithWait struct {
 	wait    chan error
 }
 
+// clusterConnection represents a single deployd stream connection for a cluster.
+type clusterConnection struct {
+	requests chan *requestWithWait
+	// startup is the reported startup time of the connected deployd instance.
+	// It is used as a stable, monotonic tiebreaker to decide which connection
+	// wins when a cluster is connected more than once (see Deployments).
+	startup time.Time
+	// quit is closed when this connection is displaced by a newer one, asking
+	// the owning Deployments goroutine to terminate.
+	quit chan struct{}
+}
+
 func New(db database.DeploymentStore, apiClient protoapi.DeploymentsClient) DispatchServer {
 	server := &dispatchServer{
-		onlineClustersMap: make(map[string]chan<- *requestWithWait),
+		onlineClustersMap: make(map[string]*clusterConnection),
 		statusStreams:     make(map[context.Context]chan<- *pb.DeploymentStatus),
 		traceSpans:        make(map[string]trace.Span),
 		db:                db,
@@ -93,24 +105,54 @@ func (s *dispatchServer) invalidateHistoric(ctx context.Context, cluster string,
 }
 
 func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispatch_DeploymentsServer) error {
-	c := make(chan *requestWithWait)
-	s.onlineClustersLock.RLock()
-	_, clusterAlreadyConnected := s.onlineClustersMap[opts.Cluster]
-	s.onlineClustersLock.RUnlock()
-	if clusterAlreadyConnected {
-		log.Warnf("Rejected connection from cluster '%s': already connected", opts.Cluster)
-		return fmt.Errorf("cluster already connected: %s", opts.Cluster)
+	conn := &clusterConnection{
+		requests: make(chan *requestWithWait),
+		startup:  opts.GetStartupTime().AsTime(),
+		quit:     make(chan struct{}),
 	}
 
+	// Register this connection as the single active connection for the cluster.
+	//
+	// When a cluster is already connected, the instance with the most recent
+	// startup time wins. This is deliberately based on the reported startup time
+	// rather than connection arrival order, so that the decision is *stable*
+	// during a deployd rollout: while the old and new pods briefly run at the
+	// same time, both reconnect automatically whenever their stream drops. If we
+	// displaced purely on arrival order, the two pods would keep displacing each
+	// other (connection flapping). Comparing startup times makes the newer pod
+	// win permanently; the older pod's reconnect attempts are rejected until it
+	// terminates.
+	//
+	// This also fixes the original problem: a restarted deployd has a later
+	// startup time than the lingering previous connection, so it can reconnect
+	// immediately even when the old stream was not cleanly torn down (e.g. an
+	// HTTP/2 proxy keeping the stale stream alive), instead of being locked out
+	// until that connection times out.
 	s.onlineClustersLock.Lock()
-	s.onlineClustersMap[opts.Cluster] = c
+	if existing, alreadyConnected := s.onlineClustersMap[opts.Cluster]; alreadyConnected {
+		if conn.startup.Before(existing.startup) {
+			s.onlineClustersLock.Unlock()
+			log.Warnf("Rejected connection from cluster '%s': a newer connection is already established", opts.Cluster)
+			return status.Errorf(codes.AlreadyExists, "a newer connection for cluster '%s' is already established", opts.Cluster)
+		}
+		log.Warnf("Displacing existing connection from cluster '%s' with a newer one", opts.Cluster)
+		// Signal the previous handler to terminate. quit is closed exactly once
+		// per connection: 'existing' is replaced in the map below under the same
+		// lock, so no other goroutine can observe and close it again.
+		close(existing.quit)
+	}
+	s.onlineClustersMap[opts.Cluster] = conn
 	log.Infof("Connection opened from cluster '%s'", opts.Cluster)
 	s.onlineClustersLock.Unlock()
 	s.reportOnlineClusters()
 
 	defer func() {
 		s.onlineClustersLock.Lock()
-		delete(s.onlineClustersMap, opts.Cluster)
+		// Only remove the map entry if it still points to this connection; it
+		// may already have been replaced by a newer connection that displaced us.
+		if s.onlineClustersMap[opts.Cluster] == conn {
+			delete(s.onlineClustersMap, opts.Cluster)
+		}
 		s.onlineClustersLock.Unlock()
 		s.reportOnlineClusters()
 	}()
@@ -126,7 +168,10 @@ func (s *dispatchServer) Deployments(opts *pb.GetDeploymentOpts, stream pb.Dispa
 		case <-stream.Context().Done():
 			log.Warnf("Connection from cluster '%s' closed", opts.Cluster)
 			return nil
-		case req := <-c:
+		case <-conn.quit:
+			log.Warnf("Connection from cluster '%s' displaced by a newer connection", opts.Cluster)
+			return status.Errorf(codes.Aborted, "connection displaced by a newer connection")
+		case req := <-conn.requests:
 			err := stream.Send(req.request)
 			req.wait <- err
 			if err != nil {

@@ -161,7 +161,7 @@ jobs:
           targets: |
             [
               { "target": { "kind": "management", "tenant": "ci-nais" }, "wait": true },
-              { "target": { "kind": "management" } }
+              { "target": { "kind": "management", "tenant": "dev-nais" } }
             ]
 
       - name: "Deploy deployd"

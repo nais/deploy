@@ -20,7 +20,7 @@ import (
 
 func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.DeploymentRequest) error {
 	s.onlineClustersLock.RLock()
-	c, online := s.onlineClustersMap[request.Cluster]
+	conn, online := s.onlineClustersMap[request.Cluster]
 	s.onlineClustersLock.RUnlock()
 	if !online {
 		return status.Errorf(codes.Unavailable, "cluster '%s' is offline", request.Cluster)
@@ -33,13 +33,29 @@ func (s *dispatchServer) SendDeploymentRequest(ctx context.Context, request *pb.
 	request.TraceParent = telemetry.TraceParentHeader(ctx)
 	s.traceSpansLock.Unlock()
 
-	wait := make(chan error, 1)
-	c <- &requestWithWait{request: request, wait: wait}
-	if err := <-wait; err != nil {
+	clearSpan := func() {
 		span.End()
 		s.traceSpansLock.Lock()
 		delete(s.traceSpans, request.ID)
 		s.traceSpansLock.Unlock()
+	}
+
+	wait := make(chan error, 1)
+	// Guard against the receiving Deployments goroutine having gone away (e.g.
+	// because it was displaced by a newer connection), which would otherwise
+	// block this send forever.
+	select {
+	case conn.requests <- &requestWithWait{request: request, wait: wait}:
+	case <-conn.quit:
+		clearSpan()
+		return status.Errorf(codes.Unavailable, "cluster '%s' connection was closed", request.Cluster)
+	case <-ctx.Done():
+		clearSpan()
+		return status.Errorf(codes.Unavailable, "send deployment request: %s", ctx.Err())
+	}
+
+	if err := <-wait; err != nil {
+		clearSpan()
 		return fmt.Errorf("send deployment request: %w", err)
 	}
 

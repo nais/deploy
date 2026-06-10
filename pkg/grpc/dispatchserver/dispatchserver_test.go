@@ -80,6 +80,98 @@ func TestDeploymentsUnregistersClusterWhenSendFails(t *testing.T) {
 	}
 }
 
+// blockingDeploymentsStream is a stream that never sends anything on its own
+// and stays alive until its context is cancelled.
+type blockingDeploymentsStream struct {
+	ctx context.Context
+}
+
+func (s *blockingDeploymentsStream) Send(*pb.DeploymentRequest) error { return nil }
+
+func (s *blockingDeploymentsStream) Context() context.Context { return s.ctx }
+
+func (s *blockingDeploymentsStream) SetHeader(metadata.MD) error { return nil }
+
+func (s *blockingDeploymentsStream) SendHeader(metadata.MD) error { return nil }
+
+func (s *blockingDeploymentsStream) SetTrailer(metadata.MD) {}
+
+func (s *blockingDeploymentsStream) SendMsg(any) error { return nil }
+
+func (s *blockingDeploymentsStream) RecvMsg(any) error { return nil }
+
+func TestDeploymentsNewerConnectionDisplacesOlder(t *testing.T) {
+	ctx := t.Context()
+	_, _ = telemetry.New(ctx, "test", "")
+
+	deploymentStore := database.MockDeploymentStore{}
+	deploymentStore.On("HistoricDeployments", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+
+	mockApiClients, _ := apiclient.NewMockClient(t)
+	ds := New(&deploymentStore, mockApiClients.Deployments()).(*dispatchServer)
+
+	older := time.Now()
+	newer := older.Add(time.Second)
+
+	// The old pod (older startup) connects and registers.
+	oldPodCtx, cancelOldPod := context.WithCancel(ctx)
+	defer cancelOldPod()
+	oldPodDone := make(chan error, 1)
+	go func() {
+		oldPodDone <- ds.Deployments(&pb.GetDeploymentOpts{Cluster: "dev", StartupTime: pb.TimeAsTimestamp(older)}, &blockingDeploymentsStream{ctx: oldPodCtx})
+	}()
+
+	requireEventually(t, time.Second, func() bool {
+		return len(ds.onlineClusters()) == 1
+	})
+
+	// The new pod (newer startup) connects and must displace the old pod.
+	newPodCtx, cancelNewPod := context.WithCancel(ctx)
+	defer cancelNewPod()
+	newPodDone := make(chan error, 1)
+	go func() {
+		newPodDone <- ds.Deployments(&pb.GetDeploymentOpts{Cluster: "dev", StartupTime: pb.TimeAsTimestamp(newer)}, &blockingDeploymentsStream{ctx: newPodCtx})
+	}()
+
+	// The old pod's handler must exit with Aborted.
+	select {
+	case err := <-oldPodDone:
+		if status.Code(err) != codes.Aborted {
+			t.Fatalf("expected displaced connection to return Aborted, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("old pod connection was not displaced by the new pod")
+	}
+
+	// There must never be more than one connection for the cluster at a time.
+	requireEventually(t, time.Second, func() bool {
+		return len(ds.onlineClusters()) == 1
+	})
+
+	// Rollout stability: while both pods are alive, the old pod reconnects after
+	// being displaced. That reconnect must be rejected (it is older) so it cannot
+	// steal the connection back from the new pod, preventing connection flapping.
+	reconnectErr := ds.Deployments(&pb.GetDeploymentOpts{Cluster: "dev", StartupTime: pb.TimeAsTimestamp(older)}, &blockingDeploymentsStream{ctx: ctx})
+	if status.Code(reconnectErr) != codes.AlreadyExists {
+		t.Fatalf("expected old pod reconnect to be rejected with AlreadyExists, got %v", reconnectErr)
+	}
+
+	if len(ds.onlineClusters()) != 1 {
+		t.Fatalf("expected the new pod to remain the single connection, got %d online", len(ds.onlineClusters()))
+	}
+
+	// Once the new pod disconnects, the cluster goes offline.
+	cancelNewPod()
+	select {
+	case <-newPodDone:
+	case <-time.After(time.Second):
+		t.Fatal("new pod connection did not exit after context cancellation")
+	}
+	requireEventually(t, time.Second, func() bool {
+		return len(ds.onlineClusters()) == 0
+	})
+}
+
 func requireEventually(t *testing.T, timeout time.Duration, condition func() bool) {
 	t.Helper()
 

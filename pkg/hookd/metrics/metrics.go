@@ -30,6 +30,7 @@ var (
 	deployQueue        = make(map[string]any)
 	clusterConnections = make(map[string]bool)
 	qlock              = &sync.Mutex{}
+	clusterLock        = &sync.Mutex{}
 )
 
 var (
@@ -116,6 +117,8 @@ func init() {
 }
 
 func SetConnectedClusters(clusters []string) {
+	clusterLock.Lock()
+	defer clusterLock.Unlock()
 	for k := range clusterConnections {
 		clusterConnections[k] = false
 	}
