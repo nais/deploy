@@ -63,6 +63,26 @@ func TestServerInterceptorApiKey(t *testing.T) {
 		}
 	})
 
+	t.Run("body team does not match authenticated team", func(t *testing.T) {
+		timestamp := time.Now().Format(time.RFC3339Nano)
+
+		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+			"authorization": []string{sign([]byte(timestamp), []byte("apikey"))},
+			"timestamp":     []string{timestamp},
+			"team":          []string{"team"},
+		})
+
+		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{Team: "other_team"}, nil, handler)
+		if err == nil {
+			t.Fatal("got nil, want error")
+		}
+
+		want := "deployment request team \"other_team\" does not match authenticated team \"team\""
+		if !strings.HasSuffix(err.Error(), want) {
+			t.Fatalf("got %s, want suffix %s", err.Error(), want)
+		}
+	})
+
 	t.Run("signature expired", func(t *testing.T) {
 		timestamp := time.Now().Add((api_v1.MaxTimeSkew + 1) * time.Second).Format(time.RFC3339Nano)
 
@@ -111,9 +131,21 @@ func TestServerInterceptorJWT(t *testing.T) {
 	})
 
 	t.Run("happy path", func(t *testing.T) {
-		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{}, nil, handler)
+		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{Team: "team"}, nil, handler)
 		if err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	t.Run("body team does not match authenticated team", func(t *testing.T) {
+		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{Team: "other_team"}, nil, handler)
+		if err == nil {
+			t.Fatal("got nil, want error")
+		}
+
+		want := "deployment request team \"other_team\" does not match authenticated team \"team\""
+		if !strings.HasSuffix(err.Error(), want) {
+			t.Fatalf("got %s, want suffix %s", err.Error(), want)
 		}
 	})
 

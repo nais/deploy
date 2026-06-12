@@ -51,7 +51,7 @@ func NewServerInterceptor(apiKeyStore database.ApiKeyStore, tokenValidator Token
 }
 
 func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-	_, ok := req.(*pb.DeploymentRequest)
+	deployRequest, ok := req.(*pb.DeploymentRequest)
 	if !ok {
 		return nil, status.Errorf(codes.InvalidArgument, "requests to this endpoint must be DeploymentRequest")
 	}
@@ -106,6 +106,11 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req any,
 			return nil, status.Errorf(codes.PermissionDenied, "repo %q not authorized by team %q", repo, team)
 		}
 
+		if deployRequest.GetTeam() != team {
+			metrics.InterceptorRequest(requestTypeJWT, "team_mismatch")
+			return nil, status.Errorf(codes.PermissionDenied, "deployment request team %q does not match authenticated team %q", deployRequest.GetTeam(), team)
+		}
+
 		metrics.InterceptorRequest(requestTypeJWT, "")
 	} else {
 		auth, err := extractAuthFromContext(ctx)
@@ -123,6 +128,11 @@ func (s *ServerInterceptor) UnaryServerInterceptor(ctx context.Context, req any,
 		err = s.authenticate(ctx, *auth)
 		if err != nil {
 			return nil, err
+		}
+
+		if deployRequest.GetTeam() != auth.team {
+			metrics.InterceptorRequest(requestTypeApiKey, "team_mismatch")
+			return nil, status.Errorf(codes.PermissionDenied, "deployment request team %q does not match authenticated team %q", deployRequest.GetTeam(), auth.team)
 		}
 
 		metrics.InterceptorRequest(requestTypeApiKey, "")
