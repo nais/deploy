@@ -27,6 +27,18 @@ WAIT="${WAIT:-true}"
 TIMEOUT="${TIMEOUT:-10m}"
 DRY_RUN="${DRY_RUN:-false}"
 
+# --- Ensure yq is available ---
+ensure_yq() {
+  if command -v yq &> /dev/null; then
+    return
+  fi
+  echo "::group::Install yq" >&2
+  curl -sSL -o /tmp/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
+  chmod +x /tmp/yq
+  export PATH="/tmp:$PATH"
+  echo "::endgroup::" >&2
+}
+
 # --- Validation ---
 if [ -z "$RESOURCE" ]; then
   echo "::error::RESOURCE is required"
@@ -36,6 +48,34 @@ fi
 if [ -z "$CLUSTER" ]; then
   echo "::error::CLUSTER is required"
   exit 1
+fi
+
+# --- Detect TEAM from resource files if not set via env ---
+if [ -z "$TEAM" ]; then
+  ensure_yq
+  IFS=',' read -ra _files <<< "$RESOURCE"
+  for _f in "${_files[@]}"; do
+    _f=$(echo "$_f" | xargs)
+    if [ -f "$_f" ]; then
+      _detected=$(yq eval '.metadata.labels.team // ""' "$_f" 2>/dev/null || true)
+      if [ -n "$_detected" ] && [ "$_detected" != "null" ]; then
+        TEAM="$_detected"
+        echo "Detected team '${TEAM}' from ${_f}"
+        break
+      fi
+      _detected=$(yq eval '.metadata.namespace // ""' "$_f" 2>/dev/null || true)
+      if [ -n "$_detected" ] && [ "$_detected" != "null" ]; then
+        TEAM="$_detected"
+        echo "Detected team '${TEAM}' from namespace in ${_f}"
+        break
+      fi
+    fi
+  done
+
+  if [ -z "$TEAM" ]; then
+    echo "::error::TEAM is required. Set it via env var or metadata.labels.team in your resource file."
+    exit 1
+  fi
 fi
 
 # --- Resolve the effective image ---
@@ -98,13 +138,7 @@ prepare_vars_file() {
   fi
 
   if [ -n "$IMAGE" ]; then
-    if ! command -v yq &> /dev/null; then
-      echo "::group::Install yq" >&2
-      curl -sSL -o /tmp/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
-      chmod +x /tmp/yq
-      export PATH="/tmp:$PATH"
-      echo "::endgroup::" >&2
-    fi
+    ensure_yq
     yq eval ".image = \"${IMAGE}\"" -i "$vars_file"
   fi
 
