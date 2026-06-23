@@ -1,90 +1,289 @@
-#!/bin/sh
-# vi: se et:
+#!/usr/bin/env bash
+set -euo pipefail
 
-if [ -n "$APIKEY" ]; then
-    echo "::add-mask::$APIKEY"
+# === Nais Deploy v3 ===
+# Drop-in replacement for nais/deploy/actions/deploy@v2.
+# Uses the same environment variables as v2:
+#   CLUSTER, RESOURCE, IMAGE, WORKLOAD_IMAGE, VARS, VAR, TEAM, WAIT, TIMEOUT, DRY_RUN
+#
+# Internally:
+# - deploy-cli handles handlebars templating of resource files
+# - nais CLI (nais alpha apply) handles the actual deployment
+#
+# Key difference from v2: No Image resource (kind: Image) is generated.
+# Instead, workload-image is handled via `nais alpha apply --set spec.image=`.
+# When WORKLOAD_IMAGE is empty (e.g. what-changed only-inputs scenario),
+# nais alpha apply preserves the currently running image in the cluster.
+
+# --- Configuration from environment variables (same as v2) ---
+RESOURCE="${RESOURCE:-}"
+CLUSTER="${CLUSTER:-}"
+TEAM="${TEAM:-}"
+VARS="${VARS:-}"
+VAR="${VAR:-}"
+IMAGE="${IMAGE:-}"
+WORKLOAD_IMAGE="${WORKLOAD_IMAGE:-}"
+WAIT="${WAIT:-true}"
+TIMEOUT="${TIMEOUT:-10m}"
+DRY_RUN="${DRY_RUN:-false}"
+
+# --- Validation ---
+if [ -z "$RESOURCE" ]; then
+  echo "::error::RESOURCE is required"
+  exit 1
 fi
 
-if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
-    echo "::add-mask::$ACTIONS_ID_TOKEN_REQUEST_URL"
+if [ -z "$CLUSTER" ]; then
+  echo "::error::CLUSTER is required"
+  exit 1
 fi
 
-if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
-    echo "::add-mask::$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-fi
-
-if [ -z "$OWNER" ]; then
-    OWNER=$(echo "$GITHUB_REPOSITORY" | cut -f1 -d/)
-    export OWNER
-fi
-
-if [ -z "$REPOSITORY" ]; then
-    REPOSITORY=$(echo "$GITHUB_REPOSITORY" | cut -f2 -d/)
-    export REPOSITORY
-fi
-
-if [ -z "$WAIT" ]; then
-    export WAIT="true"
-fi
-
-# Inject "image" as a template variable to a new copy of the vars file.
-# If the file doesn't exist, it is created. The original file is left untouched.
+# --- Resolve the effective image ---
+# Priority: IMAGE (template variable) > WORKLOAD_IMAGE (--set spec.image)
+# If neither is set, nais alpha apply will use the image currently running in the cluster.
+EFFECTIVE_IMAGE=""
 if [ -n "$IMAGE" ]; then
-    export VARS_ORIGINAL="$VARS"
-    VARS=$(mktemp)
-    export VARS
-    if [ -z "$VARS_ORIGINAL" ]; then
-        echo "---" > "$VARS"
-    else
-        cat "$VARS_ORIGINAL" > "$VARS"
-    fi
-    yq w --inplace "$VARS" image "$IMAGE"
+  EFFECTIVE_IMAGE="$IMAGE"
+elif [ -n "$WORKLOAD_IMAGE" ]; then
+  EFFECTIVE_IMAGE="$WORKLOAD_IMAGE"
 fi
 
-if [ -z "$DEPLOY_SERVER" ]; then
-    echo ::group::wget
-    DEPLOY_JSON=$(mktemp)
-    wget https://storage.googleapis.com/github-deploy-data/"$GITHUB_REPOSITORY_OWNER.json" --output-document "$DEPLOY_JSON"
-    WGET_EXIT_CODE=$?
-    cat "$DEPLOY_JSON"
+# --- Helper: check if resource files use handlebars templates ---
+needs_templating() {
+  [ -n "$VARS" ] && return 0
+  [ -n "$VAR" ] && return 0
 
-    echo
-    echo ::endgroup::
-    if [ $WGET_EXIT_CODE -eq 0 ]; then
-	    DEPLOY_SERVER=$(jq --raw-output '.DEPLOY_SERVER' < "$DEPLOY_JSON")
-	    export DEPLOY_SERVER
+  IFS=',' read -ra files <<< "$RESOURCE"
+  for f in "${files[@]}"; do
+    f=$(echo "$f" | xargs)
+    if grep -qE '\{\{.*\}\}' "$f" 2>/dev/null; then
+      return 0
     fi
-fi
+  done
 
-# if no apikey is set, use use the id-token to get a jwt token for the deploy CLI
-# This is a bug, the security level of our ci stuff is at the same level as an apikey here since we offer that
-# in addition to federated workload identity
+  return 1
+}
 
-if [ -z "$APIKEY" ]; then
-    if [ -z "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ] || [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
-        echo "::error ::Missing id-token permissions. This must be set either globally in the workflow, or for the specific job performing the deploy."
-        echo "::error ::For more info see https://doc.nais.io/build/how-to/build-and-deploy and/or https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs"
+# --- Download deploy-cli for templating ---
+download_deploy_cli() {
+  local deploy_cli="/tmp/deploy-cli"
 
-        echo "Ensure that you grant the following permissions in your workflow:" >> $GITHUB_STEP_SUMMARY
-        echo '```yaml' >> $GITHUB_STEP_SUMMARY
-        echo "permissions:" >> $GITHUB_STEP_SUMMARY
-        echo "   id-token: write" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
+  if [ -f "$deploy_cli" ]; then
+    echo "$deploy_cli"
+    return
+  fi
 
-        exit 1
+  echo "::group::Download deploy-cli for templating" >&2
+
+  local url="https://github.com/nais/deploy/releases/download/v2/deploy-linux"
+  echo "Downloading deploy-cli from ${url}..." >&2
+  curl -sSL -o "$deploy_cli" "$url"
+  chmod +x "$deploy_cli"
+
+  echo "deploy-cli downloaded successfully" >&2
+  echo "::endgroup::" >&2
+
+  echo "$deploy_cli"
+}
+
+# --- Prepare template variables file ---
+prepare_vars_file() {
+  local vars_file
+  vars_file=$(mktemp /tmp/deploy-vars-XXXXXX.yaml)
+
+  if [ -n "$VARS" ]; then
+    cp "$VARS" "$vars_file"
+  else
+    echo "---" > "$vars_file"
+  fi
+
+  if [ -n "$IMAGE" ]; then
+    if ! command -v yq &> /dev/null; then
+      echo "::group::Install yq" >&2
+      curl -sSL -o /tmp/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
+      chmod +x /tmp/yq
+      export PATH="/tmp:$PATH"
+      echo "::endgroup::" >&2
+    fi
+    yq eval ".image = \"${IMAGE}\"" -i "$vars_file"
+  fi
+
+  echo "$vars_file"
+}
+
+# --- Template a single resource file using deploy-cli ---
+template_resource() {
+  local deploy_cli="$1"
+  local resource_file="$2"
+  local vars_file="$3"
+  local output_file="$4"
+
+  local cli_args=(
+    --resource "$resource_file"
+    --cluster "$CLUSTER"
+    --team "${TEAM:-templating}"
+    --dry-run
+    --print-payload
+  )
+
+  if [ -n "$vars_file" ]; then
+    cli_args+=(--vars "$vars_file")
+  fi
+
+  if [ -n "$VAR" ]; then
+    cli_args+=(--var "$VAR")
+  fi
+
+  local payload
+  if ! payload=$("$deploy_cli" "${cli_args[@]}" 2>/dev/null); then
+    echo "::warning::deploy-cli failed silently, retrying with verbose output..."
+    if ! payload=$("$deploy_cli" "${cli_args[@]}"); then
+      echo "::error::Failed to template resource: ${resource_file}"
+      return 1
+    fi
+  fi
+
+  if [ -z "$payload" ]; then
+    echo "::error::deploy-cli produced empty output for: ${resource_file}"
+    return 1
+  fi
+
+  local resource_count
+  resource_count=$(echo "$payload" | jq '.kubernetes.resources | length')
+
+  if [ "$resource_count" -eq 0 ]; then
+    echo "::error::No resources found in deploy-cli output for: ${resource_file}"
+    return 1
+  fi
+
+  : > "$output_file"
+  for ((i=0; i<resource_count; i++)); do
+    local kind api_version
+    kind=$(echo "$payload" | jq -r ".kubernetes.resources[$i].kind // empty")
+    api_version=$(echo "$payload" | jq -r ".kubernetes.resources[$i].apiVersion // empty")
+
+    # Skip Image resources generated by deploy-cli (we use --set spec.image instead)
+    if [ "$kind" = "Image" ] && [ "$api_version" = "nais.io/v1" ]; then
+      echo "  Skipping generated Image resource (handled via --set spec.image)"
+      continue
     fi
 
-    export GITHUB_TOKEN_URL="$ACTIONS_ID_TOKEN_REQUEST_URL"
-    echo "::add-mask::$GITHUB_TOKEN_URL"
-    export GITHUB_BEARER_TOKEN="$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
-    echo "::add-mask::$GITHUB_BEARER_TOKEN"
+    echo "---" >> "$output_file"
+    echo "$payload" | jq ".kubernetes.resources[$i]" | yq eval -P - >> "$output_file"
+  done
+
+  if [ ! -s "$output_file" ]; then
+    echo "::error::No applicable resources after filtering for: ${resource_file}"
+    return 1
+  fi
+}
+
+# --- Main ---
+echo "::group::Nais Deploy v3"
+echo "Cluster: ${CLUSTER}"
+echo "Resources: ${RESOURCE}"
+[ -n "$TEAM" ] && echo "Team: ${TEAM}"
+[ -n "$EFFECTIVE_IMAGE" ] && echo "Image: ${EFFECTIVE_IMAGE}"
+[ -z "$EFFECTIVE_IMAGE" ] && echo "Image: (will use currently running image)"
+echo "Wait: ${WAIT}"
+echo "Timeout: ${TIMEOUT}"
+echo "::endgroup::"
+
+# Parse resource file list
+IFS=',' read -ra RESOURCE_FILES <<< "$RESOURCE"
+RENDERED_DIR=$(mktemp -d /tmp/deploy-rendered-XXXXXX)
+RENDERED_FILES=()
+TEMPLATED=false
+
+if needs_templating; then
+  TEMPLATED=true
+  DEPLOY_CLI=$(download_deploy_cli)
+  VARS_FILE=$(prepare_vars_file)
+
+  echo "::group::Template resources"
+
+  file_index=0
+  for resource_file in "${RESOURCE_FILES[@]}"; do
+    resource_file=$(echo "$resource_file" | xargs)
+
+    if [ ! -f "$resource_file" ]; then
+      echo "::error::Resource file not found: ${resource_file}"
+      exit 1
+    fi
+
+    rendered_file="${RENDERED_DIR}/${file_index}-$(basename "$resource_file")"
+    file_index=$((file_index + 1))
+    echo "Rendering: ${resource_file}"
+
+    template_resource "$DEPLOY_CLI" "$resource_file" "$VARS_FILE" "$rendered_file"
+
+    RENDERED_FILES+=("$rendered_file")
+    echo "  -> ${rendered_file}"
+  done
+
+  echo "::endgroup::"
+
+  rm -f "$VARS_FILE"
 else
-    echo "::warning ::APIKEY is deprecated. Update your workflow as per https://doc.nais.io/build/how-to/build-and-deploy"
+  echo "No template variables detected; using resource files as-is"
+
+  for resource_file in "${RESOURCE_FILES[@]}"; do
+    resource_file=$(echo "$resource_file" | xargs)
+
+    if [ ! -f "$resource_file" ]; then
+      echo "::error::Resource file not found: ${resource_file}"
+      exit 1
+    fi
+
+    RENDERED_FILES+=("$resource_file")
+  done
 fi
 
-export ACTIONS="true"
+# --- Dry run ---
+if [ "$DRY_RUN" = "true" ]; then
+  echo "::group::Dry run - rendered resources"
+  for f in "${RENDERED_FILES[@]}"; do
+    echo "=== $(basename "$f") ==="
+    cat "$f"
+    echo ""
+  done
+  echo "::endgroup::"
+  echo "Dry run complete. No deployment performed."
+  exit 0
+fi
 
-# All of our users live in Norway, so why not. GitHub defaults to UTC.
-export TZ="Europe/Oslo"
+# --- Deploy using nais CLI ---
+echo "::group::Deploy with nais CLI"
 
-/app/deploy
+for rendered_file in "${RENDERED_FILES[@]}"; do
+  echo "Deploying: $(basename "$rendered_file")"
+
+  APPLY_ARGS=(
+    "alpha" "apply" "$rendered_file"
+    "--environment" "$CLUSTER"
+    "--allow-ignored-fields"
+  )
+
+  if [ -n "$TEAM" ]; then
+    APPLY_ARGS+=("--team" "$TEAM")
+  fi
+
+  if [ "$WAIT" = "true" ]; then
+    APPLY_ARGS+=("--wait" "--timeout" "$TIMEOUT")
+  fi
+
+  # Set image via --set when we have an effective image.
+  # When empty (what-changed only-inputs, no new build):
+  # nais alpha apply preserves the image currently running in the cluster.
+  if [ -n "$EFFECTIVE_IMAGE" ]; then
+    APPLY_ARGS+=("--set" "spec.image=${EFFECTIVE_IMAGE}")
+  fi
+
+  echo "Running: nais ${APPLY_ARGS[*]}"
+  nais "${APPLY_ARGS[@]}"
+done
+
+echo "::endgroup::"
+
+# --- Cleanup ---
+rm -rf "$RENDERED_DIR"

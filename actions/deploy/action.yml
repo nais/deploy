@@ -1,8 +1,20 @@
-name: 'Nais deploy'
-description: 'Deploy to a Nais cluster'
-author: '@nais'
-color: purple
-icon: zap
+name: "Nais deploy"
+description: "Deploy to a Nais cluster using nais CLI with handlebars templating support"
+author: "@nais"
+
+branding:
+  color: purple
+  icon: zap
+
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: "composite"
+  steps:
+    - name: Setup nais CLI
+      uses: nais/setup@v1
+      with:
+        team: ${{ env.TEAM || '' }}
+        environment: ${{ env.CLUSTER || '' }}
+
+    - name: Template and deploy
+      shell: bash
+      run: ${{ github.action_path }}/entrypoint.sh
