@@ -10,7 +10,7 @@ runs:
   using: "composite"
   steps:
     - name: Setup nais CLI
-      uses: nais/setup@v1
+      uses: nais/setup@v1.0.0-next.7
       with:
         team: ${{ env.TEAM || '' }}
         environment: ${{ env.CLUSTER || '' }}
