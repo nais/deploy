@@ -84,7 +84,18 @@ var tests = []testSpec{
 		timeout: 2 * time.Second,
 		endStatus: &pb.DeploymentStatus{
 			State:   pb.DeploymentState_failure,
-			Message: `nais.io/v1alpha1, Kind=Application, Namespace=not-aura, Name=myapplication-unauthorized: get existing resource: applications.nais.io "myapplication-unauthorized" is forbidden: User "system:serviceaccount:aura:serviceuser-aura" cannot get resource "applications" in API group "nais.io" in the namespace "not-aura" (total of 1 errors)`,
+			Message: `nais.io/v1alpha1, Kind=Application, Namespace=not-aura, Name=myapplication-unauthorized: resource field .metadata.namespace was "not-aura", expected "aura"`,
+		},
+		deployedResources: nil,
+	},
+
+	// Cluster-scoped resources (no namespace) are rejected
+	{
+		fixture: "testdata/clusterrole.json",
+		timeout: 2 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_failure,
+			Message: `rbac.authorization.k8s.io/v1, Kind=ClusterRole, Name=myclusterrole: resource field .metadata.namespace is missing; "aura" cannot deploy cluster-scoped resources`,
 		},
 		deployedResources: nil,
 	},

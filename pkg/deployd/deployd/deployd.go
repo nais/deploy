@@ -19,6 +19,29 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// validateTeamNamespaces ensures every resource targets the deploying team's own
+// namespace. deployd impersonates serviceuser-<team> (scoped to namespace <team>),
+// so Kubernetes RBAC is the primary control; this is defense-in-depth that fails
+// fast with a clear error and rejects cluster-scoped resources (empty namespace),
+// which RBAC may not fence. Teams may only deploy into their own namespace.
+func validateTeamNamespaces(resources []unstructured.Unstructured, team string) error {
+	if team == "" {
+		return fmt.Errorf("deployment team is empty")
+	}
+	for _, resource := range resources {
+		ns := resource.GetNamespace()
+		if ns == team {
+			continue
+		}
+		id := k8sutils.ResourceIdentifier(resource)
+		if ns == "" {
+			return fmt.Errorf("%s: resource field .metadata.namespace is missing; %q cannot deploy cluster-scoped resources", id, team)
+		}
+		return fmt.Errorf("%s: resource field .metadata.namespace was %q, expected %q", id, ns, team)
+	}
+	return nil
+}
+
 // Annotate a resource with the deployment correlation ID.
 func addCorrelationID(resource *unstructured.Unstructured, correlationID string) {
 	anno := resource.GetAnnotations()
@@ -47,6 +70,13 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 
 	resources, err := op.ExtractResources()
 	if err != nil {
+		failure(err)
+		op.Trace.SetStatus(codes.Error, err.Error())
+		op.Trace.End()
+		return
+	}
+
+	if err := validateTeamNamespaces(resources, op.Request.GetTeam()); err != nil {
 		failure(err)
 		op.Trace.SetStatus(codes.Error, err.Error())
 		op.Trace.End()
