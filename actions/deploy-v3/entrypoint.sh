@@ -2,39 +2,39 @@
 set -euo pipefail
 
 # === Nais Deploy v3 ===
-# Drop-in replacement for nais/deploy (v2) that uses:
-# - deploy-cli for handlebars templating of resource files
-# - nais CLI (nais alpha apply) for the actual deployment
+# Drop-in replacement for nais/deploy/actions/deploy@v2.
+# Uses the same environment variables as v2:
+#   CLUSTER, RESOURCE, IMAGE, WORKLOAD_IMAGE, VARS, VAR, TEAM, WAIT, TIMEOUT, DRY_RUN
 #
-# This allows existing workflows using handlebars templates ({{var}})
-# to migrate seamlessly while using the new nais platform API.
+# Internally:
+# - deploy-cli handles handlebars templating of resource files
+# - nais CLI (nais alpha apply) handles the actual deployment
 #
-# Key difference from v2: The Image resource (kind: Image) is NOT generated.
+# Key difference from v2: No Image resource (kind: Image) is generated.
 # Instead, workload-image is handled via `nais alpha apply --set spec.image=`.
-# When workload-image is empty (e.g. what-changed only-inputs scenario),
-# nais alpha apply will preserve the currently running image in the cluster.
+# When WORKLOAD_IMAGE is empty (e.g. what-changed only-inputs scenario),
+# nais alpha apply preserves the currently running image in the cluster.
 
-# --- Configuration from action inputs ---
-# Supports both action inputs (INPUT_*) and legacy env vars for backward compatibility
-RESOURCE="${INPUT_RESOURCE:-${RESOURCE:-}}"
-CLUSTER="${INPUT_CLUSTER:-${CLUSTER:-}}"
-TEAM="${INPUT_TEAM:-${TEAM:-}}"
-VARS="${INPUT_VARS:-${VARS:-}}"
-VAR="${INPUT_VAR:-${VAR:-}}"
-IMAGE="${INPUT_IMAGE:-${IMAGE:-}}"
-WORKLOAD_IMAGE="${INPUT_WORKLOAD_IMAGE:-${WORKLOAD_IMAGE:-}}"
-WAIT="${INPUT_WAIT:-${WAIT:-true}}"
-TIMEOUT="${INPUT_TIMEOUT:-${TIMEOUT:-10m}}"
-DRY_RUN="${INPUT_DRY_RUN:-${DRY_RUN:-false}}"
+# --- Configuration from environment variables (same as v2) ---
+RESOURCE="${RESOURCE:-}"
+CLUSTER="${CLUSTER:-}"
+TEAM="${TEAM:-}"
+VARS="${VARS:-}"
+VAR="${VAR:-}"
+IMAGE="${IMAGE:-}"
+WORKLOAD_IMAGE="${WORKLOAD_IMAGE:-}"
+WAIT="${WAIT:-true}"
+TIMEOUT="${TIMEOUT:-10m}"
+DRY_RUN="${DRY_RUN:-false}"
 
 # --- Validation ---
 if [ -z "$RESOURCE" ]; then
-  echo "::error::Input 'resource' is required"
+  echo "::error::RESOURCE is required"
   exit 1
 fi
 
 if [ -z "$CLUSTER" ]; then
-  echo "::error::Input 'cluster' is required"
+  echo "::error::CLUSTER is required"
   exit 1
 fi
 
@@ -49,16 +49,10 @@ elif [ -n "$WORKLOAD_IMAGE" ]; then
 fi
 
 # --- Helper: check if resource files use handlebars templates ---
-# Returns 0 (true) if templating is needed, 1 (false) otherwise.
-# Templating is needed when:
-# - A vars file is specified (--vars)
-# - Inline variables are specified (--var)
-# - Any resource file contains {{...}} syntax
 needs_templating() {
   [ -n "$VARS" ] && return 0
   [ -n "$VAR" ] && return 0
 
-  # Check if any resource file contains handlebars syntax
   IFS=',' read -ra files <<< "$RESOURCE"
   for f in "${files[@]}"; do
     f=$(echo "$f" | xargs)
@@ -93,8 +87,6 @@ download_deploy_cli() {
 }
 
 # --- Prepare template variables file ---
-# Creates a temporary vars file with all template variables merged.
-# If IMAGE is set, it is injected as the "image" template variable (v2 compat).
 prepare_vars_file() {
   local vars_file
   vars_file=$(mktemp /tmp/deploy-vars-XXXXXX.yaml)
@@ -105,7 +97,6 @@ prepare_vars_file() {
     echo "---" > "$vars_file"
   fi
 
-  # Inject IMAGE as a template variable (same behavior as v2 entrypoint.sh)
   if [ -n "$IMAGE" ]; then
     if ! command -v yq &> /dev/null; then
       echo "::group::Install yq" >&2
@@ -121,9 +112,6 @@ prepare_vars_file() {
 }
 
 # --- Template a single resource file using deploy-cli ---
-# deploy-cli with --dry-run --print-payload outputs a protojson DeploymentRequest.
-# The kubernetes resources are at .kubernetes.resources[] as JSON objects
-# (google.protobuf.Struct). We extract them and convert back to multi-document YAML.
 template_resource() {
   local deploy_cli="$1"
   local resource_file="$2"
@@ -146,10 +134,8 @@ template_resource() {
     cli_args+=(--var "$VAR")
   fi
 
-  # Run deploy-cli: stdout = protojson payload, stderr = log messages
   local payload
   if ! payload=$("$deploy_cli" "${cli_args[@]}" 2>/dev/null); then
-    # Retry showing stderr for diagnostics
     echo "::warning::deploy-cli failed silently, retrying with verbose output..."
     if ! payload=$("$deploy_cli" "${cli_args[@]}"); then
       echo "::error::Failed to template resource: ${resource_file}"
@@ -162,9 +148,6 @@ template_resource() {
     return 1
   fi
 
-  # Extract resources from protojson and convert to multi-document YAML.
-  # Skip any Image resources (kind: Image, apiVersion: nais.io/v1) that deploy-cli
-  # may have generated from WORKLOAD_IMAGE - we handle image via --set instead.
   local resource_count
   resource_count=$(echo "$payload" | jq '.kubernetes.resources | length')
 
@@ -175,9 +158,8 @@ template_resource() {
 
   : > "$output_file"
   for ((i=0; i<resource_count; i++)); do
-    local kind
+    local kind api_version
     kind=$(echo "$payload" | jq -r ".kubernetes.resources[$i].kind // empty")
-    local api_version
     api_version=$(echo "$payload" | jq -r ".kubernetes.resources[$i].apiVersion // empty")
 
     # Skip Image resources generated by deploy-cli (we use --set spec.image instead)
@@ -190,7 +172,6 @@ template_resource() {
     echo "$payload" | jq ".kubernetes.resources[$i]" | yq eval -P - >> "$output_file"
   done
 
-  # Ensure we wrote at least one resource
   if [ ! -s "$output_file" ]; then
     echo "::error::No applicable resources after filtering for: ${resource_file}"
     return 1
@@ -215,7 +196,6 @@ RENDERED_FILES=()
 TEMPLATED=false
 
 if needs_templating; then
-  # --- Templating path: use deploy-cli for handlebars rendering ---
   TEMPLATED=true
   DEPLOY_CLI=$(download_deploy_cli)
   VARS_FILE=$(prepare_vars_file)
@@ -243,10 +223,8 @@ if needs_templating; then
 
   echo "::endgroup::"
 
-  # Cleanup vars file
   rm -f "$VARS_FILE"
 else
-  # --- No templating needed: use resource files directly ---
   echo "No template variables detected; using resource files as-is"
 
   for resource_file in "${RESOURCE_FILES[@]}"; do
@@ -261,7 +239,7 @@ else
   done
 fi
 
-# --- Dry run: just print rendered resources ---
+# --- Dry run ---
 if [ "$DRY_RUN" = "true" ]; then
   echo "::group::Dry run - rendered resources"
   for f in "${RENDERED_FILES[@]}"; do
@@ -294,12 +272,9 @@ for rendered_file in "${RENDERED_FILES[@]}"; do
     APPLY_ARGS+=("--wait" "--timeout" "$TIMEOUT")
   fi
 
-  # Set image via --set when we have an effective image to deploy.
-  # - With templating: deploy-cli has substituted {{image}} in spec.image,
-  #   but we still use --set to ensure consistency.
-  # - Without templating: --set injects the image directly into spec.image.
-  # - When EFFECTIVE_IMAGE is empty (e.g. what-changed only-inputs, no new build):
-  #   nais alpha apply will preserve the image currently running in the cluster.
+  # Set image via --set when we have an effective image.
+  # When empty (what-changed only-inputs, no new build):
+  # nais alpha apply preserves the image currently running in the cluster.
   if [ -n "$EFFECTIVE_IMAGE" ]; then
     APPLY_ARGS+=("--set" "spec.image=${EFFECTIVE_IMAGE}")
   fi

@@ -6,71 +6,15 @@ branding:
   color: purple
   icon: zap
 
-inputs:
-  resource:
-    description: "Comma-separated list of Kubernetes resource files (supports handlebars templating)"
-    required: true
-  cluster:
-    description: "Nais cluster/environment to deploy into (e.g. dev-gcp, prod-gcp)"
-    required: true
-  team:
-    description: "Team performing the deployment. Auto-detected from nais.yaml if not specified."
-    required: false
-    default: ""
-  vars:
-    description: "Path to file containing template variables (YAML/JSON)"
-    required: false
-    default: ""
-  var:
-    description: "Comma-separated template variables in the form KEY=VALUE"
-    required: false
-    default: ""
-  image:
-    description: "Docker image to inject as template variable and/or set as spec.image"
-    required: false
-    default: ""
-  workload-image:
-    description: "Docker image for the workload. Used with what-changed workflows. If not set, the currently running image in the cluster is preserved."
-    required: false
-    default: ""
-  wait:
-    description: "Wait for deployment to complete"
-    required: false
-    default: "true"
-  timeout:
-    description: "Timeout for waiting (e.g. 10m, 5m)"
-    required: false
-    default: "10m"
-  dry-run:
-    description: "Template resources without deploying"
-    required: false
-    default: "false"
-  nais-cli-version:
-    description: "Version of nais CLI to install (e.g. latest, v3.8.3)"
-    required: false
-    default: "latest"
-
 runs:
   using: "composite"
   steps:
     - name: Setup nais CLI
       uses: nais/setup@v1
       with:
-        version: ${{ inputs.nais-cli-version }}
-        team: ${{ inputs.team || '' }}
-        environment: ${{ inputs.cluster }}
+        team: ${{ env.TEAM || '' }}
+        environment: ${{ env.CLUSTER || '' }}
 
     - name: Template and deploy
       shell: bash
-      env:
-        INPUT_RESOURCE: ${{ inputs.resource }}
-        INPUT_CLUSTER: ${{ inputs.cluster }}
-        INPUT_TEAM: ${{ inputs.team }}
-        INPUT_VARS: ${{ inputs.vars }}
-        INPUT_VAR: ${{ inputs.var }}
-        INPUT_IMAGE: ${{ inputs.image }}
-        INPUT_WORKLOAD_IMAGE: ${{ inputs.workload-image }}
-        INPUT_WAIT: ${{ inputs.wait }}
-        INPUT_TIMEOUT: ${{ inputs.timeout }}
-        INPUT_DRY_RUN: ${{ inputs.dry-run }}
       run: ${{ github.action_path }}/entrypoint.sh
