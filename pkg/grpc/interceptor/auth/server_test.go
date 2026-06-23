@@ -149,6 +149,18 @@ func TestServerInterceptorJWT(t *testing.T) {
 		}
 	})
 
+	t.Run("empty body team is rejected", func(t *testing.T) {
+		_, err := i.UnaryServerInterceptor(ctx, &pb.DeploymentRequest{}, nil, handler)
+		if err == nil {
+			t.Fatal("got nil, want error")
+		}
+
+		want := "deployment request team \"\" does not match authenticated team \"team\""
+		if !strings.HasSuffix(err.Error(), want) {
+			t.Fatalf("got %s, want suffix %s", err.Error(), want)
+		}
+	})
+
 	t.Run("invalid jwt", func(t *testing.T) {
 		ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
 			"jwt":  []string{"invalid"},
