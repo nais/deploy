@@ -145,12 +145,14 @@ prepare_vars_file() {
   echo "$vars_file"
 }
 
-# --- Template a single resource file using deploy-cli ---
-template_resource() {
+# --- Template a resource file using deploy-cli, output one file per resource ---
+# Appends file paths to the RENDERED_FILES array.
+template_resources() {
   local deploy_cli="$1"
   local resource_file="$2"
   local vars_file="$3"
-  local output_file="$4"
+  local output_dir="$4"
+  local file_prefix="$5"
 
   local cli_args=(
     --resource "$resource_file"
@@ -190,7 +192,7 @@ template_resource() {
     return 1
   fi
 
-  : > "$output_file"
+  local wrote=0
   for ((i=0; i<resource_count; i++)); do
     local kind api_version
     kind=$(echo "$payload" | jq -r ".kubernetes.resources[$i].kind // empty")
@@ -202,14 +204,43 @@ template_resource() {
       continue
     fi
 
-    echo "---" >> "$output_file"
-    echo "$payload" | jq ".kubernetes.resources[$i]" | yq eval -P - >> "$output_file"
+    local out_file="${output_dir}/${file_prefix}-${i}.yaml"
+    echo "$payload" | jq ".kubernetes.resources[$i]" | yq eval -P - > "$out_file"
+    RENDERED_FILES+=("$out_file")
+    echo "  -> ${out_file} (${kind})"
+    wrote=$((wrote + 1))
   done
 
-  if [ ! -s "$output_file" ]; then
+  if [ "$wrote" -eq 0 ]; then
     echo "::error::No applicable resources after filtering for: ${resource_file}"
     return 1
   fi
+}
+
+# --- Split a multi-document YAML file into one file per document ---
+# Appends file paths to the RENDERED_FILES array.
+split_yaml() {
+  local input_file="$1"
+  local output_dir="$2"
+  local file_prefix="$3"
+
+  ensure_yq
+  local doc_count
+  doc_count=$(yq eval-all '[.] | length' "$input_file")
+
+  if [ "$doc_count" -le 1 ]; then
+    RENDERED_FILES+=("$input_file")
+    return
+  fi
+
+  for ((i=0; i<doc_count; i++)); do
+    local out_file="${output_dir}/${file_prefix}-${i}.yaml"
+    yq eval "select(documentIndex == $i)" "$input_file" > "$out_file"
+    RENDERED_FILES+=("$out_file")
+    local kind
+    kind=$(yq eval '.kind // "unknown"' "$out_file" 2>/dev/null || echo "unknown")
+    echo "  -> ${out_file} (${kind})"
+  done
 }
 
 # --- Main ---
@@ -227,10 +258,8 @@ echo "::endgroup::"
 IFS=',' read -ra RESOURCE_FILES <<< "$RESOURCE"
 RENDERED_DIR=$(mktemp -d /tmp/deploy-rendered-XXXXXX)
 RENDERED_FILES=()
-TEMPLATED=false
 
 if needs_templating; then
-  TEMPLATED=true
   DEPLOY_CLI=$(download_deploy_cli)
   VARS_FILE=$(prepare_vars_file)
 
@@ -245,14 +274,9 @@ if needs_templating; then
       exit 1
     fi
 
-    rendered_file="${RENDERED_DIR}/${file_index}-$(basename "$resource_file")"
-    file_index=$((file_index + 1))
     echo "Rendering: ${resource_file}"
-
-    template_resource "$DEPLOY_CLI" "$resource_file" "$VARS_FILE" "$rendered_file"
-
-    RENDERED_FILES+=("$rendered_file")
-    echo "  -> ${rendered_file}"
+    template_resources "$DEPLOY_CLI" "$resource_file" "$VARS_FILE" "$RENDERED_DIR" "$file_index"
+    file_index=$((file_index + 1))
   done
 
   echo "::endgroup::"
@@ -261,6 +285,8 @@ if needs_templating; then
 else
   echo "No template variables detected; using resource files as-is"
 
+  ensure_yq
+  file_index=0
   for resource_file in "${RESOURCE_FILES[@]}"; do
     resource_file=$(echo "$resource_file" | xargs)
 
@@ -269,7 +295,8 @@ else
       exit 1
     fi
 
-    RENDERED_FILES+=("$resource_file")
+    split_yaml "$resource_file" "$RENDERED_DIR" "$file_index"
+    file_index=$((file_index + 1))
   done
 fi
 
@@ -306,11 +333,12 @@ for rendered_file in "${RENDERED_FILES[@]}"; do
     APPLY_ARGS+=("--wait" "--timeout" "$TIMEOUT")
   fi
 
-  # Set image via --set when we have an effective image.
-  # When empty (what-changed only-inputs, no new build):
-  # nais alpha apply preserves the image currently running in the cluster.
+  # Only set spec.image on workload resources (Application, Naisjob), not on ConfigMaps etc.
   if [ -n "$EFFECTIVE_IMAGE" ]; then
-    APPLY_ARGS+=("--set" "spec.image=${EFFECTIVE_IMAGE}")
+    local_kind=$(yq eval '.kind // ""' "$rendered_file" 2>/dev/null || true)
+    if [ "$local_kind" = "Application" ] || [ "$local_kind" = "Naisjob" ]; then
+      APPLY_ARGS+=("--set" "spec.image=${EFFECTIVE_IMAGE}")
+    fi
   fi
 
   echo "Running: nais ${APPLY_ARGS[*]}"
