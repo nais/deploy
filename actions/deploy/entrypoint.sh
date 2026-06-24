@@ -57,13 +57,13 @@ if [ -z "$TEAM" ]; then
   for _f in "${_files[@]}"; do
     _f=$(echo "$_f" | xargs)
     if [ -f "$_f" ]; then
-      _detected=$(yq eval '.metadata.labels.team // ""' "$_f" 2>/dev/null || true)
+      _detected=$(yq eval-all '[.metadata.labels.team // ""] | map(select(. != "")) | .[0] // ""' "$_f" 2>/dev/null || true)
       if [ -n "$_detected" ] && [ "$_detected" != "null" ]; then
         TEAM="$_detected"
         echo "Detected team '${TEAM}' from ${_f}"
         break
       fi
-      _detected=$(yq eval '.metadata.namespace // ""' "$_f" 2>/dev/null || true)
+      _detected=$(yq eval-all '[.metadata.namespace // ""] | map(select(. != "")) | .[0] // ""' "$_f" 2>/dev/null || true)
       if [ -n "$_detected" ] && [ "$_detected" != "null" ]; then
         TEAM="$_detected"
         echo "Detected team '${TEAM}' from namespace in ${_f}"
