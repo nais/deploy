@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "Naisjob",
+    "apiVersion": "nais.io/v1",
+    "metadata": {
+      "name": "mynaisjob-resync",
+      "namespace": "aura"
+    },
+    "spec": {
+      "image": "foo/bar",
+      "schedule": "*/1 * * * *"
+    }
+  }
+]

@@ -40,6 +40,8 @@ type testSpec struct {
 	endStatus         *pb.DeploymentStatus // which end state we expect
 	deployedResources []client.Object      // list of Kubernetes resources expected to be applied to the cluster - only checks name and namespace
 	processing        processCallback      // processing that happens in a coroutine together with deployd.Run(). Requires all resources in `deployedResources` to exist.
+	setup             processCallback      // processing that happens before deployd.Run()
+	verify            func(t *testing.T, ctx context.Context, rig *testRig, test testSpec)
 }
 
 var tests = []testSpec{
@@ -117,7 +119,7 @@ var tests = []testSpec{
 			},
 		},
 		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
-			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "myapplication"))
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "Application", "myapplication"))
 		},
 	},
 
@@ -138,7 +140,7 @@ var tests = []testSpec{
 			},
 		},
 		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
-			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedSynchronization, "oops", "myapplication-failedsynchronization"))
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedSynchronization, "oops", "Application", "myapplication-failedsynchronization"))
 		},
 	},
 
@@ -159,7 +161,7 @@ var tests = []testSpec{
 			},
 		},
 		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
-			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedPrepare, "oops", "myapplication-failedprepare"))
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.FailedPrepare, "oops", "Application", "myapplication-failedprepare"))
 		},
 	},
 
@@ -184,6 +186,133 @@ var tests = []testSpec{
 		},
 		deployedResources: nil,
 	},
+
+	// Redeploying an unchanged Application clears the synchronization hash,
+	// so that Naiserator synchronizes it instead of skipping it.
+	{
+		fixture: "testdata/application-resync.json",
+		timeout: 5 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_success,
+			Message: "Deployment completed successfully.",
+		},
+		deployedResources: []client.Object{
+			&nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-resync",
+					Namespace: "aura",
+				},
+			},
+		},
+		setup: func(ctx context.Context, rig *testRig, test testSpec) error {
+			app := &nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-resync",
+					Namespace: "aura",
+				},
+				Spec: nais_io_v1alpha1.ApplicationSpec{Image: "foo/bar"},
+			}
+			return createWithStatus(ctx, rig, app, &app.Status)
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "Application", "myapplication-resync"))
+		},
+		verify: func(t *testing.T, ctx context.Context, rig *testRig, test testSpec) {
+			app := &nais_io_v1alpha1.Application{}
+			err := rig.client.Get(ctx, client.ObjectKey{Name: "myapplication-resync", Namespace: "aura"}, app)
+			assert.NoError(t, err)
+			assertStatusInvalidated(t, app.Status)
+		},
+	},
+
+	// Naisjobs use the same synchronization hash mechanism as Applications.
+	{
+		fixture: "testdata/naisjob-resync.json",
+		timeout: 5 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_success,
+			Message: "Deployment completed successfully.",
+		},
+		deployedResources: []client.Object{
+			&nais_io_v1.Naisjob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mynaisjob-resync",
+					Namespace: "aura",
+				},
+			},
+		},
+		setup: func(ctx context.Context, rig *testRig, test testSpec) error {
+			job := &nais_io_v1.Naisjob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mynaisjob-resync",
+					Namespace: "aura",
+				},
+				Spec: nais_io_v1.NaisjobSpec{Image: "foo/bar", Schedule: "*/1 * * * *"},
+			}
+			return createWithStatus(ctx, rig, job, &job.Status)
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, "completed", "Naisjob", "mynaisjob-resync"))
+		},
+		verify: func(t *testing.T, ctx context.Context, rig *testRig, test testSpec) {
+			job := &nais_io_v1.Naisjob{}
+			err := rig.client.Get(ctx, client.ObjectKey{Name: "mynaisjob-resync", Namespace: "aura"}, job)
+			assert.NoError(t, err)
+			assertStatusInvalidated(t, job.Status)
+		},
+	},
+
+	// Naiserator's no-op rollout event describes the state before the forced
+	// resynchronization. Accepting it would report success without observing the
+	// rollout, so the deploy must keep waiting and time out when nothing follows.
+	{
+		fixture: "testdata/application-noop.json",
+		timeout: 3 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_failure,
+			Message: "timeout while waiting for deployment to succeed (total of 1 errors)",
+		},
+		deployedResources: []client.Object{
+			&nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-noop",
+					Namespace: "aura",
+				},
+			},
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, rolloutMessageNoop, "Application", "myapplication-noop"))
+		},
+	},
+}
+
+// rolloutMessageNoop mirrors Naiserator's RolloutMessageNoop.
+const rolloutMessageNoop = "No changes; deployment already up to date"
+
+// createWithStatus persists a workload along with the status Naiserator would have
+// written after a successful deployment. Status is a subresource, so it needs a
+// separate write.
+func createWithStatus(ctx context.Context, rig *testRig, resource client.Object, status *nais_io_v1.Status) error {
+	err := rig.client.Create(ctx, resource)
+	if err != nil {
+		return err
+	}
+
+	*status = nais_io_v1.Status{
+		SynchronizationHash:  "synchronized-hash",
+		SynchronizationState: events.RolloutComplete,
+		CorrelationID:        "previous-deployment",
+	}
+
+	return rig.client.Status().Update(ctx, resource)
+}
+
+// assertStatusInvalidated checks that only the synchronization hash was cleared, so
+// that Naiserator resynchronizes without losing the rest of its status.
+func assertStatusInvalidated(t *testing.T, status nais_io_v1.Status) {
+	assert.Empty(t, status.SynchronizationHash)
+	assert.Equal(t, events.RolloutComplete, status.SynchronizationState)
+	assert.Equal(t, "previous-deployment", status.CorrelationID)
 }
 
 type testRig struct {
@@ -460,6 +589,14 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 		panic(fmt.Sprintf("test data fixture error in '%s': %s", test.fixture, err))
 	}
 
+	if test.setup != nil {
+		err = test.setup(ctx, rig, test)
+		if err != nil {
+			t.Errorf("Set up fixture: %s", err)
+			t.FailNow()
+		}
+	}
+
 	opctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -507,9 +644,13 @@ func subTest(t *testing.T, rig *testRig, test testSpec, team string) {
 	assert.NoError(t, err)
 
 	wg.Wait()
+
+	if test.verify != nil {
+		test.verify(t, ctx, rig, test)
+	}
 }
 
-func naiseratorEvent(id, reason, message, app string) *v1.Event {
+func naiseratorEvent(id, reason, message, kind, name string) *v1.Event {
 	return &v1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "event-" + keygen.RandStringBytes(10),
@@ -522,9 +663,9 @@ func naiseratorEvent(id, reason, message, app string) *v1.Event {
 		Reason:              reason,
 		Message:             message,
 		InvolvedObject: v1.ObjectReference{
-			Kind:      "Application",
+			Kind:      kind,
 			Namespace: "aura",
-			Name:      app,
+			Name:      name,
 		},
 		LastTimestamp: metav1.NewTime(time.Now()),
 	}
