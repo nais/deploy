@@ -22,8 +22,6 @@ var (
 	naisjobGVR     = schema.GroupVersionResource{Group: "nais.io", Version: "v1", Resource: "naisjobs"}
 )
 
-// Redeploying an unchanged spec must still trigger Naiserator, which only synchronizes
-// when its stored hash differs from the hash it computes.
 func TestDeployInvalidatesSynchronizationHash(t *testing.T) {
 	tests := []struct {
 		name string
@@ -37,15 +35,17 @@ func TestDeployInvalidatesSynchronizationHash(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			existing := testResource(tt.gvk)
+			existing.SetGeneration(1)
 			require.NoError(t, unstructured.SetNestedField(existing.Object, "current-hash", "status", "synchronizationHash"))
 			desired := existing.DeepCopy()
 
 			client := fake.NewSimpleDynamicClient(runtime.NewScheme(), &existing)
 			resourceClient := client.Resource(tt.gvr).Namespace(existing.GetNamespace())
 
-			deployed, err := NewDeployStrategy(resourceClient).Deploy(t.Context(), *desired, noop.Span{})
+			deployed, forcedResync, err := NewDeployStrategy(resourceClient).Deploy(t.Context(), *desired, noop.Span{})
 			require.NoError(t, err)
 			require.NotNil(t, deployed)
+			require.True(t, forcedResync)
 
 			// The spec must be written before the hash is cleared, so that the
 			// resynchronization picks up this deployment rather than the previous one.
@@ -90,15 +90,47 @@ func TestDeployDoesNotInvalidateSynchronizationHash(t *testing.T) {
 				client.ClearActions()
 			}
 
-			_, err := NewDeployStrategy(resourceClient).Deploy(t.Context(), resource, noop.Span{})
+			_, forcedResync, err := NewDeployStrategy(resourceClient).Deploy(t.Context(), resource, noop.Span{})
 			require.NoError(t, err)
+			require.False(t, forcedResync)
 			require.NotContains(t, verbs(client.Actions()), "patch")
 		})
 	}
 }
 
-// A resource whose hash was not cleared silently stops reconciling, so the deployment
-// must fail loudly rather than wait for a rollout that never happens.
+func TestDeployDoesNotInvalidateSynchronizationHashWhenGenerationChanges(t *testing.T) {
+	tests := []struct {
+		name string
+		gvk  schema.GroupVersionKind
+		gvr  schema.GroupVersionResource
+	}{
+		{name: "Application", gvk: applicationGVK, gvr: applicationGVR},
+		{name: "Naisjob", gvk: naisjobGVK, gvr: naisjobGVR},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			existing := testResource(tt.gvk)
+			existing.SetGeneration(1)
+			desired := existing.DeepCopy()
+
+			client := fake.NewSimpleDynamicClient(runtime.NewScheme(), &existing)
+			client.PrependReactor("update", tt.gvr.Resource, func(action k8stesting.Action) (bool, runtime.Object, error) {
+				updated := action.(k8stesting.UpdateAction).GetObject().(*unstructured.Unstructured).DeepCopy()
+				updated.SetGeneration(2)
+				return true, updated, nil
+			})
+			resourceClient := client.Resource(tt.gvr).Namespace(existing.GetNamespace())
+
+			deployed, forcedResync, err := NewDeployStrategy(resourceClient).Deploy(t.Context(), *desired, noop.Span{})
+			require.NoError(t, err)
+			require.EqualValues(t, 2, deployed.GetGeneration())
+			require.False(t, forcedResync)
+			require.Equal(t, []string{"get", "update"}, verbs(client.Actions()))
+		})
+	}
+}
+
 func TestDeployFailsWhenSynchronizationHashCannotBeInvalidated(t *testing.T) {
 	existing := testResource(applicationGVK)
 	desired := existing.DeepCopy()
@@ -109,9 +141,10 @@ func TestDeployFailsWhenSynchronizationHashCannotBeInvalidated(t *testing.T) {
 	})
 	resourceClient := client.Resource(applicationGVR).Namespace(existing.GetNamespace())
 
-	_, err := NewDeployStrategy(resourceClient).Deploy(t.Context(), *desired, noop.Span{})
+	_, forcedResync, err := NewDeployStrategy(resourceClient).Deploy(t.Context(), *desired, noop.Span{})
 	require.ErrorContains(t, err, "invalidating synchronization hash")
 	require.True(t, errors.IsForbidden(err))
+	require.False(t, forcedResync)
 }
 
 func verbs(actions []k8stesting.Action) []string {

@@ -18,18 +18,18 @@ var (
 )
 
 type WatchStrategy interface {
-	Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus
+	Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span, forcedResync bool) *pb.DeploymentStatus
 }
 
 type NoOp struct{}
 
-func (c NoOp) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus {
+func (c NoOp) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span, _ bool) *pb.DeploymentStatus {
 	op.Logger.Debugf("Watch not implemented for resource %s/%s", resource.GroupVersionKind().String(), resource.GetName())
 	return nil
 }
 
 func NewWatchStrategy(gvk schema.GroupVersionKind, client kubeclient.Interface) WatchStrategy {
-	if gvk.Group == "nais.io" && (gvk.Kind == "Application" || gvk.Kind == "Naisjob") {
+	if isNaisWorkload(gvk) {
 		return naisResource{client: client}
 	}
 
@@ -42,4 +42,8 @@ func NewWatchStrategy(gvk schema.GroupVersionKind, client kubeclient.Interface) 
 	}
 
 	return NoOp{}
+}
+
+func isNaisWorkload(gvk schema.GroupVersionKind) bool {
+	return gvk.Group == "nais.io" && (gvk.Kind == "Application" || gvk.Kind == "Naisjob")
 }

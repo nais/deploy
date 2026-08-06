@@ -262,9 +262,46 @@ var tests = []testSpec{
 		},
 	},
 
-	// Naiserator's no-op rollout event describes the state before the forced
-	// resynchronization. Accepting it would report success without observing the
-	// rollout, so the deploy must keep waiting and time out when nothing follows.
+	// A no-op event remains terminal when the update changed generation and did not
+	// force a resynchronization.
+	{
+		fixture: "testdata/application-generation-change.json",
+		timeout: 5 * time.Second,
+		endStatus: &pb.DeploymentStatus{
+			State:   pb.DeploymentState_success,
+			Message: "Deployment completed successfully.",
+		},
+		deployedResources: []client.Object{
+			&nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-generation-change",
+					Namespace: "aura",
+				},
+			},
+		},
+		setup: func(ctx context.Context, rig *testRig, test testSpec) error {
+			app := &nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-generation-change",
+					Namespace: "aura",
+				},
+				Spec: nais_io_v1alpha1.ApplicationSpec{Image: "foo/old"},
+			}
+			return createWithStatus(ctx, rig, app, &app.Status)
+		},
+		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
+			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, rolloutMessageNoop, "Application", "myapplication-generation-change"))
+		},
+		verify: func(t *testing.T, ctx context.Context, rig *testRig, test testSpec) {
+			app := &nais_io_v1alpha1.Application{}
+			err := rig.client.Get(ctx, client.ObjectKey{Name: "myapplication-generation-change", Namespace: "aura"}, app)
+			assert.NoError(t, err)
+			assert.EqualValues(t, 2, app.Generation)
+			assert.Equal(t, "synchronized-hash", app.Status.SynchronizationHash)
+		},
+	},
+
+	// Ignore a no-op event emitted before the forced resynchronization completes.
 	{
 		fixture: "testdata/application-noop.json",
 		timeout: 3 * time.Second,
@@ -280,13 +317,22 @@ var tests = []testSpec{
 				},
 			},
 		},
+		setup: func(ctx context.Context, rig *testRig, test testSpec) error {
+			app := &nais_io_v1alpha1.Application{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "myapplication-noop",
+					Namespace: "aura",
+				},
+				Spec: nais_io_v1alpha1.ApplicationSpec{Image: "foo/bar"},
+			}
+			return createWithStatus(ctx, rig, app, &app.Status)
+		},
 		processing: func(ctx context.Context, rig *testRig, test testSpec) error {
 			return rig.client.Create(ctx, naiseratorEvent(test.fixture, events.RolloutComplete, rolloutMessageNoop, "Application", "myapplication-noop"))
 		},
 	},
 }
 
-// rolloutMessageNoop mirrors Naiserator's RolloutMessageNoop.
 const rolloutMessageNoop = "No changes; deployment already up to date"
 
 // createWithStatus persists a workload along with the status Naiserator would have
@@ -307,8 +353,6 @@ func createWithStatus(ctx context.Context, rig *testRig, resource client.Object,
 	return rig.client.Status().Update(ctx, resource)
 }
 
-// assertStatusInvalidated checks that only the synchronization hash was cleared, so
-// that Naiserator resynchronizes without losing the rest of its status.
 func assertStatusInvalidated(t *testing.T, status nais_io_v1.Status) {
 	assert.Empty(t, status.SynchronizationHash)
 	assert.Equal(t, events.RolloutComplete, status.SynchronizationState)

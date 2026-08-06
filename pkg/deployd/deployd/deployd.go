@@ -119,8 +119,9 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		)
 
 		resourceInterface, err := client.ResourceInterface(&resource)
+		forcedResync := false
 		if err == nil {
-			_, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource, span)
+			_, forcedResync, err = strategy.NewDeployStrategy(resourceInterface).Deploy(op.Context, resource, span)
 		}
 
 		if err != nil {
@@ -139,11 +140,11 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 		op.StatusChan <- pb.NewInProgressStatus(op.Request, "Successfully applied %s", identifier.String())
 		wait.Add(1)
 
-		go func(logger *log.Entry, resource unstructured.Unstructured) {
+		go func(logger *log.Entry, resource unstructured.Unstructured, forcedResync bool) {
 			deadline, _ := op.Context.Deadline()
 			op.Logger.Debugf("Monitoring rollout status of '%s/%s' in namespace '%s', deadline %s", identifier.GroupVersionKind, identifier.Name, identifier.Namespace, deadline)
 			strat := strategy.NewWatchStrategy(identifier.GroupVersionKind, client)
-			status := strat.Watch(op, resource, span)
+			status := strat.Watch(op, resource, span, forcedResync)
 			if status != nil {
 				span.AddEvent(status.Message)
 				if status.GetState().IsError() {
@@ -163,7 +164,7 @@ func Run(op *operation.Operation, client kubeclient.Interface) {
 			op.Logger.Debugf("Finished monitoring rollout status of '%s/%s' in namespace '%s'", identifier.GroupVersionKind, identifier.Name, identifier.Namespace)
 			wait.Done()
 			span.End()
-		}(logger, resource)
+		}(logger, resource, forcedResync)
 	}
 
 	op.StatusChan <- pb.NewInProgressStatus(op.Request, "All resources saved to Kubernetes; waiting for completion")

@@ -18,7 +18,7 @@ type job struct {
 	client kubeclient.Interface
 }
 
-func (j job) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus {
+func (j job) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span, _ bool) *pb.DeploymentStatus {
 	var job *v1.Job
 	var err error
 

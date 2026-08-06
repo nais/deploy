@@ -21,7 +21,7 @@ type deployment struct {
 	client kubeclient.Interface
 }
 
-func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus {
+func (d deployment) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span, _ bool) *pb.DeploymentStatus {
 	var cur *apps.Deployment
 	var nova *apps.Deployment
 	var err error

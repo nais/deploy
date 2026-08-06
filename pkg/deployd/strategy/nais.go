@@ -23,13 +23,12 @@ type naisResource struct {
 	client kubeclient.Interface
 }
 
-// rolloutMessageNoop mirrors Naiserator's RolloutMessageNoop, which it emits when a
-// redeploy has no spec changes. deployd forces a resynchronization on every deploy, so
-// this message describes the state before that resynchronization and must not finish
-// the wait. The real rollout event follows.
+// Naiserator may emit this before deployd clears the hash for an unchanged generation.
+// Ignore it because it does not represent the forced resynchronization.
+// https://github.com/nais/naiserator/blob/master/pkg/synchronizer/monitoring.go
 const rolloutMessageNoop = "No changes; deployment already up to date"
 
-func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span) *pb.DeploymentStatus {
+func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstructured, trace trace.Span, forcedResync bool) *pb.DeploymentStatus {
 	var err error
 
 	eventsClient := a.client.Kubernetes().CoreV1().Events(resource.GetNamespace())
@@ -79,7 +78,7 @@ func (a naisResource) Watch(op *operation.Operation, resource unstructured.Unstr
 				continue
 			}
 
-			if event.Message == rolloutMessageNoop {
+			if forcedResync && event.ReportingController == "naiserator" && event.Reason == events.RolloutComplete && event.Message == rolloutMessageNoop {
 				op.Logger.Tracef("Ignoring no-op rollout event %s; awaiting forced resynchronization", event.Name)
 				continue
 			}

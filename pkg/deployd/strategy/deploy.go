@@ -18,25 +18,25 @@ func NewDeployStrategy(namespacedResource dynamic.ResourceInterface) DeployStrat
 }
 
 type DeployStrategy interface {
-	Deploy(ctx context.Context, resource unstructured.Unstructured, trace trace.Span) (*unstructured.Unstructured, error)
+	Deploy(ctx context.Context, resource unstructured.Unstructured, trace trace.Span) (*unstructured.Unstructured, bool, error)
 }
 
 type createOrUpdateStrategy struct {
 	client dynamic.ResourceInterface
 }
 
-func (c createOrUpdateStrategy) Deploy(ctx context.Context, resource unstructured.Unstructured, trace trace.Span) (*unstructured.Unstructured, error) {
+func (c createOrUpdateStrategy) Deploy(ctx context.Context, resource unstructured.Unstructured, trace trace.Span) (*unstructured.Unstructured, bool, error) {
 	existing, err := c.client.Get(ctx, resource.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		deployed, err := c.client.Create(ctx, &resource, metav1.CreateOptions{
 			FieldValidation: metav1.FieldValidationStrict,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("creating resource: %w", transformStrictDecodingError(resource, err))
+			return nil, false, fmt.Errorf("creating resource: %w", transformStrictDecodingError(resource, err))
 		}
-		return deployed, nil
+		return deployed, false, nil
 	} else if err != nil {
-		return nil, fmt.Errorf("get existing resource: %w", err)
+		return nil, false, fmt.Errorf("get existing resource: %w", err)
 	}
 
 	resource.SetResourceVersion(existing.GetResourceVersion())
@@ -44,32 +44,27 @@ func (c createOrUpdateStrategy) Deploy(ctx context.Context, resource unstructure
 		FieldValidation: metav1.FieldValidationStrict,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("updating resource: %w", transformStrictDecodingError(resource, err))
+		return nil, false, fmt.Errorf("updating resource: %w", transformStrictDecodingError(resource, err))
 	}
 
-	if shouldInvalidateSynchronizationHash(resource) {
+	forcedResync := shouldInvalidateSynchronizationHash(existing, updated)
+	if forcedResync {
+		// Patch after Update so Naiserator sees this deployment's spec and correlation
+		// ID annotation without replacing other status fields.
 		err = c.invalidateSynchronizationHash(ctx, resource.GetName())
 		if err != nil {
-			return nil, fmt.Errorf("invalidating synchronization hash: %w", err)
+			return nil, false, fmt.Errorf("invalidating synchronization hash: %w", err)
 		}
 		trace.AddEvent("Forced resynchronization of Nais resource")
 	}
 
-	return updated, nil
+	return updated, forcedResync, nil
 }
 
-func shouldInvalidateSynchronizationHash(resource unstructured.Unstructured) bool {
-	gvk := resource.GroupVersionKind()
-	return gvk.Group == "nais.io" && (gvk.Kind == "Application" || gvk.Kind == "Naisjob")
+func shouldInvalidateSynchronizationHash(existing, updated *unstructured.Unstructured) bool {
+	return isNaisWorkload(updated.GroupVersionKind()) && updated.GetGeneration() == existing.GetGeneration()
 }
 
-// invalidateSynchronizationHash clears the hash Naiserator compares against to decide
-// whether a resource needs synchronization. Without this, redeploying an unchanged spec
-// is a no-op, and the deployment waits for a rollout event that never arrives.
-//
-// The resource spec is written before this call, so the resynchronization picks up the
-// spec and correlation ID from this deployment. Only the hash field is patched, leaving
-// the rest of the operator-owned status untouched.
 func (c createOrUpdateStrategy) invalidateSynchronizationHash(ctx context.Context, name string) error {
 	_, err := c.client.Patch(ctx, name, types.MergePatchType,
 		[]byte(`{"status":{"synchronizationHash":null}}`), metav1.PatchOptions{}, "status")
