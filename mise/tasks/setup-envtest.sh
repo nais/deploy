@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Download envtest binaries for tests"
+set -euo pipefail
 
 LOCALBIN=$(pwd)/.testbin
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Build all binaries for Alpine (CGO disabled)"
+set -euo pipefail
+
 LAST_COMMIT=$(git rev-parse --short HEAD)
 DATE=$(date "+%Y-%m-%d")
 BUILDTIME=$(date "+%s")
