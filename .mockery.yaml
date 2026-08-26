@@ -1,0 +1,14 @@
+all: true
+filename: mock_{{.InterfaceName | snakecase}}.go
+inpackage: true
+packages:
+  github.com/nais/deploy/pkg/grpc/dispatchserver:
+    config:
+      all: true
+  github.com/nais/deploy/pkg/hookd/database:
+    config:
+      all: true
+  github.com/nais/deploy/pkg/pb:
+    config:
+      all: true
+      include-auto-generated: true
