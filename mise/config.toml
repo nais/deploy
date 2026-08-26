@@ -1,8 +1,8 @@
 [tools]
 go = "1.26.7"
-protoc = "latest"
+protoc = "34.1"
 protoc-gen-go = "1.36.11"
-protoc-gen-go-grpc = "latest"
+protoc-gen-go-grpc = "1.6.1"
 setup-envtest = "0.24.1"
 
 [settings]
