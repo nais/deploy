@@ -59,7 +59,7 @@ func TestSuccessfulDeploy(t *testing.T) {
 		State:   pb.DeploymentState_queued,
 	}, nil).Once()
 
-	statusClient := &pb.MockDeploy_StatusClient{}
+	statusClient := &pb.MockDeploy_StatusClient[pb.DeploymentStatus]{}
 	statusClient.On("Recv").Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
@@ -92,7 +92,7 @@ func TestDeployError(t *testing.T) {
 		Message: "queued",
 	}, nil).Once()
 
-	statusClient := &pb.MockDeploy_StatusClient{}
+	statusClient := &pb.MockDeploy_StatusClient[pb.DeploymentStatus]{}
 	statusClient.On("Recv").Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
@@ -125,7 +125,7 @@ func TestDeployPolling(t *testing.T) {
 		Message: "queued",
 	}, nil).Once()
 
-	statusClient := &pb.MockDeploy_StatusClient{}
+	statusClient := &pb.MockDeploy_StatusClient[pb.DeploymentStatus]{}
 	statusClient.On("Recv").Return(&pb.DeploymentStatus{
 		Request: request,
 		Time:    pb.TimeAsTimestamp(time.Now()),
@@ -168,7 +168,7 @@ func TestDeployWithStatusRetry(t *testing.T) {
 		Message: "queued",
 	}, nil).Once()
 
-	statusClient := &pb.MockDeploy_StatusClient{}
+	statusClient := &pb.MockDeploy_StatusClient[pb.DeploymentStatus]{}
 
 	// set up status stream
 	client.On("Status", mock.Anything, request).Return(nil, status.Errorf(codes.Unavailable, "oops, more errors")).Times(2)

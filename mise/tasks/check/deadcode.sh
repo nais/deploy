@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Run deadcode"
+go tool golang.org/x/tools/cmd/deadcode -test ./...
