@@ -26,7 +26,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/nais/api/pkg/apiclient v0.0.0-20250203125351-77dc0579837a
 	github.com/nais/liberator v0.0.0-20260526061822-791cc0e0457c
-	github.com/prometheus/client_golang v1.23.2
+	github.com/prometheus/client_golang v1.24.1
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
@@ -109,7 +109,7 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.7.8 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.19.0 // indirect
+	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/knadh/koanf/parsers/yaml v1.1.0 // indirect
 	github.com/knadh/koanf/providers/env v1.1.0 // indirect
@@ -139,8 +139,8 @@ require (
 	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.68.1 // indirect
-	github.com/prometheus/procfs v0.20.1 // indirect
+	github.com/prometheus/common v0.70.1 // indirect
+	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/rs/zerolog v1.35.1 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/securego/gosec/v2 v2.29.0 // indirect
