@@ -17,7 +17,7 @@ tool (
 require (
 	github.com/aymerick/raymond v2.0.2+incompatible
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-chi/chi/v5 v5.3.0
+	github.com/go-chi/chi/v5 v5.3.2
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
