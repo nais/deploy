@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Build all binaries (hookd, deployd, deploy, deploy-action)"
-#MISE depends=["build:hookd", "build:deployd", "build:deploy", "build:deploy-action"]
+#MISE description="Build deploy-action"
+set -euo pipefail
+
+go build -o bin/deploy-action .

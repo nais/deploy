@@ -1,12 +1,5 @@
 [tools]
 go = "1.26.7"
-protoc = "34.1"
-protoc-gen-go = "1.36.11"
-protoc-gen-go-grpc = "1.6.1"
-setup-envtest = "0.24.1"
 
 [settings]
 pin = true
-
-[env]
-ENVTEST_K8S_VERSION = "1.33.0"
