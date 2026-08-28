@@ -15,7 +15,7 @@ BINARY="/tmp/deploy-action"
 
 if [ ! -f "$BINARY" ]; then
   echo "::group::Download deploy-action" >&2
-  url="https://github.com/nais/deploy/releases/download/${VERSION}/deploy-action-linux"
+  url="https://github.com/nais/deploy/releases/download/${VERSION}/deploy-action"
   echo "Downloading deploy-action from ${url}..." >&2
   curl -sSL -f -o "$BINARY" "$url"
   chmod +x "$BINARY"
