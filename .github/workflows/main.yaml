@@ -40,36 +40,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # ratchet:jdx/mise-action@v4
-      - env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git remote set-url origin "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git tag -f $(cat actions/deploy/version)
-          git push -f --tags
+      - id: version
+        run: echo "tag=$(<actions/deploy/version)" >> "$GITHUB_OUTPUT"
       - run: mise run build
       - env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          latest=$(curl https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest)
-          tag=$(echo $latest | jq .tag_name | xargs) # xargs strips quotes
-          if grep -q "$tag" actions/deploy/version; then
-            release_id=$(echo $latest | jq .id)
-            curl -X DELETE https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}
-          fi
-      - id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          release=$(curl -X POST \
-            -d '{"tag_name": "'"$(cat actions/deploy/version)"'"}' \
-            -H "Content-Type: application/json" \
-            https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@api.github.com/repos/${GITHUB_REPOSITORY}/releases)
-          echo "release_id=$(echo $release | jq .id)" >> ${GITHUB_OUTPUT}
-      - env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BINARY: deploy-action
-        run: |
-          curl -X POST \
-          -H 'Content-Type: application/x-executable' \
-          --data-binary @bin/${BINARY} \
-          https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
+          git remote set-url origin "https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git tag -f ${{ steps.version.outputs.tag }}
+          git push -f --tags
+      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # ratchet:softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          files: bin/deploy-action
+          fail_on_unmatched_files: true
