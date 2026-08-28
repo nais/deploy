@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+  namespace: myteam
+  labels:
+    team: myteam
+  annotations:
+    reloader.stakater.com/match: "true"
+data:
+  teams.yaml: |
+    teams:
+      - name: myteam
+        slack-channel: myteam-alerts

@@ -55,6 +55,20 @@ func MultiDocumentFileAsJSON(path string, ctx TemplateVariables) ([]json.RawMess
 	return messages, err
 }
 
+// DetectTeam returns the team name declared in metadata.labels.team, or an
+// empty string if not present. Exported for use by other binaries that need
+// to auto-detect team from an already-templated resource, e.g. cmd/deploy-action.
+func DetectTeam(resource json.RawMessage) string {
+	return detectTeam(resource)
+}
+
+// DetectNamespace returns the namespace declared in metadata.namespace, or an
+// empty string if not present. Exported for use by other binaries, e.g.
+// cmd/deploy-action, which also uses namespace as a team-detection fallback.
+func DetectNamespace(resource json.RawMessage) string {
+	return detectNamespace(resource)
+}
+
 func detectTeam(resource json.RawMessage) string {
 	type teamMeta struct {
 		Metadata struct {
@@ -131,6 +145,12 @@ func templatedFile(data []byte, ctx TemplateVariables) ([]byte, error) {
 	return []byte(output), nil
 }
 
+// TemplateVariablesFromFile reads and parses a YAML file of template
+// variables. Exported for use by other binaries, e.g. cmd/deploy-action.
+func TemplateVariablesFromFile(path string) (TemplateVariables, error) {
+	return templateVariablesFromFile(path)
+}
+
 func templateVariablesFromFile(path string) (TemplateVariables, error) {
 	file, err := os.ReadFile(path) // #nosec G304 -- user-supplied vars file path, intentional
 	if err != nil {
@@ -146,6 +166,12 @@ func templateVariablesFromFile(path string) (TemplateVariables, error) {
 	}
 
 	return vars, err
+}
+
+// TemplateVariablesFromSlice parses a slice of KEY=VALUE strings into
+// template variables. Exported for use by other binaries, e.g. cmd/deploy-action.
+func TemplateVariablesFromSlice(vars []string) TemplateVariables {
+	return templateVariablesFromSlice(vars)
 }
 
 func templateVariablesFromSlice(vars []string) TemplateVariables {

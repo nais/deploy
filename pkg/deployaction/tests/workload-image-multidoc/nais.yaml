@@ -1,0 +1,76 @@
+---
+apiVersion: data.nais.io/v1
+kind: Postgres
+metadata:
+  name: myapp
+  namespace: myteam
+spec:
+  cluster:
+    majorVersion: "17"
+    resources:
+      cpu: 100m
+      diskSize: 4Gi
+      memory: 2G
+  database:
+    collation: nb_NO
+
+---
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  name: myapp
+  namespace: myteam
+  labels:
+    team: myteam
+    systemkatalog.example.com/system: SK-000
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+spec:
+  leaderElection: true
+  ingresses:
+    - https://myapp.example.com
+    - https://myapp.internal.example.com
+  replicas:
+    max: 2
+    min: 1
+  resources:
+    limits:
+      memory: 128Mi
+    requests:
+      cpu: 20m
+      memory: 16Mi
+  env:
+    - name: CONFIG_FILE_PATH
+      value: /var/run/configmaps/config.yaml
+    - name: EXTERNAL_ORG
+      value: example-org
+    - name: BLOCKLIST_ITEMS
+      value: "item-a,item-b,item-c,item-d,item-e,item-f"
+    - name: EXTERNAL_CHANNEL
+      value: external-contributors-channel
+  filesFrom:
+    - configmap: myapp-config
+      mountPath: /var/run/configmaps
+  envFrom:
+    - secret: myapp
+  accessPolicy:
+    outbound:
+      external:
+        - host: api.example.com
+        - host: chat.example.com
+        - ipv4: 203.0.113.10
+        - ipv4: 203.0.113.11
+        - ipv4: 203.0.113.12
+        - ipv4: 203.0.113.13
+        - ipv4: 203.0.113.14
+        - ipv4: 203.0.113.15
+  postgres:
+    clusterName: myapp
+  startup:
+    path: /internal/health
+    initialDelay: 10
+    periodSeconds: 5
+  readiness:
+    path: /internal/health
+  liveness:
+    path: /internal/health

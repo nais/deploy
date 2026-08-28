@@ -1,0 +1,69 @@
+apiVersion: "nais.io/v1alpha1"
+kind: "Application"
+metadata:
+  name: myapp
+  namespace: myteam
+  labels:
+    team: myteam
+spec:
+  replicas:
+    min: 1
+    max: 2
+    scalingStrategy:
+      kafka:
+        consumerGroup: myapp-consumer
+        threshold: 100
+        topic: myteam.some-topic
+  port: 8080
+  liveness:
+    path: /internal/is_alive
+    initialDelay: 10
+    timeout: 5
+    periodSeconds: 5
+    failureThreshold: 30
+  readiness:
+    path: /internal/is_ready
+    initialDelay: 30
+    periodSeconds: 5
+    timeout: 1
+  prometheus:
+    enabled: true
+    path: /internal/prometheus
+  observability:
+    autoInstrumentation:
+      enabled: true
+      runtime: java
+    logging:
+      destinations:
+        - id: loki
+  resources:
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 50m
+      memory: 600Mi
+  filesFrom:
+    - secret: myapp-google-creds
+  kafka:
+    pool: example-dev
+  azure:
+    application:
+      enabled: true
+      tenant: example.onmicrosoft.com
+  accessPolicy:
+    outbound:
+      rules:
+        - application: logging
+          namespace: nais-system
+        - application: some-proxy
+      external:
+        - host: some-external-api.dev-fss-pub.example.com
+  envFrom:
+    - secret: myapp-secret
+  env:
+    - name: EXTERNAL_API_URL
+      value: https://some-external-api.dev-fss-pub.example.com/rest/v1/somepath
+    - name: EXTERNAL_API_SCOPE
+      value: api://dev-fss.otherteam.some-external-api/.default
+    - name: PROXY_SCOPE
+      value: api://dev-gcp.myteam.some-proxy/.default

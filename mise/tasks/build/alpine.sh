@@ -9,3 +9,4 @@ LDFLAGS="-X github.com/nais/deploy/pkg/version.Revision=${LAST_COMMIT} -X github
 go build -a -installsuffix cgo -o bin/hookd -ldflags "-s ${LDFLAGS}" ./cmd/hookd/
 go build -a -installsuffix cgo -o bin/deployd -ldflags "-s ${LDFLAGS}" ./cmd/deployd/
 go build -a -installsuffix cgo -o bin/deploy -ldflags "-s ${LDFLAGS}" ./cmd/deploy/
+go build -a -installsuffix cgo -o bin/deploy-action -ldflags "-s ${LDFLAGS}" ./cmd/deploy-action/

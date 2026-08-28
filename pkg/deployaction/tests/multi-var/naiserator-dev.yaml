@@ -1,0 +1,12 @@
+apiVersion: "nais.io/v1alpha1"
+kind: "Application"
+metadata:
+  name: myapp
+  namespace: myteam
+  labels:
+    team: myteam
+spec:
+  replicas:
+    min: {{ min_replicas }}
+    max: {{ max_replicas}}
+  port: 8080

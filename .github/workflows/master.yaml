@@ -222,6 +222,7 @@ jobs:
           mise run release:linux
           mise run release:darwin
           mise run release:windows
+          mise run release:deploy-action-linux
 
       - name: Delete release if exists
         env:
@@ -269,6 +270,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BINARY: deploy-windows
+        run: |
+          curl -X POST \
+          -H 'Content-Type: application/x-executable' \
+          --data-binary @${BINARY} \
+          https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${{ steps.create_release.outputs.release_id }}/assets?name=${BINARY}
+
+      - name: Upload deploy-action Linux Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BINARY: deploy-action-linux
         run: |
           curl -X POST \
           -H 'Content-Type: application/x-executable' \

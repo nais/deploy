@@ -1,0 +1,34 @@
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  name: myapp
+  namespace: myteam
+  labels:
+    team: myteam
+spec:
+  port: 8080
+  ingresses:
+    - https://myapp.example.com
+  image: "{{ image }}"
+  replicas:
+    min: 2
+    max: 4
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  liveness:
+    path: /internal/isalive
+    initialDelay: 10
+  readiness:
+    path: /internal/isready
+    initialDelay: 10
+  prometheus:
+    enabled: false
+  observability:
+    logging:
+      destinations:
+        - id: loki
+        - id: elastic

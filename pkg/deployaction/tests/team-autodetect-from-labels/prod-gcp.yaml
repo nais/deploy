@@ -1,0 +1,93 @@
+apiVersion: nais.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+  name: myapp
+  namespace: myteam
+  labels:
+    team: myteam
+spec:
+  port: 8080
+  image: {{ image }}
+  observability:
+    autoInstrumentation:
+      enabled: true
+      runtime: nodejs
+  azure:
+    application:
+      enabled: true
+      tenant: example.onmicrosoft.com
+      claims:
+        extra:
+          - "SomeClaim"
+        groups:
+          - id: "00000000-0000-0000-0000-000000000001" # group-attestant
+          - id: "00000000-0000-0000-0000-000000000002" # group-caseworker
+          - id: "00000000-0000-0000-0000-000000000003" # group-advisor
+          - id: "00000000-0000-0000-0000-000000000004" # group-operations
+    sidecar:
+      enabled: true
+      autoLogin: true
+  # Avoid unnecessary scale-up caused by a CPU spike at startup. The
+  # runtime's startup instrumentation uses a lot of CPU in the first few
+  # seconds, which without a stabilization window caused the HPA to scale
+  # up immediately. New pods on other nodes could end up with a stale
+  # cached image (IfNotPresent) with different asset hashes, causing
+  # content errors in the browser.
+  replicas:
+    min: 1
+    max: 2
+    scalingStrategy:
+      scaleUpStabilizationWindowSeconds: 90
+      cpu:
+        thresholdPercentage: 85
+  # Probes with generous values to tolerate CPU pressure at startup and
+  # under load. The previous defaults (initialDelay: 5, timeout: 1) were
+  # too aggressive and caused unnecessary restarts that worsened the
+  # CPU-spike problem.
+  liveness:
+    path: isAlive
+    port: 8080
+    initialDelay: 25
+    timeout: 10
+    failureThreshold: 5
+  readiness:
+    path: isReady
+    port: 8080
+    initialDelay: 25
+    timeout: 10
+    failureThreshold: 5
+  ingresses:
+    - https://myapp.internal.example.com
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: BACKEND_URL
+      value: http://myapp-backend
+    - name: NPM_CONFIG_CACHE
+      value: /tmp
+    - name: AZURE_GROUP_ATTESTANT
+      value: "00000000-0000-0000-0000-000000000001"
+    - name: AZURE_GROUP_ADVISOR
+      value: "00000000-0000-0000-0000-000000000003"
+    - name: AZURE_GROUP_CASEWORKER
+      value: "00000000-0000-0000-0000-000000000002"
+    - name: AZURE_GROUP_OPERATIONS
+      value: "00000000-0000-0000-0000-000000000004"
+    - name: BACKEND_AAD_APP_NAME
+      value: "prod-gcp.myteam.myapp-backend"
+    - name: LOG_LEVEL
+      value: "debug"
+    - name: APP_ENV
+      value: "prod"
+    - name: ANALYTICS_SCRIPT_URL
+      value: "https://cdn.example.com/analytics/analytics.js"
+    - name: ANALYTICS_WEBSITE_ID
+      value: "00000000-0000-0000-0000-000000000099"
+  accessPolicy:
+    outbound:
+      rules:
+        - application: myapp-backend
+          namespace: myteam
+          cluster: prod-gcp

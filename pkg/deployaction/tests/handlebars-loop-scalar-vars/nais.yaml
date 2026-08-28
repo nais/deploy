@@ -1,0 +1,61 @@
+apiVersion: "nais.io/v1alpha1"
+kind: "Application"
+metadata:
+  name: myapp{{ dashEnv }}
+  namespace: myteam
+  labels:
+    team: myteam
+spec:
+  webproxy: true
+  image: {{ image }}
+  port: 8080
+  liveness:
+    path: /internal/isAlive
+    initialDelay: 60
+    timeout: 10
+  readiness:
+    path: /internal/isReady
+    initialDelay: 60
+    timeout: 10
+  prometheus:
+    enabled: true
+    path: /internal/prometheus
+  replicas:
+    min: 1
+    max: 1
+  envFrom:
+    - secret: myapp{{ dashEnv }}
+  vault:
+    enabled: true
+    paths:
+      - kvPath: "kv/{{ vaultKvEnv }}/fss/myapp{{ dashEnv }}/myteam"
+        mountPath: "/var/run/secrets/nais.io/vault"
+  azure:
+    application:
+      enabled: true
+      claims:
+        extra:
+          - "azp_name"
+  ingresses:
+  {{#each ingresses as |url|}}
+     - {{url}}
+  {{/each}}
+  env:
+  {{#each envvars}}
+     - name: {{ name }}
+       value: "{{ value }}"
+  {{/each}}
+     - name: JDK_JAVA_OPTIONS
+       value: "$(JAVA_PROXY_OPTIONS) --add-opens=java.base/java.lang=ALL-UNNAMED"
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1152Mi
+    requests:
+      cpu: 100m
+      memory: 768Mi
+  observability:
+    logging:
+      destinations:
+        - id: loki
+        - id: elastic

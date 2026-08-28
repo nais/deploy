@@ -1,0 +1,33 @@
+vaultKvEnv: preprod
+ingresses:
+  - "https://myapp.example.preprod.local"
+  - "https://myapp.dev.example.com"
+  - "https://myapp.dev.internal.example.com"
+  - "https://myapp.internal.dev.example.com"
+envvars:
+  # q1
+  - name: CONSUMER_URLMAP_Q1
+    value: "https://backend-q1.example.preprod.local/api/"
+  # q2
+  - name: CONSUMER_URLMAP_Q2
+    value: "https://backend-q2.example.preprod.local/api/"
+  # q4
+  - name: CONSUMER_URLMAP_Q4
+    value: "https://backend-q4.example.preprod.local/api/"
+  # remaining
+  - name: CONSUMER_SYNTH_SOMETHING
+    value: "https://synthdata-proxy.internal.dev.example.com/api/v1/something/"
+  - name: PAGESIZE
+    value: "1000"
+  - name: EXTERNAL_TOKEN_URI
+    value: "https://backend-#env#.example.preprod.local/api/oauth/token"
+  - name: CONTROL_URI
+    value: "https://control-api-q2.internal.dev.example.com/api/v1/control"
+  - name: CONTROL_CLIENT_ID
+    value: "dev-fss.otherteam.control-api-q2"
+  - name: CONTROL_OAUTH_ENDPOINT
+    value: "https://login.microsoftonline.com"
+  - name: CONTROL_OAUTH_TENANT_ID
+    value: "00000000-0000-0000-0000-000000000000"
+  - name: SYNTH_CLIENT_ID
+    value: "dev-gcp.otherteam.synthdata-proxy"
