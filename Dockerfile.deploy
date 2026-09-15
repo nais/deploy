@@ -22,7 +22,7 @@ RUN go build -a -installsuffix cgo -o bin/deploy \
 FROM alpine:3 AS deploy
 
 WORKDIR /app
-RUN apk add --no-cache ca-certificates wget
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates wget
 COPY --from=builder /src/bin/deploy .
 CMD ["/app/deploy"]
 
@@ -30,7 +30,7 @@ CMD ["/app/deploy"]
 FROM alpine:3 AS canary-deployer
 
 WORKDIR /app
-RUN apk add --no-cache ca-certificates
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates
 COPY --from=builder /src/bin/deploy .
 ADD canary-deployer/deployer.sh /canary/deployer.sh
 ADD canary-deployer/canary.yml /canary/resource.yml
@@ -42,7 +42,7 @@ FROM alpine:3 AS deploy-action
 
 WORKDIR /app
 ENV TZ="Europe/Oslo"
-RUN apk add --no-cache ca-certificates curl jq
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates curl jq
 RUN curl -L -f https://github.com/mikefarah/yq/releases/download/2.4.1/yq_linux_amd64 > /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 COPY --from=builder /src/bin/deploy .
 COPY actions/deploy/entrypoint.sh /entrypoint.sh

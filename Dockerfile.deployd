@@ -22,6 +22,6 @@ RUN go build -a -installsuffix cgo -o bin/deployd \
 FROM alpine:3
 
 WORKDIR /app
-RUN apk add --no-cache ca-certificates
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates
 COPY --from=builder /src/bin/deployd .
 CMD ["/app/deployd"]
