@@ -1,6 +1,6 @@
 module github.com/nais/deploy
 
-go 1.26.5
+go 1.26.8
 
 tool (
 	github.com/securego/gosec/v2/cmd/gosec
@@ -39,9 +39,9 @@ require (
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/sakura-internet/go-rison.v3 v3.2.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.36.3
-	k8s.io/apimachinery v0.36.3
-	k8s.io/client-go v0.36.3
+	k8s.io/api v0.36.4
+	k8s.io/apimachinery v0.36.4
+	k8s.io/client-go v0.36.4
 	sigs.k8s.io/controller-runtime v0.24.1
 )
 
