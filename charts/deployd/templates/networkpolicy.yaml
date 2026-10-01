@@ -6,14 +6,7 @@ metadata:
     {{- include "deployd.labels" . | nindent 4 }}
 spec:
   egress:
-  - to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-  - to:
-    - namespaceSelector: {}
-      podSelector:
-        matchLabels:
-          k8s-app: kube-dns
+  - {} # Allow all egress traffic
   podSelector:
     matchLabels:
       {{ include "deployd.selectorLabels" . | nindent 6 }}
