@@ -1,0 +1,25 @@
+# Deploy cronjob: mints a short-lived service account token and applies the
+# canary manifest to each environment.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "deploycanary.name" . }}
+  labels:
+    {{- include "deploycanary.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  startingDeadlineSeconds: 600
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  suspend: false
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          annotations:
+            linkerd.io/inject: disabled
+          labels:
+            {{- include "deploycanary.selectorLabels" . | nindent 12 }}
+        spec:
+          {{- include "deploycanary.podspec" (dict "ctx" . "command" "deploy") | nindent 10 }}

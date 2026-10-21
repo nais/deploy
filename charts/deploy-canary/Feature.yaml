@@ -1,0 +1,39 @@
+dependencies:
+  - allOf:
+      - nais-api
+      - nais-verification
+environmentKinds:
+  - management
+values:
+  ignoredClusters:
+    config:
+      type: string_array
+  environments:
+    description: List of environments to deploy the canary into
+    computed:
+      template: |
+        {{- $ignored := .Configs.ignoredClusters}}
+        {{- range eachOf .Envs "name" }}
+          {{- if not (has . $ignored) }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+  grpcTarget:
+    description: host:port of the open Nais API gRPC endpoint
+    displayName: gRPC target
+    config:
+      type: string
+  apiBaseUrl:
+    description: Base URL of the Nais API REST endpoint
+    displayName: API base URL
+    config:
+      type: string
+  image.repository:
+    config:
+      type: string
+  image.tag:
+    config:
+      type: string
+  image.pullPolicy:
+    config:
+      type: string

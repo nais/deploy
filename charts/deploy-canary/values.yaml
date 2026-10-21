@@ -1,0 +1,21 @@
+image:
+  repository: europe-north1-docker.pkg.dev/nais-io/nais/images/deploy
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# host:port of the open Nais API gRPC endpoint.
+grpcTarget: "nais-api:3001"
+
+# Base URL of the Nais API REST endpoint (apply path is appended).
+apiBaseUrl: "http://nais-api:3006"
+
+# ignored clusters, used by fasit template
+ignoredClusters: []
+
+# List of environments the canary should deploy to.
+environments: []
+
+# Schedule for the canary deploy cronjob.
+schedule: "*/5 * * * *"

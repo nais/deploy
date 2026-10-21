@@ -1,9 +1,26 @@
 name: Nais Deploy
 on:
   pull_request:
+    paths:
+      - "actions/**"
+      - "internal/deployaction/**"
+      - "internal/githubactions/**"
+      - "main.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/main.yaml"
   push:
     branches:
       - deploy-v3
+    paths:
+      - "actions/**"
+      - "internal/deployaction/**"
+      - "internal/githubactions/**"
+      - "main.go"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/main.yaml"
+
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true

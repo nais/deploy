@@ -1,0 +1,43 @@
+name: Build and deploy canary
+on:
+  push:
+    branches:
+      - deploy-v3
+    paths:
+      - "cmd/canary/**"
+      - "internal/canary/**"
+      - "charts/deploy-canary/**"
+      - "Dockerfile.canary"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/deploy.yaml"
+  pull_request:
+    paths:
+      - "cmd/canary/**"
+      - "internal/canary/**"
+      - "charts/deploy-canary/**"
+      - "Dockerfile.canary"
+      - "go.mod"
+      - "go.sum"
+      - ".github/workflows/deploy.yaml"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-deploy:
+    uses: nais/actions/.github/workflows/mise-build-deploy-fasit.yaml@d552cb1cb4084c5804d7d47a075c645c674c351e # ratchet:nais/actions/.github/workflows/mise-build-deploy-fasit.yaml@main
+    with:
+      builds-docker: true
+      dockerfile-path: ./Dockerfile.canary
+      builds-chart: true
+      chart-name: deploy-canary
+      deploys-to-fasit: true
+      release-branch: deploy-v3
+      mise-tasks: '["test", "check"]'
+      mise-task-build: build:canary
+      targets: |
+        [ { "target": { "kind": "management" } } ]
+    secrets:
+      NAIS_IO_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
