@@ -1,5 +1,6 @@
 dependencies:
   - allOf:
+      - fqdn-policy-crds
       - hookd
       - nais-verification
 environmentKinds:
