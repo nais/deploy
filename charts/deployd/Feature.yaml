@@ -11,11 +11,6 @@ values:
     displayName: Enable CA bundle
     config:
       type: bool
-  canaryAlert:
-    description: Enable canary alert
-    displayName: Enable canary alert
-    config:
-      type: bool
   cluster:
     computed:
       template: '"{{.Env.name}}"'

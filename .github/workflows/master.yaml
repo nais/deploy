@@ -54,17 +54,12 @@ jobs:
           - hookd
           - deploy
           - deployd
-          - canary-deployer
           - deploy-action
         include:
           - component: hookd
             chart: true
           - component: deployd
             chart: true
-          - component: canary-deployer
-            chart: true
-            dockerfile: Dockerfile.deploy
-            target: canary-deployer
           - component: deploy-action
             dockerfile: Dockerfile.deploy
             target: deploy-action
@@ -148,8 +143,6 @@ jobs:
       hookd_chart_version: ${{ steps.package_chart.outputs.hookd_version }}
       deployd_chart_name: ${{ steps.package_chart.outputs.deployd_name }}
       deployd_chart_version: ${{ steps.package_chart.outputs.deployd_version }}
-      canary_deployer_chart_name: ${{ steps.package_chart.outputs.canary-deployer_name }}
-      canary_deployer_chart_version: ${{ steps.package_chart.outputs.canary-deployer_version }}
 
   deploy:
     name: Deploy
@@ -182,17 +175,6 @@ jobs:
               { "target": { "kind": "onprem", "tenant": "ci-nais" }, "wait": true },
               { "target": { "kind": "tenant" } },
               { "target": { "kind": "onprem" } }
-            ]
-
-      - name: "Deploy canary-deployer"
-        uses: nais/fasit-deploy@53e433b1bdd08fc622e03a78584c0832c9083bd3 # ratchet:nais/fasit-deploy@v4.1.1
-        with:
-          chart: oci://${{ env.GOOGLE_REGISTRY }}/nais-io/nais/feature/${{ needs.build_and_push.outputs.canary_deployer_chart_name }}
-          version: ${{ needs.build_and_push.outputs.canary_deployer_chart_version }}
-          targets: |
-            [
-              { "target": { "kind": "management", "tenant": "ci-nais" }, "wait": true },
-              { "target": { "kind": "management" } }
             ]
 
   release:

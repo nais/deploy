@@ -58,6 +58,4 @@ deploymentEventRelays:
     pool: "nav-infrastructure"
     topic: "nais.dev-rapid"
 
-canaryAlert: true
-
 otelExporterOtlpEndpoint: # mapped by fasit

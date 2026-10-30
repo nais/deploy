@@ -1,3 +1,0 @@
-Canary deployer is a CronJob that tries to use Nais deploy to deploy a canary image to a set of clusters.
-
-The monitoring system reads metrics from the canary image, and can tell if the deploy system is lagging.

@@ -27,17 +27,6 @@ COPY --from=builder /src/bin/deploy .
 CMD ["/app/deploy"]
 
 
-FROM alpine:3 AS canary-deployer
-
-WORKDIR /app
-RUN apk upgrade --no-cache && apk add --no-cache ca-certificates
-COPY --from=builder /src/bin/deploy .
-ADD canary-deployer/deployer.sh /canary/deployer.sh
-ADD canary-deployer/canary.yml /canary/resource.yml
-ENV RESOURCE=/canary/resource.yml
-CMD ["/canary/deployer.sh"]
-
-
 FROM alpine:3 AS deploy-action
 
 WORKDIR /app
