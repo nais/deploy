@@ -44,9 +44,18 @@ func Run(deployTime int64) error {
 		_, _ = fmt.Fprint(w, "🐣 pip pip")
 	})
 
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
 	slog.Info("running @ :8080")
 
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := srv.ListenAndServe(); err != nil {
 		return fmt.Errorf("failed to listen and serve: %s", err)
 	}
 
