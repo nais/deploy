@@ -17,8 +17,6 @@ spec:
     spec:
       template:
         metadata:
-          annotations:
-            linkerd.io/inject: disabled
           labels:
             {{- include "deploycanary.selectorLabels" . | nindent 12 }}
         spec:

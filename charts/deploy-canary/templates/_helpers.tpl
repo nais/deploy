@@ -68,5 +68,5 @@ containers:
       - name: ENVIRONMENTS
         value: {{ join "," $ctx.Values.environments | quote }}
       - name: CANARY_IMAGE
-        value: "{{ (index $ctx.Values "canary-image").repository }}:{{ (index $ctx.Values "canary-image").tag }}"
+        value: "{{ $ctx.Values.image.repository }}:{{ $ctx.Values.image.tag }}"
 {{- end }}
