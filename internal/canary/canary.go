@@ -32,6 +32,7 @@ const (
 type Config struct {
 	GRPCTarget   string
 	APIBaseURL   string
+	Image        string
 	Environments []string
 }
 
@@ -39,6 +40,7 @@ func ConfigFromEnv() (*Config, error) {
 	cfg := &Config{
 		GRPCTarget: os.Getenv("GRPC_TARGET"),
 		APIBaseURL: strings.TrimSuffix(os.Getenv("API_BASE_URL"), "/"),
+		Image:      os.Getenv("CANARY_IMAGE"),
 	}
 
 	if envs := os.Getenv("ENVIRONMENTS"); envs != "" {
@@ -68,6 +70,9 @@ func (c *Config) validateDeploy() error {
 	}
 	if len(c.Environments) == 0 {
 		return fmt.Errorf("ENVIRONMENTS is required")
+	}
+	if c.Image == "" {
+		return fmt.Errorf("CANARY_IMAGE is required")
 	}
 	return nil
 }

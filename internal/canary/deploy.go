@@ -42,7 +42,7 @@ func Deploy(ctx context.Context, cfg *Config) error {
 		return err
 	}
 
-	manifest, err := renderManifest(time.Now())
+	manifest, err := renderManifest(time.Now(), cfg.Image)
 	if err != nil {
 		return fmt.Errorf("rendering canary manifest: %w", err)
 	}
@@ -96,15 +96,18 @@ func mintToken(ctx context.Context, cfg *Config) (string, error) {
 	return tokenResp.GetSecret(), nil
 }
 
-func renderManifest(now time.Time) (map[string]any, error) {
+func renderManifest(now time.Time, image string) (map[string]any, error) {
 	tmpl, err := template.New("canary").Parse(canaryManifestTmpl)
 	if err != nil {
 		return nil, err
 	}
 
-	// DEPLOY_START is nanoseconds since epoch
-	data := struct{ DeployStart string }{
+	data := struct {
+		DeployStart string
+		Image       string
+	}{
 		DeployStart: strconv.FormatInt(now.UnixNano(), 10),
+		Image:       image,
 	}
 
 	var buf bytes.Buffer

@@ -7,12 +7,15 @@ spec:
   env:
     - name: DEPLOY_START
       value: "{{ .DeployStart }}"
-  image: europe-north1-docker.pkg.dev/nais-io/nais/images/testapp:2026-10-26-123723-11c6fae
-  liveness:
-    path: /ping
+  image: {{ .Image }}
+  command:
+    - /app/canary
+    - run
   port: 8080
+  liveness:
+    path: /
   readiness:
-    path: /ping
+    path: /
   replicas:
     max: 1
     min: 1

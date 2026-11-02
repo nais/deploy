@@ -3,6 +3,10 @@ image:
   tag: latest
   pullPolicy: IfNotPresent
 
+canary-image:
+  repository: europe-north1-docker.pkg.dev/nais-io/nais/images/deploy
+  tag: latest
+
 imagePullSecrets: []
 
 # host:port of the open Nais API gRPC endpoint.

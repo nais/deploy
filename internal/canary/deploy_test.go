@@ -7,7 +7,7 @@ import (
 
 func TestRenderManifest(t *testing.T) {
 	now := time.Unix(1700000000, 0)
-	m, err := renderManifest(now)
+	m, err := renderManifest(now, "ghcr.io/nais/deploy/canary:test")
 	if err != nil {
 		t.Fatalf("renderManifest: %v", err)
 	}
@@ -36,5 +36,9 @@ func TestRenderManifest(t *testing.T) {
 	wantStart := "1700000000000000000"
 	if first["value"] != wantStart {
 		t.Errorf("DEPLOY_START = %v, want %s", first["value"], wantStart)
+	}
+
+	if got := spec["image"]; got != "ghcr.io/nais/deploy/canary:test" {
+		t.Errorf("image = %v, want ghcr.io/nais/deploy/canary:test", got)
 	}
 }

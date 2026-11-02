@@ -9,23 +9,24 @@ package main
 import (
 	"context"
 	"os"
+	"time"
 
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 
 	"github.com/nais/deploy/internal/canary"
 )
 
 func main() {
-	log.SetFormatter(&log.TextFormatter{DisableTimestamp: true})
+	deployTime := time.Now().UnixNano()
 
 	if len(os.Args) < 2 {
-		log.Error("usage: canary <provision|deploy>")
+		slog.Error("usage: canary <provision|deploy|run")
 		os.Exit(1)
 	}
 
 	cfg, err := canary.ConfigFromEnv()
 	if err != nil {
-		log.Errorf("%s", err)
+		slog.Error("failed parsing config", "error", err)
 		os.Exit(1)
 	}
 
@@ -35,13 +36,15 @@ func main() {
 		err = canary.Provision(ctx, cfg)
 	case "deploy":
 		err = canary.Deploy(ctx, cfg)
+	case "run":
+		err = canary.Run(deployTime)
 	default:
-		log.Errorf("unknown subcommand %q (want provision|deploy)", os.Args[1])
+		slog.Error("unknown subcommand, supported commands provision|deploy|run", "command", os.Args[1])
 		os.Exit(1)
 	}
 
 	if err != nil {
-		log.Errorf("%s", err)
+		slog.Error("command failed", "error", err, "command", os.Args[1])
 		os.Exit(1)
 	}
 }

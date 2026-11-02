@@ -67,4 +67,6 @@ containers:
         value: {{ $ctx.Values.apiBaseUrl | quote }}
       - name: ENVIRONMENTS
         value: {{ join "," $ctx.Values.environments | quote }}
+      - name: CANARY_IMAGE
+        value: "{{ (index $ctx.Values "canary-image").repository }}:{{ (index $ctx.Values "canary-image").tag }}"
 {{- end }}
