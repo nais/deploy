@@ -42,11 +42,6 @@ func Deploy(ctx context.Context, cfg *Config) error {
 		return err
 	}
 
-	manifest, err := renderManifest(time.Now(), cfg.Image)
-	if err != nil {
-		return fmt.Errorf("rendering canary manifest: %w", err)
-	}
-
 	token, err := mintToken(ctx, cfg)
 	if err != nil {
 		return err
@@ -54,6 +49,13 @@ func Deploy(ctx context.Context, cfg *Config) error {
 
 	var failed []string
 	for _, env := range cfg.Environments {
+		manifest, err := renderManifest(time.Now(), cfg.Image)
+		if err != nil {
+			log.Errorf("rendering canary manifest for %q: %s", env, err)
+			failed = append(failed, env)
+			continue
+		}
+
 		if err := applyToEnvironment(ctx, cfg, token, env, manifest); err != nil {
 			log.Errorf("deploying canary to %q: %s", env, err)
 			failed = append(failed, env)

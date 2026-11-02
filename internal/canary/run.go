@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,13 +24,22 @@ func gauge(name, help string) prometheus.Gauge {
 var (
 	TimeSinceDeploy = gauge("time_since_deploy", "Seconds since the latest deploy of this application")
 	StartTimestamp  = gauge("start_timestamp", "Start time of the application")
+	DeployTimestamp = gauge("deploy_timestamp", "Timestamp when the deploy of this application was triggered in the pipeline")
 )
 
 func Run(deployTime int64) error {
+	if v, ok := os.LookupEnv("DEPLOY_START"); ok {
+		if parsed, err := strconv.ParseInt(v, 10, 64); err == nil {
+			deployTime = parsed
+		}
+	}
+
 	prometheus.MustRegister(TimeSinceDeploy)
 	prometheus.MustRegister(StartTimestamp)
+	prometheus.MustRegister(DeployTimestamp)
 
 	StartTimestamp.SetToCurrentTime()
+	DeployTimestamp.Set(float64(deployTime) / 1e9)
 	TimeSinceDeploy.Set(timeSinceDeploy(deployTime))
 
 	tick := time.NewTicker(time.Second)
