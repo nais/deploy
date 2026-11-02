@@ -25,6 +25,9 @@ import (
 //go:embed canary.yaml.tmpl
 var canaryManifestTmpl string
 
+//go:embed alerts.yaml
+var canaryAlerts []byte
+
 // applyResponse mirrors the Nais API REST apply response.
 type applyResponse struct {
 	Results []struct {
@@ -56,7 +59,14 @@ func Deploy(ctx context.Context, cfg *Config) error {
 			continue
 		}
 
-		if err := applyToEnvironment(ctx, cfg, token, env, manifest); err != nil {
+		alerts, err := renderAlerts()
+		if err != nil {
+			log.Errorf("rendering canary alerts for %q: %s", env, err)
+			failed = append(failed, env)
+			continue
+		}
+
+		if err := applyToEnvironment(ctx, cfg, token, env, manifest, alerts); err != nil {
 			log.Errorf("deploying canary to %q: %s", env, err)
 			failed = append(failed, env)
 			continue
@@ -125,13 +135,21 @@ func renderManifest(now time.Time, image string) (map[string]any, error) {
 	return manifest, nil
 }
 
-func applyToEnvironment(ctx context.Context, cfg *Config, token, env string, manifest map[string]any) error {
+func renderAlerts() (map[string]any, error) {
+	var manifest map[string]any
+	if err := yaml.Unmarshal(canaryAlerts, &manifest); err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}
+
+func applyToEnvironment(ctx context.Context, cfg *Config, token, env string, resources ...map[string]any) error {
 	url := fmt.Sprintf("%s/api/v1/teams/%s/environments/%s/apply", cfg.APIBaseURL, TeamSlug, env)
 
 	payload := struct {
 		Resources []map[string]any `json:"resources"`
 	}{
-		Resources: []map[string]any{manifest},
+		Resources: resources,
 	}
 
 	body := &bytes.Buffer{}

@@ -1,6 +1,7 @@
 package canary
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -40,5 +41,29 @@ func TestRenderManifest(t *testing.T) {
 
 	if got := spec["image"]; got != "ghcr.io/nais/deploy/canary:test" {
 		t.Errorf("image = %v, want ghcr.io/nais/deploy/canary:test", got)
+	}
+}
+
+func TestRenderAlerts(t *testing.T) {
+	m, err := renderAlerts()
+	if err != nil {
+		t.Fatalf("renderAlerts: %v", err)
+	}
+
+	if got := m["kind"]; got != "PrometheusRule" {
+		t.Errorf("kind = %v, want PrometheusRule", got)
+	}
+
+	meta := m["metadata"].(map[string]any)
+	if got := meta["namespace"]; got != "nais-verification" {
+		t.Errorf("namespace = %v, want nais-verification", got)
+	}
+
+	spec := m["spec"].(map[string]any)
+	groups := spec["groups"].([]any)
+	rules := groups[0].(map[string]any)["rules"].([]any)
+	first := rules[0].(map[string]any)
+	if !strings.Contains(first["expr"].(string), "nais_deploy_canary_time_since_deploy") {
+		t.Errorf("expr missing metric: %v", first["expr"])
 	}
 }
