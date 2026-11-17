@@ -1,9 +1,9 @@
 [tools]
-go = "1.26.10"
-protoc = "34.1"
-protoc-gen-go = "1.36.11"
-protoc-gen-go-grpc = "1.6.1"
-setup-envtest = "0.24.1"
+go = "1.26"
+protoc = "36.2"
+protoc-gen-go = "1.36.12"
+protoc-gen-go-grpc = "1.6.2"
+setup-envtest = "0.25.3"
 
 [settings]
 pin = true
