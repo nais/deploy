@@ -1,0 +1,15 @@
+dependencies:
+  - allOf:
+    - monitoring-crds
+environmentKinds:
+  - tenant
+  - onprem
+values:
+  cluster:
+    description: The nais cluster the alert is installed in
+    displayName: Nais cluster
+    computed:
+      template: '"{{ .Env.name }}"'
+  tenant:
+    computed:
+      template: '"{{ .Tenant.Name }}"'

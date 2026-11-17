@@ -25,9 +25,6 @@ import (
 //go:embed canary.yaml.tmpl
 var canaryManifestTmpl string
 
-//go:embed alerts.yaml
-var canaryAlerts []byte
-
 // applyResponse mirrors the Nais API REST apply response.
 type applyResponse struct {
 	Results []struct {
@@ -59,14 +56,7 @@ func Deploy(ctx context.Context, cfg *Config) error {
 			continue
 		}
 
-		alerts, err := renderAlerts()
-		if err != nil {
-			log.Errorf("rendering canary alerts for %q: %s", env, err)
-			failed = append(failed, env)
-			continue
-		}
-
-		if err := applyToEnvironment(ctx, cfg, token, env, manifest, alerts); err != nil {
+		if err := applyToEnvironment(ctx, cfg, token, env, manifest); err != nil {
 			log.Errorf("deploying canary to %q: %s", env, err)
 			failed = append(failed, env)
 			continue
@@ -132,14 +122,6 @@ func renderManifest(now time.Time, image string) (map[string]any, error) {
 		return nil, err
 	}
 
-	return manifest, nil
-}
-
-func renderAlerts() (map[string]any, error) {
-	var manifest map[string]any
-	if err := yaml.Unmarshal(canaryAlerts, &manifest); err != nil {
-		return nil, err
-	}
 	return manifest, nil
 }
 

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: deploy-canary-alert
+description: Alert rules for the nais deploy canary
+sources:
+  - https://github.com/nais/deploy/tree/deploy-v3/charts/deploy-canary-alert
+type: application
+version: 0.0.0

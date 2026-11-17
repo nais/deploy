@@ -7,6 +7,7 @@ on:
       - "cmd/canary/**"
       - "internal/canary/**"
       - "charts/deploy-canary/**"
+      - "charts/deploy-canary-alert/**"
       - "Dockerfile.canary"
       - "go.mod"
       - "go.sum"
@@ -16,6 +17,7 @@ on:
       - "cmd/canary/**"
       - "internal/canary/**"
       - "charts/deploy-canary/**"
+      - "charts/deploy-canary-alert/**"
       - "Dockerfile.canary"
       - "go.mod"
       - "go.sum"
@@ -39,5 +41,21 @@ jobs:
       mise-task-build: build:canary
       targets: |
         [ { "target": { "kind": "management" } } ]
+    secrets:
+      NAIS_IO_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
+
+  deploy-alert:
+    uses: nais/actions/.github/workflows/mise-build-deploy-fasit.yaml@d552cb1cb4084c5804d7d47a075c645c674c351e # ratchet:nais/actions/.github/workflows/mise-build-deploy-fasit.yaml@main
+    with:
+      builds-docker: false
+      builds-chart: true
+      chart-name: deploy-canary-alert
+      chart-repo: nais-io/nais/feature
+      deploys-to-fasit: true
+      release-branch: deploy-v3
+      mise-tasks: '[]'
+      mise-task-build: build:canary
+      targets: |
+        [ { "target": { "kind": "tenant" } }, { "target": { "kind": "onprem" } } ]
     secrets:
       NAIS_IO_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}

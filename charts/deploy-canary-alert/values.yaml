@@ -1,0 +1,4 @@
+# Default values for deploy-canary-alert.
+
+cluster: "" # Mapped in fasit
+tenant: "" # Mapped in fasit
