@@ -8,7 +8,7 @@ spec:
       rules:
         - alert: Nais deploy canary does not sing
           expr: |
-            min(nais_deploy_canary_time_since_deploy{app="nais-deploy-canary",namespace="nais-verification"}) > 900
+            min(nais_deploy_canary_time_since_deploy) > 900
           for: 5m
           labels:
             severity: critical
@@ -24,7 +24,7 @@ spec:
             consequence: Nais deploy is probably unavailable. Some or all users might not be able to deploy
         - alert: Nais deploy canary metric missing
           expr: |
-            absent(nais_deploy_canary_time_since_deploy{app="nais-deploy-canary",namespace="nais-verification"})
+            absent(nais_deploy_canary_time_since_deploy)
           for: 5m
           labels:
             severity: critical
