@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   build-deploy:
-    uses: nais/actions/.github/workflows/mise-build-deploy-fasit.yaml@d552cb1cb4084c5804d7d47a075c645c674c351e # ratchet:nais/actions/.github/workflows/mise-build-deploy-fasit.yaml@main
+    uses: nais/actions/.github/workflows/mise-build-deploy-fasit.yaml@224e80d9c606b8856febec973f8a64a24dd92ace # ratchet:nais/actions/.github/workflows/mise-build-deploy-fasit.yaml@main
     with:
       builds-docker: true
       dockerfile-path: ./Dockerfile.canary
@@ -45,7 +45,7 @@ jobs:
       NAIS_IO_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.NAIS_IO_WORKLOAD_IDENTITY_PROVIDER }}
 
   deploy-alert:
-    uses: nais/actions/.github/workflows/chart-deploy-fasit.yaml@f2b88b46390d91673e77594b0cbe7114bc587fd5 # ratchet:nais/actions/.github/workflows/chart-deploy-fasit.yaml@main
+    uses: nais/actions/.github/workflows/chart-deploy-fasit.yaml@224e80d9c606b8856febec973f8a64a24dd92ace # ratchet:nais/actions/.github/workflows/chart-deploy-fasit.yaml@main
     with:
       chart-name: deploy-canary-alert
       chart-repo: nais-io/nais/feature
